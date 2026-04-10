@@ -1,8 +1,23 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+from typing import Sequence
+
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
 from langfuse import Langfuse
 from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
+
+
+class NoOpSpanExporter(SpanExporter):
+    """Minimal exporter used to verify configuration propagation."""
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self) -> None:
+        pass
 
 
 def test_get_client_preserves_all_settings():
@@ -13,7 +28,11 @@ def test_get_client_preserves_all_settings():
     def should_export(span):
         return span.name != "drop"
 
+    span_exporter = NoOpSpanExporter()
+
     settings = {
+        "public_key": "pk-comprehensive",
+        "secret_key": "sk-comprehensive",
         "environment": "test-env",
         "release": "v1.2.3",
         "timeout": 30,
@@ -21,6 +40,7 @@ def test_get_client_preserves_all_settings():
         "sample_rate": 0.8,
         "should_export_span": should_export,
         "additional_headers": {"X-Custom": "value"},
+        "span_exporter": span_exporter,
     }
 
     original_client = Langfuse(**settings)
@@ -36,6 +56,7 @@ def test_get_client_preserves_all_settings():
     assert rm.sample_rate == settings["sample_rate"]
     assert rm.should_export_span is should_export
     assert rm.additional_headers == settings["additional_headers"]
+    assert rm.span_exporter is span_exporter
 
     original_client.shutdown()
 
@@ -49,6 +70,9 @@ def test_get_client_multiple_clients_preserve_different_settings():
     def should_export_b(span):
         return span.name.startswith("b")
 
+    exporter_a = NoOpSpanExporter()
+    exporter_b = NoOpSpanExporter()
+
     # Settings for client A
     settings_a = {
         "public_key": "pk-comprehensive-a",
@@ -58,6 +82,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 10,
         "sample_rate": 0.5,
         "should_export_span": should_export_a,
+        "span_exporter": exporter_a,
     }
 
     # Settings for client B
@@ -69,6 +94,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 20,
         "sample_rate": 0.9,
         "should_export_span": should_export_b,
+        "span_exporter": exporter_b,
     }
 
     client_a = Langfuse(**settings_a)
@@ -91,6 +117,8 @@ def test_get_client_multiple_clients_preserve_different_settings():
         assert retrieved_b._resources.release == settings_b["release"]
         assert retrieved_a._resources.should_export_span is should_export_a
         assert retrieved_b._resources.should_export_span is should_export_b
+        assert retrieved_a._resources.span_exporter is exporter_a
+        assert retrieved_b._resources.span_exporter is exporter_b
 
     client_a.shutdown()
     client_b.shutdown()
