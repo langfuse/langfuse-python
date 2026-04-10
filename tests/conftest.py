@@ -68,7 +68,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 @pytest.fixture(autouse=True)
 def reset_langfuse_state(request: pytest.FixtureRequest) -> Iterable[None]:
-    if request.node.get_closest_marker("live_provider") is not None:
+    if request.node.get_closest_marker("unit") is None:
         yield
         return
 

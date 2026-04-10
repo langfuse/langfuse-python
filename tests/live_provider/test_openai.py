@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from langfuse._client.client import Langfuse
 from tests.support.utils import create_uuid, encode_file_to_base64, get_api
 
-langfuse = Langfuse()
+langfuse: Langfuse | None = None
 
 
 @pytest.fixture(scope="module")
@@ -20,6 +20,20 @@ def openai():
     yield _openai
 
     importlib.reload(openai)
+
+
+@pytest.fixture(scope="module")
+def langfuse_client():
+    client = Langfuse()
+    yield client
+    client.shutdown()
+
+
+@pytest.fixture(autouse=True)
+def _bind_langfuse_client(langfuse_client):
+    global langfuse
+    langfuse = langfuse_client
+    yield
 
 
 def test_openai_chat_completion(openai):
