@@ -287,6 +287,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         ):
             attributes["user_id"] = metadata["langfuse_user_id"]
 
+        if "langfuse_trace_name" in metadata and isinstance(
+            metadata["langfuse_trace_name"], str
+        ):
+            attributes["trace_name"] = metadata["langfuse_trace_name"]
+
         if tags is not None or (
             "langfuse_tags" in metadata and isinstance(metadata["langfuse_tags"], list)
         ):
@@ -369,6 +374,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     session_id=parsed_trace_attributes.get("session_id", None),
                     tags=parsed_trace_attributes.get("tags", None),
                     metadata=parsed_trace_attributes.get("metadata", None),
+                    trace_name=parsed_trace_attributes.get("trace_name", None),
                 )
 
                 self._propagation_context_manager.__enter__()
@@ -1403,6 +1409,7 @@ def _strip_langfuse_keys_from_dict(
         "langfuse_session_id",
         "langfuse_user_id",
         "langfuse_tags",
+        "langfuse_trace_name",
     ]
 
     metadata_copy = metadata.copy()
