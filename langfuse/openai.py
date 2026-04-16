@@ -850,7 +850,7 @@ def _install_openai_stream_iteration_hooks() -> None:
                 if finalize_once is not None:
                     finalize_once()
 
-        openai.Stream.__iter__ = traced_iter
+        setattr(openai.Stream, "__iter__", traced_iter)
         _openai_stream_iter_hook_installed = True
 
 
