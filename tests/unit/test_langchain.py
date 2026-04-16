@@ -1,4 +1,6 @@
+from contextvars import copy_context
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from langchain.messages import HumanMessage
@@ -165,4 +167,85 @@ def test_chat_model_error_marks_generation_error(langfuse_memory_client, get_spa
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
     assert (
         "boom" in span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+    )
+
+
+def test_root_chain_metadata_propagates_trace_name(
+    langfuse_memory_client, get_span, find_spans
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(content="knock knock"),
+                text="knock knock",
+            )
+        ],
+        llm_output={
+            "token_usage": {
+                "prompt_tokens": 4,
+                "completion_tokens": 2,
+                "total_tokens": 6,
+            },
+            "model_name": "gpt-4o-mini",
+        },
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+        prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
+        chain = prompt | ChatOpenAI(api_key="test", temperature=0) | StrOutputParser()
+
+        result = chain.invoke(
+            {"topic": "otters"},
+            config={
+                "callbacks": [handler],
+                "metadata": {"langfuse_trace_name": "langchain-trace-name"},
+            },
+        )
+
+    assert result == "knock knock"
+
+    langfuse_memory_client.flush()
+    root_span = get_span("RunnableSequence")
+    generation_span = get_span("ChatOpenAI")
+
+    assert (
+        root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME]
+        == "langchain-trace-name"
+    )
+    assert (
+        generation_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME]
+        == "langchain-trace-name"
+    )
+    assert (
+        f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.langfuse_trace_name"
+        not in root_span.attributes
+    )
+    assert len(find_spans("ChatOpenAI")) == 1
+
+
+def test_root_chain_exports_when_end_runs_in_copied_context(
+    langfuse_memory_client, get_span
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    handler.on_chain_start(
+        {"id": ["RunnableSequence"]},
+        {"topic": "otters"},
+        run_id=run_id,
+        metadata={"langfuse_trace_name": "async-root-trace"},
+    )
+
+    copy_context().run(
+        handler.on_chain_end,
+        {"output": "knock knock"},
+        run_id=run_id,
+    )
+
+    langfuse_memory_client.flush()
+    root_span = get_span("RunnableSequence")
+
+    assert root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == (
+        "async-root-trace"
     )
