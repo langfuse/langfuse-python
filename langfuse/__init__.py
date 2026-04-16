@@ -28,6 +28,7 @@ from ._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
+from ._version import __version__
 from .span_filter import (
     KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES,
     is_default_export_span,
@@ -62,6 +63,7 @@ __all__ = [
     "EvaluatorStats",
     "BatchEvaluationResumeToken",
     "BatchEvaluationResult",
+    "__version__",
     "is_default_export_span",
     "is_langfuse_span",
     "is_genai_span",

@@ -1,7 +1,6 @@
 import asyncio
 import contextvars
 import inspect
-import logging
 import os
 from functools import wraps
 from typing import (
@@ -42,6 +41,7 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
+from langfuse.logger import langfuse_logger as logger
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -68,8 +68,6 @@ class LangfuseDecorator:
     - Support for explicit trace and parent span ID specification
     - Thread-safe client resolution when multiple Langfuse projects are used
     """
-
-    _log = logging.getLogger("langfuse")
 
     @overload
     def observe(self, func: F) -> F: ...
@@ -166,7 +164,7 @@ class LangfuseDecorator:
         """
         valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:
-            self._log.warning(
+            logger.warning(
                 f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(valid_types))}. Defaulting to 'span'."
             )
             as_type = "span"
@@ -329,7 +327,7 @@ class LangfuseDecorator:
                             langfuse_span_or_generation.update(output=result)
 
                         return result
-                    except Exception as e:
+                    except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
                             level="ERROR", status_message=str(e) or type(e).__name__
                         )
@@ -447,7 +445,7 @@ class LangfuseDecorator:
                             langfuse_span_or_generation.update(output=result)
 
                         return result
-                    except Exception as e:
+                    except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
                             level="ERROR", status_message=str(e) or type(e).__name__
                         )
@@ -588,7 +586,7 @@ class _ContextPreservedSyncGeneratorWrapper:
 
             raise  # Re-raise StopIteration
 
-        except Exception as e:
+        except (Exception, asyncio.CancelledError) as e:
             self.span.update(
                 level="ERROR", status_message=str(e) or type(e).__name__
             ).end()
@@ -655,7 +653,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
             self.span.update(output=output).end()
 
             raise  # Re-raise StopAsyncIteration
-        except Exception as e:
+        except (Exception, asyncio.CancelledError) as e:
             self.span.update(
                 level="ERROR", status_message=str(e) or type(e).__name__
             ).end()

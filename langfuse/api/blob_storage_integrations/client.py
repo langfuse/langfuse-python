@@ -16,6 +16,9 @@ from .types.blob_storage_integration_deletion_response import (
 )
 from .types.blob_storage_integration_file_type import BlobStorageIntegrationFileType
 from .types.blob_storage_integration_response import BlobStorageIntegrationResponse
+from .types.blob_storage_integration_status_response import (
+    BlobStorageIntegrationStatusResponse,
+)
 from .types.blob_storage_integration_type import BlobStorageIntegrationType
 from .types.blob_storage_integrations_response import BlobStorageIntegrationsResponse
 
@@ -91,6 +94,7 @@ class BlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BlobStorageIntegrationResponse:
         """
@@ -104,7 +108,7 @@ class BlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
 
         region : str
             Storage region
@@ -135,6 +139,9 @@ class BlobStorageIntegrationsClient:
 
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -188,7 +195,46 @@ class BlobStorageIntegrationsClient:
             secret_access_key=secret_access_key,
             prefix=prefix,
             export_start_date=export_start_date,
+            compressed=compressed,
             request_options=request_options,
+        )
+        return _response.data
+
+    def get_blob_storage_integration_status(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> BlobStorageIntegrationStatusResponse:
+        """
+        Get the sync status of a blob storage integration by integration ID (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        BlobStorageIntegrationStatusResponse
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.blob_storage_integrations.get_blob_storage_integration_status(
+            id="id",
+        )
+        """
+        _response = self._raw_client.get_blob_storage_integration_status(
+            id, request_options=request_options
         )
         return _response.data
 
@@ -307,6 +353,7 @@ class AsyncBlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BlobStorageIntegrationResponse:
         """
@@ -320,7 +367,7 @@ class AsyncBlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
 
         region : str
             Storage region
@@ -351,6 +398,9 @@ class AsyncBlobStorageIntegrationsClient:
 
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -412,7 +462,54 @@ class AsyncBlobStorageIntegrationsClient:
             secret_access_key=secret_access_key,
             prefix=prefix,
             export_start_date=export_start_date,
+            compressed=compressed,
             request_options=request_options,
+        )
+        return _response.data
+
+    async def get_blob_storage_integration_status(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> BlobStorageIntegrationStatusResponse:
+        """
+        Get the sync status of a blob storage integration by integration ID (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        BlobStorageIntegrationStatusResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.blob_storage_integrations.get_blob_storage_integration_status(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_blob_storage_integration_status(
+            id, request_options=request_options
         )
         return _response.data
 

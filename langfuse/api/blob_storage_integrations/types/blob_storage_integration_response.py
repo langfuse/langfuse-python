@@ -40,11 +40,18 @@ class BlobStorageIntegrationResponse(UniversalBaseModel):
     export_start_date: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
     ] = None
+    compressed: bool
     next_sync_at: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="nextSyncAt")
     ] = None
     last_sync_at: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="lastSyncAt")
+    ] = None
+    last_error: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="lastError")
+    ] = None
+    last_error_at: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="lastErrorAt")
     ] = None
     created_at: typing_extensions.Annotated[
         dt.datetime, FieldMetadata(alias="createdAt")

@@ -2,18 +2,18 @@
 
 import base64
 import hashlib
-import logging
 import os
 import re
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
 import httpx
 
+from langfuse.api import MediaContentType
+from langfuse.logger import langfuse_logger as logger
+from langfuse.types import ParsedMediaReference
+
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
-
-from langfuse.api import MediaContentType
-from langfuse.types import ParsedMediaReference
 
 T = TypeVar("T")
 
@@ -40,7 +40,6 @@ class LangfuseMedia:
 
     obj: object
 
-    _log = logging.getLogger(__name__)
     _content_bytes: Optional[bytes]
     _content_type: Optional[MediaContentType]
     _source: Optional[str]
@@ -87,7 +86,7 @@ class LangfuseMedia:
             self._content_type = content_type if self._content_bytes else None
             self._source = "file" if self._content_bytes else None
         else:
-            self._log.error(
+            logger.error(
                 "base64_data_uri, or content_bytes and content_type, or file_path must be provided to LangfuseMedia"
             )
 
@@ -102,7 +101,7 @@ class LangfuseMedia:
             with open(file_path, "rb") as file:
                 return file.read()
         except Exception as e:
-            self._log.error(f"Error reading file at path {file_path}", exc_info=e)
+            logger.error(f"Error reading file at path {file_path}", exc_info=e)
 
             return None
 
@@ -218,7 +217,7 @@ class LangfuseMedia:
             return base64.b64decode(actual_data), cast(MediaContentType, content_type)
 
         except Exception as e:
-            self._log.error("Error parsing base64 data URI", exc_info=e)
+            logger.error("Error parsing base64 data URI", exc_info=e)
 
             return None, None
 
@@ -319,7 +318,7 @@ class LangfuseMedia:
                             base64_data_uri
                         )
                     except Exception as e:
-                        LangfuseMedia._log.warning(
+                        logger.warning(
                             f"Error fetching media content for reference string {reference_string}: {e}"
                         )
                         # Do not replace the reference string if there's an error

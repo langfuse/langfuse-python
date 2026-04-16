@@ -1,4 +1,3 @@
-import logging
 import os
 import time
 from queue import Empty, Full, Queue
@@ -12,17 +11,17 @@ from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
 from langfuse._utils import _get_timestamp
 from langfuse.api import LangfuseAPI, MediaContentType
 from langfuse.api.core import ApiError
+from langfuse.logger import langfuse_logger as logger
 from langfuse.media import LangfuseMedia
 
 from .media_upload_queue import UploadMediaJob
 
 T = TypeVar("T")
 P = ParamSpec("P")
+_SHUTDOWN_SENTINEL = object()
 
 
 class MediaManager:
-    _log = logging.getLogger("langfuse")
-
     def __init__(
         self,
         *,
@@ -42,7 +41,12 @@ class MediaManager:
     def process_next_media_upload(self) -> None:
         try:
             upload_job = self._queue.get(block=True, timeout=1)
-            self._log.debug(
+
+            if upload_job is _SHUTDOWN_SENTINEL:
+                self._queue.task_done()
+                return
+
+            logger.debug(
                 f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
             )
             self._process_upload_media_job(data=upload_job)
@@ -51,10 +55,19 @@ class MediaManager:
         except Empty:
             pass
         except Exception as e:
-            self._log.error(
+            logger.error(
                 f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
             )
             self._queue.task_done()
+
+    def signal_shutdown(self, *, count: int = 1) -> None:
+        for _ in range(count):
+            try:
+                self._queue.put(_SHUTDOWN_SENTINEL, block=False)
+            except Full:
+                # If the queue is full, the consumer will keep draining work and
+                # observe the paused flag on the next loop iteration.
+                break
 
     def _find_and_process_media(
         self,
@@ -86,7 +99,12 @@ class MediaManager:
 
                 return data
 
-            if isinstance(data, str) and data.startswith("data:"):
+            if (
+                isinstance(data, str)
+                and data.startswith("data:")
+                and "," in data
+                and data.split(",", 1)[0].endswith(";base64")
+            ):
                 media = LangfuseMedia(
                     obj=data,
                     base64_data_uri=data,
@@ -179,7 +197,7 @@ class MediaManager:
             return
 
         if media._media_id is None:
-            self._log.error("Media ID is None. Skipping upload.")
+            logger.error("Media ID is None. Skipping upload.")
             return
 
         try:
@@ -198,17 +216,17 @@ class MediaManager:
                 item=upload_media_job,
                 block=False,
             )
-            self._log.debug(
+            logger.debug(
                 f"Queue: Enqueued media ID {media._media_id} for upload processing | trace_id={trace_id} | field={field}"
             )
 
         except Full:
-            self._log.warning(
+            logger.warning(
                 f"Queue capacity: Media queue is full. Failed to process media_id={media._media_id} for trace_id={trace_id}. Consider increasing queue capacity."
             )
 
         except Exception as e:
-            self._log.error(
+            logger.error(
                 f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
 
@@ -230,14 +248,14 @@ class MediaManager:
         upload_url = upload_url_response.upload_url
 
         if not upload_url:
-            self._log.debug(
+            logger.debug(
                 f"Media status: Media with ID {data['media_id']} already uploaded. Skipping duplicate upload."
             )
 
             return
 
         if upload_url_response.media_id != data["media_id"]:
-            self._log.error(
+            logger.error(
                 f"Media integrity error: Media ID mismatch between SDK ({data['media_id']}) and Server ({upload_url_response.media_id}). Upload cancelled. Please check media ID generation logic."
             )
 
@@ -252,13 +270,36 @@ class MediaManager:
             headers["x-ms-blob-type"] = "BlockBlob"
             headers["x-amz-checksum-sha256"] = data["content_sha256_hash"]
 
+        def _upload_with_status_check() -> httpx.Response:
+            response = self._httpx_client.put(
+                upload_url,
+                headers=headers,
+                content=data["content_bytes"],
+            )
+            response.raise_for_status()
+
+            return response
+
         upload_start_time = time.time()
-        upload_response = self._request_with_backoff(
-            self._httpx_client.put,
-            upload_url,
-            headers=headers,
-            content=data["content_bytes"],
-        )
+
+        try:
+            upload_response = self._request_with_backoff(_upload_with_status_check)
+        except httpx.HTTPStatusError as e:
+            upload_time_ms = int((time.time() - upload_start_time) * 1000)
+            failed_response = e.response
+
+            if failed_response is not None:
+                self._request_with_backoff(
+                    self._api_client.media.patch,
+                    media_id=data["media_id"],
+                    uploaded_at=_get_timestamp(),
+                    upload_http_status=failed_response.status_code,
+                    upload_http_error=failed_response.text,
+                    upload_time_ms=upload_time_ms,
+                )
+
+            raise
+
         upload_time_ms = int((time.time() - upload_start_time) * 1000)
 
         self._request_with_backoff(
@@ -270,7 +311,7 @@ class MediaManager:
             upload_time_ms=upload_time_ms,
         )
 
-        self._log.debug(
+        logger.debug(
             f"Media upload: Successfully uploaded media_id={data['media_id']} for trace_id={data['trace_id']} | status_code={upload_response.status_code} | duration={upload_time_ms}ms | size={data['content_length']} bytes"
         )
 

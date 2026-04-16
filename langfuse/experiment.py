@@ -6,7 +6,6 @@ and result formatting.
 """
 
 import asyncio
-import logging
 from typing import (
     Any,
     Awaitable,
@@ -18,7 +17,9 @@ from typing import (
     Union,
 )
 
-from langfuse.api import DatasetItem, ScoreDataType
+from langfuse.api import DatasetItem
+from langfuse.logger import langfuse_logger as logger
+from langfuse.types import ExperimentScoreType
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -184,7 +185,7 @@ class Evaluation:
         value: Union[int, float, str, bool],
         comment: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        data_type: Optional[ScoreDataType] = None,
+        data_type: Optional[ExperimentScoreType] = None,
         config_id: Optional[str] = None,
     ):
         """Initialize an Evaluation with the provided data.
@@ -303,6 +304,9 @@ class ExperimentResult:
             containing the original item, task output, evaluations, and trace information.
         run_evaluations: List of aggregate evaluation results computed across all items,
             such as average scores, statistical summaries, or cross-item analyses.
+        experiment_id: ID of the experiment run propagated across all items. For
+            Langfuse datasets, this matches the dataset run ID. For local experiments,
+            this is a stable SDK-generated identifier for the run.
         dataset_run_id: Optional ID of the dataset run in Langfuse (when using Langfuse datasets).
         dataset_run_url: Optional direct URL to view the experiment results in Langfuse UI.
 
@@ -361,6 +365,7 @@ class ExperimentResult:
         description: Optional[str],
         item_results: List[ExperimentItemResult],
         run_evaluations: List[Evaluation],
+        experiment_id: str,
         dataset_run_id: Optional[str] = None,
         dataset_run_url: Optional[str] = None,
     ):
@@ -372,6 +377,7 @@ class ExperimentResult:
             description: Optional description of the experiment.
             item_results: List of results from processing individual dataset items.
             run_evaluations: List of aggregate evaluation results for the entire run.
+            experiment_id: ID of the experiment run.
             dataset_run_id: Optional ID of the dataset run (for Langfuse datasets).
             dataset_run_url: Optional URL to view results in Langfuse UI.
         """
@@ -380,6 +386,7 @@ class ExperimentResult:
         self.description = description
         self.item_results = item_results
         self.run_evaluations = run_evaluations
+        self.experiment_id = experiment_id
         self.dataset_run_id = dataset_run_id
         self.dataset_run_url = dataset_run_url
 
@@ -458,7 +465,7 @@ class ExperimentResult:
 
             # Or create summary report
             summary = result.format()  # Aggregate view only
-            print(f"Experiment Summary:\\n{summary}")
+            print(f"Experiment Summary:\n{summary}")
             ```
 
             Integration with logging systems:
@@ -467,11 +474,11 @@ class ExperimentResult:
             logger = logging.getLogger("experiments")
 
             # Log summary after experiment
-            logger.info(f"Experiment completed:\\n{result.format()}")
+            logger.info(f"Experiment completed:\n{result.format()}")
 
             # Log detailed results for failed experiments
             if any(eval['value'] < threshold for eval in result.run_evaluations):
-                logger.warning(f"Poor performance detected:\\n{result.format(include_item_results=True)}")
+                logger.warning(f"Poor performance detected:\n{result.format(include_item_results=True)}")
             ```
         """
         if not self.item_results:
@@ -482,7 +489,7 @@ class ExperimentResult:
         # Individual results section
         if include_item_results:
             for i, result in enumerate(self.item_results):
-                output += f"\\n{i + 1}. Item {i + 1}:\\n"
+                output += f"\n{i + 1}. Item {i + 1}:\n"
 
                 # Extract and display input
                 item_input = None
@@ -492,7 +499,7 @@ class ExperimentResult:
                     item_input = result.item.input
 
                 if item_input is not None:
-                    output += f"   Input:    {_format_value(item_input)}\\n"
+                    output += f"   Input:    {_format_value(item_input)}\n"
 
                 # Extract and display expected output
                 expected_output = None
@@ -502,36 +509,36 @@ class ExperimentResult:
                     expected_output = result.item.expected_output
 
                 if expected_output is not None:
-                    output += f"   Expected: {_format_value(expected_output)}\\n"
-                output += f"   Actual:   {_format_value(result.output)}\\n"
+                    output += f"   Expected: {_format_value(expected_output)}\n"
+                output += f"   Actual:   {_format_value(result.output)}\n"
 
                 # Display evaluation scores
                 if result.evaluations:
-                    output += "   Scores:\\n"
+                    output += "   Scores:\n"
                     for evaluation in result.evaluations:
                         score = evaluation.value
                         if isinstance(score, (int, float)):
                             score = f"{score:.3f}"
                         output += f"     • {evaluation.name}: {score}"
                         if evaluation.comment:
-                            output += f"\\n       💭 {evaluation.comment}"
-                        output += "\\n"
+                            output += f"\n       💭 {evaluation.comment}"
+                        output += "\n"
 
                 # Display trace link if available
                 if result.trace_id:
-                    output += f"\\n   Trace ID: {result.trace_id}\\n"
+                    output += f"\n   Trace ID: {result.trace_id}\n"
         else:
-            output += f"Individual Results: Hidden ({len(self.item_results)} items)\\n"
-            output += "💡 Set include_item_results=True to view them\\n"
+            output += f"Individual Results: Hidden ({len(self.item_results)} items)\n"
+            output += "💡 Set include_item_results=True to view them\n"
 
         # Experiment overview section
-        output += f"\\n{'─' * 50}\\n"
+        output += f"\n{'─' * 50}\n"
         output += f"🧪 Experiment: {self.name}"
         output += f"\n📋 Run name: {self.run_name}"
         if self.description:
             output += f" - {self.description}"
 
-        output += f"\\n{len(self.item_results)} items"
+        output += f"\n{len(self.item_results)} items"
 
         # Collect unique evaluation names across all items
         evaluation_names = set()
@@ -540,14 +547,14 @@ class ExperimentResult:
                 evaluation_names.add(evaluation.name)
 
         if evaluation_names:
-            output += "\\nEvaluations:"
+            output += "\nEvaluations:"
             for eval_name in evaluation_names:
-                output += f"\\n  • {eval_name}"
-            output += "\\n"
+                output += f"\n  • {eval_name}"
+            output += "\n"
 
         # Calculate and display average scores
         if evaluation_names:
-            output += "\\nAverage Scores:"
+            output += "\nAverage Scores:"
             for eval_name in evaluation_names:
                 scores = []
                 for result in self.item_results:
@@ -559,24 +566,24 @@ class ExperimentResult:
 
                 if scores:
                     avg = sum(scores) / len(scores)
-                    output += f"\\n  • {eval_name}: {avg:.3f}"
-            output += "\\n"
+                    output += f"\n  • {eval_name}: {avg:.3f}"
+            output += "\n"
 
         # Display run-level evaluations
         if self.run_evaluations:
-            output += "\\nRun Evaluations:"
+            output += "\nRun Evaluations:"
             for run_eval in self.run_evaluations:
                 score = run_eval.value
                 if isinstance(score, (int, float)):
                     score = f"{score:.3f}"
-                output += f"\\n  • {run_eval.name}: {score}"
+                output += f"\n  • {run_eval.name}: {score}"
                 if run_eval.comment:
-                    output += f"\\n    💭 {run_eval.comment}"
-            output += "\\n"
+                    output += f"\n    💭 {run_eval.comment}"
+            output += "\n"
 
         # Add dataset run URL if available
         if self.dataset_run_url:
-            output += f"\\n🔗 Dataset Run:\\n   {self.dataset_run_url}"
+            output += f"\n🔗 Dataset Run:\n   {self.dataset_run_url}"
 
         return output
 
@@ -994,7 +1001,7 @@ async def _run_evaluator(
 
     except Exception as e:
         evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
-        logging.getLogger("langfuse").error(f"Evaluator {evaluator_name} failed: {e}")
+        logger.error(f"Evaluator {evaluator_name} failed: {e}")
         return []
 
 

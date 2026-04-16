@@ -26,7 +26,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
         pydantic.Field()
     )
     """
-    Name of the storage bucket
+    Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
     """
 
     endpoint: typing.Optional[str] = pydantic.Field(default=None)
@@ -84,6 +84,11 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
     ] = pydantic.Field(default=None)
     """
     Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+    """
+
+    compressed: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

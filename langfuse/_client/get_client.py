@@ -54,6 +54,7 @@ def _create_client_from_instance(
         should_export_span=instance.should_export_span,
         additional_headers=instance.additional_headers,
         tracer_provider=instance.tracer_provider,
+        span_exporter=instance.span_exporter,
         httpx_client=instance.httpx_client,
     )
 

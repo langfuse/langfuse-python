@@ -31,6 +31,7 @@ if typing.TYPE_CHECKING:
     from .numeric_score_v1 import NumericScoreV1
     from .observation import Observation
     from .observation_level import ObservationLevel
+    from .observation_v2 import ObservationV2
     from .observations_view import ObservationsView
     from .pricing_tier import PricingTier
     from .pricing_tier_condition import PricingTierCondition
@@ -42,14 +43,23 @@ if typing.TYPE_CHECKING:
         Score_Categorical,
         Score_Correction,
         Score_Numeric,
+        Score_Text,
     )
     from .score_config import ScoreConfig
     from .score_config_data_type import ScoreConfigDataType
     from .score_data_type import ScoreDataType
     from .score_source import ScoreSource
-    from .score_v1 import ScoreV1, ScoreV1_Boolean, ScoreV1_Categorical, ScoreV1_Numeric
+    from .score_v1 import (
+        ScoreV1,
+        ScoreV1_Boolean,
+        ScoreV1_Categorical,
+        ScoreV1_Numeric,
+        ScoreV1_Text,
+    )
     from .session import Session
     from .session_with_traces import SessionWithTraces
+    from .text_score import TextScore
+    from .text_score_v1 import TextScoreV1
     from .trace import Trace
     from .trace_with_details import TraceWithDetails
     from .trace_with_full_details import TraceWithFullDetails
@@ -80,6 +90,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NumericScoreV1": ".numeric_score_v1",
     "Observation": ".observation",
     "ObservationLevel": ".observation_level",
+    "ObservationV2": ".observation_v2",
     "ObservationsView": ".observations_view",
     "PricingTier": ".pricing_tier",
     "PricingTierCondition": ".pricing_tier_condition",
@@ -94,12 +105,16 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScoreV1_Boolean": ".score_v1",
     "ScoreV1_Categorical": ".score_v1",
     "ScoreV1_Numeric": ".score_v1",
+    "ScoreV1_Text": ".score_v1",
     "Score_Boolean": ".score",
     "Score_Categorical": ".score",
     "Score_Correction": ".score",
     "Score_Numeric": ".score",
+    "Score_Text": ".score",
     "Session": ".session",
     "SessionWithTraces": ".session_with_traces",
+    "TextScore": ".text_score",
+    "TextScoreV1": ".text_score_v1",
     "Trace": ".trace",
     "TraceWithDetails": ".trace_with_details",
     "TraceWithFullDetails": ".trace_with_full_details",
@@ -160,6 +175,7 @@ __all__ = [
     "NumericScoreV1",
     "Observation",
     "ObservationLevel",
+    "ObservationV2",
     "ObservationsView",
     "PricingTier",
     "PricingTierCondition",
@@ -174,12 +190,16 @@ __all__ = [
     "ScoreV1_Boolean",
     "ScoreV1_Categorical",
     "ScoreV1_Numeric",
+    "ScoreV1_Text",
     "Score_Boolean",
     "Score_Categorical",
     "Score_Correction",
     "Score_Numeric",
+    "Score_Text",
     "Session",
     "SessionWithTraces",
+    "TextScore",
+    "TextScoreV1",
     "Trace",
     "TraceWithDetails",
     "TraceWithFullDetails",

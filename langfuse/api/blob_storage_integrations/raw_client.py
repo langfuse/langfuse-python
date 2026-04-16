@@ -22,6 +22,9 @@ from .types.blob_storage_integration_deletion_response import (
 )
 from .types.blob_storage_integration_file_type import BlobStorageIntegrationFileType
 from .types.blob_storage_integration_response import BlobStorageIntegrationResponse
+from .types.blob_storage_integration_status_response import (
+    BlobStorageIntegrationStatusResponse,
+)
 from .types.blob_storage_integration_type import BlobStorageIntegrationType
 from .types.blob_storage_integrations_response import BlobStorageIntegrationsResponse
 
@@ -148,6 +151,7 @@ class RawBlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BlobStorageIntegrationResponse]:
         """
@@ -161,7 +165,7 @@ class RawBlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
 
         region : str
             Storage region
@@ -193,6 +197,9 @@ class RawBlobStorageIntegrationsClient:
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
 
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -218,6 +225,7 @@ class RawBlobStorageIntegrationsClient:
                 "fileType": file_type,
                 "exportMode": export_mode,
                 "exportStartDate": export_start_date,
+                "compressed": compressed,
             },
             request_options=request_options,
             omit=OMIT,
@@ -228,6 +236,106 @@ class RawBlobStorageIntegrationsClient:
                     BlobStorageIntegrationResponse,
                     parse_obj_as(
                         type_=BlobStorageIntegrationResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    def get_blob_storage_integration_status(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[BlobStorageIntegrationStatusResponse]:
+        """
+        Get the sync status of a blob storage integration by integration ID (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[BlobStorageIntegrationStatusResponse]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/integrations/blob-storage/{jsonable_encoder(id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    BlobStorageIntegrationStatusResponse,
+                    parse_obj_as(
+                        type_=BlobStorageIntegrationStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -520,6 +628,7 @@ class AsyncRawBlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BlobStorageIntegrationResponse]:
         """
@@ -533,7 +642,7 @@ class AsyncRawBlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
 
         region : str
             Storage region
@@ -565,6 +674,9 @@ class AsyncRawBlobStorageIntegrationsClient:
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
 
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -590,6 +702,7 @@ class AsyncRawBlobStorageIntegrationsClient:
                 "fileType": file_type,
                 "exportMode": export_mode,
                 "exportStartDate": export_start_date,
+                "compressed": compressed,
             },
             request_options=request_options,
             omit=OMIT,
@@ -600,6 +713,106 @@ class AsyncRawBlobStorageIntegrationsClient:
                     BlobStorageIntegrationResponse,
                     parse_obj_as(
                         type_=BlobStorageIntegrationResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def get_blob_storage_integration_status(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[BlobStorageIntegrationStatusResponse]:
+        """
+        Get the sync status of a blob storage integration by integration ID (requires organization-scoped API key)
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[BlobStorageIntegrationStatusResponse]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/integrations/blob-storage/{jsonable_encoder(id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    BlobStorageIntegrationStatusResponse,
+                    parse_obj_as(
+                        type_=BlobStorageIntegrationStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
