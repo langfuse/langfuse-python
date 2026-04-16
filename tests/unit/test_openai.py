@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
+import langfuse.openai as lf_openai_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.openai import openai as lf_openai
 
@@ -37,6 +38,17 @@ class DummyOpenAIAsyncStream(lf_openai.AsyncStream):
     async def _stream(self, items):
         for item in items:
             yield item
+
+
+class DummyGeneration:
+    def __init__(self) -> None:
+        self.end_calls = 0
+
+    def update(self, **kwargs):
+        return self
+
+    def end(self) -> None:
+        self.end_calls += 1
 
 
 def _make_chat_stream_chunks():
@@ -74,6 +86,24 @@ def _make_chat_stream_chunks():
             usage=usage,
         ),
     ]
+
+
+def _make_single_chunk_stream():
+    return SimpleNamespace(
+        model="gpt-4o-mini",
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(
+                    role="assistant",
+                    content="2",
+                    function_call=None,
+                    tool_calls=None,
+                ),
+                finish_reason="stop",
+            )
+        ],
+        usage=None,
+    )
 
 
 def test_chat_completion_exports_generation_span(
@@ -437,6 +467,50 @@ async def test_openai_async_stream_supports_anext(
         "completion_tokens": 1,
         "total_tokens": 4,
     }
+
+
+def test_fallback_sync_stream_finalizes_once():
+    resource = SimpleNamespace(object="Completions", type="chat")
+    generation = DummyGeneration()
+
+    def fallback_stream():
+        yield _make_single_chunk_stream()
+
+    wrapper = lf_openai_module.LangfuseResponseGeneratorSync(
+        resource=resource,
+        response=fallback_stream(),
+        generation=generation,
+    )
+
+    list(wrapper)
+
+    with pytest.raises(StopIteration):
+        next(wrapper)
+
+    assert generation.end_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_fallback_async_stream_finalizes_once():
+    resource = SimpleNamespace(object="Completions", type="chat")
+    generation = DummyGeneration()
+
+    async def fallback_stream():
+        yield _make_single_chunk_stream()
+
+    wrapper = lf_openai_module.LangfuseResponseGeneratorAsync(
+        resource=resource,
+        response=fallback_stream(),
+        generation=generation,
+    )
+
+    async for _ in wrapper:
+        pass
+
+    with pytest.raises(StopAsyncIteration):
+        await wrapper.__anext__()
+
+    assert generation.end_calls == 1
 
 
 def test_embedding_exports_dimensions_and_count(

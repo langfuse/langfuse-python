@@ -1195,6 +1195,7 @@ class LangfuseResponseGeneratorSync:
         self.response = response
         self.generation = generation
         self.completion_start_time: Optional[datetime] = None
+        self._is_finalized = False
 
     def __iter__(self) -> Any:
         try:
@@ -1230,6 +1231,10 @@ class LangfuseResponseGeneratorSync:
         pass
 
     def _finalize(self) -> None:
+        if self._is_finalized:
+            return
+
+        self._is_finalized = True
         _finalize_stream_response(
             resource=self.resource,
             items=self.items,
@@ -1252,6 +1257,7 @@ class LangfuseResponseGeneratorAsync:
         self.response = response
         self.generation = generation
         self.completion_start_time: Optional[datetime] = None
+        self._is_finalized = False
 
     async def __aiter__(self) -> Any:
         try:
@@ -1287,6 +1293,10 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self) -> None:
+        if self._is_finalized:
+            return
+
+        self._is_finalized = True
         _finalize_stream_response(
             resource=self.resource,
             items=self.items,
