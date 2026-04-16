@@ -1,0 +1,32 @@
+---
+name: Check GitHub Actions
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  merge_group:
+  pull_request:
+    branches:
+      - "main"
+
+permissions: {}
+
+jobs:
+  zizmor:
+    name: Check GitHub Actions security
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@b1d7e1fb5de872772f31590499237e7cce841e8e # v0.5.3
+        with:
+          advanced-security: true
