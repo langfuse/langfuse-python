@@ -830,6 +830,30 @@ def _is_streaming_response(response: Any) -> bool:
     )
 
 
+_openai_stream_iter_hook_installed = False
+
+
+def _install_openai_stream_iteration_hooks() -> None:
+    global _openai_stream_iter_hook_installed
+
+    if not _is_openai_v1():
+        return
+
+    if not _openai_stream_iter_hook_installed:
+        original_iter = openai.Stream.__iter__
+
+        def traced_iter(self: Any) -> Any:
+            try:
+                yield from original_iter(self)
+            finally:
+                finalize_once = getattr(self, "_langfuse_finalize_once", None)
+                if finalize_once is not None:
+                    finalize_once()
+
+        openai.Stream.__iter__ = traced_iter
+        _openai_stream_iter_hook_installed = True
+
+
 def _finalize_stream_response(
     *,
     resource: OpenAiDefinition,
@@ -856,21 +880,6 @@ def _finalize_stream_response(
         pass
     finally:
         generation.end()
-
-
-async def _finalize_stream_response_async(
-    *,
-    resource: OpenAiDefinition,
-    items: list[Any],
-    generation: LangfuseGeneration,
-    completion_start_time: Optional[datetime],
-) -> None:
-    _finalize_stream_response(
-        resource=resource,
-        items=items,
-        generation=generation,
-        completion_start_time=completion_start_time,
-    )
 
 
 def _instrument_openai_stream(
@@ -904,6 +913,8 @@ def _instrument_openai_stream(
             generation=generation,
             completion_start_time=completion_start_time,
         )
+
+    response._langfuse_finalize_once = finalize_once  # type: ignore[attr-defined]
 
     def traced_iterator() -> Any:
         nonlocal completion_start_time
@@ -955,7 +966,7 @@ def _instrument_openai_async_stream(
             return
 
         is_finalized = True
-        await _finalize_stream_response_async(
+        _finalize_stream_response(
             resource=resource,
             items=items,
             generation=generation,
@@ -1167,6 +1178,7 @@ def register_tracing() -> None:
 
 
 register_tracing()
+_install_openai_stream_iteration_hooks()
 
 
 class LangfuseResponseGeneratorSync:
@@ -1275,7 +1287,7 @@ class LangfuseResponseGeneratorAsync:
         pass
 
     async def _finalize(self) -> None:
-        await _finalize_stream_response_async(
+        _finalize_stream_response(
             resource=self.resource,
             items=self.items,
             generation=self.generation,

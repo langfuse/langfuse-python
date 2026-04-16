@@ -272,6 +272,38 @@ def test_openai_stream_preserves_original_stream_contract(
     }
 
 
+def test_openai_stream_break_still_finalizes_generation(
+    langfuse_memory_client, get_span
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    raw_response = DummySyncResponse()
+    raw_stream = DummyOpenAIStream(_make_chat_stream_chunks(), raw_response)
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=raw_stream):
+        stream = openai_client.chat.completions.create(
+            name="unit-openai-native-stream-break",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            stream=True,
+        )
+
+    for chunk in stream:
+        assert chunk.choices[0].delta.content == "2"
+        break
+
+    assert raw_response.closed is False
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-native-stream-break")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
+        is not None
+    )
+
+
 @pytest.mark.asyncio
 async def test_async_chat_completion_exports_generation_span(
     langfuse_memory_client, get_span, json_attr
