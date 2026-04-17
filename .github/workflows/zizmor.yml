@@ -28,5 +28,7 @@ jobs:
       - name: Run zizmor
         uses: zizmorcore/zizmor-action@b1d7e1fb5de872772f31590499237e7cce841e8e # v0.5.3
         with:
+          # Using false as a code scanning ruleset would block the release
+          # workflow which creates a new commit and pushes directly to main.
           advanced-security: false
           min-severity: medium
