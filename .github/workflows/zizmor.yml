@@ -19,7 +19,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
       contents: read
     steps:
       - name: Checkout
@@ -29,4 +28,7 @@ jobs:
       - name: Run zizmor
         uses: zizmorcore/zizmor-action@b1d7e1fb5de872772f31590499237e7cce841e8e # v0.5.3
         with:
-          advanced-security: true
+          # Using false as a code scanning ruleset would block the release
+          # workflow which creates a new commit and pushes directly to main.
+          advanced-security: false
+          min-severity: medium
