@@ -1,3 +1,4 @@
+import importlib
 from contextvars import copy_context
 from unittest.mock import patch
 from uuid import uuid4
@@ -13,7 +14,8 @@ from opentelemetry import context as otel_context
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.langchain import CallbackHandler
-from langfuse.langchain.CallbackHandler import CONTROL_FLOW_EXCEPTION_TYPES
+
+callback_handler_module = importlib.import_module("langfuse.langchain.CallbackHandler")
 
 
 def _assert_parent_child(parent_span, child_span) -> None:
@@ -171,6 +173,7 @@ def test_chat_model_error_marks_generation_error(langfuse_memory_client, get_spa
         "boom" in span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
     )
 
+
 def test_root_chain_metadata_propagates_trace_name(
     langfuse_memory_client, get_span, find_spans
 ):
@@ -253,132 +256,161 @@ def test_root_chain_exports_when_end_runs_in_copied_context(
 
 
 def test_control_flow_errors_use_default_level_and_keep_status_message(
-    langfuse_memory_client, get_span
+    langfuse_memory_client, get_span, monkeypatch
 ):
     class DummyControlFlowError(RuntimeError):
         pass
 
-    original_control_flow_types = set(CONTROL_FLOW_EXCEPTION_TYPES)
-    CONTROL_FLOW_EXCEPTION_TYPES.clear()
-    CONTROL_FLOW_EXCEPTION_TYPES.add(DummyControlFlowError)
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
 
-    try:
-        handler = CallbackHandler()
+    handler = CallbackHandler()
 
-        tool_run_id = uuid4()
-        retriever_run_id = uuid4()
-        llm_run_id = uuid4()
-        chain_run_id = uuid4()
+    tool_run_id = uuid4()
+    retriever_run_id = uuid4()
+    llm_run_id = uuid4()
+    chain_run_id = uuid4()
 
-        handler.on_tool_start(
-            {"name": "human_approval"},
-            "{}",
-            run_id=tool_run_id,
+    handler.on_tool_start(
+        {"name": "human_approval"},
+        "{}",
+        run_id=tool_run_id,
+    )
+    handler.on_tool_error(
+        DummyControlFlowError("tool interrupt"),
+        run_id=tool_run_id,
+    )
+
+    handler.on_retriever_start(
+        {"name": "knowledge_base"},
+        "approval policy",
+        run_id=retriever_run_id,
+    )
+    handler.on_retriever_error(
+        DummyControlFlowError("retriever bubble-up"),
+        run_id=retriever_run_id,
+    )
+
+    handler.on_llm_start(
+        {"name": "TestLLM"},
+        ["need approval"],
+        run_id=llm_run_id,
+        invocation_params={},
+    )
+    handler.on_llm_error(
+        DummyControlFlowError("llm bubble-up"),
+        run_id=llm_run_id,
+    )
+
+    handler.on_chain_start(
+        {"name": "LangGraph"},
+        {"messages": ["need approval"]},
+        run_id=chain_run_id,
+    )
+    handler.on_chain_error(
+        DummyControlFlowError("graph interrupt"),
+        run_id=chain_run_id,
+    )
+
+    handler._langfuse_client.flush()
+
+    for span_name, message in [
+        ("human_approval", "tool interrupt"),
+        ("knowledge_base", "retriever bubble-up"),
+        ("TestLLM", "llm bubble-up"),
+        ("LangGraph", "graph interrupt"),
+    ]:
+        span = get_span(span_name)
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]
+            == "DEFAULT"
         )
-        handler.on_tool_error(
-            DummyControlFlowError("tool interrupt"),
-            run_id=tool_run_id,
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == message
         )
 
-        handler.on_retriever_start(
-            {"name": "knowledge_base"},
-            "approval policy",
-            run_id=retriever_run_id,
-        )
-        handler.on_retriever_error(
-            DummyControlFlowError("retriever bubble-up"),
-            run_id=retriever_run_id,
-        )
 
-        handler.on_llm_start(
-            {"name": "TestLLM"},
-            ["need approval"],
-            run_id=llm_run_id,
-            invocation_params={},
-        )
-        handler.on_llm_error(
-            DummyControlFlowError("llm bubble-up"),
-            run_id=llm_run_id,
-        )
-
-        handler.on_chain_start(
-            {"name": "LangGraph"},
-            {"messages": ["need approval"]},
-            run_id=chain_run_id,
-        )
-        handler.on_chain_error(
-            DummyControlFlowError("graph interrupt"),
-            run_id=chain_run_id,
-        )
-
-        handler._langfuse_client.flush()
-
-        for span_name, message in [
-            ("human_approval", "tool interrupt"),
-            ("knowledge_base", "retriever bubble-up"),
-            ("TestLLM", "llm bubble-up"),
-            ("LangGraph", "graph interrupt"),
-        ]:
-            span = get_span(span_name)
-            assert (
-                span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]
-                == "DEFAULT"
-            )
-            assert (
-                span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
-                == message
-            )
-    finally:
-        CONTROL_FLOW_EXCEPTION_TYPES.clear()
-        CONTROL_FLOW_EXCEPTION_TYPES.update(original_control_flow_types)
-
-
-def test_control_flow_resume_reuses_trace_until_terminal_completion(
-    memory_exporter, langfuse_memory_client
+def test_control_flow_resume_uses_thread_keyed_explicit_resume_context(
+    memory_exporter, langfuse_memory_client, monkeypatch
 ):
     class DummyControlFlowError(RuntimeError):
         pass
+
+    Command = pytest.importorskip("langgraph.types").Command
 
     context_token = otel_context.attach(otel_context.Context())
-    original_control_flow_types = set(CONTROL_FLOW_EXCEPTION_TYPES)
-    CONTROL_FLOW_EXCEPTION_TYPES.clear()
-    CONTROL_FLOW_EXCEPTION_TYPES.add(DummyControlFlowError)
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
 
     try:
         handler = CallbackHandler()
 
-        interrupted_run_id = uuid4()
-        resumed_run_id = uuid4()
-        fresh_run_id = uuid4()
+        thread_one_interrupt_run_id = uuid4()
+        thread_two_interrupt_run_id = uuid4()
+        thread_one_fresh_run_id = uuid4()
+        thread_two_resume_run_id = uuid4()
+        thread_one_resume_run_id = uuid4()
 
         handler.on_chain_start(
             {"name": "LangGraph"},
             {"messages": ["need approval"]},
-            run_id=interrupted_run_id,
+            run_id=thread_one_interrupt_run_id,
+            metadata={"thread_id": "thread-1"},
         )
         handler.on_chain_error(
-            DummyControlFlowError("graph interrupt"),
-            run_id=interrupted_run_id,
+            DummyControlFlowError("graph interrupt 1"),
+            run_id=thread_one_interrupt_run_id,
         )
 
         handler.on_chain_start(
             {"name": "LangGraph"},
-            {"resume": True},
-            run_id=resumed_run_id,
+            {"messages": ["need approval"]},
+            run_id=thread_two_interrupt_run_id,
+            metadata={"thread_id": "thread-2"},
         )
-        handler.on_chain_end(
-            {"messages": ["approved"]},
-            run_id=resumed_run_id,
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt 2"),
+            run_id=thread_two_interrupt_run_id,
         )
 
         handler.on_chain_start(
             {"name": "LangGraph"},
             {"messages": ["fresh invocation"]},
-            run_id=fresh_run_id,
+            run_id=thread_one_fresh_run_id,
+            metadata={"thread_id": "thread-1"},
         )
         handler.on_chain_end(
             {"messages": ["completed"]},
-            run_id=fresh_run_id,
+            run_id=thread_one_fresh_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=thread_two_resume_run_id,
+            metadata={"thread_id": "thread-2"},
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=thread_two_resume_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=thread_one_resume_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=thread_one_resume_run_id,
         )
 
         handler._langfuse_client.flush()
@@ -389,23 +421,26 @@ def test_control_flow_resume_reuses_trace_until_terminal_completion(
             if span.name == "LangGraph"
         ]
 
-        assert len(root_spans) == 3
+        assert len(root_spans) == 5
         spans_by_trace_id = {}
         for span in root_spans:
             spans_by_trace_id.setdefault(span.context.trace_id, []).append(span)
 
-        assert sorted(len(spans) for spans in spans_by_trace_id.values()) == [1, 2]
+        assert sorted(len(spans) for spans in spans_by_trace_id.values()) == [1, 2, 2]
 
-        resumed_trace_spans = next(
+        resumed_trace_spans = [
             spans for spans in spans_by_trace_id.values() if len(spans) == 2
-        )
-        initial_span = next(span for span in resumed_trace_spans if span.parent is None)
-        resumed_span = next(span for span in resumed_trace_spans if span.parent is not None)
-        fresh_span = next(span for span in root_spans if span.context.trace_id != initial_span.context.trace_id)
+        ]
+        assert len(resumed_trace_spans) == 2
 
-        assert resumed_span.parent.span_id == initial_span.context.span_id
-        assert fresh_span.parent is None
+        for spans in resumed_trace_spans:
+            initial_span = next(span for span in spans if span.parent is None)
+            resumed_span = next(span for span in spans if span.parent is not None)
+            assert resumed_span.parent.span_id == initial_span.context.span_id
+
+        fresh_trace_spans = next(
+            spans for spans in spans_by_trace_id.values() if len(spans) == 1
+        )
+        assert fresh_trace_spans[0].parent is None
     finally:
-        CONTROL_FLOW_EXCEPTION_TYPES.clear()
-        CONTROL_FLOW_EXCEPTION_TYPES.update(original_control_flow_types)
         otel_context.detach(context_token)
