@@ -30,6 +30,7 @@ def test_sync_generator_preserves_context_without_output_capture(
     assert memory_exporter.get_finished_spans() == []
 
     assert list(generator) == ["item_0", "item_1"]
+    assert generator.items == []
 
     langfuse_memory_client.flush()
 
@@ -73,6 +74,7 @@ async def test_streaming_response_preserves_context_without_output_capture(
     assert memory_exporter.get_finished_spans() == []
 
     assert [item async for item in response.body_iterator] == ["chunk_0", "chunk_1"]
+    assert response.body_iterator.items == []
 
     langfuse_memory_client.flush()
 

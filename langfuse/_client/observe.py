@@ -571,7 +571,8 @@ class _ContextPreservedSyncGeneratorWrapper:
         try:
             # Run the generator's __next__ in the preserved context
             item = self.context.run(next, self.generator)
-            self.items.append(item)
+            if self.capture_output:
+                self.items.append(item)
 
             return item
 
@@ -644,7 +645,8 @@ class _ContextPreservedAsyncGeneratorWrapper:
                 # Python < 3.10 fallback - context parameter not supported
                 item = await self.generator.__anext__()
 
-            self.items.append(item)
+            if self.capture_output:
+                self.items.append(item)
 
             return item
 
