@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from contextvars import Token
 from typing import (
     Any,
@@ -85,12 +86,18 @@ except ImportError:
 LANGSMITH_TAG_HIDDEN: str = "langsmith:hidden"
 CONTROL_FLOW_EXCEPTION_TYPES: Set[Type[BaseException]] = set()
 LANGGRAPH_COMMAND_TYPE: Optional[Type[Any]] = None
+MAX_PENDING_RESUME_TRACE_CONTEXTS = 1024
 
 try:
     from langgraph.errors import GraphBubbleUp
-    from langgraph.types import Command as LangGraphCommand
 
     CONTROL_FLOW_EXCEPTION_TYPES.add(GraphBubbleUp)
+except ImportError:
+    pass
+
+try:
+    from langgraph.types import Command as LangGraphCommand
+
     LANGGRAPH_COMMAND_TYPE = LangGraphCommand
 except ImportError:
     pass
@@ -140,7 +147,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self._trace_context = trace_context
         # LangGraph resumes as a fresh root callback run after interrupting, so we keep
         # pending resume contexts keyed by thread/session instead of a single shared slot.
-        self._resume_trace_context_by_key: Dict[str, TraceContext] = {}
+        self._resume_trace_context_by_key: OrderedDict[str, TraceContext] = (
+            OrderedDict()
+        )
         self._root_run_resume_key_map: Dict[UUID, str] = {}
         self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
 
@@ -190,9 +199,20 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         return self._root_run_resume_key_map.pop(run_id, None)
 
     def _is_langgraph_resume(self, inputs: Any) -> bool:
-        return LANGGRAPH_COMMAND_TYPE is not None and isinstance(
-            inputs, LANGGRAPH_COMMAND_TYPE
+        return (
+            LANGGRAPH_COMMAND_TYPE is not None
+            and isinstance(inputs, LANGGRAPH_COMMAND_TYPE)
+            and getattr(inputs, "resume", None) is not None
         )
+
+    def _store_resume_trace_context(
+        self, *, resume_key: str, trace_context: TraceContext
+    ) -> None:
+        self._resume_trace_context_by_key[resume_key] = trace_context
+        self._resume_trace_context_by_key.move_to_end(resume_key)
+
+        if len(self._resume_trace_context_by_key) > MAX_PENDING_RESUME_TRACE_CONTEXTS:
+            self._resume_trace_context_by_key.popitem(last=False)
 
     def _take_root_trace_context(
         self, *, inputs: Any, metadata: Optional[Dict[str, Any]]
@@ -228,7 +248,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         # Span creation failed after we consumed the pending linkage, so put it
         # back and let the next retry resume the interrupted trace correctly.
-        self._resume_trace_context_by_key.setdefault(resume_key, trace_context)
+        self._store_resume_trace_context(
+            resume_key=resume_key, trace_context=trace_context
+        )
 
     def _clear_root_run_resume_key(self, run_id: UUID) -> None:
         # Keep the pending interrupt context until an explicit Command(resume=...)
@@ -243,10 +265,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         if resume_key is None:
             return
 
-        self._resume_trace_context_by_key[resume_key] = {
-            "trace_id": observation.trace_id,
-            "parent_span_id": observation.id,
-        }
+        self._store_resume_trace_context(
+            resume_key=resume_key,
+            trace_context={
+                "trace_id": observation.trace_id,
+                "parent_span_id": observation.id,
+            },
+        )
 
     def _get_error_level_and_status_message(
         self, error: BaseException
@@ -534,8 +559,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     resume_key=resume_key, trace_context=trace_context
                 )
                 if parent_run_id is None:
-                    self._clear_root_run_resume_key(run_id)
                     self._exit_propagation_context()
+                    self._reset(run_id)
             langfuse_logger.exception(e)
 
     def _register_langfuse_prompt(

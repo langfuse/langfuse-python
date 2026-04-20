@@ -494,6 +494,7 @@ def test_control_flow_resume_restores_context_after_failed_root_start(
 
         assert "thread-1" in handler._resume_trace_context_by_key
         assert failed_resume_run_id not in handler._root_run_resume_key_map
+        assert failed_resume_run_id not in handler._child_to_parent_run_id_map
         assert handler._propagation_context_manager is None
 
         handler.on_chain_start(
@@ -519,6 +520,92 @@ def test_control_flow_resume_restores_context_after_failed_root_start(
 
         initial_span = next(span for span in root_spans if span.parent is None)
         resumed_span = next(span for span in root_spans if span.parent is not None)
+
+        assert resumed_span.parent.span_id == initial_span.context.span_id
+    finally:
+        otel_context.detach(context_token)
+
+
+def test_control_flow_resume_ignores_non_resume_commands(
+    memory_exporter, langfuse_memory_client, monkeypatch
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    Command = pytest.importorskip("langgraph.types").Command
+
+    context_token = otel_context.attach(otel_context.Context())
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+
+    try:
+        handler = CallbackHandler()
+
+        interrupt_run_id = uuid4()
+        goto_run_id = uuid4()
+        resume_run_id = uuid4()
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=interrupt_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt"),
+            run_id=interrupt_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(goto="approval_node"),
+            run_id=goto_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["routed"]},
+            run_id=goto_run_id,
+        )
+
+        assert "thread-1" in handler._resume_trace_context_by_key
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=resume_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=resume_run_id,
+        )
+
+        handler._langfuse_client.flush()
+
+        root_spans = [
+            span
+            for span in memory_exporter.get_finished_spans()
+            if span.name == "LangGraph"
+        ]
+
+        assert len(root_spans) == 3
+
+        spans_by_trace_id = {}
+        for span in root_spans:
+            spans_by_trace_id.setdefault(span.context.trace_id, []).append(span)
+
+        assert sorted(len(spans) for spans in spans_by_trace_id.values()) == [1, 2]
+
+        resumed_trace_spans = next(
+            spans for spans in spans_by_trace_id.values() if len(spans) == 2
+        )
+        initial_span = next(span for span in resumed_trace_spans if span.parent is None)
+        resumed_span = next(
+            span for span in resumed_trace_spans if span.parent is not None
+        )
 
         assert resumed_span.parent.span_id == initial_span.context.span_id
     finally:
@@ -681,3 +768,66 @@ def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
     assert "retriever-thread" in handler._resume_trace_context_by_key
     assert retriever_run_id not in handler._root_run_resume_key_map
     assert retriever_run_id not in handler._child_to_parent_run_id_map
+
+
+def test_pending_resume_contexts_are_capped(langfuse_memory_client, monkeypatch):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+    monkeypatch.setattr(
+        callback_handler_module,
+        "MAX_PENDING_RESUME_TRACE_CONTEXTS",
+        4,
+    )
+
+    handler = CallbackHandler()
+
+    for index in range(5):
+        run_id = uuid4()
+        thread_id = f"thread-{index}"
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=run_id,
+            metadata={"thread_id": thread_id},
+        )
+        handler.on_chain_error(
+            DummyControlFlowError(f"graph interrupt {index}"),
+            run_id=run_id,
+        )
+
+    assert len(handler._resume_trace_context_by_key) == 4
+    assert list(handler._resume_trace_context_by_key) == [
+        "thread-1",
+        "thread-2",
+        "thread-3",
+        "thread-4",
+    ]
+
+
+def test_graphbubbleup_import_is_independent_from_command_import():
+    real_import = __import__
+
+    def import_without_langgraph_command(
+        name, globals=None, locals=None, fromlist=(), level=0
+    ):
+        if name == "langgraph.types":
+            raise ImportError("Command unavailable")
+
+        return real_import(name, globals, locals, fromlist, level)
+
+    with patch("builtins.__import__", side_effect=import_without_langgraph_command):
+        reloaded_module = importlib.reload(callback_handler_module)
+        assert reloaded_module.LANGGRAPH_COMMAND_TYPE is None
+        assert any(
+            exception_type.__name__ == "GraphBubbleUp"
+            for exception_type in reloaded_module.CONTROL_FLOW_EXCEPTION_TYPES
+        )
+
+    importlib.reload(callback_handler_module)
