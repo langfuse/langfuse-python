@@ -9,6 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI, OpenAI
+from opentelemetry import context as otel_context
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.langchain import CallbackHandler
@@ -338,6 +339,7 @@ def test_control_flow_resume_reuses_trace_until_terminal_completion(
     class DummyControlFlowError(RuntimeError):
         pass
 
+    context_token = otel_context.attach(otel_context.Context())
     original_control_flow_types = set(CONTROL_FLOW_EXCEPTION_TYPES)
     CONTROL_FLOW_EXCEPTION_TYPES.clear()
     CONTROL_FLOW_EXCEPTION_TYPES.add(DummyControlFlowError)
@@ -388,10 +390,22 @@ def test_control_flow_resume_reuses_trace_until_terminal_completion(
         ]
 
         assert len(root_spans) == 3
-        assert root_spans[0].context.trace_id == root_spans[1].context.trace_id
-        assert root_spans[1].parent is not None
-        assert root_spans[1].parent.span_id == root_spans[0].context.span_id
-        assert root_spans[2].context.trace_id != root_spans[1].context.trace_id
+        spans_by_trace_id = {}
+        for span in root_spans:
+            spans_by_trace_id.setdefault(span.context.trace_id, []).append(span)
+
+        assert sorted(len(spans) for spans in spans_by_trace_id.values()) == [1, 2]
+
+        resumed_trace_spans = next(
+            spans for spans in spans_by_trace_id.values() if len(spans) == 2
+        )
+        initial_span = next(span for span in resumed_trace_spans if span.parent is None)
+        resumed_span = next(span for span in resumed_trace_spans if span.parent is not None)
+        fresh_span = next(span for span in root_spans if span.context.trace_id != initial_span.context.trace_id)
+
+        assert resumed_span.parent.span_id == initial_span.context.span_id
+        assert fresh_span.parent is None
     finally:
         CONTROL_FLOW_EXCEPTION_TYPES.clear()
         CONTROL_FLOW_EXCEPTION_TYPES.update(original_control_flow_types)
+        otel_context.detach(context_token)
