@@ -19,7 +19,7 @@ from opentelemetry import context as context_api
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import format_span_id
 
 from langfuse._client.environment_variables import (
@@ -30,8 +30,8 @@ from langfuse._client.environment_variables import (
 from langfuse._client.propagation import _get_propagated_attributes_from_context
 from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
 from langfuse._client.utils import span_formatter
+from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
-from langfuse.version import __version__ as langfuse_version
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -63,6 +63,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
+        span_exporter: Optional[SpanExporter] = None,
     ):
         self.public_key = public_key
         self.blocked_instrumentation_scopes = (
@@ -82,37 +83,38 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             else None
         )
 
-        basic_auth_header = "Basic " + base64.b64encode(
-            f"{public_key}:{secret_key}".encode("utf-8")
-        ).decode("ascii")
+        if span_exporter is None:
+            basic_auth_header = "Basic " + base64.b64encode(
+                f"{public_key}:{secret_key}".encode("utf-8")
+            ).decode("ascii")
 
-        # Prepare default headers
-        default_headers = {
-            "Authorization": basic_auth_header,
-            "x-langfuse-sdk-name": "python",
-            "x-langfuse-sdk-version": langfuse_version,
-            "x-langfuse-public-key": public_key,
-        }
+            # Prepare default headers
+            default_headers = {
+                "Authorization": basic_auth_header,
+                "x-langfuse-sdk-name": "python",
+                "x-langfuse-sdk-version": langfuse_version,
+                "x-langfuse-public-key": public_key,
+            }
 
-        # Merge additional headers if provided
-        headers = {**default_headers, **(additional_headers or {})}
+            # Merge additional headers if provided
+            headers = {**default_headers, **(additional_headers or {})}
 
-        traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
+            traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
 
-        endpoint = (
-            f"{base_url}/{traces_export_path}"
-            if traces_export_path
-            else f"{base_url}/api/public/otel/v1/traces"
-        )
+            endpoint = (
+                f"{base_url}/{traces_export_path}"
+                if traces_export_path
+                else f"{base_url}/api/public/otel/v1/traces"
+            )
 
-        langfuse_span_exporter = OTLPSpanExporter(
-            endpoint=endpoint,
-            headers=headers,
-            timeout=timeout,
-        )
+            span_exporter = OTLPSpanExporter(
+                endpoint=endpoint,
+                headers=headers,
+                timeout=timeout,
+            )
 
         super().__init__(
-            span_exporter=langfuse_span_exporter,
+            span_exporter=span_exporter,
             export_timeout_millis=timeout * 1_000 if timeout else None,
             max_export_batch_size=flush_at,
             schedule_delay_millis=flush_interval * 1_000

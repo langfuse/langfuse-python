@@ -7,7 +7,9 @@ within the context.
 
 from typing import Any, Dict, Generator, List, Literal, Optional, TypedDict, Union, cast
 
-from opentelemetry import baggage
+from opentelemetry import (
+    baggage,
+)
 from opentelemetry import (
     baggage as otel_baggage_api,
 )
@@ -17,6 +19,7 @@ from opentelemetry import (
 from opentelemetry import (
     trace as otel_trace_api,
 )
+from opentelemetry.context import _RUNTIME_CONTEXT
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
@@ -70,6 +73,22 @@ class PropagatedExperimentAttributes(TypedDict):
     experiment_item_id: str
     experiment_item_metadata: Optional[str]
     experiment_item_root_observation_id: str
+
+
+def _detach_context_token_safely(token: Any) -> None:
+    """Detach a context token without emitting noisy async teardown errors.
+
+    OpenTelemetry tokens are backed by ``contextvars`` and must be detached in the
+    same execution context where they were attached. Async frameworks can legitimately
+    end spans or unwind context managers in a different task/context, in which case
+    detach raises and the public OpenTelemetry helper logs an error. At that point the
+    observation is already completed, so the mismatch is safe to ignore.
+    """
+
+    try:
+        _RUNTIME_CONTEXT.detach(token)
+    except Exception:
+        pass
 
 
 def propagate_attributes(
@@ -278,7 +297,7 @@ def _propagate_attributes(
         yield
 
     finally:
-        otel_context_api.detach(token)
+        _detach_context_token_safely(token)
 
 
 def _get_propagated_attributes_from_context(

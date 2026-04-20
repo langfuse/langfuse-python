@@ -6,7 +6,6 @@ to all child spans within the context.
 """
 
 import concurrent.futures
-import time
 from datetime import datetime
 
 import pytest
@@ -17,7 +16,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from langfuse._client.datasets import DatasetClient
 from langfuse.api import Dataset, DatasetItem, DatasetStatus
-from tests.test_otel import TestOTelBase
+from tests.unit.test_otel import TestOTelBase
 
 
 class TestPropagateAttributesBase(TestOTelBase):
@@ -1460,7 +1459,7 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
             """Create a trace with specific user_id."""
             with langfuse_client.start_as_current_observation(name=f"trace-{user_id}"):
                 with propagate_attributes(user_id=user_id):
-                    await asyncio.sleep(0.01)  # Simulate async work
+                    await asyncio.sleep(0.001)  # Simulate async work
                     span = langfuse_client.start_observation(name=f"span-{user_id}")
                     span.end()
 
@@ -2295,6 +2294,35 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
 class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
     """Tests for experiment attribute propagation."""
 
+    @pytest.mark.asyncio
+    async def test_experiment_propagates_user_id_in_async_context(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify run_experiment keeps propagated attributes when called from async code."""
+        import asyncio
+
+        local_data = [{"input": "test input", "expected_output": "expected output"}]
+
+        async def async_task(*, item, **kwargs):
+            await asyncio.sleep(0.001)
+            return f"processed: {item['input']}"
+
+        with propagate_attributes(user_id="async-experiment-user"):
+            langfuse_client.run_experiment(
+                name="Async Experiment",
+                data=local_data,
+                task=async_task,
+            )
+
+        langfuse_client.flush()
+
+        root_span = self.get_span_by_name(memory_exporter, "experiment-item-run")
+        self.verify_span_attribute(
+            root_span,
+            LangfuseOtelSpanAttributes.TRACE_USER_ID,
+            "async-experiment-user",
+        )
+
     def test_experiment_attributes_propagate_without_dataset(
         self, langfuse_client, memory_exporter
     ):
@@ -2331,7 +2359,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
         # Flush to ensure spans are exported
         langfuse_client.flush()
-        time.sleep(0.1)
 
         # Get the root span
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
@@ -2354,6 +2381,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         experiment_id = first_root["attributes"][
             LangfuseOtelSpanAttributes.EXPERIMENT_ID
         ]
+        assert result.experiment_id == experiment_id
         experiment_item_id = first_root["attributes"][
             LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID
         ]
@@ -2448,25 +2476,54 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
             )
 
+    def test_experiment_id_is_stable_across_local_items(
+        self, langfuse_client, memory_exporter
+    ):
+        """Test local experiments reuse one experiment ID across all items."""
+        local_data = [
+            {"input": "test input 1", "expected_output": "expected result 1"},
+            {"input": "test input 2", "expected_output": "expected result 2"},
+        ]
+
+        result = langfuse_client.run_experiment(
+            name="Stable Local Experiment",
+            data=local_data,
+            task=lambda *, item, **kwargs: f"processed: {item['input']}",
+        )
+
+        langfuse_client.flush()
+
+        root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
+        experiment_ids = {
+            span["attributes"][LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+            for span in root_spans
+        }
+
+        assert len(experiment_ids) == 1
+        assert result.experiment_id == next(iter(experiment_ids))
+
     def test_experiment_attributes_propagate_with_dataset(
         self, langfuse_client, memory_exporter, monkeypatch
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
 
-        # Mock the async API to create dataset run items
-        async def mock_create_dataset_run_item(*args, **kwargs):
+        # Mock the sync API used by run_experiment to create dataset run items
+        def mock_create_dataset_run_item(*args, **kwargs):
             from langfuse.api import DatasetRunItem
 
-            request = kwargs.get("request")
             return DatasetRunItem(
                 id="mock-run-item-id",
                 dataset_run_id="mock-dataset-run-id-123",
-                dataset_item_id=request.datasetItemId if request else "mock-item-id",
+                dataset_run_name=kwargs.get("run_name", "Dataset Test"),
+                dataset_item_id=kwargs.get("dataset_item_id", "mock-item-id"),
                 trace_id="mock-trace-id",
+                observation_id=kwargs.get("observation_id"),
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
             )
 
         monkeypatch.setattr(
-            langfuse_client.async_api.dataset_run_items,
+            langfuse_client.api.dataset_run_items,
             "create",
             mock_create_dataset_run_item,
         )
@@ -2518,7 +2575,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
         # Run experiment
         experiment_metadata = {"dataset_version": "v2", "test_run": "true"}
-        dataset.run_experiment(
+        result = dataset.run_experiment(
             name="Dataset Test",
             description="Dataset experiment description",
             task=task_with_children,
@@ -2526,12 +2583,12 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         # Verify root has dataset-specific attributes
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         assert len(root_spans) >= 1, "Should have at least 1 root span"
         first_root = root_spans[0]
+        assert result.experiment_id == "mock-dataset-run-id-123"
 
         # Root-only attributes should be on root
         self.verify_span_attribute(
@@ -2557,6 +2614,11 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             first_root,
             LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
             dataset_item_id,
+        )
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ID,
+            result.experiment_id,
         )
 
         # Should have experiment metadata
@@ -2654,7 +2716,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         first_root = root_spans[0]
@@ -2712,8 +2773,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
 
     def test_experiment_metadata_merging(self, langfuse_client, memory_exporter):
         """Test that experiment metadata and item metadata are both propagated correctly."""
-        import time
-
         from langfuse._client.attributes import _serialize
 
         # Rich metadata
@@ -2750,7 +2809,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         langfuse_client.flush()
-        time.sleep(0.1)
 
         # Verify root span has environment set
         root_span = self.get_span_by_name(memory_exporter, "experiment-item-run")

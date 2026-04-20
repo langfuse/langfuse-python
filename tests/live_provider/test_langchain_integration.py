@@ -7,9 +7,7 @@ from langchain_openai import ChatOpenAI, OpenAI
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
-from tests.utils import get_api
-
-from .utils import create_uuid
+from tests.support.utils import create_uuid, get_api
 
 
 def _is_streaming_response(response):

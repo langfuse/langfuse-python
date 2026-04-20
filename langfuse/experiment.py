@@ -17,8 +17,9 @@ from typing import (
     Union,
 )
 
-from langfuse.api import DatasetItem, ScoreDataType
+from langfuse.api import DatasetItem
 from langfuse.logger import langfuse_logger as logger
+from langfuse.types import ExperimentScoreType
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -184,7 +185,7 @@ class Evaluation:
         value: Union[int, float, str, bool],
         comment: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        data_type: Optional[ScoreDataType] = None,
+        data_type: Optional[ExperimentScoreType] = None,
         config_id: Optional[str] = None,
     ):
         """Initialize an Evaluation with the provided data.
@@ -303,6 +304,9 @@ class ExperimentResult:
             containing the original item, task output, evaluations, and trace information.
         run_evaluations: List of aggregate evaluation results computed across all items,
             such as average scores, statistical summaries, or cross-item analyses.
+        experiment_id: ID of the experiment run propagated across all items. For
+            Langfuse datasets, this matches the dataset run ID. For local experiments,
+            this is a stable SDK-generated identifier for the run.
         dataset_run_id: Optional ID of the dataset run in Langfuse (when using Langfuse datasets).
         dataset_run_url: Optional direct URL to view the experiment results in Langfuse UI.
 
@@ -361,6 +365,7 @@ class ExperimentResult:
         description: Optional[str],
         item_results: List[ExperimentItemResult],
         run_evaluations: List[Evaluation],
+        experiment_id: str,
         dataset_run_id: Optional[str] = None,
         dataset_run_url: Optional[str] = None,
     ):
@@ -372,6 +377,7 @@ class ExperimentResult:
             description: Optional description of the experiment.
             item_results: List of results from processing individual dataset items.
             run_evaluations: List of aggregate evaluation results for the entire run.
+            experiment_id: ID of the experiment run.
             dataset_run_id: Optional ID of the dataset run (for Langfuse datasets).
             dataset_run_url: Optional URL to view results in Langfuse UI.
         """
@@ -380,6 +386,7 @@ class ExperimentResult:
         self.description = description
         self.item_results = item_results
         self.run_evaluations = run_evaluations
+        self.experiment_id = experiment_id
         self.dataset_run_id = dataset_run_id
         self.dataset_run_url = dataset_run_url
 

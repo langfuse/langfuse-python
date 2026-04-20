@@ -15,13 +15,13 @@ from uuid import UUID
 
 import pydantic
 from opentelemetry import context, trace
-from opentelemetry.context import _RUNTIME_CONTEXT
 from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse._client.get_client import get_client
+from langfuse._client.propagation import _detach_context_token_safely
 from langfuse._client.span import (
     LangfuseAgent,
     LangfuseChain,
@@ -287,6 +287,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         ):
             attributes["user_id"] = metadata["langfuse_user_id"]
 
+        if "langfuse_trace_name" in metadata and isinstance(
+            metadata["langfuse_trace_name"], str
+        ):
+            attributes["trace_name"] = metadata["langfuse_trace_name"]
+
         if tags is not None or (
             "langfuse_tags" in metadata and isinstance(metadata["langfuse_tags"], list)
         ):
@@ -302,6 +307,28 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         attributes["metadata"] = _strip_langfuse_keys_from_dict(metadata, False)
 
         return attributes
+
+    def _get_langchain_observation_metadata(
+        self,
+        *,
+        parent_run_id: Optional[UUID],
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        keep_langfuse_trace_attributes: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        observation_metadata = self.__join_tags_and_metadata(
+            tags=tags,
+            metadata=metadata,
+            keep_langfuse_trace_attributes=keep_langfuse_trace_attributes,
+        )
+
+        if parent_run_id is not None:
+            return observation_metadata
+
+        root_metadata = observation_metadata.copy() if observation_metadata else {}
+        root_metadata["is_langchain_root"] = True
+
+        return root_metadata
 
     def on_chain_start(
         self,
@@ -325,7 +352,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             )
 
             span_name = self.get_langchain_run_name(serialized, **kwargs)
-            span_metadata = self.__join_tags_and_metadata(tags, metadata)
+            span_metadata = self._get_langchain_observation_metadata(
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+            )
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
             observation_type = self._get_observation_type_from_serialized(
@@ -343,6 +374,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     session_id=parsed_trace_attributes.get("session_id", None),
                     tags=parsed_trace_attributes.get("tags", None),
                     metadata=parsed_trace_attributes.get("metadata", None),
+                    trace_name=parsed_trace_attributes.get("trace_name", None),
                 )
 
                 self._propagation_context_manager.__enter__()
@@ -458,18 +490,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         token = self._context_tokens.pop(run_id, None)
 
         if token:
-            try:
-                # Directly detach from runtime context to avoid error logging
-                _RUNTIME_CONTEXT.detach(token)
-            except Exception:
-                # Context detach can fail in async scenarios - this is expected and safe to ignore
-                # The span itself was properly ended and tracing data is correctly captured
-                #
-                # Examples:
-                # 1. Token created in one async task/thread, detached in another
-                # 2. Context already detached by framework or other handlers
-                # 3. Runtime context state mismatch in concurrent execution
-                pass
+            _detach_context_token_safely(token)
 
         return cast(
             Union[
@@ -564,11 +585,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     input=kwargs.get("inputs"),
                 )
 
-                if (
-                    parent_run_id is None
-                    and self._propagation_context_manager is not None
-                ):
-                    self._propagation_context_manager.__exit__(None, None, None)
+                if parent_run_id is None:
+                    self._exit_propagation_context()
 
                 span.end()
 
@@ -579,6 +597,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         finally:
             if parent_run_id is None:
+                self._exit_propagation_context()
                 self._reset()
 
     def on_chain_error(
@@ -608,10 +627,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     status_message=str(error) if level else None,
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
-                ).end()
+                )
+
+                if parent_run_id is None:
+                    self._exit_propagation_context()
+
+                observation.end()
 
         except Exception as e:
             langfuse_logger.exception(e)
+        finally:
+            if parent_run_id is None:
+                self._exit_propagation_context()
+                self._reset()
 
     def on_chat_model_start(
         self,
@@ -694,7 +722,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
             )
 
-            meta = self.__join_tags_and_metadata(tags, metadata)
+            meta = self._get_langchain_observation_metadata(
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+            )
 
             if not meta:
                 meta = {}
@@ -738,7 +770,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_retriever_start", run_id, parent_run_id, query=query
             )
             span_name = self.get_langchain_run_name(serialized, **kwargs)
-            span_metadata = self.__join_tags_and_metadata(tags, metadata)
+            span_metadata = self._get_langchain_observation_metadata(
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+            )
             span_level = "DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None
 
             observation_type = self._get_observation_type_from_serialized(
@@ -869,9 +905,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
-                "metadata": self.__join_tags_and_metadata(
-                    tags,
-                    metadata,
+                "metadata": self._get_langchain_observation_metadata(
+                    parent_run_id=parent_run_id,
+                    tags=tags,
+                    metadata=metadata,
                     # If llm is run isolated and outside chain, keep trace attributes
                     keep_langfuse_trace_attributes=True
                     if parent_run_id is None
@@ -1026,6 +1063,15 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def _reset(self) -> None:
         self._child_to_parent_run_id_map = {}
 
+    def _exit_propagation_context(self) -> None:
+        manager = self._propagation_context_manager
+
+        if manager is None:
+            return
+
+        self._propagation_context_manager = None
+        manager.__exit__(None, None, None)
+
     def __join_tags_and_metadata(
         self,
         tags: Optional[List[str]] = None,
@@ -1057,10 +1103,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 and len(message.tool_calls) > 0
             ):
                 message_dict["tool_calls"] = message.tool_calls
-            
+
             if (
-                hasattr(message, "invalid_tool_calls") 
-                and message.invalid_tool_calls is not None 
+                hasattr(message, "invalid_tool_calls")
+                and message.invalid_tool_calls is not None
                 and len(message.invalid_tool_calls) > 0
             ):
                 message_dict["invalid_tool_calls"] = message.invalid_tool_calls
@@ -1363,6 +1409,7 @@ def _strip_langfuse_keys_from_dict(
         "langfuse_session_id",
         "langfuse_user_id",
         "langfuse_tags",
+        "langfuse_trace_name",
     ]
 
     metadata_copy = metadata.copy()

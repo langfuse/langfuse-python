@@ -94,6 +94,7 @@ class BlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BlobStorageIntegrationResponse:
         """
@@ -107,7 +108,7 @@ class BlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
 
         region : str
             Storage region
@@ -138,6 +139,9 @@ class BlobStorageIntegrationsClient:
 
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -191,6 +195,7 @@ class BlobStorageIntegrationsClient:
             secret_access_key=secret_access_key,
             prefix=prefix,
             export_start_date=export_start_date,
+            compressed=compressed,
             request_options=request_options,
         )
         return _response.data
@@ -348,6 +353,7 @@ class AsyncBlobStorageIntegrationsClient:
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
+        compressed: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BlobStorageIntegrationResponse:
         """
@@ -361,7 +367,7 @@ class AsyncBlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
 
         region : str
             Storage region
@@ -392,6 +398,9 @@ class AsyncBlobStorageIntegrationsClient:
 
         export_start_date : typing.Optional[dt.datetime]
             Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+
+        compressed : typing.Optional[bool]
+            Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -453,6 +462,7 @@ class AsyncBlobStorageIntegrationsClient:
             secret_access_key=secret_access_key,
             prefix=prefix,
             export_start_date=export_start_date,
+            compressed=compressed,
             request_options=request_options,
         )
         return _response.data

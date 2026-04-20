@@ -2,7 +2,7 @@ import json
 import os
 import threading
 import time
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from typing import Any, List, Optional
 
 import backoff
@@ -13,10 +13,11 @@ from langfuse._utils.request import APIError, LangfuseClient
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger as logger
 
-from ..version import __version__ as langfuse_version
+from .._version import __version__ as langfuse_version
 
 MAX_EVENT_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_EVENT_SIZE_BYTES", 1_000_000))
 MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 2_500_000))
+_SHUTDOWN_SENTINEL = object()
 
 
 class ScoreIngestionMetadata(BaseModel):
@@ -70,6 +71,10 @@ class ScoreIngestionConsumer(threading.Thread):
                 event = self._ingestion_queue.get(
                     block=True, timeout=self._flush_interval - elapsed
                 )
+
+                if event is _SHUTDOWN_SENTINEL:
+                    self._ingestion_queue.task_done()
+                    break
 
                 # convert pydantic models to dicts
                 if "body" in event and isinstance(event["body"], BaseModel):
@@ -139,6 +144,12 @@ class ScoreIngestionConsumer(threading.Thread):
     def pause(self) -> None:
         """Pause the consumer."""
         self.running = False
+        try:
+            self._ingestion_queue.put(_SHUTDOWN_SENTINEL, block=False)
+        except Full:
+            # If the queue is full, the consumer will wake up naturally while
+            # draining items, so a dedicated shutdown signal is not required.
+            pass
 
     def _upload_batch(self, batch: List[Any]) -> None:
         logger.debug(

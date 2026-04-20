@@ -16,7 +16,7 @@ from langfuse._client.environment_variables import LANGFUSE_PUBLIC_KEY
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.langchain import CallbackHandler
 from langfuse.media import LangfuseMedia
-from tests.utils import get_api
+from tests.support.utils import get_api, wait_for_trace
 
 mock_metadata = {"key": "metadata"}
 mock_deep_metadata = {"key": "mock_deep_metadata"}
@@ -30,6 +30,32 @@ def removeMockResourceManagerInstances():
         for public_key in list(LangfuseResourceManager._instances.keys()):
             if public_key != os.getenv(LANGFUSE_PUBLIC_KEY):
                 LangfuseResourceManager._instances.pop(public_key)
+
+
+def _get_observation_by_name(trace_data, name):
+    return next(
+        observation
+        for observation in trace_data.observations
+        if observation.name == name
+    )
+
+
+def _is_descendant(trace_data, child_id, ancestor_id):
+    observations_by_id = {
+        observation.id: observation for observation in trace_data.observations
+    }
+    current_id = child_id
+
+    while current_id in observations_by_id:
+        current = observations_by_id[current_id]
+        parent_id = current.parent_observation_id
+        if parent_id == ancestor_id:
+            return True
+        if parent_id not in observations_by_id:
+            return False
+        current_id = parent_id
+
+    return False
 
 
 def test_nested_observations():
@@ -402,39 +428,44 @@ def test_decorators_langchain():
 
     langfuse.flush()
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: (
+            trace.session_id == mock_session_id
+            and trace.name == mock_name
+            and {
+                "level_1_function",
+                "level_2_function",
+                "level_3_function",
+                "langchain_operations",
+                "ChatPromptTemplate",
+            }.issubset({observation.name for observation in trace.observations})
+        ),
+    )
     assert len(trace_data.observations) > 2
-
-    # Check correct nesting
-    adjacencies = defaultdict(list)
-    for o in trace_data.observations:
-        adjacencies[o.parent_observation_id].append(o)
-
-    assert len(adjacencies) > 2
 
     # trace parameters if set anywhere in the call stack
     assert trace_data.session_id == mock_session_id
     assert trace_data.name == mock_name
 
-    # Check that the langchain_operations is at the correct level
-    level_1_observation = next(
-        o
-        for o in trace_data.observations
-        if o.parent_observation_id not in [o.id for o in trace_data.observations]
-    )
-    level_2_observation = adjacencies[level_1_observation.id][0]
-    level_3_observation = adjacencies[level_2_observation.id][0]
-    langchain_observation = adjacencies[level_3_observation.id][0]
+    level_1_observation = _get_observation_by_name(trace_data, "level_1_function")
+    level_2_observation = _get_observation_by_name(trace_data, "level_2_function")
+    level_3_observation = _get_observation_by_name(trace_data, "level_3_function")
+    langchain_observation = _get_observation_by_name(trace_data, "langchain_operations")
+    prompt_observation = _get_observation_by_name(trace_data, "ChatPromptTemplate")
 
     assert level_1_observation.name == "level_1_function"
+    assert _is_descendant(trace_data, level_2_observation.id, level_1_observation.id)
     assert level_2_observation.name == "level_2_function"
     assert level_2_observation.metadata["key"] == mock_metadata["key"]
+    assert _is_descendant(trace_data, level_3_observation.id, level_2_observation.id)
     assert level_3_observation.name == "level_3_function"
     assert level_3_observation.metadata["key"] == mock_deep_metadata["key"]
+    assert _is_descendant(trace_data, langchain_observation.id, level_3_observation.id)
     assert langchain_observation.name == "langchain_operations"
 
     # Check that LangChain components are captured
-    assert any([o.name == "ChatPromptTemplate" for o in trace_data.observations])
+    assert _is_descendant(trace_data, prompt_observation.id, langchain_observation.id)
 
 
 def test_get_current_trace_url():
@@ -488,26 +519,37 @@ def test_scoring_observations():
         *mock_args, **mock_kwargs, langfuse_trace_id=mock_trace_id
     )
     langfuse.flush()
-    sleep(1)
 
     assert result == "level_3"  # Wrapped function returns correctly
 
     # ID setting for span or trace
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: {
+            "test-observation-score",
+            "test-trace-score",
+            "another-test-trace-score",
+        }.issubset({score.name for score in trace.scores}),
+    )
     assert (
         len(trace_data.observations) == 3
     )  # Top-most function is trace, so it's not an observations
     assert trace_data.name == mock_name
 
     # Check for correct scoring
-    scores = trace_data.scores
+    scores_by_name = defaultdict(list)
+    for score in trace_data.scores:
+        scores_by_name[score.name].append(score)
 
-    assert len(scores) == 3
+    assert len(scores_by_name["test-trace-score"]) == 1
+    assert len(scores_by_name["another-test-trace-score"]) == 1
+    assert len(scores_by_name["test-observation-score"]) == 1
 
     trace_scores = [
-        s for s in scores if s.trace_id == mock_trace_id and s.observation_id is None
+        scores_by_name["test-trace-score"][0],
+        scores_by_name["another-test-trace-score"][0],
     ]
-    observation_score = [s for s in scores if s.observation_id is not None][0]
+    observation_score = scores_by_name["test-observation-score"][0]
 
     assert any(
         [
@@ -861,27 +903,29 @@ async def test_async_nested_openai_chat_stream():
     assert result == "level_1"  # Wrapped function returns correctly
 
     # ID setting for span or trace
-    trace_data = get_api().trace.get(mock_trace_id)
-    assert len(trace_data.observations) == 3
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: (
+            trace.session_id == mock_session_id
+            and trace.name == mock_name
+            and {
+                "level_1_function",
+                "level_2_function",
+                "OpenAI-generation",
+            }.issubset({observation.name for observation in trace.observations})
+        ),
+    )
+    assert len(trace_data.observations) >= 3
 
     # trace parameters if set anywhere in the call stack
     assert trace_data.session_id == mock_session_id
     assert trace_data.name == mock_name
 
-    # Check correct nesting
-    adjacencies = defaultdict(list)
-    for o in trace_data.observations:
-        adjacencies[o.parent_observation_id or o.trace_id].append(o)
-
-    assert len(adjacencies) == 3
-
-    level_1_observation = next(
-        o
-        for o in trace_data.observations
-        if o.parent_observation_id not in [o.id for o in trace_data.observations]
-    )
-    level_2_observation = adjacencies[level_1_observation.id][0]
-    level_3_observation = adjacencies[level_2_observation.id][0]
+    level_1_observation = _get_observation_by_name(trace_data, "level_1_function")
+    level_2_observation = _get_observation_by_name(trace_data, "level_2_function")
+    level_3_observation = _get_observation_by_name(trace_data, "OpenAI-generation")
+    assert _is_descendant(trace_data, level_2_observation.id, level_1_observation.id)
+    assert _is_descendant(trace_data, level_3_observation.id, level_2_observation.id)
 
     assert level_2_observation.metadata["key"] == mock_metadata["key"]
 
@@ -1008,8 +1052,14 @@ def test_return_dict_for_output():
 
     assert result == mock_output
 
-    trace_data = get_api().trace.get(mock_trace_id)
-    assert trace_data.observations[0].output == mock_output
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: any(
+            observation.name == "function" and observation.output == mock_output
+            for observation in trace.observations
+        ),
+    )
+    assert _get_observation_by_name(trace_data, "function").output == mock_output
 
 
 def test_media():
@@ -1049,7 +1099,21 @@ def test_media():
 
     langfuse.flush()
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: (
+            "@@@langfuseMedia:type=application/pdf|id="
+            in (trace.input or {}).get("context", {}).get("nested", "")
+            and "@@@langfuseMedia:type=application/pdf|id="
+            in (trace.output or {}).get("context", {}).get("nested", "")
+            and any(
+                "@@@langfuseMedia:type=application/pdf|id="
+                in observation.metadata.get("context", {}).get("nested", "")
+                for observation in trace.observations
+                if observation.metadata
+            )
+        ),
+    )
 
     assert (
         "@@@langfuseMedia:type=application/pdf|id="
@@ -1091,7 +1155,15 @@ def test_merge_metadata_and_tags():
 
     langfuse.flush()
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: (
+            trace.metadata is not None
+            and trace.metadata.get("key1") == "value1"
+            and trace.metadata.get("key2") == "value2"
+            and trace.tags == ["tag1", "tag2"]
+        ),
+    )
 
     assert trace_data.metadata["key1"] == "value1"
     assert trace_data.metadata["key2"] == "value2"
@@ -1105,124 +1177,141 @@ def test_multiproject_context_propagation_basic():
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
-    # Verify both instances are registered
-    assert len(LangfuseResourceManager._instances) == 2
+    try:
+        # Verify both instances are registered
+        assert len(LangfuseResourceManager._instances) == 2
 
-    mock_name = "test_multiproject_context_propagation_basic"
-    # Use known public key from environment
-    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
-    # In multi-project setup, must specify which client to use
-    langfuse = get_client(public_key=env_public_key)
-    mock_trace_id = langfuse.create_trace_id()
+        mock_name = "test_multiproject_context_propagation_basic"
+        # Use known public key from environment
+        env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+        # In multi-project setup, must specify which client to use
+        langfuse = get_client(public_key=env_public_key)
+        mock_trace_id = langfuse.create_trace_id()
 
-    @observe(as_type="generation", capture_output=False)
-    def level_3_function():
-        # This function should inherit the public key from level_1_function
-        # and NOT need langfuse_public_key parameter
-        langfuse_client = get_client()
-        langfuse_client.update_current_generation(metadata={"level": "3"})
-        with propagate_attributes(trace_name=mock_name):
-            pass
-        return "level_3"
+        @observe(as_type="generation", capture_output=False)
+        def level_3_function():
+            # This function should inherit the public key from level_1_function
+            # and NOT need langfuse_public_key parameter
+            langfuse_client = get_client()
+            langfuse_client.update_current_generation(metadata={"level": "3"})
+            with propagate_attributes(trace_name=mock_name):
+                pass
+            return "level_3"
 
-    @observe()
-    def level_2_function():
-        # This function should also inherit the public key
-        level_3_function()
-        langfuse_client = get_client()
-        langfuse_client.update_current_span(metadata={"level": "2"})
-        return "level_2"
+        @observe()
+        def level_2_function():
+            # This function should also inherit the public key
+            level_3_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "2"})
+            return "level_2"
 
-    @observe()
-    def level_1_function(*args, **kwargs):
-        # Only this top-level function receives langfuse_public_key
-        level_2_function()
-        langfuse_client = get_client()
-        langfuse_client.update_current_span(metadata={"level": "1"})
-        return "level_1"
+        @observe()
+        def level_1_function(*args, **kwargs):
+            # Only this top-level function receives langfuse_public_key
+            level_2_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "1"})
+            return "level_1"
 
-    result = level_1_function(
-        *mock_args,
-        **mock_kwargs,
-        langfuse_trace_id=mock_trace_id,
-        langfuse_public_key=env_public_key,  # Only provided to top-level function
-    )
+        result = level_1_function(
+            *mock_args,
+            **mock_kwargs,
+            langfuse_trace_id=mock_trace_id,
+            langfuse_public_key=env_public_key,  # Only provided to top-level function
+        )
 
-    # Use the correct client for flushing
-    client1.flush()
+        # Use the correct client for flushing
+        client1.flush()
 
-    assert result == "level_1"
+        assert result == "level_1"
 
-    # Verify trace was created properly
-    trace_data = get_api().trace.get(mock_trace_id)
-    assert len(trace_data.observations) == 3
-    assert trace_data.name == mock_name
-
-    # Reset instances to not leak to other test suites
-    removeMockResourceManagerInstances()
+        # Verify trace was created properly
+        trace_data = wait_for_trace(
+            mock_trace_id,
+            is_result_ready=lambda trace: (
+                trace.name == mock_name and len(trace.observations) == 3
+            ),
+        )
+        assert len(trace_data.observations) == 3
+        assert trace_data.name == mock_name
+    finally:
+        removeMockResourceManagerInstances()
 
 
 def test_multiproject_context_propagation_deep_nesting():
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
-    # Verify both instances are registered
-    assert len(LangfuseResourceManager._instances) == 2
+    try:
+        # Verify both instances are registered
+        assert len(LangfuseResourceManager._instances) == 2
 
-    mock_name = "test_multiproject_context_propagation_deep_nesting"
-    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
-    langfuse = get_client(public_key=env_public_key)
-    mock_trace_id = langfuse.create_trace_id()
+        mock_name = "test_multiproject_context_propagation_deep_nesting"
+        env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+        langfuse = get_client(public_key=env_public_key)
+        mock_trace_id = langfuse.create_trace_id()
 
-    @observe(as_type="generation")
-    def level_4_function():
-        langfuse_client = get_client()
-        langfuse_client.update_current_generation(metadata={"level": "4"})
-        return "level_4"
-
-    @observe()
-    def level_3_function():
-        result = level_4_function()
-        langfuse_client = get_client()
-        langfuse_client.update_current_span(metadata={"level": "3"})
-        return result
-
-    @observe()
-    def level_2_function():
-        result = level_3_function()
-        langfuse_client = get_client()
-        langfuse_client.update_current_span(metadata={"level": "2"})
-        return result
-
-    @observe()
-    def level_1_function(*args, **kwargs):
-        with propagate_attributes(trace_name=mock_name):
-            result = level_2_function()
+        @observe(as_type="generation")
+        def level_4_function():
             langfuse_client = get_client()
-            langfuse_client.update_current_span(metadata={"level": "1"})
+            langfuse_client.update_current_generation(metadata={"level": "4"})
+            return "level_4"
+
+        @observe()
+        def level_3_function():
+            result = level_4_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "3"})
             return result
 
-    result = level_1_function(
-        langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
-    )
-    client1.flush()
+        @observe()
+        def level_2_function():
+            result = level_3_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "2"})
+            return result
 
-    assert result == "level_4"
+        @observe()
+        def level_1_function(*args, **kwargs):
+            with propagate_attributes(trace_name=mock_name):
+                result = level_2_function()
+                langfuse_client = get_client()
+                langfuse_client.update_current_span(metadata={"level": "1"})
+                return result
 
-    trace_data = get_api().trace.get(mock_trace_id)
-    assert len(trace_data.observations) == 4
-    assert trace_data.name == mock_name
+        result = level_1_function(
+            langfuse_trace_id=mock_trace_id, langfuse_public_key=env_public_key
+        )
+        client1.flush()
 
-    # Verify all levels were captured
-    levels = [
-        str(obs.metadata.get("level"))
-        for obs in trace_data.observations
-        if obs.metadata
-    ]
-    assert set(levels) == {"1", "2", "3", "4"}
+        assert result == "level_4"
 
-    # Reset instances to not leak to other test suites
-    removeMockResourceManagerInstances()
+        trace_data = wait_for_trace(
+            mock_trace_id,
+            is_result_ready=lambda trace: (
+                trace.name == mock_name
+                and len(trace.observations) == 4
+                and {"1", "2", "3", "4"}
+                == {
+                    str(observation.metadata.get("level"))
+                    for observation in trace.observations
+                    if observation.metadata
+                }
+            ),
+        )
+        assert len(trace_data.observations) == 4
+        assert trace_data.name == mock_name
+
+        # Verify all levels were captured
+        levels = [
+            str(obs.metadata.get("level"))
+            for obs in trace_data.observations
+            if obs.metadata
+        ]
+        assert set(levels) == {"1", "2", "3", "4"}
+    finally:
+        removeMockResourceManagerInstances()
 
 
 def test_multiproject_context_propagation_override():
@@ -1230,52 +1319,59 @@ def test_multiproject_context_propagation_override():
     client1 = Langfuse()  # Reads from environment
     client2 = Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
-    # Verify both instances are registered
-    assert len(LangfuseResourceManager._instances) == 2
+    try:
+        # Verify both instances are registered
+        assert len(LangfuseResourceManager._instances) == 2
 
-    mock_name = "test_multiproject_context_propagation_override"
-    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
-    langfuse = get_client(public_key=env_public_key)
-    mock_trace_id = langfuse.create_trace_id()
+        mock_name = "test_multiproject_context_propagation_override"
+        env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+        langfuse = get_client(public_key=env_public_key)
+        mock_trace_id = langfuse.create_trace_id()
 
-    primary_public_key = env_public_key
-    override_public_key = "pk-test-project2"
+        primary_public_key = env_public_key
+        override_public_key = "pk-test-project2"
 
-    @observe(as_type="generation")
-    def level_3_function():
-        # This function explicitly overrides the inherited public key
-        langfuse_client = get_client(public_key=override_public_key)
-        langfuse_client.update_current_generation(metadata={"used_override": "true"})
-        return "level_3"
+        @observe(as_type="generation")
+        def level_3_function():
+            # This function explicitly overrides the inherited public key
+            langfuse_client = get_client(public_key=override_public_key)
+            langfuse_client.update_current_generation(
+                metadata={"used_override": "true"}
+            )
+            return "level_3"
 
-    @observe()
-    def level_2_function():
-        # This function should use the overridden key when calling level_3
-        level_3_function(langfuse_public_key=override_public_key)
-        langfuse_client = get_client(public_key=primary_public_key)
-        langfuse_client.update_current_span(metadata={"level": "2"})
-        return "level_2"
+        @observe()
+        def level_2_function():
+            # This function should use the overridden key when calling level_3
+            level_3_function(langfuse_public_key=override_public_key)
+            langfuse_client = get_client(public_key=primary_public_key)
+            langfuse_client.update_current_span(metadata={"level": "2"})
+            return "level_2"
 
-    @observe()
-    def level_1_function(*args, **kwargs):
-        with propagate_attributes(trace_name=mock_name):
-            level_2_function()
-            return "level_1"
+        @observe()
+        def level_1_function(*args, **kwargs):
+            with propagate_attributes(trace_name=mock_name):
+                level_2_function()
+                return "level_1"
 
-    result = level_1_function(
-        langfuse_trace_id=mock_trace_id, langfuse_public_key=primary_public_key
-    )
-    client1.flush()
-    client2.flush()
+        result = level_1_function(
+            langfuse_trace_id=mock_trace_id, langfuse_public_key=primary_public_key
+        )
+        client1.flush()
+        client2.flush()
 
-    assert result == "level_1"
+        assert result == "level_1"
 
-    trace_data = get_api().trace.get(mock_trace_id)
-    assert len(trace_data.observations) == 2
-    assert trace_data.name == mock_name
-
-    # Reset instances to not leak to other test suites
-    removeMockResourceManagerInstances()
+        trace_data = wait_for_trace(
+            mock_trace_id,
+            is_result_ready=lambda trace: (
+                trace.name == mock_name and len(trace.observations) == 2
+            ),
+        )
+        assert len(trace_data.observations) == 2
+        assert trace_data.name == mock_name
+    finally:
+        removeMockResourceManagerInstances()
 
 
 def test_multiproject_context_propagation_no_public_key():
@@ -1339,68 +1435,79 @@ async def test_multiproject_async_context_propagation_basic():
     client1 = Langfuse()  # Reads from environment
     Langfuse(public_key="pk-test-project2", secret_key="sk-test-project2")
 
-    # Verify both instances are registered
-    assert len(LangfuseResourceManager._instances) == 2
+    try:
+        # Verify both instances are registered
+        assert len(LangfuseResourceManager._instances) == 2
 
-    mock_name = "test_multiproject_async_context_propagation_basic"
-    env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
-    langfuse = get_client(public_key=env_public_key)
-    mock_trace_id = langfuse.create_trace_id()
+        mock_name = "test_multiproject_async_context_propagation_basic"
+        env_public_key = os.environ[LANGFUSE_PUBLIC_KEY]
+        langfuse = get_client(public_key=env_public_key)
+        mock_trace_id = langfuse.create_trace_id()
 
-    @observe(as_type="generation", capture_output=False)
-    async def async_level_3_function():
-        # This function should inherit the public key from level_1_function
-        # and NOT need langfuse_public_key parameter
-        await asyncio.sleep(0.01)  # Simulate async work
-        langfuse_client = get_client()
-        langfuse_client.update_current_generation(
-            metadata={"level": "3", "async": True}
+        @observe(as_type="generation", capture_output=False)
+        async def async_level_3_function():
+            # This function should inherit the public key from level_1_function
+            # and NOT need langfuse_public_key parameter
+            await asyncio.sleep(0.01)  # Simulate async work
+            langfuse_client = get_client()
+            langfuse_client.update_current_generation(
+                metadata={"level": "3", "async": True}
+            )
+            with propagate_attributes(trace_name=mock_name):
+                pass
+            return "async_level_3"
+
+        @observe()
+        async def async_level_2_function():
+            # This function should also inherit the public key
+            result = await async_level_3_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "2", "async": True})
+            return result
+
+        @observe()
+        async def async_level_1_function(*args, **kwargs):
+            # Only this top-level function receives langfuse_public_key
+            result = await async_level_2_function()
+            langfuse_client = get_client()
+            langfuse_client.update_current_span(metadata={"level": "1", "async": True})
+            return result
+
+        result = await async_level_1_function(
+            *mock_args,
+            **mock_kwargs,
+            langfuse_trace_id=mock_trace_id,
+            langfuse_public_key=env_public_key,  # Only provided to top-level function
         )
-        with propagate_attributes(trace_name=mock_name):
-            pass
-        return "async_level_3"
 
-    @observe()
-    async def async_level_2_function():
-        # This function should also inherit the public key
-        result = await async_level_3_function()
-        langfuse_client = get_client()
-        langfuse_client.update_current_span(metadata={"level": "2", "async": True})
-        return result
+        # Use the correct client for flushing
+        client1.flush()
 
-    @observe()
-    async def async_level_1_function(*args, **kwargs):
-        # Only this top-level function receives langfuse_public_key
-        result = await async_level_2_function()
-        langfuse_client = get_client()
-        langfuse_client.update_current_span(metadata={"level": "1", "async": True})
-        return result
+        assert result == "async_level_3"
 
-    result = await async_level_1_function(
-        *mock_args,
-        **mock_kwargs,
-        langfuse_trace_id=mock_trace_id,
-        langfuse_public_key=env_public_key,  # Only provided to top-level function
-    )
+        # Verify trace was created properly
+        trace_data = wait_for_trace(
+            mock_trace_id,
+            is_result_ready=lambda trace: (
+                trace.name == mock_name
+                and len(trace.observations) == 3
+                and all(
+                    observation.metadata.get("async")
+                    for observation in trace.observations
+                    if observation.metadata
+                )
+            ),
+        )
+        assert len(trace_data.observations) == 3
+        assert trace_data.name == mock_name
 
-    # Use the correct client for flushing
-    client1.flush()
-
-    assert result == "async_level_3"
-
-    # Verify trace was created properly
-    trace_data = get_api().trace.get(mock_trace_id)
-    assert len(trace_data.observations) == 3
-    assert trace_data.name == mock_name
-
-    # Verify all observations have async metadata
-    async_flags = [
-        obs.metadata.get("async") for obs in trace_data.observations if obs.metadata
-    ]
-    assert all(async_flags)
-
-    # Reset instances to not leak to other test suites
-    removeMockResourceManagerInstances()
+        # Verify all observations have async metadata
+        async_flags = [
+            obs.metadata.get("async") for obs in trace_data.observations if obs.metadata
+        ]
+        assert all(async_flags)
+    finally:
+        removeMockResourceManagerInstances()
 
 
 @pytest.mark.asyncio
@@ -1744,7 +1851,19 @@ def test_sync_generator_context_preservation():
     )
 
     # Verify trace structure
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace(
+        mock_trace_id,
+        is_result_ready=lambda trace: (
+            len(trace.observations) >= 2
+            and {"parent_root", "child_stream"}.issubset(
+                {
+                    observation.name
+                    for observation in trace.observations
+                    if observation.name
+                }
+            )
+        ),
+    )
     assert len(trace_data.observations) == 2
 
     # Verify both observations are present

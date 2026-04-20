@@ -24,6 +24,7 @@ import httpx
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace.export import SpanExporter
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from opentelemetry.trace import Tracer
 
@@ -46,7 +47,7 @@ from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction
 
-from ..version import __version__ as langfuse_version
+from .._version import __version__ as langfuse_version
 
 
 class LangfuseResourceManager:
@@ -98,6 +99,7 @@ class LangfuseResourceManager:
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        span_exporter: Optional[SpanExporter] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -133,6 +135,7 @@ class LangfuseResourceManager:
                     should_export_span=should_export_span,
                     additional_headers=additional_headers,
                     tracer_provider=tracer_provider,
+                    span_exporter=span_exporter,
                 )
 
                 cls._instances[public_key] = instance
@@ -159,6 +162,7 @@ class LangfuseResourceManager:
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        span_exporter: Optional[SpanExporter] = None,
     ) -> None:
         self.public_key = public_key
         self.secret_key = secret_key
@@ -177,6 +181,7 @@ class LangfuseResourceManager:
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.should_export_span = should_export_span
         self.additional_headers = additional_headers
+        self.span_exporter = span_exporter
         self.tracer_provider: Optional[TracerProvider] = None
 
         # OTEL Tracer
@@ -196,6 +201,7 @@ class LangfuseResourceManager:
                 blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                 should_export_span=should_export_span,
                 additional_headers=additional_headers,
+                span_exporter=span_exporter,
             )
             tracer_provider.add_span_processor(langfuse_processor)
 
@@ -398,6 +404,8 @@ class LangfuseResourceManager:
         )
         for media_upload_consumer in self._media_upload_consumers:
             media_upload_consumer.pause()
+
+        self._media_manager.signal_shutdown(count=len(self._media_upload_consumers))
 
         for media_upload_consumer in self._media_upload_consumers:
             try:

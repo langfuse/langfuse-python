@@ -5,10 +5,12 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip" # See documentation for possible values
+  - package-ecosystem: "uv" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 7
     rebase-strategy: "disabled" # use dependabot-rebase-stale
     commit-message:
       prefix: chore
@@ -21,3 +23,19 @@ updates:
       llama-index:
         patterns:
           - "llama-index*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+    rebase-strategy: "disabled"
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
