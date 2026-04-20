@@ -248,6 +248,49 @@ async def test_async_generator_wrapper_aclose_preserves_context() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_generator_wrapper_fallback_preserves_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+    original_create_task = asyncio.create_task
+
+    def create_task_with_type_error(*args: Any, **kwargs: Any) -> asyncio.Task[Any]:
+        if "context" in kwargs:
+            raise TypeError("context argument unsupported")
+
+        return original_create_task(*args, **kwargs)
+
+    monkeypatch.setattr(asyncio, "create_task", create_task_with_type_error)
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield marker.get()
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert await wrapper.__anext__() == "preserved"
+    marker.set("ambient-now")
+
+    await wrapper.aclose()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
+@pytest.mark.asyncio
 async def test_async_generator_wrapper_del_ends_span_when_abandoned() -> None:
     async def generator() -> AsyncGenerator[str, None]:
         yield "item_0"

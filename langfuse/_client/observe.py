@@ -701,7 +701,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
                     context=self.context,
                 )  # type: ignore
             except TypeError:
-                await self.generator.aclose()
+                await self.context.run(asyncio.create_task, self.generator.aclose())
         except (Exception, asyncio.CancelledError) as error:
             self._finalize_with_error(error)
             raise
@@ -718,14 +718,17 @@ class _ContextPreservedAsyncGeneratorWrapper:
         try:
             # Run the generator's __anext__ in the preserved context
             try:
-                # Python 3.10+ approach with context parameter
+                # Python 3.11+ approach with explicit task context
                 item = await asyncio.create_task(
                     self.generator.__anext__(),  # type: ignore
                     context=self.context,
                 )  # type: ignore
             except TypeError:
-                # Python < 3.10 fallback - context parameter not supported
-                item = await self.generator.__anext__()
+                # Python 3.10 fallback - create the task inside the preserved context.
+                item = await self.context.run(
+                    asyncio.create_task,
+                    self.generator.__anext__(),  # type: ignore
+                )
 
             if self.capture_output:
                 self.items.append(item)
