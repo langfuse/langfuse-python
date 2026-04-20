@@ -194,28 +194,41 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             inputs, LANGGRAPH_COMMAND_TYPE
         )
 
-    def _consume_root_trace_context(
+    def _take_root_trace_context(
         self, *, inputs: Any, metadata: Optional[Dict[str, Any]]
-    ) -> Optional[TraceContext]:
+    ) -> tuple[Optional[str], Optional[TraceContext]]:
         if self._trace_context is not None:
-            return self._trace_context
+            return None, self._trace_context
 
         current_span_context = trace.get_current_span().get_span_context()
 
         # Only reuse the pending resume context when this callback run has no active
         # parent span of its own. Nested callbacks should attach normally.
         if current_span_context.is_valid:
-            return None
+            return None, None
 
         # Only explicit LangGraph resumes should consume pending trace linkage.
         if not self._is_langgraph_resume(inputs):
-            return None
+            return None, None
 
         resume_key = self._get_langgraph_resume_key(metadata)
         if resume_key is None:
-            return None
+            return None, None
 
-        return self._resume_trace_context_by_key.pop(resume_key, None)
+        return resume_key, self._resume_trace_context_by_key.pop(resume_key, None)
+
+    def _restore_root_trace_context(
+        self, *, resume_key: Optional[str], trace_context: Optional[TraceContext]
+    ) -> None:
+        if self._trace_context is not None:
+            return
+
+        if resume_key is None or trace_context is None:
+            return
+
+        # Span creation failed after we consumed the pending linkage, so put it
+        # back and let the next retry resume the interrupted trace correctly.
+        self._resume_trace_context_by_key.setdefault(resume_key, trace_context)
 
     def _clear_root_run_resume_key(self, run_id: UUID) -> None:
         # Keep the pending interrupt context until an explicit Command(resume=...)
@@ -362,7 +375,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
         finally:
             if parent_run_id is None:
-                self._reset()
+                self._reset(run_id)
 
     def _parse_langfuse_trace_attributes(
         self, *, metadata: Optional[Dict[str, Any]], tags: Optional[List[str]]
@@ -443,6 +456,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         if parent_run_id is None:
             self._set_root_run_resume_key(run_id, metadata)
 
+        span = None
+        resume_key = None
+        trace_context = None
+
         try:
             self._log_debug_event(
                 "on_chain_start", run_id, parent_run_id, inputs=inputs
@@ -481,10 +498,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
             obs = self._get_parent_observation(parent_run_id)
             if isinstance(obs, Langfuse):
+                resume_key, trace_context = self._take_root_trace_context(
+                    inputs=inputs, metadata=metadata
+                )
                 span = obs.start_observation(
-                    trace_context=self._consume_root_trace_context(
-                        inputs=inputs, metadata=metadata
-                    ),
+                    trace_context=trace_context,
                     name=span_name,
                     as_type=observation_type,
                     metadata=span_metadata,
@@ -511,6 +529,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self.last_trace_id = self._runs[run_id].trace_id
 
         except Exception as e:
+            if span is None:
+                self._restore_root_trace_context(
+                    resume_key=resume_key, trace_context=trace_context
+                )
+                if parent_run_id is None:
+                    self._clear_root_run_resume_key(run_id)
+                    self._exit_propagation_context()
             langfuse_logger.exception(e)
 
     def _register_langfuse_prompt(
@@ -701,7 +726,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         finally:
             if parent_run_id is None:
                 self._exit_propagation_context()
-                self._reset()
+                self._reset(run_id)
 
     def on_chain_error(
         self,
@@ -745,7 +770,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         finally:
             if parent_run_id is None:
                 self._exit_propagation_context()
-                self._reset()
+                self._reset(run_id)
 
     def on_chat_model_start(
         self,
@@ -759,6 +784,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         self._child_to_parent_run_id_map[run_id] = parent_run_id
+        if parent_run_id is None:
+            self._set_root_run_resume_key(run_id, metadata)
 
         try:
             self._log_debug_event(
@@ -824,6 +851,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         self._child_to_parent_run_id_map[run_id] = parent_run_id
+        if parent_run_id is None:
+            self._set_root_run_resume_key(run_id, metadata)
 
         try:
             self._log_debug_event(
@@ -883,6 +912,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         self._child_to_parent_run_id_map[run_id] = parent_run_id
+        if parent_run_id is None:
+            self._set_root_run_resume_key(run_id, metadata)
 
         try:
             self._log_debug_event(
@@ -955,7 +986,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
         finally:
             if parent_run_id is None:
-                self._reset()
+                self._reset(run_id)
 
     def on_tool_end(
         self,
@@ -980,6 +1011,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         except Exception as e:
             langfuse_logger.exception(e)
+        finally:
+            if parent_run_id is None:
+                self._reset(run_id)
 
     def on_tool_error(
         self,
@@ -1016,7 +1050,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
         finally:
             if parent_run_id is None:
-                self._reset()
+                self._reset(run_id)
 
     def __on_llm_action(
         self,
@@ -1199,7 +1233,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
             if parent_run_id is None:
                 self._clear_root_run_resume_key(run_id)
-                self._reset()
+                self._reset(run_id)
 
     def on_llm_error(
         self,
@@ -1237,11 +1271,32 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
         finally:
             if parent_run_id is None:
-                self._reset()
+                self._reset(run_id)
 
-    def _reset(self) -> None:
-        self._child_to_parent_run_id_map = {}
-        self._root_run_resume_key_map = {}
+    def _run_belongs_to_root(self, run_id: UUID, root_run_id: UUID) -> bool:
+        current_run_id: Optional[UUID] = run_id
+        visited: Set[UUID] = set()
+
+        while current_run_id is not None and current_run_id not in visited:
+            if current_run_id == root_run_id:
+                return True
+
+            visited.add(current_run_id)
+            current_run_id = self._child_to_parent_run_id_map.get(current_run_id)
+
+        return False
+
+    def _reset(self, root_run_id: UUID) -> None:
+        run_ids_to_clear = [
+            run_id
+            for run_id in self._child_to_parent_run_id_map
+            if self._run_belongs_to_root(run_id, root_run_id)
+        ]
+
+        for run_id in run_ids_to_clear:
+            self._child_to_parent_run_id_map.pop(run_id, None)
+
+        self._root_run_resume_key_map.pop(root_run_id, None)
 
     def _exit_propagation_context(self) -> None:
         manager = self._propagation_context_manager
