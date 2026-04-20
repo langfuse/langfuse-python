@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -49,6 +50,18 @@ class DummyGeneration:
 
     def end(self) -> None:
         self.end_calls += 1
+
+
+class DummyFallbackAsyncResponse:
+    def __init__(self) -> None:
+        self.close_calls = 0
+        self.aclose_calls = 0
+
+    async def close(self) -> None:
+        self.close_calls += 1
+
+    async def aclose(self) -> None:
+        self.aclose_calls += 1
 
 
 def _make_chat_stream_chunks():
@@ -469,6 +482,42 @@ async def test_openai_async_stream_supports_anext(
     }
 
 
+@pytest.mark.asyncio
+async def test_openai_async_stream_break_still_finalizes_generation(
+    langfuse_memory_client, get_span
+):
+    openai_client = lf_openai.AsyncOpenAI(api_key="test")
+    raw_stream = DummyOpenAIAsyncStream(
+        _make_chat_stream_chunks(), DummyAsyncResponse()
+    )
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=raw_stream):
+        stream = await openai_client.chat.completions.create(
+            name="unit-openai-native-async-stream-break",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            stream=True,
+        )
+
+    async for chunk in stream:
+        assert chunk.choices[0].delta.content == "2"
+        break
+
+    # Async generator finalizers are scheduled across event-loop turns.
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-native-async-stream-break")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
+        is not None
+    )
+
+
 def test_fallback_sync_stream_finalizes_once():
     resource = SimpleNamespace(object="Completions", type="chat")
     generation = DummyGeneration()
@@ -486,6 +535,24 @@ def test_fallback_sync_stream_finalizes_once():
 
     with pytest.raises(StopIteration):
         next(wrapper)
+
+    assert generation.end_calls == 1
+
+
+def test_fallback_sync_stream_exit_finalizes_once():
+    resource = SimpleNamespace(object="Completions", type="chat")
+    generation = DummyGeneration()
+
+    def fallback_stream():
+        yield _make_single_chunk_stream()
+
+    wrapper = lf_openai_module.LangfuseResponseGeneratorSync(
+        resource=resource,
+        response=fallback_stream(),
+        generation=generation,
+    )
+
+    wrapper.__exit__(None, None, None)
 
     assert generation.end_calls == 1
 
@@ -509,6 +576,45 @@ async def test_fallback_async_stream_finalizes_once():
 
     with pytest.raises(StopAsyncIteration):
         await wrapper.__anext__()
+
+    assert generation.end_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_fallback_async_stream_close_and_exit_finalize_once():
+    resource = SimpleNamespace(object="Completions", type="chat")
+    generation = DummyGeneration()
+    response = DummyFallbackAsyncResponse()
+
+    wrapper = lf_openai_module.LangfuseResponseGeneratorAsync(
+        resource=resource,
+        response=response,
+        generation=generation,
+    )
+
+    await wrapper.close()
+    await wrapper.__aexit__(None, None, None)
+
+    assert generation.end_calls == 1
+    assert response.close_calls == 1
+    assert response.aclose_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_fallback_async_stream_aclose_finalizes_once():
+    resource = SimpleNamespace(object="Completions", type="chat")
+    generation = DummyGeneration()
+
+    async def fallback_stream():
+        yield _make_single_chunk_stream()
+
+    wrapper = lf_openai_module.LangfuseResponseGeneratorAsync(
+        resource=resource,
+        response=fallback_stream(),
+        generation=generation,
+    )
+
+    await wrapper.aclose()
 
     assert generation.end_calls == 1
 

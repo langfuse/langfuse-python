@@ -21,7 +21,7 @@ import types
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from inspect import isclass
+from inspect import isawaitable, isclass
 from typing import Any, Optional, cast
 
 from openai._types import NotGiven
@@ -841,6 +841,7 @@ def _install_openai_stream_iteration_hooks() -> None:
 
     if not _openai_stream_iter_hook_installed:
         original_iter = openai.Stream.__iter__
+        original_aiter = openai.AsyncStream.__aiter__
 
         def traced_iter(self: Any) -> Any:
             try:
@@ -850,7 +851,17 @@ def _install_openai_stream_iteration_hooks() -> None:
                 if finalize_once is not None:
                     finalize_once()
 
+        async def traced_aiter(self: Any) -> Any:
+            try:
+                async for item in original_aiter(self):
+                    yield item
+            finally:
+                finalize_once = getattr(self, "_langfuse_finalize_once", None)
+                if finalize_once is not None:
+                    await finalize_once()
+
         setattr(openai.Stream, "__iter__", traced_iter)
+        setattr(openai.AsyncStream, "__aiter__", traced_aiter)
         _openai_stream_iter_hook_installed = True
 
 
@@ -972,6 +983,8 @@ def _instrument_openai_async_stream(
             generation=generation,
             completion_start_time=completion_start_time,
         )
+
+    response._langfuse_finalize_once = finalize_once  # type: ignore[attr-defined]
 
     async def traced_iterator() -> Any:
         nonlocal completion_start_time
@@ -1228,7 +1241,16 @@ class LangfuseResponseGeneratorSync:
         return self.__iter__()
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        pass
+        self.close()
+
+    def close(self) -> None:
+        close = getattr(self.response, "close", None)
+
+        try:
+            if callable(close):
+                close()
+        finally:
+            self._finalize()
 
     def _finalize(self) -> None:
         if self._is_finalized:
@@ -1290,7 +1312,7 @@ class LangfuseResponseGeneratorAsync:
         return self.__aiter__()
 
     async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        pass
+        await self.aclose()
 
     async def _finalize(self) -> None:
         if self._is_finalized:
@@ -1309,11 +1331,37 @@ class LangfuseResponseGeneratorAsync:
 
         Automatically called if the response body is read to completion.
         """
-        await self.response.close()
+        close = getattr(self.response, "close", None)
+        aclose = getattr(self.response, "aclose", None)
+
+        try:
+            if callable(close):
+                result = close()
+                if isawaitable(result):
+                    await result
+            elif callable(aclose):
+                result = aclose()
+                if isawaitable(result):
+                    await result
+        finally:
+            await self._finalize()
 
     async def aclose(self) -> None:
         """Close the response and release the connection.
 
         Automatically called if the response body is read to completion.
         """
-        await self.response.aclose()
+        aclose = getattr(self.response, "aclose", None)
+        close = getattr(self.response, "close", None)
+
+        try:
+            if callable(aclose):
+                result = aclose()
+                if isawaitable(result):
+                    await result
+            elif callable(close):
+                result = close()
+                if isawaitable(result):
+                    await result
+        finally:
+            await self._finalize()
