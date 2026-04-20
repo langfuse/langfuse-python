@@ -23,6 +23,23 @@ def _assert_parent_child(parent_span, child_span) -> None:
     assert child_span.parent.span_id == parent_span.context.span_id
 
 
+def _has_pending_resume_context(handler, resume_key: str) -> bool:
+    return resume_key in handler._pending_resume_trace_contexts
+
+
+def _pending_resume_context_keys(handler) -> list[str]:
+    return handler._pending_resume_trace_contexts.keys()
+
+
+def _get_root_resume_key(handler, root_run_id):
+    root_run_state = handler._root_run_states.get(root_run_id)
+    return None if root_run_state is None else root_run_state.resume_key
+
+
+def _has_run_state(handler, run_id) -> bool:
+    return run_id in handler._run_states
+
+
 def test_chat_model_callback_exports_generation_span(
     langfuse_memory_client, get_span, json_attr
 ):
@@ -478,7 +495,7 @@ def test_control_flow_resume_restores_context_after_failed_root_start(
             run_id=interrupt_run_id,
         )
 
-        assert "thread-1" in handler._resume_trace_context_by_key
+        assert _has_pending_resume_context(handler, "thread-1")
 
         with patch.object(
             handler._langfuse_client,
@@ -492,10 +509,10 @@ def test_control_flow_resume_restores_context_after_failed_root_start(
                 metadata={"thread_id": "thread-1"},
             )
 
-        assert "thread-1" in handler._resume_trace_context_by_key
-        assert failed_resume_run_id not in handler._root_run_resume_key_map
-        assert failed_resume_run_id not in handler._child_to_parent_run_id_map
-        assert handler._propagation_context_manager is None
+        assert _has_pending_resume_context(handler, "thread-1")
+        assert _get_root_resume_key(handler, failed_resume_run_id) is None
+        assert not _has_run_state(handler, failed_resume_run_id)
+        assert failed_resume_run_id not in handler._root_run_states
 
         handler.on_chain_start(
             {"name": "LangGraph"},
@@ -570,7 +587,7 @@ def test_control_flow_resume_ignores_non_resume_commands(
             run_id=goto_run_id,
         )
 
-        assert "thread-1" in handler._resume_trace_context_by_key
+        assert _has_pending_resume_context(handler, "thread-1")
 
         handler.on_chain_start(
             {"name": "LangGraph"},
@@ -651,7 +668,7 @@ def test_root_reset_preserves_other_inflight_resume_keys(
             metadata={"thread_id": "thread-2"},
         )
 
-        assert handler._root_run_resume_key_map[root_two_run_id] == "thread-2"
+        assert _get_root_resume_key(handler, root_two_run_id) == "thread-2"
 
         root_one_context.run(
             handler.on_chain_end,
@@ -659,7 +676,7 @@ def test_root_reset_preserves_other_inflight_resume_keys(
             run_id=root_one_run_id,
         )
 
-        assert handler._root_run_resume_key_map[root_two_run_id] == "thread-2"
+        assert _get_root_resume_key(handler, root_two_run_id) == "thread-2"
 
         root_two_context.run(
             handler.on_chain_error,
@@ -667,7 +684,7 @@ def test_root_reset_preserves_other_inflight_resume_keys(
             run_id=root_two_run_id,
         )
 
-        assert "thread-2" in handler._resume_trace_context_by_key
+        assert _has_pending_resume_context(handler, "thread-2")
 
         root_two_context.run(
             handler.on_chain_start,
@@ -725,16 +742,16 @@ def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
         run_id=tool_error_run_id,
         metadata={"thread_id": "tool-error-thread"},
     )
-    assert handler._root_run_resume_key_map[tool_error_run_id] == "tool-error-thread"
+    assert _get_root_resume_key(handler, tool_error_run_id) == "tool-error-thread"
 
     handler.on_tool_error(
         DummyControlFlowError("tool interrupt"),
         run_id=tool_error_run_id,
     )
 
-    assert "tool-error-thread" in handler._resume_trace_context_by_key
-    assert tool_error_run_id not in handler._root_run_resume_key_map
-    assert tool_error_run_id not in handler._child_to_parent_run_id_map
+    assert _has_pending_resume_context(handler, "tool-error-thread")
+    assert _get_root_resume_key(handler, tool_error_run_id) is None
+    assert not _has_run_state(handler, tool_error_run_id)
 
     handler.on_tool_start(
         {"name": "human_approval"},
@@ -742,15 +759,15 @@ def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
         run_id=tool_end_run_id,
         metadata={"thread_id": "tool-end-thread"},
     )
-    assert handler._root_run_resume_key_map[tool_end_run_id] == "tool-end-thread"
+    assert _get_root_resume_key(handler, tool_end_run_id) == "tool-end-thread"
 
     handler.on_tool_end(
         '{"approved": true}',
         run_id=tool_end_run_id,
     )
 
-    assert tool_end_run_id not in handler._root_run_resume_key_map
-    assert tool_end_run_id not in handler._child_to_parent_run_id_map
+    assert _get_root_resume_key(handler, tool_end_run_id) is None
+    assert not _has_run_state(handler, tool_end_run_id)
 
     handler.on_retriever_start(
         {"name": "knowledge_base"},
@@ -758,16 +775,16 @@ def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
         run_id=retriever_run_id,
         metadata={"thread_id": "retriever-thread"},
     )
-    assert handler._root_run_resume_key_map[retriever_run_id] == "retriever-thread"
+    assert _get_root_resume_key(handler, retriever_run_id) == "retriever-thread"
 
     handler.on_retriever_error(
         DummyControlFlowError("retriever interrupt"),
         run_id=retriever_run_id,
     )
 
-    assert "retriever-thread" in handler._resume_trace_context_by_key
-    assert retriever_run_id not in handler._root_run_resume_key_map
-    assert retriever_run_id not in handler._child_to_parent_run_id_map
+    assert _has_pending_resume_context(handler, "retriever-thread")
+    assert _get_root_resume_key(handler, retriever_run_id) is None
+    assert not _has_run_state(handler, retriever_run_id)
 
 
 def test_pending_resume_contexts_are_capped(langfuse_memory_client, monkeypatch):
@@ -802,8 +819,8 @@ def test_pending_resume_contexts_are_capped(langfuse_memory_client, monkeypatch)
             run_id=run_id,
         )
 
-    assert len(handler._resume_trace_context_by_key) == 4
-    assert list(handler._resume_trace_context_by_key) == [
+    assert len(handler._pending_resume_trace_contexts) == 4
+    assert _pending_resume_context_keys(handler) == [
         "thread-1",
         "thread-2",
         "thread-3",

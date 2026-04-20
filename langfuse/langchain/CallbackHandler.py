@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from contextvars import Token
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Dict,
@@ -103,6 +104,44 @@ except ImportError:
     pass
 
 
+@dataclass
+class _RunState:
+    parent_run_id: Optional[UUID]
+    root_run_id: UUID
+
+
+@dataclass
+class _RootRunState:
+    run_ids: Set[UUID] = field(default_factory=set)
+    resume_key: Optional[str] = None
+    propagation_context_manager: Optional[_AgnosticContextManager] = None
+
+
+class _PendingResumeTraceContextStore:
+    def __init__(self, max_size: int) -> None:
+        self._max_size = max_size
+        self._contexts: OrderedDict[str, TraceContext] = OrderedDict()
+
+    def store(self, *, resume_key: str, trace_context: TraceContext) -> None:
+        self._contexts[resume_key] = trace_context
+        self._contexts.move_to_end(resume_key)
+
+        if len(self._contexts) > self._max_size:
+            self._contexts.popitem(last=False)
+
+    def take(self, resume_key: str) -> Optional[TraceContext]:
+        return self._contexts.pop(resume_key, None)
+
+    def __contains__(self, resume_key: str) -> bool:
+        return resume_key in self._contexts
+
+    def __len__(self) -> int:
+        return len(self._contexts)
+
+    def keys(self) -> List[str]:
+        return list(self._contexts.keys())
+
+
 class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def __init__(
         self,
@@ -143,15 +182,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self._context_tokens: Dict[UUID, Token] = {}
         self._prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self._updated_completion_start_time_memo: Set[UUID] = set()
-        self._propagation_context_manager: Optional[_AgnosticContextManager] = None
         self._trace_context = trace_context
-        # LangGraph resumes as a fresh root callback run after interrupting, so we keep
-        # pending resume contexts keyed by thread/session instead of a single shared slot.
-        self._resume_trace_context_by_key: OrderedDict[str, TraceContext] = (
-            OrderedDict()
+        self._pending_resume_trace_contexts = _PendingResumeTraceContextStore(
+            MAX_PENDING_RESUME_TRACE_CONTEXTS
         )
-        self._root_run_resume_key_map: Dict[UUID, str] = {}
-        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
+        self._run_states: Dict[UUID, _RunState] = {}
+        self._root_run_states: Dict[UUID, _RootRunState] = {}
 
         self.last_trace_id: Optional[str] = None
 
@@ -187,16 +223,62 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         return str(thread_id)
 
-    def _set_root_run_resume_key(
-        self, run_id: UUID, metadata: Optional[Dict[str, Any]]
+    def _track_run(
+        self,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
-        resume_key = self._get_langgraph_resume_key(metadata)
+        if run_id in self._run_states:
+            return
 
-        if resume_key is not None:
-            self._root_run_resume_key_map[run_id] = resume_key
+        if parent_run_id is None:
+            root_run_id = run_id
+            self._root_run_states[root_run_id] = _RootRunState(
+                run_ids={run_id},
+                resume_key=self._get_langgraph_resume_key(metadata),
+            )
+        else:
+            parent_state = self._run_states.get(parent_run_id)
+            root_run_id = (
+                parent_state.root_run_id if parent_state is not None else parent_run_id
+            )
+            root_run_state = self._root_run_states.setdefault(
+                root_run_id, _RootRunState()
+            )
+            root_run_state.run_ids.add(run_id)
+
+        self._run_states[run_id] = _RunState(
+            parent_run_id=parent_run_id,
+            root_run_id=root_run_id,
+        )
+
+    def _get_run_state(self, run_id: UUID) -> Optional[_RunState]:
+        return self._run_states.get(run_id)
+
+    def _get_root_run_state(self, run_id: UUID) -> Optional[_RootRunState]:
+        run_state = self._get_run_state(run_id)
+
+        if run_state is None:
+            return None
+
+        return self._root_run_states.get(run_state.root_run_id)
 
     def _pop_root_run_resume_key(self, run_id: UUID) -> Optional[str]:
-        return self._root_run_resume_key_map.pop(run_id, None)
+        root_run_state = self._get_root_run_state(run_id)
+
+        if root_run_state is None:
+            return None
+
+        resume_key = root_run_state.resume_key
+        root_run_state.resume_key = None
+
+        return resume_key
+
+    def _get_parent_run_id(self, run_id: UUID) -> Optional[UUID]:
+        run_state = self._get_run_state(run_id)
+        return run_state.parent_run_id if run_state is not None else None
 
     def _is_langgraph_resume(self, inputs: Any) -> bool:
         return (
@@ -208,11 +290,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def _store_resume_trace_context(
         self, *, resume_key: str, trace_context: TraceContext
     ) -> None:
-        self._resume_trace_context_by_key[resume_key] = trace_context
-        self._resume_trace_context_by_key.move_to_end(resume_key)
-
-        if len(self._resume_trace_context_by_key) > MAX_PENDING_RESUME_TRACE_CONTEXTS:
-            self._resume_trace_context_by_key.popitem(last=False)
+        self._pending_resume_trace_contexts.store(
+            resume_key=resume_key, trace_context=trace_context
+        )
 
     def _take_root_trace_context(
         self, *, inputs: Any, metadata: Optional[Dict[str, Any]]
@@ -235,7 +315,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         if resume_key is None:
             return None, None
 
-        return resume_key, self._resume_trace_context_by_key.pop(resume_key, None)
+        return resume_key, self._pending_resume_trace_contexts.take(resume_key)
 
     def _restore_root_trace_context(
         self, *, resume_key: Optional[str], trace_context: Optional[TraceContext]
@@ -477,9 +557,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        self._child_to_parent_run_id_map[run_id] = parent_run_id
-        if parent_run_id is None:
-            self._set_root_run_resume_key(run_id, metadata)
+        self._track_run(run_id=run_id, parent_run_id=parent_run_id, metadata=metadata)
 
         span = None
         resume_key = None
@@ -511,7 +589,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     metadata=metadata, tags=tags
                 )
 
-                self._propagation_context_manager = propagate_attributes(
+                propagation_context_manager = propagate_attributes(
                     user_id=parsed_trace_attributes.get("user_id", None),
                     session_id=parsed_trace_attributes.get("session_id", None),
                     tags=parsed_trace_attributes.get("tags", None),
@@ -519,7 +597,13 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     trace_name=parsed_trace_attributes.get("trace_name", None),
                 )
 
-                self._propagation_context_manager.__enter__()
+                root_run_state = self._get_root_run_state(run_id)
+                if root_run_state is not None:
+                    root_run_state.propagation_context_manager = (
+                        propagation_context_manager
+                    )
+
+                propagation_context_manager.__enter__()
 
             obs = self._get_parent_observation(parent_run_id)
             if isinstance(obs, Langfuse):
@@ -559,7 +643,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     resume_key=resume_key, trace_context=trace_context
                 )
                 if parent_run_id is None:
-                    self._exit_propagation_context()
+                    self._exit_propagation_context(run_id)
                     self._reset(run_id)
             langfuse_logger.exception(e)
 
@@ -665,7 +749,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run on agent action."""
-        self._child_to_parent_run_id_map[run_id] = parent_run_id
+        self._track_run(run_id=run_id, parent_run_id=parent_run_id)
 
         try:
             self._log_debug_event(
@@ -739,7 +823,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
                 if parent_run_id is None:
                     self._clear_root_run_resume_key(run_id)
-                    self._exit_propagation_context()
+                    self._exit_propagation_context(run_id)
 
                 span.end()
 
@@ -750,7 +834,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         finally:
             if parent_run_id is None:
-                self._exit_propagation_context()
+                self._exit_propagation_context(run_id)
                 self._reset(run_id)
 
     def on_chain_error(
@@ -786,7 +870,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                         )
                     else:
                         self._clear_root_run_resume_key(run_id)
-                    self._exit_propagation_context()
+                    self._exit_propagation_context(run_id)
 
                 observation.end()
 
@@ -794,7 +878,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             langfuse_logger.exception(e)
         finally:
             if parent_run_id is None:
-                self._exit_propagation_context()
+                self._exit_propagation_context(run_id)
                 self._reset(run_id)
 
     def on_chat_model_start(
@@ -808,9 +892,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        self._child_to_parent_run_id_map[run_id] = parent_run_id
-        if parent_run_id is None:
-            self._set_root_run_resume_key(run_id, metadata)
+        self._track_run(run_id=run_id, parent_run_id=parent_run_id, metadata=metadata)
 
         try:
             self._log_debug_event(
@@ -844,9 +926,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        self._child_to_parent_run_id_map[run_id] = parent_run_id
-        if parent_run_id is None:
-            self._set_root_run_resume_key(run_id, metadata)
+        self._track_run(run_id=run_id, parent_run_id=parent_run_id, metadata=metadata)
 
         try:
             self._log_debug_event(
@@ -875,9 +955,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        self._child_to_parent_run_id_map[run_id] = parent_run_id
-        if parent_run_id is None:
-            self._set_root_run_resume_key(run_id, metadata)
+        self._track_run(run_id=run_id, parent_run_id=parent_run_id, metadata=metadata)
 
         try:
             self._log_debug_event(
@@ -936,9 +1014,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        self._child_to_parent_run_id_map[run_id] = parent_run_id
-        if parent_run_id is None:
-            self._set_root_run_resume_key(run_id, metadata)
+        self._track_run(run_id=run_id, parent_run_id=parent_run_id, metadata=metadata)
 
         try:
             self._log_debug_event(
@@ -1087,9 +1163,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        self._child_to_parent_run_id_map[run_id] = parent_run_id
-        if parent_run_id is None:
-            self._set_root_run_resume_key(run_id, metadata)
+        self._track_run(run_id=run_id, parent_run_id=parent_run_id, metadata=metadata)
 
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
@@ -1113,8 +1187,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     self._deregister_langfuse_prompt(current_parent_run_id)
                     break
                 else:
-                    current_parent_run_id = self._child_to_parent_run_id_map.get(
-                        current_parent_run_id, None
+                    current_parent_run_id = self._get_parent_run_id(
+                        current_parent_run_id
                     )
 
             content = {
@@ -1298,38 +1372,30 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if parent_run_id is None:
                 self._reset(run_id)
 
-    def _run_belongs_to_root(self, run_id: UUID, root_run_id: UUID) -> bool:
-        current_run_id: Optional[UUID] = run_id
-        visited: Set[UUID] = set()
-
-        while current_run_id is not None and current_run_id not in visited:
-            if current_run_id == root_run_id:
-                return True
-
-            visited.add(current_run_id)
-            current_run_id = self._child_to_parent_run_id_map.get(current_run_id)
-
-        return False
-
     def _reset(self, root_run_id: UUID) -> None:
-        run_ids_to_clear = [
-            run_id
-            for run_id in self._child_to_parent_run_id_map
-            if self._run_belongs_to_root(run_id, root_run_id)
-        ]
+        run_state = self._get_run_state(root_run_id)
+        if run_state is None:
+            return
 
-        for run_id in run_ids_to_clear:
-            self._child_to_parent_run_id_map.pop(run_id, None)
+        root_run_state = self._root_run_states.pop(run_state.root_run_id, None)
+        if root_run_state is None:
+            self._run_states.pop(root_run_id, None)
+            return
 
-        self._root_run_resume_key_map.pop(root_run_id, None)
+        for run_id in root_run_state.run_ids:
+            self._run_states.pop(run_id, None)
 
-    def _exit_propagation_context(self) -> None:
-        manager = self._propagation_context_manager
+    def _exit_propagation_context(self, run_id: UUID) -> None:
+        root_run_state = self._get_root_run_state(run_id)
 
+        if root_run_state is None:
+            return
+
+        manager = root_run_state.propagation_context_manager
         if manager is None:
             return
 
-        self._propagation_context_manager = None
+        root_run_state.propagation_context_manager = None
         manager.__exit__(None, None, None)
 
     def __join_tags_and_metadata(
