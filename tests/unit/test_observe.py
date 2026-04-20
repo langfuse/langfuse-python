@@ -137,6 +137,37 @@ def test_sync_generator_wrapper_close_ends_span_without_exhaustion() -> None:
     assert span.updates == []
 
 
+def test_sync_generator_wrapper_close_preserves_context() -> None:
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    def generator() -> Generator[str, None, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedSyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert next(wrapper) == "item_0"
+    marker.set("ambient-now")
+
+    wrapper.close()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
 def test_sync_generator_wrapper_del_ends_span_when_abandoned() -> None:
     def generator() -> Generator[str, None, None]:
         yield "item_0"
@@ -182,6 +213,38 @@ async def test_async_generator_wrapper_aclose_ends_span_without_exhaustion() -> 
 
     assert span.ended == 1
     assert span.updates == []
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_aclose_preserves_context() -> None:
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert await wrapper.__anext__() == "item_0"
+    marker.set("ambient-now")
+
+    await wrapper.aclose()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
 
 
 @pytest.mark.asyncio

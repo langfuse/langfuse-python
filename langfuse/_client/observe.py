@@ -600,7 +600,7 @@ class _ContextPreservedSyncGeneratorWrapper:
             return
 
         try:
-            self.generator.close()
+            self.context.run(self.generator.close)
         except (Exception, asyncio.CancelledError) as error:
             self._finalize_with_error(error)
             raise
@@ -695,7 +695,13 @@ class _ContextPreservedAsyncGeneratorWrapper:
             return
 
         try:
-            await self.generator.aclose()
+            try:
+                await asyncio.create_task(
+                    self.generator.aclose(),
+                    context=self.context,
+                )  # type: ignore
+            except TypeError:
+                await self.generator.aclose()
         except (Exception, asyncio.CancelledError) as error:
             self._finalize_with_error(error)
             raise
