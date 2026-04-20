@@ -135,6 +135,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self._updated_completion_start_time_memo: Set[UUID] = set()
         self._propagation_context_manager: Optional[_AgnosticContextManager] = None
         self._trace_context = trace_context
+        # LangGraph resumes as a fresh root callback run after interrupting, so we keep
+        # just enough trace context to stitch the resume back onto the original trace.
+        self._resume_trace_context: Optional[TraceContext] = None
         self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
 
         self.last_trace_id: Optional[str] = None
@@ -160,6 +163,44 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             current_generation.update(completion_start_time=_get_timestamp())
 
             self._updated_completion_start_time_memo.add(run_id)
+
+    def _consume_root_trace_context(self) -> Optional[TraceContext]:
+        if self._trace_context is not None:
+            return self._trace_context
+
+        current_span_context = trace.get_current_span().get_span_context()
+
+        # Only reuse the pending resume context when this callback run has no active
+        # parent span of its own. Nested callbacks should attach normally.
+        if current_span_context.is_valid:
+            return None
+
+        trace_context = self._resume_trace_context
+        self._resume_trace_context = None
+
+        return trace_context
+
+    def _clear_resume_trace_context(self) -> None:
+        self._resume_trace_context = None
+
+    def _persist_resume_trace_context(self, observation: Any) -> None:
+        if self._trace_context is not None:
+            return
+
+        self._resume_trace_context = {
+            "trace_id": observation.trace_id,
+            "parent_span_id": observation.id,
+        }
+
+    def _get_error_level_and_status_message(
+        self, error: BaseException
+    ) -> tuple[Literal["DEFAULT", "ERROR"], str]:
+        # LangGraph uses GraphBubbleUp subclasses for expected control flow such as
+        # interrupts and handoffs, so they should stay visible without being errors.
+        if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
+            return "DEFAULT", str(error) or type(error).__name__
+
+        return "ERROR", str(error)
 
     def _get_observation_type_from_serialized(
         self, serialized: Optional[Dict[str, Any]], callback_type: str, **kwargs: Any
@@ -256,12 +297,21 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             observation = self._detach_observation(run_id)
 
             if observation is not None:
+                level, status_message = self._get_error_level_and_status_message(error)
                 observation.update(
-                    level="ERROR",
-                    status_message=str(error),
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
+                    ),
+                    status_message=status_message,
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
                 ).end()
+
+                if parent_run_id is None and level == "DEFAULT":
+                    self._persist_resume_trace_context(observation)
+                elif parent_run_id is None:
+                    self._clear_resume_trace_context()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -382,7 +432,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             obs = self._get_parent_observation(parent_run_id)
             if isinstance(obs, Langfuse):
                 span = obs.start_observation(
-                    trace_context=self._trace_context,
+                    trace_context=self._consume_root_trace_context(),
                     name=span_name,
                     as_type=observation_type,
                     metadata=span_metadata,
@@ -586,6 +636,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 )
 
                 if parent_run_id is None:
+                    self._clear_resume_trace_context()
                     self._exit_propagation_context()
 
                 span.end()
@@ -611,10 +662,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> None:
         try:
             self._log_debug_event("on_chain_error", run_id, parent_run_id, error=error)
-            if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
-                level = None
-            else:
-                level = "ERROR"
+            level, status_message = self._get_error_level_and_status_message(error)
 
             observation = self._detach_observation(run_id)
 
@@ -624,12 +672,16 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                         Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
                         level,
                     ),
-                    status_message=str(error) if level else None,
+                    status_message=status_message,
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
                 )
 
                 if parent_run_id is None:
+                    if level == "DEFAULT":
+                        self._persist_resume_trace_context(observation)
+                    else:
+                        self._clear_resume_trace_context()
                     self._exit_propagation_context()
 
                 observation.end()
@@ -739,13 +791,24 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 serialized, "tool", **kwargs
             )
 
-            span = self._get_parent_observation(parent_run_id).start_observation(
-                name=self.get_langchain_run_name(serialized, **kwargs),
-                as_type=observation_type,
-                input=input_str,
-                metadata=meta,
-                level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
-            )
+            parent_observation = self._get_parent_observation(parent_run_id)
+            if isinstance(parent_observation, Langfuse):
+                span = parent_observation.start_observation(
+                    trace_context=self._consume_root_trace_context(),
+                    name=self.get_langchain_run_name(serialized, **kwargs),
+                    as_type=observation_type,
+                    input=input_str,
+                    metadata=meta,
+                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                )
+            else:
+                span = parent_observation.start_observation(
+                    name=self.get_langchain_run_name(serialized, **kwargs),
+                    as_type=observation_type,
+                    input=input_str,
+                    metadata=meta,
+                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
+                )
 
             self._attach_observation(run_id, span)
 
@@ -780,16 +843,30 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             observation_type = self._get_observation_type_from_serialized(
                 serialized, "retriever", **kwargs
             )
-            span = self._get_parent_observation(parent_run_id).start_observation(
-                name=span_name,
-                as_type=observation_type,
-                metadata=span_metadata,
-                input=query,
-                level=cast(
-                    Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                    span_level,
-                ),
-            )
+            parent_observation = self._get_parent_observation(parent_run_id)
+            if isinstance(parent_observation, Langfuse):
+                span = parent_observation.start_observation(
+                    trace_context=self._consume_root_trace_context(),
+                    name=span_name,
+                    as_type=observation_type,
+                    metadata=span_metadata,
+                    input=query,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
+                )
+            else:
+                span = parent_observation.start_observation(
+                    name=span_name,
+                    as_type=observation_type,
+                    metadata=span_metadata,
+                    input=query,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        span_level,
+                    ),
+                )
 
             self._attach_observation(run_id, span)
 
@@ -811,6 +888,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             observation = self._detach_observation(run_id)
 
             if observation is not None:
+                if parent_run_id is None:
+                    self._clear_resume_trace_context()
                 observation.update(
                     output=documents,
                     input=kwargs.get("inputs"),
@@ -833,6 +912,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             observation = self._detach_observation(run_id)
 
             if observation is not None:
+                if parent_run_id is None:
+                    self._clear_resume_trace_context()
                 observation.update(
                     output=output,
                     input=kwargs.get("inputs"),
@@ -854,12 +935,21 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             observation = self._detach_observation(run_id)
 
             if observation is not None:
+                level, status_message = self._get_error_level_and_status_message(error)
                 observation.update(
-                    status_message=str(error),
-                    level="ERROR",
+                    status_message=status_message,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
+                    ),
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
                 ).end()
+
+                if parent_run_id is None and level == "DEFAULT":
+                    self._persist_resume_trace_context(observation)
+                elif parent_run_id is None:
+                    self._clear_resume_trace_context()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -919,9 +1009,17 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "prompt": registered_prompt,
             }
 
-            generation = self._get_parent_observation(parent_run_id).start_observation(
-                as_type="generation", **content
-            )  # type: ignore
+            parent_observation = self._get_parent_observation(parent_run_id)
+            if isinstance(parent_observation, Langfuse):
+                generation = parent_observation.start_observation(
+                    trace_context=self._consume_root_trace_context(),
+                    as_type="generation",
+                    **content,
+                )  # type: ignore
+            else:
+                generation = parent_observation.start_observation(
+                    as_type="generation", **content
+                )  # type: ignore
             self._attach_observation(run_id, generation)
 
             self.last_trace_id = self._runs[run_id].trace_id
@@ -1034,6 +1132,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._updated_completion_start_time_memo.discard(run_id)
 
             if parent_run_id is None:
+                self._clear_resume_trace_context()
                 self._reset()
 
     def on_llm_error(
@@ -1050,12 +1149,21 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             generation = self._detach_observation(run_id)
 
             if generation is not None:
+                level, status_message = self._get_error_level_and_status_message(error)
                 generation.update(
-                    status_message=str(error),
-                    level="ERROR",
+                    status_message=status_message,
+                    level=cast(
+                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                        level,
+                    ),
                     input=kwargs.get("inputs"),
                     cost_details={"total": 0},
                 ).end()
+
+                if parent_run_id is None and level == "DEFAULT":
+                    self._persist_resume_trace_context(generation)
+                elif parent_run_id is None:
+                    self._clear_resume_trace_context()
 
         except Exception as e:
             langfuse_logger.exception(e)

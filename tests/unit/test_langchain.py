@@ -12,6 +12,7 @@ from langchain_openai import ChatOpenAI, OpenAI
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.langchain import CallbackHandler
+from langfuse.langchain.CallbackHandler import CONTROL_FLOW_EXCEPTION_TYPES
 
 
 def _assert_parent_child(parent_span, child_span) -> None:
@@ -169,7 +170,6 @@ def test_chat_model_error_marks_generation_error(langfuse_memory_client, get_spa
         "boom" in span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
     )
 
-
 def test_root_chain_metadata_propagates_trace_name(
     langfuse_memory_client, get_span, find_spans
 ):
@@ -249,3 +249,149 @@ def test_root_chain_exports_when_end_runs_in_copied_context(
     assert root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == (
         "async-root-trace"
     )
+
+
+def test_control_flow_errors_use_default_level_and_keep_status_message(
+    langfuse_memory_client, get_span
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    original_control_flow_types = set(CONTROL_FLOW_EXCEPTION_TYPES)
+    CONTROL_FLOW_EXCEPTION_TYPES.clear()
+    CONTROL_FLOW_EXCEPTION_TYPES.add(DummyControlFlowError)
+
+    try:
+        handler = CallbackHandler()
+
+        tool_run_id = uuid4()
+        retriever_run_id = uuid4()
+        llm_run_id = uuid4()
+        chain_run_id = uuid4()
+
+        handler.on_tool_start(
+            {"name": "human_approval"},
+            "{}",
+            run_id=tool_run_id,
+        )
+        handler.on_tool_error(
+            DummyControlFlowError("tool interrupt"),
+            run_id=tool_run_id,
+        )
+
+        handler.on_retriever_start(
+            {"name": "knowledge_base"},
+            "approval policy",
+            run_id=retriever_run_id,
+        )
+        handler.on_retriever_error(
+            DummyControlFlowError("retriever bubble-up"),
+            run_id=retriever_run_id,
+        )
+
+        handler.on_llm_start(
+            {"name": "TestLLM"},
+            ["need approval"],
+            run_id=llm_run_id,
+            invocation_params={},
+        )
+        handler.on_llm_error(
+            DummyControlFlowError("llm bubble-up"),
+            run_id=llm_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=chain_run_id,
+        )
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt"),
+            run_id=chain_run_id,
+        )
+
+        handler._langfuse_client.flush()
+
+        for span_name, message in [
+            ("human_approval", "tool interrupt"),
+            ("knowledge_base", "retriever bubble-up"),
+            ("TestLLM", "llm bubble-up"),
+            ("LangGraph", "graph interrupt"),
+        ]:
+            span = get_span(span_name)
+            assert (
+                span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]
+                == "DEFAULT"
+            )
+            assert (
+                span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+                == message
+            )
+    finally:
+        CONTROL_FLOW_EXCEPTION_TYPES.clear()
+        CONTROL_FLOW_EXCEPTION_TYPES.update(original_control_flow_types)
+
+
+def test_control_flow_resume_reuses_trace_until_terminal_completion(
+    memory_exporter, langfuse_memory_client
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    original_control_flow_types = set(CONTROL_FLOW_EXCEPTION_TYPES)
+    CONTROL_FLOW_EXCEPTION_TYPES.clear()
+    CONTROL_FLOW_EXCEPTION_TYPES.add(DummyControlFlowError)
+
+    try:
+        handler = CallbackHandler()
+
+        interrupted_run_id = uuid4()
+        resumed_run_id = uuid4()
+        fresh_run_id = uuid4()
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=interrupted_run_id,
+        )
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt"),
+            run_id=interrupted_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"resume": True},
+            run_id=resumed_run_id,
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=resumed_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["fresh invocation"]},
+            run_id=fresh_run_id,
+        )
+        handler.on_chain_end(
+            {"messages": ["completed"]},
+            run_id=fresh_run_id,
+        )
+
+        handler._langfuse_client.flush()
+
+        root_spans = [
+            span
+            for span in memory_exporter.get_finished_spans()
+            if span.name == "LangGraph"
+        ]
+
+        assert len(root_spans) == 3
+        assert root_spans[0].context.trace_id == root_spans[1].context.trace_id
+        assert root_spans[1].parent is not None
+        assert root_spans[1].parent.span_id == root_spans[0].context.span_id
+        assert root_spans[2].context.trace_id != root_spans[1].context.trace_id
+    finally:
+        CONTROL_FLOW_EXCEPTION_TYPES.clear()
+        CONTROL_FLOW_EXCEPTION_TYPES.update(original_control_flow_types)
