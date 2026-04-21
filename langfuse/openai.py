@@ -24,7 +24,7 @@ from datetime import datetime
 from inspect import isclass
 from typing import Any, Optional, cast
 
-from openai._types import NotGiven
+from openai._types import NotGiven, Omit
 from packaging.version import Version
 from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
@@ -417,6 +417,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
     if (
         metadata is not None
         and not isinstance(metadata, NotGiven)
+        and not isinstance(metadata, Omit)
         and not isinstance(metadata, dict)
     ):
         if isinstance(metadata, BaseModel):
