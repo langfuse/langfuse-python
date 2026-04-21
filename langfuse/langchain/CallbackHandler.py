@@ -370,6 +370,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 )
 
                 self._propagation_context_manager = propagate_attributes(
+                    trace_name=parsed_trace_attributes.get("trace_name") or span_name,
                     user_id=parsed_trace_attributes.get("user_id", None),
                     session_id=parsed_trace_attributes.get("session_id", None),
                     tags=parsed_trace_attributes.get("tags", None),
