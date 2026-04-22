@@ -30,18 +30,15 @@ class TestRunnerContextDefaults:
         ctx = _make_ctx(
             data=ctx_data,
             dataset_version=ctx_version,
-            name="ctx-name",
-            run_name="ctx-run",
             metadata={"sha": "abc123"},
         )
 
-        result = ctx.run_experiment(task=_noop_task)
+        result = ctx.run_experiment(name="exp", task=_noop_task)
 
         assert result == "result-sentinel"
         ctx.client.run_experiment.assert_called_once()
         kwargs = ctx.client.run_experiment.call_args.kwargs
-        assert kwargs["name"] == "ctx-name"
-        assert kwargs["run_name"] == "ctx-run"
+        assert kwargs["name"] == "exp"
         assert kwargs["data"] is ctx_data
         assert kwargs["metadata"] == {"sha": "abc123"}
         assert kwargs["_dataset_version"] == ctx_version
@@ -51,22 +48,20 @@ class TestRunnerContextDefaults:
         ctx = _make_ctx(
             data=[{"input": "ctx"}],
             dataset_version=datetime(2026, 1, 1),
-            name="ctx-name",
-            run_name="ctx-run",
         )
 
         override_data = [{"input": "override"}]
         override_version = datetime(2026, 6, 6)
         ctx.run_experiment(
+            name="exp",
             task=_noop_task,
-            name="call-name",
             run_name="call-run",
             data=override_data,
             _dataset_version=override_version,
         )
 
         kwargs = ctx.client.run_experiment.call_args.kwargs
-        assert kwargs["name"] == "call-name"
+        assert kwargs["name"] == "exp"
         assert kwargs["run_name"] == "call-run"
         assert kwargs["data"] is override_data
         assert kwargs["_dataset_version"] == override_version
@@ -76,10 +71,11 @@ class TestRunnerContextMetadataMerge:
     def test_user_keys_win_on_collision(self):
         ctx = _make_ctx(
             data=[{"input": "a"}],
-            name="n",
             metadata={"sha": "abc", "branch": "main"},
         )
-        ctx.run_experiment(task=_noop_task, metadata={"sha": "def", "pr": "42"})
+        ctx.run_experiment(
+            name="exp", task=_noop_task, metadata={"sha": "def", "pr": "42"}
+        )
         assert ctx.client.run_experiment.call_args.kwargs["metadata"] == {
             "sha": "def",
             "branch": "main",
@@ -87,47 +83,40 @@ class TestRunnerContextMetadataMerge:
         }
 
     def test_context_metadata_only(self):
-        ctx = _make_ctx(
-            data=[{"input": "a"}], name="n", metadata={"sha": "abc"}
-        )
-        ctx.run_experiment(task=_noop_task)
+        ctx = _make_ctx(data=[{"input": "a"}], metadata={"sha": "abc"})
+        ctx.run_experiment(name="exp", task=_noop_task)
         assert ctx.client.run_experiment.call_args.kwargs["metadata"] == {"sha": "abc"}
 
     def test_call_metadata_only(self):
-        ctx = _make_ctx(data=[{"input": "a"}], name="n")
-        ctx.run_experiment(task=_noop_task, metadata={"pr": "1"})
+        ctx = _make_ctx(data=[{"input": "a"}])
+        ctx.run_experiment(name="exp", task=_noop_task, metadata={"pr": "1"})
         assert ctx.client.run_experiment.call_args.kwargs["metadata"] == {"pr": "1"}
 
     def test_both_none_stays_none(self):
-        ctx = _make_ctx(data=[{"input": "a"}], name="n")
-        ctx.run_experiment(task=_noop_task)
+        ctx = _make_ctx(data=[{"input": "a"}])
+        ctx.run_experiment(name="exp", task=_noop_task)
         assert ctx.client.run_experiment.call_args.kwargs["metadata"] is None
 
 
 class TestRunnerContextLocalItems:
     def test_local_items_pass_through_as_context_default(self):
         items = [{"input": "x", "expected_output": "y"}]
-        ctx = _make_ctx(data=items, name="n")
-        ctx.run_experiment(task=_noop_task)
+        ctx = _make_ctx(data=items)
+        ctx.run_experiment(name="exp", task=_noop_task)
         assert ctx.client.run_experiment.call_args.kwargs["data"] is items
 
     def test_local_items_pass_through_as_call_override(self):
-        ctx = _make_ctx(name="n")
+        ctx = _make_ctx()
         items = [{"input": "x"}]
-        ctx.run_experiment(task=_noop_task, data=items)
+        ctx.run_experiment(name="exp", task=_noop_task, data=items)
         assert ctx.client.run_experiment.call_args.kwargs["data"] is items
 
 
 class TestRunnerContextValidation:
-    def test_missing_name_raises(self):
-        ctx = _make_ctx(data=[{"input": "a"}])
-        with pytest.raises(ValueError, match="name"):
-            ctx.run_experiment(task=_noop_task)
-
     def test_missing_data_raises(self):
-        ctx = _make_ctx(name="n")
+        ctx = _make_ctx()
         with pytest.raises(ValueError, match="data"):
-            ctx.run_experiment(task=_noop_task)
+            ctx.run_experiment(name="exp", task=_noop_task)
 
 
 class TestRegressionError:
@@ -155,7 +144,14 @@ class TestRegressionError:
         assert "0.78" in str(exc)
         assert "0.9" in str(exc)
 
-    def test_user_message_wins(self):
+    def test_free_form_message(self):
+        exc = RegressionError(
+            result=MagicMock(),
+            message="custom explanation",
+        )
+        assert str(exc) == "custom explanation"
+
+    def test_message_wins_over_structured(self):
         exc = RegressionError(
             result=MagicMock(),
             metric="avg_accuracy",
@@ -164,19 +160,33 @@ class TestRegressionError:
             message="custom explanation",
         )
         assert str(exc) == "custom explanation"
+        assert exc.metric == "avg_accuracy"
+        assert exc.value == 0.5
+        assert exc.threshold == 0.9
+
+    def test_partial_structured_falls_back_to_default(self):
+        """The structured overload requires ``metric`` and ``value`` together.
+
+        If a caller bypasses the type checker and passes only one, we fall
+        back to the default message rather than rendering misleading
+        ``None`` placeholders in the PR comment.
+        """
+        exc = RegressionError(result=MagicMock(), metric="avg_accuracy")  # type: ignore[call-overload]
+        assert str(exc) == "Experiment regression detected"
 
 
 class TestSignatureDriftGuard:
     """Fails loudly if ``Langfuse.run_experiment`` grows a parameter that is
     not threaded through ``RunnerContext.run_experiment``.
 
-    The four action-relaxed params (``name``, ``run_name``, ``data``,
-    ``_dataset_version``) are allowed to diverge: the RunnerContext variant
-    must be the ``Optional[...]`` of the client annotation so the action can
-    inject them.
+    ``data`` is the only genuinely relaxed parameter: it is required on the
+    client but optional on the RunnerContext so the action can inject it.
+    ``run_name`` and ``_dataset_version`` are already ``Optional`` on the
+    client and must match as-is. ``name`` is required on both — the action
+    supports a directory of experiments, so each script must name itself.
     """
 
-    RELAXED_PARAMS = {"name", "run_name", "data", "_dataset_version"}
+    RELAXED_PARAMS = {"data"}
 
     # `CompositeEvaluatorFunction` is only imported under TYPE_CHECKING in
     # ``langfuse.experiment`` to break the circular dependency with
