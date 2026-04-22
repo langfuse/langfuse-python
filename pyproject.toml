@@ -37,7 +37,7 @@ dev = [
     "tenacity>=9.1.4",
 ]
 docs = [
-    "pdoc>=15.0.4,<16",
+    "pdoc>=15.0.4,<17",
 ]
 
 [build-system]
