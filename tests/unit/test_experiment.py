@@ -1,4 +1,4 @@
-"""Tests for ``RunnerContext`` and ``RegressionError`` in ``langfuse.experiment``."""
+"""Tests for ``langfuse.experiment`` — ``RunnerContext`` and ``RegressionError``."""
 
 import inspect
 import typing
