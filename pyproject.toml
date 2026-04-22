@@ -32,7 +32,7 @@ dev = [
     "langchain-openai>=0.0.5,<0.4",
     "langchain>=1,<2",
     "langgraph>=1,<2",
-    "autoevals>=0.0.130,<0.1",
+    "autoevals>=0.0.130,<0.3",
     "opentelemetry-instrumentation-threading>=0.59b0,<1",
     "tenacity>=9.1.4",
 ]
