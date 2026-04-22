@@ -1,14 +1,16 @@
-"""Tests for ``langfuse.ci`` — ``RunnerContext`` and ``RegressionError``."""
+"""Tests for ``RunnerContext`` and ``RegressionError`` in ``langfuse.experiment``."""
 
 import inspect
+import typing
 from datetime import datetime
-from typing import Dict
+from typing import get_type_hints
 from unittest.mock import MagicMock
 
 import pytest
 
 from langfuse import RegressionError, RunnerContext
 from langfuse._client.client import Langfuse
+from langfuse.batch_evaluation import CompositeEvaluatorFunction
 
 
 def _noop_task(*, item, **kwargs):  # pragma: no cover - never invoked via mock
@@ -176,34 +178,42 @@ class TestSignatureDriftGuard:
 
     RELAXED_PARAMS = {"name", "run_name", "data", "_dataset_version"}
 
-    def test_no_divergence(self):
-        client_params = self._params(Langfuse.run_experiment, skip_self=True)
-        ctx_params = self._params(RunnerContext.run_experiment, skip_self=True)
+    # `CompositeEvaluatorFunction` is only imported under TYPE_CHECKING in
+    # ``langfuse.experiment`` to break the circular dependency with
+    # ``langfuse.batch_evaluation``, so its forward-ref must be resolved
+    # explicitly when inspecting annotations.
+    LOCALNS = {"CompositeEvaluatorFunction": CompositeEvaluatorFunction}
 
-        assert set(client_params) == set(ctx_params), (
+    def test_no_divergence(self):
+        client_param_names = self._param_names(Langfuse.run_experiment)
+        ctx_param_names = self._param_names(RunnerContext.run_experiment)
+
+        assert client_param_names == ctx_param_names, (
             "RunnerContext.run_experiment params do not match "
             "Langfuse.run_experiment. Missing: "
-            f"{set(client_params) - set(ctx_params)}. "
-            f"Extra: {set(ctx_params) - set(client_params)}."
+            f"{client_param_names - ctx_param_names}. "
+            f"Extra: {ctx_param_names - client_param_names}."
         )
 
-        for name, client_param in client_params.items():
-            ctx_param = ctx_params[name]
-            client_ann = client_param.annotation
-            ctx_ann = ctx_param.annotation
+        client_hints = get_type_hints(Langfuse.run_experiment)
+        ctx_hints = get_type_hints(
+            RunnerContext.run_experiment, localns=self.LOCALNS
+        )
+
+        for name in client_param_names:
+            client_ann = client_hints.get(name, inspect.Parameter.empty)
+            ctx_ann = ctx_hints.get(name, inspect.Parameter.empty)
 
             if name in self.RELAXED_PARAMS:
-                # RunnerContext version must be Optional[<client_ann>]
-                # Already-optional client annotations (run_name,
-                # _dataset_version) just need to match as-is.
+                # RunnerContext version must be Optional[<client_ann>].
+                # Already-optional client annotations (``run_name``,
+                # ``_dataset_version``) just need to match as-is.
                 if self._is_optional(client_ann):
                     assert ctx_ann == client_ann, (
                         f"param `{name}`: expected {client_ann}, got {ctx_ann}"
                     )
                 else:
-                    from typing import Optional
-
-                    assert ctx_ann == Optional[client_ann], (
+                    assert ctx_ann == typing.Optional[client_ann], (
                         f"param `{name}`: expected Optional[{client_ann}], "
                         f"got {ctx_ann}"
                     )
@@ -214,18 +224,15 @@ class TestSignatureDriftGuard:
                 )
 
     @staticmethod
-    def _params(func, *, skip_self: bool) -> Dict[str, inspect.Parameter]:
-        sig = inspect.signature(func)
+    def _param_names(func) -> set:
         return {
-            name: p
-            for name, p in sig.parameters.items()
-            if not (skip_self and name == "self")
+            name
+            for name in inspect.signature(func).parameters
+            if name != "self"
         }
 
     @staticmethod
     def _is_optional(annotation) -> bool:
-        import typing
-
         origin = typing.get_origin(annotation)
         args = typing.get_args(annotation)
         return origin is typing.Union and type(None) in args

@@ -8,8 +8,7 @@ from langfuse.batch_evaluation import (
     EvaluatorStats,
     MapperFunction,
 )
-from langfuse.ci import RegressionError, RunnerContext
-from langfuse.experiment import Evaluation
+from langfuse.experiment import Evaluation, RegressionError, RunnerContext
 
 from ._client import client as _client_module
 from ._client.attributes import LangfuseOtelSpanAttributes
