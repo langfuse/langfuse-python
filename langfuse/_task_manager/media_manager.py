@@ -84,10 +84,8 @@ class MediaManager:
         max_levels = 10
 
         def _process_data_recursively(data: Any, level: int) -> Any:
-            if id(data) in seen or level > max_levels:
+            if level > max_levels:
                 return data
-
-            seen.add(id(data))
 
             if isinstance(data, LangfuseMedia):
                 self._process_media(
@@ -175,6 +173,24 @@ class MediaManager:
                     key: _process_data_recursively(value, level + 1)
                     for key, value in data.items()
                 }
+
+            if hasattr(data, "model_dump") and callable(data.model_dump):
+                # Pydantic v2 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                return _process_data_recursively(data.model_dump(), level + 1)
+
+            if hasattr(data, "dict") and callable(data.dict) and hasattr(data, "__fields__"):
+                # Pydantic v1 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                return _process_data_recursively(data.dict(), level + 1)
 
             return data
 
