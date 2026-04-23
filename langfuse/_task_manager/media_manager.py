@@ -202,7 +202,12 @@ class MediaManager:
                 seen.add(id(data))
 
                 try:
-                    return _process_data_recursively(data.model_dump(), level + 1)
+                    try:
+                        dumped = data.model_dump()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
                 finally:
                     seen.discard(id(data))
 
@@ -214,7 +219,12 @@ class MediaManager:
                 seen.add(id(data))
 
                 try:
-                    return _process_data_recursively(data.dict(), level + 1)
+                    try:
+                        dumped = data.dict()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
                 finally:
                     seen.discard(id(data))
 
