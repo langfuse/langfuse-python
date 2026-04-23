@@ -166,22 +166,45 @@ class MediaManager:
                 return copied
 
             if isinstance(data, list):
-                return [_process_data_recursively(item, level + 1) for item in data]
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return [_process_data_recursively(item, level + 1) for item in data]
+                finally:
+                    seen.discard(id(data))
 
             if isinstance(data, dict):
-                return {
-                    key: _process_data_recursively(value, level + 1)
-                    for key, value in data.items()
-                }
+                if id(data) in seen:
+                    return data
 
-            if hasattr(data, "model_dump") and callable(data.model_dump):
+                seen.add(id(data))
+
+                try:
+                    return {
+                        key: _process_data_recursively(value, level + 1)
+                        for key, value in data.items()
+                    }
+                finally:
+                    seen.discard(id(data))
+
+            if (
+                hasattr(data, "__pydantic_fields__")
+                and hasattr(data, "model_dump")
+                and callable(data.model_dump)
+            ):
                 # Pydantic v2 BaseModel
                 if id(data) in seen:
                     return data
 
                 seen.add(id(data))
 
-                return _process_data_recursively(data.model_dump(), level + 1)
+                try:
+                    return _process_data_recursively(data.model_dump(), level + 1)
+                finally:
+                    seen.discard(id(data))
 
             if hasattr(data, "dict") and callable(data.dict) and hasattr(data, "__fields__"):
                 # Pydantic v1 BaseModel
@@ -190,7 +213,10 @@ class MediaManager:
 
                 seen.add(id(data))
 
-                return _process_data_recursively(data.dict(), level + 1)
+                try:
+                    return _process_data_recursively(data.dict(), level + 1)
+                finally:
+                    seen.discard(id(data))
 
             return data
 
