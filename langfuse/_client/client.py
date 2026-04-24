@@ -38,7 +38,11 @@ from opentelemetry.util._decorator import (
 from packaging.version import Version
 from typing_extensions import deprecated
 
-from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    _flatten_and_serialize_metadata_values,
+    _serialize,
+)
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     ObservationTypeGenerationLike,
@@ -2791,10 +2795,14 @@ class Langfuse:
                 propagated_experiment_attributes = PropagatedExperimentAttributes(
                     experiment_id=experiment_id,
                     experiment_name=experiment_run_name,
-                    experiment_metadata=_serialize(experiment_metadata),
+                    experiment_metadata=_flatten_and_serialize_metadata_values(
+                        experiment_metadata
+                    ),
                     experiment_dataset_id=dataset_id,
                     experiment_item_id=experiment_item_id,
-                    experiment_item_metadata=_serialize(item_metadata),
+                    experiment_item_metadata=_flatten_and_serialize_metadata_values(
+                        item_metadata if isinstance(item_metadata, dict) else None
+                    ),
                     experiment_item_root_observation_id=span.id,
                 )
 
