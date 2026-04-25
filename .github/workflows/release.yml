@@ -47,32 +47,35 @@ jobs:
     steps:
       - name: Verify branch
         run: |
-          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
             echo "❌ Error: Releases can only be triggered from main branch"
-            echo "Current ref: ${{ github.ref }}"
+            echo "Current ref: ${GITHUB_REF}"
             exit 1
           fi
 
       - name: Confirm major release
         if: ${{ inputs.version == 'major' || inputs.version == 'premajor' }}
         run: |
-          if [ "${{ inputs.confirm_major }}" != "RELEASE MAJOR" ]; then
+          if [ "${INPUTS_CONFIRM_MAJOR}" != "RELEASE MAJOR" ]; then
             echo "❌ For major/premajor releases, set confirm_major to RELEASE MAJOR"
             exit 1
           fi
+        env:
+          INPUTS_CONFIRM_MAJOR: ${{ inputs.confirm_major }}
 
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_ACCESS_TOKEN }}
+          persist-credentials: false
 
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
         with:
           version: "0.11.2"
           python-version: "3.12"
-          enable-cache: true
+          enable-cache: false
 
       - name: Configure Git
         env:
@@ -94,10 +97,10 @@ jobs:
       - name: Calculate new version
         id: new-version
         run: |
-          current_version="${{ steps.current-version.outputs.version }}"
-          version_type="${{ inputs.version }}"
-          prerelease_type="${{ inputs.prerelease_type }}"
-          prerelease_increment="${{ inputs.prerelease_increment }}"
+          current_version="${STEPS_CURRENT_VERSION_OUTPUTS_VERSION}"
+          version_type="${INPUTS_VERSION}"
+          prerelease_type="${INPUTS_PRERELEASE_TYPE}"
+          prerelease_increment="${INPUTS_PRERELEASE_INCREMENT}"
 
           # Extract base version (strip any pre-release suffix like a1, b2, rc1)
           base_version=$(echo "$current_version" | sed -E 's/(a|b|rc)[0-9]+$//')
@@ -195,18 +198,27 @@ jobs:
           echo "version=$new_version" >> $GITHUB_OUTPUT
           echo "is_prerelease=$is_prerelease" >> $GITHUB_OUTPUT
           echo "New version: $new_version (prerelease: $is_prerelease)"
+        env:
+          STEPS_CURRENT_VERSION_OUTPUTS_VERSION: ${{ steps.current-version.outputs.version }}
+          INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_PRERELEASE_TYPE: ${{ inputs.prerelease_type }}
+          INPUTS_PRERELEASE_INCREMENT: ${{ inputs.prerelease_increment }}
 
       - name: Check if tag already exists
         run: |
-          if git rev-parse "v${{ steps.new-version.outputs.version }}" >/dev/null 2>&1; then
-            echo "❌ Error: Tag v${{ steps.new-version.outputs.version }} already exists"
+          if git rev-parse "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}" >/dev/null 2>&1; then
+            echo "❌ Error: Tag v${STEPS_NEW_VERSION_OUTPUTS_VERSION} already exists"
             exit 1
           fi
-          echo "✅ Tag v${{ steps.new-version.outputs.version }} does not exist"
+          echo "✅ Tag v${STEPS_NEW_VERSION_OUTPUTS_VERSION} does not exist"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Update version in pyproject.toml
         run: |
-          uv version ${{ steps.new-version.outputs.version }}
+          uv version ${STEPS_NEW_VERSION_OUTPUTS_VERSION}
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Verify version consistency
         run: |
@@ -214,12 +226,14 @@ jobs:
 
           echo "pyproject.toml version: $pyproject_version"
 
-          if [ "$pyproject_version" != "${{ steps.new-version.outputs.version }}" ]; then
+          if [ "$pyproject_version" != "${STEPS_NEW_VERSION_OUTPUTS_VERSION}" ]; then
             echo "❌ Error: Version in files doesn't match expected version"
             exit 1
           fi
 
           echo "✅ Versions are consistent: $pyproject_version"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Build package
         run: uv build --no-sources
@@ -250,7 +264,7 @@ jobs:
           ls -lh dist/
 
           # Verify the version in the built artifacts matches
-          expected_version="${{ steps.new-version.outputs.version }}"
+          expected_version="${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
           wheel_file=$(ls dist/*.whl | head -1)
           if ! echo "$wheel_file" | grep -q "$expected_version"; then
             echo "❌ Error: Wheel filename doesn't contain expected version $expected_version"
@@ -258,6 +272,8 @@ jobs:
             exit 1
           fi
           echo "✅ Artifact version verified"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Smoke test wheel
         run: |
@@ -270,36 +286,42 @@ jobs:
       - name: Commit version changes
         run: |
           git add pyproject.toml uv.lock
-          git commit -m "chore: release v${{ steps.new-version.outputs.version }}"
+          git commit -m "chore: release v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Create and push tag
         id: push-tag
         run: |
-          git tag "v${{ steps.new-version.outputs.version }}"
+          git tag "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
           git push origin main
-          git push origin "v${{ steps.new-version.outputs.version }}"
+          git push origin "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Publish to PyPI
         id: publish-pypi
         run: uv publish --trusted-publishing always
 
       - name: Create GitHub Release
-        id: create-release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
-        with:
-          tag_name: v${{ steps.new-version.outputs.version }}
-          name: v${{ steps.new-version.outputs.version }}
-          generate_release_notes: true
-          prerelease: ${{ steps.new-version.outputs.is_prerelease == 'true' }}
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
+        run: |
+          prerelease_flag=""
+          if [ "${IS_PRERELEASE}" = "true" ]; then
+            prerelease_flag="--prerelease"
+          fi
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --generate-notes \
+            $prerelease_flag \
+            dist/*.whl dist/*.tar.gz
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          VERSION: ${{ steps.new-version.outputs.version }}
+          IS_PRERELEASE: ${{ steps.new-version.outputs.is_prerelease }}
 
       - name: Notify Slack on success
         if: success()
-        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
           webhook-type: incoming-webhook
@@ -383,7 +405,7 @@ jobs:
 
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGINEERING }}
           webhook-type: incoming-webhook

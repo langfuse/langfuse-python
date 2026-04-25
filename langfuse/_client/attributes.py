@@ -164,6 +164,32 @@ def _serialize(obj: Any) -> Optional[str]:
     return json.dumps(obj, cls=EventSerializer)
 
 
+def _flatten_and_serialize_metadata_values(
+    metadata: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, str]]:
+    if metadata is None:
+        return None
+
+    flattened_metadata: Dict[str, str] = {}
+
+    def flatten_value(path: str, value: Any) -> None:
+        if isinstance(value, dict):
+            for nested_key, nested_value in value.items():
+                flatten_value(f"{path}.{nested_key}", nested_value)
+
+            return
+
+        serialized_value = _serialize(value)
+
+        if serialized_value is not None:
+            flattened_metadata[path] = serialized_value
+
+    for key, value in metadata.items():
+        flatten_value(str(key), value)
+
+    return flattened_metadata
+
+
 def _flatten_and_serialize_metadata(
     metadata: Any, type: Literal["observation", "trace"]
 ) -> dict:

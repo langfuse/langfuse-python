@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "4.0.6"
+version = "4.5.1"
 description = "A client library for accessing langfuse"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
@@ -34,6 +34,7 @@ dev = [
     "langgraph>=1,<2",
     "autoevals>=0.0.130,<0.1",
     "opentelemetry-instrumentation-threading>=0.59b0,<1",
+    "tenacity>=9.1.4",
 ]
 docs = [
     "pdoc>=15.0.4,<16",
@@ -52,6 +53,12 @@ module-root = ""
 
 [tool.pytest.ini_options]
 log_cli = true
+markers = [
+    "unit: deterministic tests that run without a Langfuse server",
+    "e2e: tests that require a real Langfuse server or persisted backend behaviour",
+    "serial_e2e: e2e tests that must not share server concurrency with the rest of the suite",
+    "live_provider: tests that call live model providers and run as a dedicated CI suite",
+]
 
 [tool.mypy]
 python_version = "3.12"

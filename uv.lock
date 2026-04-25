@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-03-25T20:04:08.521428164Z"
+exclude-newer = "2026-04-17T15:21:35.979946599Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -554,7 +554,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "4.0.6"
+version = "4.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "backoff" },
@@ -583,6 +583,7 @@ dev = [
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
     { name = "ruff" },
+    { name = "tenacity" },
 ]
 docs = [
     { name = "pdoc" },
@@ -616,6 +617,7 @@ dev = [
     { name = "pytest-timeout", specifier = ">=2.1.0,<3" },
     { name = "pytest-xdist", specifier = ">=3.3.1,<4" },
     { name = "ruff", specifier = ">=0.15.2,<0.16" },
+    { name = "tenacity", specifier = ">=9.1.4" },
 ]
 docs = [{ name = "pdoc", specifier = ">=15.0.4,<16" }]
 

@@ -1,19 +1,48 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+from queue import Queue
+from types import SimpleNamespace
+from typing import Sequence
+from unittest.mock import Mock
+
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
 from langfuse import Langfuse
 from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
+from langfuse._task_manager.media_manager import MediaManager
+from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
+from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
 
 
-def test_get_client_preserves_all_settings():
+class NoOpSpanExporter(SpanExporter):
+    """Minimal exporter used to verify configuration propagation."""
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self) -> None:
+        pass
+
+
+def test_get_client_preserves_all_settings(monkeypatch):
     """Test that get_client() preserves environment and all client settings."""
     with LangfuseResourceManager._lock:
         LangfuseResourceManager._instances.clear()
 
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-comprehensive-default")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-comprehensive-default")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "http://localhost:3000")
+
     def should_export(span):
         return span.name != "drop"
 
+    span_exporter = NoOpSpanExporter()
+
     settings = {
+        "public_key": "pk-comprehensive",
+        "secret_key": "sk-comprehensive",
         "environment": "test-env",
         "release": "v1.2.3",
         "timeout": 30,
@@ -21,6 +50,7 @@ def test_get_client_preserves_all_settings():
         "sample_rate": 0.8,
         "should_export_span": should_export,
         "additional_headers": {"X-Custom": "value"},
+        "span_exporter": span_exporter,
     }
 
     original_client = Langfuse(**settings)
@@ -36,6 +66,7 @@ def test_get_client_preserves_all_settings():
     assert rm.sample_rate == settings["sample_rate"]
     assert rm.should_export_span is should_export
     assert rm.additional_headers == settings["additional_headers"]
+    assert rm.span_exporter is span_exporter
 
     original_client.shutdown()
 
@@ -49,6 +80,9 @@ def test_get_client_multiple_clients_preserve_different_settings():
     def should_export_b(span):
         return span.name.startswith("b")
 
+    exporter_a = NoOpSpanExporter()
+    exporter_b = NoOpSpanExporter()
+
     # Settings for client A
     settings_a = {
         "public_key": "pk-comprehensive-a",
@@ -58,6 +92,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 10,
         "sample_rate": 0.5,
         "should_export_span": should_export_a,
+        "span_exporter": exporter_a,
     }
 
     # Settings for client B
@@ -69,6 +104,7 @@ def test_get_client_multiple_clients_preserve_different_settings():
         "timeout": 20,
         "sample_rate": 0.9,
         "should_export_span": should_export_b,
+        "span_exporter": exporter_b,
     }
 
     client_a = Langfuse(**settings_a)
@@ -91,6 +127,74 @@ def test_get_client_multiple_clients_preserve_different_settings():
         assert retrieved_b._resources.release == settings_b["release"]
         assert retrieved_a._resources.should_export_span is should_export_a
         assert retrieved_b._resources.should_export_span is should_export_b
+        assert retrieved_a._resources.span_exporter is exporter_a
+        assert retrieved_b._resources.span_exporter is exporter_b
 
     client_a.shutdown()
     client_b.shutdown()
+
+
+def test_score_ingestion_consumer_pause_wakes_blocked_thread():
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=Queue(),
+        identifier=0,
+        client=Mock(),
+        public_key="pk-test",
+        flush_interval=30,
+    )
+
+    consumer.start()
+    consumer.pause()
+    consumer.join(timeout=0.5)
+
+    assert not consumer.is_alive()
+
+
+def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
+    media_manager = MediaManager(
+        api_client=Mock(),
+        httpx_client=Mock(),
+        media_upload_queue=Queue(),
+    )
+    consumer = MediaUploadConsumer(identifier=0, media_manager=media_manager)
+
+    consumer.start()
+    consumer.pause()
+    media_manager.signal_shutdown()
+    consumer.join(timeout=0.5)
+
+    assert not consumer.is_alive()
+
+
+def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_all():
+    events = []
+
+    class FakeConsumer:
+        def __init__(self, identifier):
+            self._identifier = identifier
+
+        def pause(self):
+            events.append(("pause", self._identifier))
+
+        def join(self):
+            events.append(("join", self._identifier))
+
+    class FakeMediaManager:
+        def signal_shutdown(self, *, count):
+            events.append(("signal_shutdown", count))
+
+    fake_resource_manager = SimpleNamespace(
+        _media_upload_consumers=[FakeConsumer(0), FakeConsumer(1)],
+        _ingestion_consumers=[],
+        _media_manager=FakeMediaManager(),
+    )
+
+    LangfuseResourceManager._stop_and_join_consumer_threads(fake_resource_manager)
+
+    assert events == [
+        ("pause", 0),
+        ("pause", 1),
+        ("signal_shutdown", 2),
+        ("join", 0),
+        ("join", 1),
+    ]

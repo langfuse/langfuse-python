@@ -54,10 +54,17 @@ class TestOTelBase:
     @pytest.fixture(scope="function", autouse=True)
     def cleanup_otel(self):
         """Reset OpenTelemetry state between tests."""
-        original_provider = trace_api.get_tracer_provider()
+        from opentelemetry.util._once import Once
+
+        trace_api._TRACER_PROVIDER = None
+        trace_api._PROXY_TRACER_PROVIDER = trace_api.ProxyTracerProvider()
+        trace_api._TRACER_PROVIDER_SET_ONCE = Once()
+
         yield
-        trace_api.set_tracer_provider(original_provider)
         LangfuseResourceManager.reset()
+        trace_api._TRACER_PROVIDER = None
+        trace_api._PROXY_TRACER_PROVIDER = trace_api.ProxyTracerProvider()
+        trace_api._TRACER_PROVIDER_SET_ONCE = Once()
 
     @pytest.fixture
     def memory_exporter(self):
@@ -97,7 +104,7 @@ class TestOTelBase:
                 self,
                 span_exporter=memory_exporter,
                 max_export_batch_size=512,
-                schedule_delay_millis=5000,
+                schedule_delay_millis=1,
             )
 
         monkeypatch.setattr(
@@ -1870,7 +1877,7 @@ class TestMetadataHandling(TestOTelBase):
             update = random.choice(updates)
 
             # Sleep a tiny bit to simulate work and increase chances of thread interleaving
-            time.sleep(random.uniform(0.001, 0.01))
+            time.sleep(random.uniform(0.0005, 0.001))
 
             # Apply the update to current_metadata (in a real system, this would update OTEL span)
             with metadata_lock:
@@ -2001,7 +2008,7 @@ class TestMultiProjectSetup(TestOTelBase):
                 self,
                 span_exporter=exporter,
                 max_export_batch_size=512,
-                schedule_delay_millis=5000,
+                schedule_delay_millis=1,
             )
 
         monkeypatch.setattr(
@@ -2118,7 +2125,7 @@ class TestMultiProjectSetup(TestOTelBase):
                     metadata={"project": "project1", "index": i},
                 )
                 # Small sleep to ensure overlap with other thread
-                time.sleep(0.01)
+                time.sleep(0.001)
                 span.end()
 
         def create_spans_project2():
@@ -2128,7 +2135,7 @@ class TestMultiProjectSetup(TestOTelBase):
                     metadata={"project": "project2", "index": i},
                 )
                 # Small sleep to ensure overlap with other thread
-                time.sleep(0.01)
+                time.sleep(0.001)
                 span.end()
 
         # Start threads
@@ -2378,7 +2385,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
                 self,
                 span_exporter=exporter,
                 max_export_batch_size=512,
-                schedule_delay_millis=5000,
+                schedule_delay_millis=1,
             )
 
         monkeypatch.setattr(
@@ -2757,7 +2764,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
             child_span = parent_span.start_observation(name=f"async-task-{task_id}")
 
             # Simulate async work
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
 
             # Update span with results
             child_span.update(
@@ -2948,7 +2955,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
 
             # Define async tasks that update different parts of metadata
             async def update_temperature():
-                await asyncio.sleep(0.1)  # Simulate some async work
+                await asyncio.sleep(0.01)  # Simulate some async work
                 main_span.update(
                     metadata={
                         "llm_config": {
@@ -2960,7 +2967,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
                 )
 
             async def update_model():
-                await asyncio.sleep(0.05)  # Simulate some async work
+                await asyncio.sleep(0.005)  # Simulate some async work
                 main_span.update(
                     metadata={
                         "llm_config": {
@@ -2970,7 +2977,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
                 )
 
             async def add_context_length():
-                await asyncio.sleep(0.15)  # Simulate some async work
+                await asyncio.sleep(0.015)  # Simulate some async work
                 main_span.update(
                     metadata={
                         "llm_config": {
@@ -2982,7 +2989,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
                 )
 
             async def update_user_id():
-                await asyncio.sleep(0.08)  # Simulate some async work
+                await asyncio.sleep(0.008)  # Simulate some async work
                 main_span.update(
                     metadata={
                         "request_info": {
@@ -3349,6 +3356,7 @@ class TestOtelIdGeneration(TestOTelBase):
             public_key="test-public-key",
             secret_key="test-secret-key",
             base_url="http://test-host",
+            tracing_enabled=False,
         )
 
         return client

@@ -4,15 +4,17 @@ import time
 from typing import Any, Dict, List
 
 import pytest
+from opentelemetry import trace as otel_trace_api
 
 from langfuse import get_client
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.experiment import (
     Evaluation,
     ExperimentData,
     ExperimentItem,
     ExperimentItemResult,
 )
-from tests.utils import create_uuid, get_api
+from tests.support.utils import create_uuid, get_api, wait_for_trace
 
 
 @pytest.fixture
@@ -133,6 +135,63 @@ def test_run_experiment_on_local_dataset(sample_dataset):
         assert trace.metadata["experiment_name"] == "Euro capitals", (
             f"Trace {trace_id} metadata should have correct experiment_name"
         )
+
+
+def test_run_experiment_flattens_large_metadata_for_server_ingestion():
+    """Server ingestion handles flattened experiment metadata on non-SDK child spans."""
+    langfuse_client = get_client()
+    external_tracer = otel_trace_api.get_tracer("ai.langfuse-python.e2e")
+    external_span_name = "external-experiment-metadata-child-" + create_uuid()[:8]
+
+    experiment_metadata = {
+        "mode": "offline",
+        "job_name": "agent-eval/PR-4",
+        "build_url": "https://example.com/job/agent-eval-example/job/PR-4",
+        "agent_name": "agent-eval-example",
+    }
+
+    def task_with_external_child(*, item: ExperimentItem, **kwargs: Dict[str, Any]):
+        with external_tracer.start_as_current_span(external_span_name) as span:
+            span.set_attribute("gen_ai.operation.name", "experiment-metadata-e2e")
+
+        return "processed"
+
+    result = langfuse_client.run_experiment(
+        name="Flattened Experiment Metadata " + create_uuid()[:8],
+        data=[{"input": "test input", "expected_output": "processed"}],
+        task=task_with_external_child,
+        metadata=experiment_metadata,
+    )
+
+    langfuse_client.flush()
+
+    trace_id = result.item_results[0].trace_id
+    assert trace_id is not None
+
+    trace = wait_for_trace(
+        trace_id,
+        is_result_ready=lambda fetched_trace: any(
+            observation.name == external_span_name
+            for observation in fetched_trace.observations
+        ),
+    )
+
+    assert trace.metadata is not None
+    for metadata_key, metadata_value in experiment_metadata.items():
+        assert trace.metadata[metadata_key] == metadata_value
+
+    external_observation = next(
+        observation
+        for observation in trace.observations
+        if observation.name == external_span_name
+    )
+    external_metadata = external_observation.metadata or {}
+
+    assert not any(
+        key == LangfuseOtelSpanAttributes.EXPERIMENT_METADATA
+        or key.startswith(f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.")
+        for key in external_metadata
+    )
 
 
 def test_run_experiment_on_langfuse_dataset():
@@ -786,13 +845,15 @@ def test_boolean_score_types():
     time.sleep(3)
 
     # Verify scores are persisted via API with correct data types
-    api = get_api()
     for i, item_result in enumerate(result.item_results):
         trace_id = item_result.trace_id
         assert trace_id is not None, f"Item {i} should have a trace_id"
 
         # Fetch trace from API to verify score persistence
-        trace = api.trace.get(trace_id)
+        trace = wait_for_trace(
+            trace_id,
+            is_result_ready=lambda trace: len(trace.scores) > 0,
+        )
         assert trace is not None, f"Trace {trace_id} should exist"
 
         for score in trace.scores:
