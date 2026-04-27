@@ -25,6 +25,7 @@ This repository contains the Langfuse Python SDK.
 - `tests/live_provider/`: live OpenAI / LangChain provider tests
 - `tests/support/`: shared helpers for e2e tests
 - `scripts/select_e2e_shard.py`: CI shard selector for `tests/e2e`
+- `scripts/codex/`: Codex cloud/worktree bootstrap and shared quick checks
 
 ## Working Style
 
@@ -34,6 +35,8 @@ This repository contains the Langfuse Python SDK.
 - Keep repo-shared instructions here. Keep personal or machine-specific notes out of version control.
 - Keep tests independent and parallel-safe by default.
 - For bug fixes, prefer writing or identifying the failing test first, confirm the failure, then implement the fix.
+- For complex or ambiguous tasks, plan first, identify the likely verification path, then implement.
+- Before final handoff, review the diff for correctness, regressions, missing tests, and accidental generated-file edits.
 
 ## Setup And Quality Commands
 
@@ -43,6 +46,7 @@ uv run pre-commit install
 uv run --frozen ruff check .
 uv run --frozen ruff format .
 uv run --frozen mypy langfuse --no-error-summary
+bash scripts/codex/quick-check.sh
 ```
 
 ## Test Commands
@@ -65,6 +69,18 @@ uv run --frozen pytest -n 4 --dist worksteal tests/live_provider -m "live_provid
 # Single test
 uv run --frozen pytest tests/unit/test_resource_manager.py::test_pause_signals_score_consumer_shutdown
 ```
+
+Minimum verification matrix:
+
+| Change scope | Minimum verification |
+| --- | --- |
+| Docs or comments only | `uv run --frozen ruff format --check .` if Python files changed |
+| Python source only | `uv run --frozen ruff check .` + `uv run --frozen mypy langfuse --no-error-summary` + targeted unit tests |
+| Unit-test-only change | targeted `uv run --frozen pytest ...` for the changed tests |
+| Shutdown, flushing, worker-thread, or OTEL-heavy change | targeted resource-manager/OTEL tests plus affected integration tests when relevant |
+| OpenAI or LangChain instrumentation | targeted unit tests using exporter-local assertions; add e2e/live-provider coverage only when unit tests cannot cover behavior |
+| Generated API client or public API contract | upstream Fern/OpenAPI regeneration path plus targeted SDK serialization/deserialization tests |
+| CI, sharding, or bootstrap | relevant script test plus CI workflow review against this file's CI contract |
 
 ## Test Topology
 
@@ -96,6 +112,7 @@ The main CI workflow currently runs:
 - `tests/unit` on a Python 3.10-3.14 matrix
 - `tests/e2e` in 2 mechanical shards plus a serial subset inside each shard
 - `tests/live_provider` as one always-on suite
+- PR title validation for Conventional Commits
 
 If you change the e2e split:
 
@@ -113,6 +130,7 @@ If you change CI bootstrap:
 - Keep changes scoped. Avoid unrelated refactors.
 - Prefer `LANGFUSE_BASE_URL`; `LANGFUSE_HOST` is deprecated and is only kept for compatibility tests.
 - If you touch `langfuse/api/`, regenerate it from the upstream Fern/OpenAPI source instead of hand-editing files.
+- If you change public SDK behavior, update examples, README snippets, or generated reference docs when they would otherwise become stale.
 - If you touch shutdown, flushing, or worker-thread behavior, run the relevant resource-manager and OTEL-heavy tests.
 - If you change OpenAI or LangChain instrumentation, keep as much coverage as possible in `tests/unit` using exporter-local assertions, and leave only the minimal necessary coverage in `tests/e2e` / `tests/live_provider`.
 - Never commit secrets or credentials.
@@ -120,9 +138,11 @@ If you change CI bootstrap:
 
 ## Commit And PR Rules
 
-- Commit messages and PR titles should follow Conventional Commits: `type(scope): description` or `type: description`.
+- Commit messages and PR titles must follow Conventional Commits: `type(scope): description` or `type: description`.
+- Allowed common types include `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, and `security`.
 - Keep commits focused and atomic.
-- In PR descriptions, list the main verification commands you ran.
+- Before opening a PR, self-review the diff and check `code_review.md` for the repo-specific review checklist.
+- In PR descriptions, list the main verification commands you ran and call out any skipped checks with the reason.
 
 ## Python-Specific Notes
 
