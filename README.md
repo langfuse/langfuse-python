@@ -20,4 +20,4 @@ pip install langfuse
 
 ## Docs
 
-Please [see our docs](https://langfuse.com/docs/sdk/python/sdk-v3) for detailed information on this SDK.
+Please [see our docs](https://langfuse.com/docs/observability/sdk/python/overview) for detailed information on this SDK.
