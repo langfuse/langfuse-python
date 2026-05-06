@@ -2394,15 +2394,22 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
             result.run_name,
         )
+        for metadata_key, metadata_value in experiment_metadata.items():
+            self.verify_span_attribute(
+                first_root,
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.{metadata_key}",
+                metadata_value,
+            )
+
         self.verify_span_attribute(
             first_root,
-            LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
-            _serialize(experiment_metadata),
+            f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.item_type",
+            "test",
         )
         self.verify_span_attribute(
             first_root,
-            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
-            _serialize({"item_type": "test", "priority": "high"}),
+            f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.priority",
+            "high",
         )
 
         # Environment should be set to sdk-experiment
@@ -2437,11 +2444,12 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
                 result.run_name,
             )
-            self.verify_span_attribute(
-                child_span,
-                LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
-                _serialize(experiment_metadata),
-            )
+            for metadata_key, metadata_value in experiment_metadata.items():
+                self.verify_span_attribute(
+                    child_span,
+                    f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.{metadata_key}",
+                    metadata_value,
+                )
             self.verify_span_attribute(
                 child_span,
                 LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
@@ -2622,11 +2630,12 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
         # Should have experiment metadata
-        self.verify_span_attribute(
-            first_root,
-            LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
-            _serialize(experiment_metadata),
-        )
+        for metadata_key, metadata_value in experiment_metadata.items():
+            self.verify_span_attribute(
+                first_root,
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.{metadata_key}",
+                metadata_value,
+            )
 
         # Environment should be set to sdk-experiment
         self.verify_span_attribute(
@@ -2658,17 +2667,23 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             )
 
             # Experiment metadata should be propagated
-            self.verify_span_attribute(
-                child_span,
-                LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
-                _serialize(experiment_metadata),
-            )
+            for metadata_key, metadata_value in experiment_metadata.items():
+                self.verify_span_attribute(
+                    child_span,
+                    f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.{metadata_key}",
+                    metadata_value,
+                )
 
             # Item metadata should be propagated
             self.verify_span_attribute(
                 child_span,
-                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
-                _serialize({"source": "dataset", "index": 0}),
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.source",
+                "dataset",
+            )
+            self.verify_span_attribute(
+                child_span,
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.index",
+                "0",
             )
 
             # Environment should be propagated to children
@@ -2821,19 +2836,21 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         # Verify child span has both experiment and item metadata propagated
         child_span = self.get_span_by_name(memory_exporter, "metadata-child")
 
-        # Verify experiment metadata is serialized and propagated
-        self.verify_span_attribute(
-            child_span,
-            LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
-            _serialize(experiment_metadata),
-        )
+        # Verify experiment metadata is flattened and propagated
+        for metadata_key, metadata_value in experiment_metadata.items():
+            self.verify_span_attribute(
+                child_span,
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.{metadata_key}",
+                _serialize(metadata_value),
+            )
 
-        # Verify item metadata is serialized and propagated
-        self.verify_span_attribute(
-            child_span,
-            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
-            _serialize(item_metadata),
-        )
+        # Verify item metadata is flattened and propagated
+        for metadata_key, metadata_value in item_metadata.items():
+            self.verify_span_attribute(
+                child_span,
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.{metadata_key}",
+                _serialize(metadata_value),
+            )
 
         # Verify environment is propagated to child
         self.verify_span_attribute(
@@ -2841,6 +2858,50 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             LangfuseOtelSpanAttributes.ENVIRONMENT,
             LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
         )
+
+    def test_experiment_metadata_values_are_validated_individually(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        """Experiment metadata is flattened so large combined dicts still propagate."""
+
+        caplog.set_level("WARNING", logger="langfuse")
+
+        experiment_metadata = {
+            "job_name": "j" * 150,
+            "build_url": "b" * 150,
+            "mode": "offline",
+        }
+
+        local_data = [{"input": "test", "expected_output": "success"}]
+
+        def task_with_child(*, item, **kwargs):
+            child = langfuse_client.start_observation(name="large-metadata-child")
+            child.end()
+            return "result"
+
+        langfuse_client.run_experiment(
+            name="Large Metadata Test",
+            data=local_data,
+            task=task_with_child,
+            metadata=experiment_metadata,
+        )
+
+        langfuse_client.flush()
+
+        child_span = self.get_span_by_name(memory_exporter, "large-metadata-child")
+
+        for metadata_key, metadata_value in experiment_metadata.items():
+            self.verify_span_attribute(
+                child_span,
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.{metadata_key}",
+                metadata_value,
+            )
+
+        self.verify_missing_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
+        )
+        assert "experiment_metadata' value is over 200 characters" not in caplog.text
 
 
 class TestPropagateAttributesTraceName(TestPropagateAttributesBase):

@@ -4,48 +4,100 @@
 
 ### Install dependencies
 
-```
-uv sync
+```bash
+uv sync --locked
 ```
 
-### Add Pre-commit
+### Add pre-commit
 
-```
+```bash
 uv run pre-commit install
 ```
 
-### Type Checking
+### Quality checks
 
-To run type checking on the langfuse package, run:
-```sh
-uv run mypy langfuse --no-error-summary
+```bash
+uv run --frozen ruff check .
+uv run --frozen ruff format .
+uv run --frozen mypy langfuse --no-error-summary
+```
+
+For a broad local confidence check, run:
+
+```bash
+bash scripts/codex/quick-check.sh
 ```
 
 ### Tests
 
-#### Setup
+Unit tests do not require a running Langfuse server:
 
-- Add .env based on .env.template
+```bash
+uv run --frozen pytest -n auto --dist worksteal tests/unit
+```
 
-#### Run
+E2E tests require a running Langfuse server and environment variables based on `.env.template`:
 
-- Run all
+```bash
+uv run --frozen pytest -n 4 --dist worksteal tests/e2e -m "not serial_e2e"
+uv run --frozen pytest tests/e2e -m "serial_e2e"
+```
 
-  ```
-  uv run --env-file .env pytest -s -v --log-cli-level=INFO
-  ```
+Live-provider tests make real provider calls and require provider API keys:
 
-- Run a specific test
+```bash
+uv run --frozen pytest -n 4 --dist worksteal tests/live_provider -m "live_provider"
+```
 
-  ```
-  uv run --env-file .env pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py::test_flush
-  ```
+Run a specific test with:
 
-- E2E tests involving OpenAI and Serp API are usually skipped, remove skip decorators in [tests/test_langchain.py](tests/test_langchain.py) to run them.
+```bash
+uv run --frozen pytest tests/unit/test_resource_manager.py::test_pause_signals_score_consumer_shutdown
+```
 
-### Update openapi spec
+## Codex Cloud Setup
 
-A PR with the changes is automatically created upon changing the Spec in the langfuse repo.
+This repository includes repo-owned Codex setup so agents can start from a reproducible environment.
+
+Recommended Codex UI configuration:
+
+1. Create a Codex cloud environment for this repository.
+2. Set the setup script to:
+
+   ```bash
+   bash scripts/codex/setup.sh
+   ```
+
+3. Set the maintenance script to:
+
+   ```bash
+   bash scripts/codex/maintenance.sh
+   ```
+
+4. Keep agent internet access disabled by default, or allow only the domains required for the task.
+5. Add secrets and environment variables in the Codex UI instead of committing them.
+
+## Pull Requests
+
+PR titles and commit messages must follow Conventional Commits:
+
+```text
+type(scope): description
+type: description
+```
+
+Common types include `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, and `security`.
+
+Before opening a PR:
+
+- Self-review the diff and use `code_review.md` for the repo-specific checklist.
+- Keep changes focused and avoid unrelated refactors.
+- Add or update tests for behavior changes.
+- List the verification commands you ran in the PR description.
+
+### Update OpenAPI spec
+
+The generated API client in `langfuse/api/` must not be hand-edited. Regenerate it from the upstream Fern/OpenAPI source.
 
 ### Publish release
 

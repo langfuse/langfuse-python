@@ -8,7 +8,7 @@ from langfuse.batch_evaluation import (
     EvaluatorStats,
     MapperFunction,
 )
-from langfuse.experiment import Evaluation
+from langfuse.experiment import Evaluation, RegressionError, RunnerContext
 
 from ._client import client as _client_module
 from ._client.attributes import LangfuseOtelSpanAttributes
@@ -63,6 +63,8 @@ __all__ = [
     "EvaluatorStats",
     "BatchEvaluationResumeToken",
     "BatchEvaluationResult",
+    "RunnerContext",
+    "RegressionError",
     "__version__",
     "is_default_export_span",
     "is_langfuse_span",

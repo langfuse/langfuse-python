@@ -6,7 +6,9 @@ and result formatting.
 """
 
 import asyncio
+from datetime import datetime
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Dict,
@@ -15,11 +17,16 @@ from typing import (
     Protocol,
     TypedDict,
     Union,
+    overload,
 )
 
 from langfuse.api import DatasetItem
 from langfuse.logger import langfuse_logger as logger
 from langfuse.types import ExperimentScoreType
+
+if TYPE_CHECKING:
+    from langfuse._client.client import Langfuse
+    from langfuse.batch_evaluation import CompositeEvaluatorFunction
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -1049,3 +1056,152 @@ def create_evaluator_from_autoevals(
         )
 
     return langfuse_evaluator
+
+
+class RunnerContext:
+    """Wraps :meth:`Langfuse.run_experiment` with CI-injected defaults.
+
+    Intended for use with the ``langfuse/experiment-action`` GitHub Action
+    (https://github.com/langfuse/experiment-action). The action builds a
+    ``RunnerContext`` before invoking the user's ``experiment(context)``
+    function. Defaults set here (dataset, metadata tags) are applied when
+    the user omits them on the :meth:`run_experiment` call; users can
+    override any default by passing the corresponding argument explicitly.
+    """
+
+    def __init__(
+        self,
+        *,
+        client: "Langfuse",
+        data: Optional[ExperimentData] = None,
+        dataset_version: Optional[datetime] = None,
+        metadata: Optional[Dict[str, str]] = None,
+    ):
+        """Build a ``RunnerContext`` populated with defaults for ``run_experiment``.
+
+        Typically called by the ``langfuse/experiment-action`` GitHub Action,
+        not by end users directly. Every field except ``client`` is optional:
+        fields left as ``None`` simply mean the corresponding argument must be
+        supplied on the :meth:`run_experiment` call.
+
+        Args:
+            client: Initialized Langfuse SDK client used to execute the
+                experiment. The action creates this from the
+                ``langfuse_public_key`` / ``langfuse_secret_key`` /
+                ``langfuse_base_url`` inputs.
+            data: Default dataset items to run the experiment on. Accepts
+                either ``List[LocalExperimentItem]`` or ``List[DatasetItem]``.
+                Injected by the action when ``dataset_name`` is configured.
+                If ``None``, the user must pass ``data=`` to
+                :meth:`run_experiment`.
+            dataset_version: Optional pinned dataset version. Injected by the
+                action when ``dataset_version`` is configured.
+            metadata: Default metadata attached to every experiment trace and
+                the dataset run. The action injects GitHub-sourced tags (SHA,
+                PR link, workflow run link, branch, GH user, etc.). Merged
+                with any ``metadata`` passed to :meth:`run_experiment`, with
+                user-supplied keys winning on collision.
+        """
+        self.client = client
+        self.data = data
+        self.dataset_version = dataset_version
+        self.metadata = metadata
+
+    def run_experiment(
+        self,
+        *,
+        name: str,
+        run_name: Optional[str] = None,
+        description: Optional[str] = None,
+        data: Optional[ExperimentData] = None,
+        task: TaskFunction,
+        evaluators: List[EvaluatorFunction] = [],
+        composite_evaluator: Optional["CompositeEvaluatorFunction"] = None,
+        run_evaluators: List[RunEvaluatorFunction] = [],
+        max_concurrency: int = 50,
+        metadata: Optional[Dict[str, str]] = None,
+        _dataset_version: Optional[datetime] = None,
+    ) -> ExperimentResult:
+        resolved_data = data if data is not None else self.data
+        if resolved_data is None:
+            raise ValueError(
+                "`data` must be provided either on the RunnerContext or the run_experiment call"
+            )
+
+        resolved_dataset_version = (
+            _dataset_version if _dataset_version is not None else self.dataset_version
+        )
+
+        merged_metadata: Optional[Dict[str, str]]
+        if self.metadata is None and metadata is None:
+            merged_metadata = None
+        else:
+            merged_metadata = {**(self.metadata or {}), **(metadata or {})}
+
+        return self.client.run_experiment(
+            name=name,
+            run_name=run_name,
+            description=description,
+            data=resolved_data,
+            task=task,
+            evaluators=evaluators,
+            composite_evaluator=composite_evaluator,
+            run_evaluators=run_evaluators,
+            max_concurrency=max_concurrency,
+            metadata=merged_metadata,
+            _dataset_version=resolved_dataset_version,
+        )
+
+
+class RegressionError(Exception):
+    """Raised by a user's ``experiment`` function to signal a CI gate failure.
+
+    Intended for use with the ``langfuse/experiment-action`` GitHub Action
+    (https://github.com/langfuse/experiment-action). The action catches this
+    exception and, when ``should_fail_on_error`` is enabled, fails the
+    workflow run and renders a callout in the PR comment using
+    ``metric``/``value``/``threshold`` if supplied, otherwise ``str(exc)``.
+
+    Callers choose one of three forms:
+
+    - ``RegressionError(result=r)`` — minimal, generic message.
+    - ``RegressionError(result=r, message="...")`` — free-form message.
+    - ``RegressionError(result=r, metric="acc", value=0.7, threshold=0.9)`` —
+      structured; ``metric`` and ``value`` must be provided together so the
+      action can render a targeted callout without ``None`` placeholders.
+    """
+
+    @overload
+    def __init__(self, *, result: ExperimentResult) -> None: ...
+    @overload
+    def __init__(self, *, result: ExperimentResult, message: str) -> None: ...
+    @overload
+    def __init__(
+        self,
+        *,
+        result: ExperimentResult,
+        metric: str,
+        value: float,
+        threshold: Optional[float] = None,
+        message: Optional[str] = None,
+    ) -> None: ...
+    def __init__(
+        self,
+        *,
+        result: ExperimentResult,
+        metric: Optional[str] = None,
+        value: Optional[float] = None,
+        threshold: Optional[float] = None,
+        message: Optional[str] = None,
+    ):
+        self.result = result
+        self.metric = metric
+        self.value = value
+        self.threshold = threshold
+        if message is not None:
+            formatted = message
+        elif metric is not None and value is not None:
+            formatted = f"Regression on `{metric}`: {value} (threshold {threshold})"
+        else:
+            formatted = "Experiment regression detected"
+        super().__init__(formatted)
