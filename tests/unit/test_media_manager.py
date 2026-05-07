@@ -194,3 +194,47 @@ def test_find_and_process_media_sse_in_nested_structure_passes_through():
 
     assert result == data
     assert queue.empty()
+
+
+def test_find_and_process_media_gemini_inline_data_is_processed():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = {
+        "inline_data": {
+            "mime_type": "image/jpeg",
+            "data": "/9j/4AAQSkZJRgABAQAAAQABAAD/4QBARXhpZgAA",
+        }
+    }
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert isinstance(result["inline_data"]["data"], LangfuseMedia)
+    assert not queue.empty()
+
+
+def test_find_and_process_media_gemini_inline_data_camel_case_is_processed():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = {
+        "inlineData": {
+            "mimeType": "image/png",
+            "data": "iVBORw0KGgo=",
+        }
+    }
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert isinstance(result["inlineData"]["data"], LangfuseMedia)
+    assert not queue.empty()

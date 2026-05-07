@@ -76,6 +76,7 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
+        fail_open: bool = False,
     ) -> Any:
         if not self._enabled:
             return data
@@ -97,6 +98,9 @@ class MediaManager:
                     field=field,
                 )
 
+                if fail_open and data._reference_string is None:
+                    return data.obj
+
                 return data
 
             if (
@@ -116,6 +120,9 @@ class MediaManager:
                     observation_id=observation_id,
                     field=field,
                 )
+
+                if fail_open and media._reference_string is None:
+                    return data
 
                 return media
 
@@ -137,6 +144,9 @@ class MediaManager:
                     observation_id=observation_id,
                     field=field,
                 )
+
+                if fail_open and media._reference_string is None:
+                    return data
 
                 copied = data.copy()
                 copied["data"] = media
@@ -162,10 +172,50 @@ class MediaManager:
                     field=field,
                 )
 
+                if fail_open and media._reference_string is None:
+                    return data
+
                 copied = data.copy()
                 copied["data"] = media
 
                 return copied
+
+            # Google Gemini / Vertex inline data
+            if isinstance(data, dict):
+                for inline_data_key in ("inline_data", "inlineData"):
+                    inline_data = data.get(inline_data_key)
+
+                    if not isinstance(inline_data, dict) or "data" not in inline_data:
+                        continue
+
+                    content_type = inline_data.get("mime_type") or inline_data.get(
+                        "mimeType"
+                    )
+
+                    if not content_type:
+                        continue
+
+                    media = LangfuseMedia(
+                        base64_data_uri=f"data:{content_type};base64,"
+                        + inline_data["data"],
+                    )
+
+                    self._process_media(
+                        media=media,
+                        trace_id=trace_id,
+                        observation_id=observation_id,
+                        field=field,
+                    )
+
+                    if fail_open and media._reference_string is None:
+                        return data
+
+                    copied = data.copy()
+                    copied_inline_data = inline_data.copy()
+                    copied_inline_data["data"] = media
+                    copied[inline_data_key] = copied_inline_data
+
+                    return copied
 
             if isinstance(data, list):
                 return [_process_data_recursively(item, level + 1) for item in data]

@@ -17,13 +17,20 @@ Example:
     ```
 """
 
+from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import (
     Any,
     Dict,
     Literal,
+    Mapping,
+    Optional,
     Protocol,
+    Sequence,
     TypedDict,
 )
+
+from opentelemetry.util.types import AttributeValue
 
 try:
     from typing import NotRequired  # type: ignore
@@ -54,6 +61,62 @@ class MaskFunction(Protocol):
     def __call__(self, *, data: Any, **kwargs: Dict[str, Any]) -> Any: ...
 
 
+@dataclass(frozen=True)
+class OtelSpanIdentifier:
+    """Stable identifier for an OpenTelemetry span in a masking batch."""
+
+    trace_id: str
+    span_id: str
+
+
+@dataclass(frozen=True)
+class OtelSpanData:
+    """Read-only OpenTelemetry span snapshot passed to a masking function."""
+
+    trace_id: str
+    span_id: str
+    parent_span_id: Optional[str]
+    name: str
+    instrumentation_scope_name: Optional[str]
+    instrumentation_scope_version: Optional[str]
+    attributes: Mapping[str, AttributeValue]
+    resource_attributes: Mapping[str, AttributeValue]
+
+
+@dataclass(frozen=True)
+class MaskOtelSpansParams:
+    """Read-only batch passed to an export-stage OpenTelemetry span mask function."""
+
+    spans: Mapping[OtelSpanIdentifier, OtelSpanData]
+
+
+@dataclass(frozen=True)
+class OtelSpanPatch:
+    """Attribute mutations for one OpenTelemetry span before export."""
+
+    set_attributes: Mapping[str, AttributeValue] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+    delete_attributes: Sequence[str] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class MaskOtelSpansResult:
+    """Sparse attribute patches returned by an OpenTelemetry span mask function."""
+
+    span_patches: Mapping[OtelSpanIdentifier, Optional[OtelSpanPatch]] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+
+
+class MaskOtelSpansFunction(Protocol):
+    """A synchronous function that masks OpenTelemetry span attributes before export."""
+
+    def __call__(
+        self, *, params: MaskOtelSpansParams
+    ) -> Optional[MaskOtelSpansResult]: ...
+
+
 class ParsedMediaReference(TypedDict):
     """A parsed media reference.
 
@@ -78,6 +141,12 @@ __all__ = [
     "ScoreDataType",
     "ExperimentScoreType",
     "MaskFunction",
+    "MaskOtelSpansFunction",
+    "MaskOtelSpansParams",
+    "MaskOtelSpansResult",
+    "OtelSpanData",
+    "OtelSpanIdentifier",
+    "OtelSpanPatch",
     "ParsedMediaReference",
     "TraceContext",
 ]

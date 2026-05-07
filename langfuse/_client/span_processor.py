@@ -28,10 +28,13 @@ from langfuse._client.environment_variables import (
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.propagation import _get_propagated_attributes_from_context
+from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
 from langfuse._client.utils import span_formatter
+from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
+from langfuse.types import MaskOtelSpansFunction
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -64,6 +67,8 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         span_exporter: Optional[SpanExporter] = None,
+        media_manager: Optional[MediaManager] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
     ):
         self.public_key = public_key
         self.blocked_instrumentation_scopes = (
@@ -111,6 +116,13 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
+            )
+
+        if media_manager is not None or mask_otel_spans is not None:
+            span_exporter = LangfuseTransformingSpanExporter(
+                exporter=span_exporter,
+                media_manager=media_manager,
+                mask_otel_spans=mask_otel_spans,
             )
 
         super().__init__(
