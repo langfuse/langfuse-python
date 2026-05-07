@@ -258,6 +258,42 @@ def test_export_stage_media_processes_string_sequence_attributes():
     assert media_queue.qsize() == 2
 
 
+@pytest.mark.parametrize(
+    ("attribute_key", "expected_field"),
+    [
+        ("langfuse.trace.input", "input"),
+        ("langfuse.observation.input", "input"),
+        ("ai.prompt.messages", "input"),
+        ("gcp.vertex.agent.tool_call_args", "input"),
+        ("lk.chat_ctx", "input"),
+        ("traceloop.entity.input", "input"),
+        ("gen_ai.input.messages", "input"),
+        ("gen_ai.prompt.0.content", "input"),
+        ("llm.input_messages.0.message.content", "input"),
+        ("langfuse.trace.output", "output"),
+        ("langfuse.observation.output", "output"),
+        ("ai.response.toolCalls", "output"),
+        ("gcp.vertex.agent.tool_response", "output"),
+        ("lk.response.text", "output"),
+        ("mlflow.spanOutputs", "output"),
+        ("gen_ai.output.messages", "output"),
+        ("gen_ai.completion.0.content", "output"),
+        ("llm.output_messages.0.message.content", "output"),
+        ("gen_ai.request.model", "metadata"),
+        ("http.response.body", "metadata"),
+        ("message_bus.payload", "metadata"),
+        ("custom.input_payload", "metadata"),
+        ("ai.prompt.tools", "metadata"),
+    ],
+)
+def test_media_field_for_attribute_matches_server_input_output_keys(
+    attribute_key, expected_field
+):
+    assert (
+        span_exporter_module._media_field_for_attribute(attribute_key) == expected_field
+    )
+
+
 def test_export_stage_media_skips_already_processed_provider_references(caplog):
     exporter = InMemorySpanExporter()
     media_manager, media_queue = _media_manager()

@@ -24,6 +24,71 @@ from langfuse.types import (
     OtelSpanPatch,
 )
 
+_INPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
+    {
+        LangfuseOtelSpanAttributes.TRACE_INPUT,
+        LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
+        "ai.prompt.messages",
+        "ai.prompt",
+        "ai.toolCall.args",
+        "gcp.vertex.agent.llm_request",
+        "gcp.vertex.agent.tool_call_args",
+        "prompt",
+        "lk.input_text",
+        "lk.user_transcript",
+        "lk.chat_ctx",
+        "lk.user_input",
+        "mlflow.spanInputs",
+        "traceloop.entity.input",
+        "input.value",
+        "pydantic_ai.all_messages",
+        "gen_ai.system_instructions",
+        "input",
+        "gen_ai.input.messages",
+        "gen_ai.tool.call.arguments",
+        "genkit:input",
+        "tool_arguments",
+    }
+)
+
+_OUTPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
+    {
+        LangfuseOtelSpanAttributes.TRACE_OUTPUT,
+        LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
+        "ai.response.text",
+        "ai.result.text",
+        "ai.toolCall.result",
+        "ai.response.object",
+        "ai.result.object",
+        "ai.response.toolCalls",
+        "ai.result.toolCalls",
+        "gcp.vertex.agent.llm_response",
+        "gcp.vertex.agent.tool_response",
+        "all_messages_events",
+        "lk.function_tool.output",
+        "lk.response.text",
+        "mlflow.spanOutputs",
+        "traceloop.entity.output",
+        "output.value",
+        "final_result",
+        "output",
+        "gen_ai.output.messages",
+        "gen_ai.tool.call.result",
+        "genkit:output",
+        "tool_response",
+    }
+)
+
+_INPUT_MEDIA_ATTRIBUTE_PREFIXES = (
+    "gen_ai.prompt",
+    "llm.input_messages",
+)
+
+_OUTPUT_MEDIA_ATTRIBUTE_PREFIXES = (
+    "gen_ai.completion",
+    "llm.output_messages",
+)
+
 
 class LangfuseTransformingSpanExporter(SpanExporter):
     """Apply Langfuse export-stage transformations before delegating export."""
@@ -479,26 +544,14 @@ def _serialize_media_value(value: Any, *, fallback: str) -> str:
 def _media_field_for_attribute(
     attribute_key: str,
 ) -> str:
-    if attribute_key in {
-        LangfuseOtelSpanAttributes.TRACE_INPUT,
-        LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
-    }:
-        return "input"
-
-    if attribute_key in {
-        LangfuseOtelSpanAttributes.TRACE_OUTPUT,
-        LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
-    }:
-        return "output"
-
-    normalized_key = attribute_key.lower()
-
-    if any(
-        token in normalized_key for token in ("input", "prompt", "request", "message")
+    if attribute_key in _INPUT_MEDIA_ATTRIBUTE_KEYS or attribute_key.startswith(
+        _INPUT_MEDIA_ATTRIBUTE_PREFIXES
     ):
         return "input"
 
-    if any(token in normalized_key for token in ("output", "completion", "response")):
+    if attribute_key in _OUTPUT_MEDIA_ATTRIBUTE_KEYS or attribute_key.startswith(
+        _OUTPUT_MEDIA_ATTRIBUTE_PREFIXES
+    ):
         return "output"
 
     return "metadata"
