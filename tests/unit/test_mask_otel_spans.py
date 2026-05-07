@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import Sequence
 from unittest.mock import Mock
 
+import pytest
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
@@ -54,8 +55,14 @@ def _tracer_provider(
     exporter: InMemorySpanExporter,
     media_manager: MediaManager,
     mask_otel_spans=None,
+    resource_attributes=None,
+    should_export_span=None,
 ) -> TracerProvider:
-    provider = TracerProvider(resource=Resource.create({"service.name": "test"}))
+    provider = TracerProvider(
+        resource=Resource.create(
+            {"service.name": "test", **(resource_attributes or {})}
+        )
+    )
     provider.add_span_processor(
         LangfuseSpanProcessor(
             public_key="test-public-key",
@@ -66,6 +73,7 @@ def _tracer_provider(
             span_exporter=exporter,
             media_manager=media_manager,
             mask_otel_spans=mask_otel_spans,
+            should_export_span=should_export_span,
         )
     )
 
@@ -208,6 +216,115 @@ def test_export_stage_media_processes_direct_data_uri_string():
     assert not media_queue.empty()
 
 
+def test_export_stage_media_processes_string_sequence_attributes():
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+
+    provider = _tracer_provider(exporter=exporter, media_manager=media_manager)
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    inline_data_payload = json.dumps(
+        {
+            "inline_data": {
+                "mime_type": "image/png",
+                "data": image_base64,
+            }
+        }
+    )
+
+    with tracer.start_as_current_span("third-party-sequence-media-span") as span:
+        span.set_attribute(
+            "gen_ai.prompt",
+            [
+                f"data:image/jpeg;base64,{image_base64}",
+                inline_data_payload,
+                "plain text",
+            ],
+        )
+
+    provider.force_flush()
+
+    exported_span = exporter.get_finished_spans()[0]
+    exported_sequence = exported_span.attributes["gen_ai.prompt"]
+    exported_payload = json.loads(exported_sequence[1])
+
+    assert isinstance(exported_sequence, tuple)
+    assert exported_sequence[0].startswith("@@@langfuseMedia:")
+    assert exported_payload["inline_data"]["data"].startswith("@@@langfuseMedia:")
+    assert exported_sequence[2] == "plain text"
+    assert media_queue.qsize() == 2
+
+
+def test_export_stage_media_fail_open_leaves_invalid_media_attribute_unchanged():
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    invalid_data_uri = "data:image/jpeg;base64,"
+
+    provider = _tracer_provider(exporter=exporter, media_manager=media_manager)
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("third-party-invalid-media-span") as span:
+        span.set_attribute("gen_ai.prompt", invalid_data_uri)
+
+    provider.force_flush()
+
+    exported_span = exporter.get_finished_spans()[0]
+
+    assert exported_span.attributes["gen_ai.prompt"] == invalid_data_uri
+    assert media_queue.empty()
+
+
+def test_mask_otel_spans_receives_whole_span_snapshot():
+    exporter = InMemorySpanExporter()
+    media_manager, _ = _media_manager()
+    seen_params: list[MaskOtelSpansParams] = []
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        seen_params.append(params)
+
+        return None
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+        resource_attributes={"deployment.environment.name": "ci"},
+        should_export_span=lambda span: True,
+    )
+    tracer = provider.get_tracer("snapshot.scope", "1.2.3")
+
+    with tracer.start_as_current_span("parent-span") as parent_span:
+        parent_span.set_attribute("parent.attr", "visible")
+
+        with tracer.start_as_current_span("child-span") as child_span:
+            child_span.set_attribute("secret", "raw")
+
+    provider.force_flush()
+
+    params = seen_params[0]
+    parent_identifier = _find_identifier_by_name(params, "parent-span")
+    child_identifier = _find_identifier_by_name(params, "child-span")
+    child_data = params.spans[child_identifier]
+
+    assert len(params.spans) == 2
+    assert child_data.trace_id == child_identifier.trace_id
+    assert child_data.span_id == child_identifier.span_id
+    assert child_data.parent_span_id == parent_identifier.span_id
+    assert child_data.name == "child-span"
+    assert child_data.instrumentation_scope_name == "snapshot.scope"
+    assert child_data.instrumentation_scope_version == "1.2.3"
+    assert child_data.attributes["secret"] == "raw"
+    assert child_data.resource_attributes["service.name"] == "test"
+    assert child_data.resource_attributes["deployment.environment.name"] == "ci"
+
+    with pytest.raises(TypeError):
+        params.spans[child_identifier] = child_data
+
+    with pytest.raises(TypeError):
+        child_data.attributes["secret"] = "changed"
+
+
 def test_mask_otel_spans_runs_for_langfuse_sdk_spans():
     exporter = InMemorySpanExporter()
     media_manager, _ = _media_manager()
@@ -241,6 +358,56 @@ def test_mask_otel_spans_runs_for_langfuse_sdk_spans():
     assert exported_span.attributes["secret"] == "masked"
 
 
+def test_mask_otel_spans_none_result_leaves_batch_unchanged():
+    exporter = InMemorySpanExporter()
+    media_manager, _ = _media_manager()
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        return None
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("third-party-span") as span:
+        span.set_attribute("secret", "raw")
+
+    provider.force_flush()
+
+    exported_span = exporter.get_finished_spans()[0]
+
+    assert exported_span.attributes["secret"] == "raw"
+
+
+def test_mask_otel_spans_none_patch_leaves_span_unchanged():
+    exporter = InMemorySpanExporter()
+    media_manager, _ = _media_manager()
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        identifier = next(iter(params.spans))
+
+        return MaskOtelSpansResult(span_patches={identifier: None})
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("third-party-span") as span:
+        span.set_attribute("secret", "raw")
+
+    provider.force_flush()
+
+    exported_span = exporter.get_finished_spans()[0]
+
+    assert exported_span.attributes["secret"] == "raw"
+
+
 def test_mask_otel_spans_exception_drops_batch():
     exporter = InMemorySpanExporter()
     media_manager, _ = _media_manager()
@@ -272,6 +439,30 @@ def test_mask_otel_spans_invalid_result_drops_batch():
 
     def mask_otel_spans(*, params: MaskOtelSpansParams):
         return {"span_patches": {}}
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("third-party-span") as span:
+        span.set_attribute("gen_ai.request.model", "gpt-4o")
+
+    provider.force_flush()
+
+    assert exporter.get_finished_spans() == []
+
+
+def test_mask_otel_spans_invalid_span_patches_container_drops_batch():
+    exporter = InMemorySpanExporter()
+    media_manager, _ = _media_manager()
+    invalid_result = MaskOtelSpansResult()
+    object.__setattr__(invalid_result, "span_patches", [])
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        return invalid_result
 
     provider = _tracer_provider(
         exporter=exporter,
@@ -348,6 +539,82 @@ def test_mask_otel_spans_invalid_patch_drops_only_that_span():
     assert [span.name for span in exported_spans] == ["keep-me"]
 
 
+@pytest.mark.parametrize("invalid_field", ["set_attributes", "delete_attributes"])
+def test_mask_otel_spans_invalid_patch_containers_drop_only_that_span(invalid_field):
+    exporter = InMemorySpanExporter()
+    media_manager, _ = _media_manager()
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        target_identifier = _find_identifier_by_name(params, "drop-me")
+        patch = OtelSpanPatch()
+
+        if invalid_field == "set_attributes":
+            object.__setattr__(patch, "set_attributes", ["secret"])
+        else:
+            object.__setattr__(patch, "delete_attributes", "secret")
+
+        return MaskOtelSpansResult(span_patches={target_identifier: patch})
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("drop-me") as span:
+        span.set_attribute("gen_ai.request.model", "gpt-4o")
+
+    with tracer.start_as_current_span("keep-me") as span:
+        span.set_attribute("gen_ai.request.model", "gpt-4o-mini")
+
+    provider.force_flush()
+
+    exported_spans = exporter.get_finished_spans()
+
+    assert [span.name for span in exported_spans] == ["keep-me"]
+
+
+def test_mask_otel_spans_invalid_patch_keys_are_ignored():
+    exporter = InMemorySpanExporter()
+    media_manager, _ = _media_manager()
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        identifier = next(iter(params.spans))
+
+        return MaskOtelSpansResult(
+            span_patches={
+                identifier: OtelSpanPatch(
+                    delete_attributes=[None, "secret"],
+                    set_attributes={
+                        None: "ignored",
+                        "masked": "value",
+                    },
+                )
+            }
+        )
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("third-party-span") as span:
+        span.set_attribute("secret", "raw")
+        span.set_attribute("kept", "value")
+
+    provider.force_flush()
+
+    exported_span = exporter.get_finished_spans()[0]
+
+    assert "secret" not in exported_span.attributes
+    assert None not in exported_span.attributes
+    assert exported_span.attributes["kept"] == "value"
+    assert exported_span.attributes["masked"] == "value"
+
+
 def test_mask_otel_spans_invalid_set_value_deletes_attribute():
     exporter = InMemorySpanExporter()
     media_manager, _ = _media_manager()
@@ -418,6 +685,43 @@ def test_mask_otel_spans_set_wins_when_key_is_deleted_and_set():
     exported_span = exporter.get_finished_spans()[0]
 
     assert exported_span.attributes["secret"] == "masked"
+
+
+def test_mask_otel_spans_runs_after_should_export_span_filter():
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    seen_params: list[MaskOtelSpansParams] = []
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        seen_params.append(params)
+
+        return MaskOtelSpansResult()
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+        should_export_span=lambda span: span.name == "keep-me",
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("drop-me") as span:
+        span.set_attribute("gen_ai.prompt", f"data:image/jpeg;base64,{image_base64}")
+
+    with tracer.start_as_current_span("keep-me") as span:
+        span.set_attribute("gen_ai.request.model", "gpt-4o")
+
+    provider.force_flush()
+
+    exported_spans = exporter.get_finished_spans()
+
+    assert len(seen_params) == 1
+    assert [span_data.name for span_data in seen_params[0].spans.values()] == [
+        "keep-me"
+    ]
+    assert [span.name for span in exported_spans] == ["keep-me"]
+    assert media_queue.empty()
 
 
 def _find_identifier_by_attribute(
