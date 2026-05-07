@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from queue import Queue
 from types import SimpleNamespace
 from typing import Sequence
@@ -14,6 +15,7 @@ import langfuse._client.span_exporter as span_exporter_module
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.span_processor import LangfuseSpanProcessor
 from langfuse._task_manager.media_manager import MediaManager
+from langfuse._utils.serializer import EventSerializer
 from langfuse.types import (
     MaskOtelSpansParams,
     MaskOtelSpansResult,
@@ -254,6 +256,52 @@ def test_export_stage_media_processes_string_sequence_attributes():
     assert exported_payload["inline_data"]["data"].startswith("@@@langfuseMedia:")
     assert exported_sequence[2] == "plain text"
     assert media_queue.qsize() == 2
+
+
+def test_export_stage_media_skips_already_processed_provider_references(caplog):
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+    transforming_exporter = span_exporter_module.LangfuseTransformingSpanExporter(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=None,
+    )
+    span = SimpleNamespace(
+        name="sdk-media-span",
+        context=SimpleNamespace(trace_id=1, span_id=2),
+    )
+    provider_payloads = [
+        [{"type": "base64", "media_type": "image/jpeg", "data": image_base64}],
+        [{"type": "media", "mime_type": "image/png", "data": image_base64}],
+        [{"inline_data": {"mime_type": "image/jpeg", "data": image_base64}}],
+        [{"inlineData": {"mimeType": "image/png", "data": image_base64}}],
+    ]
+
+    for payload in provider_payloads:
+        processed_payload = media_manager._find_and_process_media(
+            data=payload,
+            trace_id="trace-id",
+            observation_id="observation-id",
+            field="input",
+        )
+        serialized_payload = json.dumps(processed_payload, cls=EventSerializer)
+        queue_size_before_export_processing = media_queue.qsize()
+
+        caplog.clear()
+        with caplog.at_level(logging.ERROR, logger="langfuse"):
+            result = transforming_exporter._process_media_string(
+                span=span,
+                attribute_key="langfuse.observation.input",
+                value=serialized_payload,
+            )
+
+        assert result == serialized_payload
+        assert media_queue.qsize() == queue_size_before_export_processing
+        assert not any(
+            "Error parsing base64 data URI" in record.message
+            for record in caplog.records
+        )
 
 
 def test_export_stage_media_fail_open_leaves_invalid_media_attribute_unchanged():

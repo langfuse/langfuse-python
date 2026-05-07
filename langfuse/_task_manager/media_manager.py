@@ -21,6 +21,14 @@ P = ParamSpec("P")
 _SHUTDOWN_SENTINEL = object()
 
 
+def _is_langfuse_media_reference(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith("@@@langfuseMedia:")
+        and value.endswith("@@@")
+    )
+
+
 class MediaManager:
     def __init__(
         self,
@@ -134,6 +142,9 @@ class MediaManager:
                 and "media_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['media_type']};base64," + data["data"],
                 )
@@ -161,6 +172,9 @@ class MediaManager:
                 and "mime_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['mime_type']};base64," + data["data"],
                 )
@@ -194,6 +208,9 @@ class MediaManager:
 
                     if not content_type:
                         continue
+
+                    if _is_langfuse_media_reference(inline_data["data"]):
+                        return data
 
                     media = LangfuseMedia(
                         base64_data_uri=f"data:{content_type};base64,"
