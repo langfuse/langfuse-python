@@ -175,8 +175,40 @@ class Langfuse:
         release (Optional[str]): Release version/hash of your application. Used for grouping analytics by release.
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
-        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to attributes set through Langfuse SDK APIs.
-        mask_otel_spans (Optional[MaskOtelSpansFunction]): Synchronous export-stage hook that receives a batch of OpenTelemetry span snapshots and can return sparse attribute patches before spans are sent to Langfuse. This runs after export filtering and affects only spans exported by this Langfuse client, not spans already sent to other observability backends. It usually runs on the OpenTelemetry batch span processor worker thread; during flush and shutdown, it may run on the caller thread. The batch contents are governed by the OpenTelemetry export batch settings and are not guaranteed to contain a complete trace or request. If the hook raises or returns an invalid batch result, the whole export batch is dropped.
+        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to data set through Langfuse SDK APIs such as `start_observation()`, `update()`, and `set_trace_io()`.
+        mask_otel_spans (Optional[MaskOtelSpansFunction]): Synchronous export-stage hook for masking raw OpenTelemetry span attributes before this Langfuse client sends them to Langfuse. Use this for spans created by third-party OpenTelemetry instrumentations, or when you need to inspect final span attributes after export filtering and Langfuse media handling. It does not modify spans already exported through other OpenTelemetry exporters.
+
+            The hook receives one OpenTelemetry export batch. A batch is not guaranteed to contain a complete trace, request, or Langfuse observation tree. The hook usually runs on the OpenTelemetry batch span processor worker thread; during `flush()` and shutdown it may run on the caller thread. Keep it synchronous, deterministic, and fast.
+
+            Return `None` to leave the batch unchanged. Return `MaskOtelSpansResult` with `OtelSpanPatch` values to delete or replace attributes on selected spans. If the hook raises or returns an invalid batch result, Langfuse drops the whole export batch. If one returned span patch is invalid, Langfuse drops only that span from the Langfuse export.
+
+            Example:
+                ```python
+                from typing import Optional
+
+                from langfuse import Langfuse
+                from langfuse.types import (
+                    MaskOtelSpansParams,
+                    MaskOtelSpansResult,
+                    OtelSpanPatch,
+                )
+
+                def mask_otel_spans(
+                    *, params: MaskOtelSpansParams
+                ) -> Optional[MaskOtelSpansResult]:
+                    patches = {}
+
+                    for identifier, span in params.spans.items():
+                        if "gen_ai.prompt.0.content" in span.attributes:
+                            patches[identifier] = OtelSpanPatch(
+                                delete_attributes=("gen_ai.prompt.0.content",),
+                                set_attributes={"langfuse.masking.applied": True},
+                            )
+
+                    return MaskOtelSpansResult(span_patches=patches)
+
+                langfuse = Langfuse(mask_otel_spans=mask_otel_spans)
+                ```
         blocked_instrumentation_scopes (Optional[List[str]]): Deprecated. Use `should_export_span` instead. Equivalent behavior:
             ```python
             from langfuse.span_filter import is_default_export_span
