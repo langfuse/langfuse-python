@@ -219,7 +219,6 @@ class LangfuseTransformingSpanExporter(SpanExporter):
                 trace_id=trace_id,
                 observation_id=observation_id,
                 field=field,
-                fail_open=True,
             )
 
             direct_reference = _media_reference_string(processed_direct_value)
@@ -251,7 +250,6 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             trace_id=trace_id,
             observation_id=observation_id,
             field=field,
-            fail_open=True,
         )
 
         if processed_json_value == parsed_value:
@@ -534,6 +532,12 @@ def _media_reference_string(value: Any) -> Optional[str]:
 def _serialize_media_value(value: Any, *, fallback: str) -> str:
     if isinstance(value, str):
         return value
+
+    if isinstance(value, LangfuseMedia):
+        return (
+            _media_reference_string(value)
+            or f"<Upload handling failed for LangfuseMedia of type {value._content_type}>"
+        )
 
     try:
         return json.dumps(value, cls=EventSerializer)

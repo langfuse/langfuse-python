@@ -340,7 +340,7 @@ def test_export_stage_media_skips_already_processed_provider_references(caplog):
         )
 
 
-def test_export_stage_media_fail_open_leaves_invalid_media_attribute_unchanged():
+def test_export_stage_media_replaces_invalid_media_attribute_with_failure_marker():
     exporter = InMemorySpanExporter()
     media_manager, media_queue = _media_manager()
     invalid_data_uri = "data:image/jpeg;base64,"
@@ -355,7 +355,9 @@ def test_export_stage_media_fail_open_leaves_invalid_media_attribute_unchanged()
 
     exported_span = exporter.get_finished_spans()[0]
 
-    assert exported_span.attributes["gen_ai.prompt"] == invalid_data_uri
+    assert exported_span.attributes["gen_ai.prompt"] == (
+        "<Upload handling failed for LangfuseMedia of type None>"
+    )
     assert media_queue.empty()
 
 

@@ -84,7 +84,6 @@ class MediaManager:
         trace_id: str,
         observation_id: Optional[str],
         field: str,
-        fail_open: bool = False,
     ) -> Any:
         if not self._enabled:
             return data
@@ -106,9 +105,6 @@ class MediaManager:
                     field=field,
                 )
 
-                if fail_open and data._reference_string is None:
-                    return data.obj
-
                 return data
 
             if (
@@ -128,9 +124,6 @@ class MediaManager:
                     observation_id=observation_id,
                     field=field,
                 )
-
-                if fail_open and media._reference_string is None:
-                    return data
 
                 return media
 
@@ -155,9 +148,6 @@ class MediaManager:
                     observation_id=observation_id,
                     field=field,
                 )
-
-                if fail_open and media._reference_string is None:
-                    return data
 
                 copied = data.copy()
                 copied["data"] = media
@@ -185,9 +175,6 @@ class MediaManager:
                     observation_id=observation_id,
                     field=field,
                 )
-
-                if fail_open and media._reference_string is None:
-                    return data
 
                 copied = data.copy()
                 copied["data"] = media
@@ -223,9 +210,6 @@ class MediaManager:
                         observation_id=observation_id,
                         field=field,
                     )
-
-                    if fail_open and media._reference_string is None:
-                        return data
 
                     copied = data.copy()
                     copied_inline_data = inline_data.copy()
