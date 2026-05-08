@@ -2069,8 +2069,9 @@ def test_create_trace_sampling_zero():
     }
 
 
-def test_mask_function():
+def test_mask_function(request):
     LangfuseResourceManager.reset()
+    request.addfinalizer(LangfuseResourceManager.reset)
 
     def mask_func(data):
         if isinstance(data, dict):
