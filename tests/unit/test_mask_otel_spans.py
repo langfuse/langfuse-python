@@ -17,6 +17,8 @@ from opentelemetry.sdk.trace.export import (
     SpanExportResult,
 )
 from opentelemetry.sdk.util import BoundedList
+from opentelemetry.sdk.util.instrumentation import InstrumentationInfo
+from opentelemetry.trace import SpanContext, TraceFlags, TraceState
 
 import langfuse._client.span_exporter as span_exporter_module
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
@@ -471,6 +473,71 @@ def test_clone_span_preserves_dropped_attribute_event_and_link_counts():
     assert cloned_span.dropped_attributes == 3
     assert cloned_span.dropped_events == 5
     assert cloned_span.dropped_links == 7
+
+
+def test_clone_span_preserves_deprecated_instrumentation_info():
+    with pytest.warns(DeprecationWarning, match="InstrumentationScope"):
+        instrumentation_info = InstrumentationInfo("legacy-instrumentation", "1.2.3")
+    span = ReadableSpan(
+        name="legacy-instrumentation-span",
+        context=None,
+        attributes={},
+        instrumentation_info=instrumentation_info,
+    )
+
+    cloned_span = span_exporter_module.LangfuseTransformingSpanExporter._clone_span(
+        span=span,
+        attributes={},
+    )
+
+    assert getattr(cloned_span, "_instrumentation_info") is instrumentation_info
+
+
+def test_mask_otel_spans_drops_contextless_spans_without_dropping_batch(caplog):
+    exporter = InMemorySpanExporter()
+    seen_span_names: list[str] = []
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        seen_span_names.extend(span.name for span in params.spans.values())
+        return None
+
+    transforming_exporter = span_exporter_module.LangfuseTransformingSpanExporter(
+        exporter=exporter,
+        media_manager=None,
+        mask_otel_spans=mask_otel_spans,
+    )
+    valid_context = SpanContext(
+        trace_id=1,
+        span_id=2,
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        trace_state=TraceState(),
+    )
+    contextless_spans = [
+        ReadableSpan(name="missing-context-1", context=None, attributes={}),
+        ReadableSpan(name="missing-context-2", context=None, attributes={}),
+    ]
+    valid_span = ReadableSpan(
+        name="valid-context",
+        context=valid_context,
+        attributes={"gen_ai.request.model": "gpt-4o"},
+    )
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        result = transforming_exporter.export([*contextless_spans, valid_span])
+
+    exported_spans = exporter.get_finished_spans()
+
+    assert result == SpanExportResult.SUCCESS
+    assert seen_span_names == ["valid-context"]
+    assert [span.name for span in exported_spans] == ["valid-context"]
+    assert (
+        sum(
+            "span context is missing or invalid" in record.message
+            for record in caplog.records
+        )
+        == 2
+    )
 
 
 def test_exporter_exception_does_not_stop_background_export_thread():

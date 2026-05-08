@@ -264,9 +264,19 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         span_attributes: Sequence[tuple[ReadableSpan, Dict[str, AttributeValue]]],
     ) -> Optional[list[tuple[ReadableSpan, Dict[str, AttributeValue]]]]:
         mask_otel_spans = cast(MaskOtelSpansFunction, self._mask_otel_spans)
+        maskable_span_attributes: list[
+            tuple[ReadableSpan, Dict[str, AttributeValue]]
+        ] = []
         span_data_by_identifier: Dict[OtelSpanIdentifier, OtelSpanData] = {}
 
         for span, attributes in span_attributes:
+            if not _has_valid_span_context(span):
+                langfuse_logger.warning(
+                    "Masking error: Dropping span from export because span context is missing or invalid. "
+                    f"span_name='{span.name}'"
+                )
+                continue
+
             identifier = _create_otel_span_identifier(span)
 
             if identifier in span_data_by_identifier:
@@ -280,6 +290,10 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             span_data_by_identifier[identifier] = _create_otel_span_data(
                 span=span, attributes=attributes, identifier=identifier
             )
+            maskable_span_attributes.append((span, attributes))
+
+        if not maskable_span_attributes:
+            return []
 
         try:
             result: Any = mask_otel_spans(
@@ -296,7 +310,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             return None
 
         if result is None:
-            return list(span_attributes)
+            return maskable_span_attributes
 
         if not isinstance(result, MaskOtelSpansResult):
             langfuse_logger.error(
@@ -330,7 +344,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             tuple[ReadableSpan, Dict[str, AttributeValue]]
         ] = []
 
-        for span, attributes in span_attributes:
+        for span, attributes in maskable_span_attributes:
             identifier = _create_otel_span_identifier(span)
             patch = span_patches.get(identifier)
 
@@ -446,6 +460,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             status=span.status,
             start_time=span.start_time,
             end_time=span.end_time,
+            instrumentation_info=getattr(span, "_instrumentation_info", None),
             instrumentation_scope=span.instrumentation_scope,
         )
 
@@ -454,6 +469,22 @@ def _create_otel_span_identifier(span: ReadableSpan) -> OtelSpanIdentifier:
     return OtelSpanIdentifier(
         trace_id=_get_trace_id(span),
         span_id=_get_span_id(span),
+    )
+
+
+def _has_valid_span_context(span: ReadableSpan) -> bool:
+    context = span.context
+
+    if context is None:
+        return False
+
+    is_valid = getattr(context, "is_valid", None)
+
+    if isinstance(is_valid, bool):
+        return is_valid
+
+    return bool(
+        getattr(context, "trace_id", None) and getattr(context, "span_id", None)
     )
 
 
