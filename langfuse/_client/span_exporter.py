@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Sequence, cast
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.sdk.util import BoundedList
 from opentelemetry.trace import format_span_id, format_trace_id
 from opentelemetry.util.types import AttributeValue
 
@@ -209,11 +210,10 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         value: str,
     ) -> str:
         media_manager = cast(MediaManager, self._media_manager)
-        trace_id = _get_trace_id(span)
-        observation_id = _get_span_id(span)
         field = _media_field_for_attribute(attribute_key)
 
         if _is_base64_data_uri(value):
+            trace_id, observation_id = _get_required_media_processing_identifiers(span)
             processed_direct_value = media_manager._find_and_process_media(
                 data=value,
                 trace_id=trace_id,
@@ -245,6 +245,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         if not isinstance(parsed_value, (dict, list)):
             return value
 
+        trace_id, observation_id = _get_required_media_processing_identifiers(span)
         processed_json_value = media_manager._find_and_process_media(
             data=parsed_value,
             trace_id=trace_id,
@@ -438,9 +439,9 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             context=span.context,
             parent=span.parent,
             resource=span.resource,
-            attributes=attributes,
-            events=span.events,
-            links=span.links,
+            attributes=_clone_attributes_with_dropped_count(span, attributes),
+            events=_clone_events_with_dropped_count(span),
+            links=_clone_links_with_dropped_count(span),
             kind=span.kind,
             status=span.status,
             start_time=span.start_time,
@@ -529,20 +530,67 @@ def _media_reference_string(value: Any) -> Optional[str]:
     return value._reference_string
 
 
+def _media_upload_failed_marker(content_type: Any) -> str:
+    return f"<Upload handling failed for LangfuseMedia of type {content_type}>"
+
+
+def _get_required_media_processing_identifiers(span: ReadableSpan) -> tuple[str, str]:
+    context = span.context
+
+    if context is None:
+        raise ValueError("Span context is required for media processing")
+
+    trace_id = getattr(context, "trace_id", None)
+    span_id = getattr(context, "span_id", None)
+
+    if not trace_id or not span_id:
+        raise ValueError("Trace ID and span ID are required for media processing")
+
+    return format_trace_id(trace_id), format_span_id(span_id)
+
+
 def _serialize_media_value(value: Any, *, fallback: str) -> str:
     if isinstance(value, str):
         return value
 
     if isinstance(value, LangfuseMedia):
-        return (
-            _media_reference_string(value)
-            or f"<Upload handling failed for LangfuseMedia of type {value._content_type}>"
+        return _media_reference_string(value) or _media_upload_failed_marker(
+            value._content_type
         )
 
     try:
         return json.dumps(value, cls=EventSerializer)
     except Exception:
         return fallback
+
+
+def _clone_attributes_with_dropped_count(
+    span: ReadableSpan, attributes: Dict[str, AttributeValue]
+) -> BoundedAttributes:
+    cloned_attributes = BoundedAttributes(
+        maxlen=None,
+        attributes=attributes,
+        immutable=True,
+    )
+    cloned_attributes.dropped = span.dropped_attributes
+
+    return cloned_attributes
+
+
+def _clone_events_with_dropped_count(span: ReadableSpan) -> BoundedList:
+    cloned_events: BoundedList = BoundedList(cast(Any, None))
+    cloned_events.extend(span.events)
+    cloned_events.dropped = span.dropped_events
+
+    return cloned_events
+
+
+def _clone_links_with_dropped_count(span: ReadableSpan) -> BoundedList:
+    cloned_links: BoundedList = BoundedList(cast(Any, None))
+    cloned_links.extend(span.links)
+    cloned_links.dropped = span.dropped_links
+
+    return cloned_links
 
 
 def _media_field_for_attribute(

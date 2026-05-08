@@ -2,14 +2,21 @@ import base64
 import json
 import logging
 from queue import Queue
+from threading import Event
 from types import SimpleNamespace
 from typing import Sequence
 from unittest.mock import Mock
 
 import pytest
+from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
-from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SpanExporter,
+    SpanExportResult,
+)
+from opentelemetry.sdk.util import BoundedList
 
 import langfuse._client.span_exporter as span_exporter_module
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
@@ -39,6 +46,32 @@ class InMemorySpanExporter(SpanExporter):
         return list(self._finished_spans)
 
 
+class FailsOnceSpanExporter(SpanExporter):
+    def __init__(self) -> None:
+        self.export_attempts = 0
+        self.first_export_attempted = Event()
+        self.second_export_succeeded = Event()
+        self._finished_spans: list[ReadableSpan] = []
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        self.export_attempts += 1
+
+        if self.export_attempts == 1:
+            self.first_export_attempted.set()
+            raise RuntimeError("synthetic export failure")
+
+        self._finished_spans.extend(spans)
+        self.second_export_succeeded.set()
+
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self) -> None:
+        pass
+
+    def get_finished_spans(self) -> list[ReadableSpan]:
+        return list(self._finished_spans)
+
+
 def _media_manager() -> tuple[MediaManager, Queue]:
     queue: Queue = Queue()
 
@@ -54,7 +87,7 @@ def _media_manager() -> tuple[MediaManager, Queue]:
 
 def _tracer_provider(
     *,
-    exporter: InMemorySpanExporter,
+    exporter: SpanExporter,
     media_manager: MediaManager,
     mask_otel_spans=None,
     resource_attributes=None,
@@ -359,6 +392,121 @@ def test_export_stage_media_replaces_invalid_media_attribute_with_failure_marker
         "<Upload handling failed for LangfuseMedia of type None>"
     )
     assert media_queue.empty()
+
+
+def test_export_stage_media_leaves_attribute_when_span_context_is_missing(caplog):
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+    transforming_exporter = span_exporter_module.LangfuseTransformingSpanExporter(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=None,
+    )
+    span = ReadableSpan(
+        name="missing-context-media-span",
+        context=None,
+        attributes={},
+    )
+    serialized_payload = json.dumps(
+        [
+            {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": image_base64,
+            },
+        ]
+    )
+    attributes = {
+        "langfuse.observation.input": f"data:image/png;base64,{image_base64}",
+        "gen_ai.prompt": serialized_payload,
+        "plain": "hello",
+    }
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        processed_attributes = transforming_exporter._process_media_attributes(
+            span=span,
+            attributes=attributes,
+        )
+
+    assert processed_attributes == attributes
+    assert media_queue.empty()
+    assert (
+        sum(
+            "Span context is required for media processing" in record.message
+            for record in caplog.records
+        )
+        == 2
+    )
+
+
+def test_clone_span_preserves_dropped_attribute_event_and_link_counts():
+    attributes = BoundedAttributes(
+        maxlen=None,
+        attributes={"secret": "raw"},
+        immutable=True,
+    )
+    attributes.dropped = 3
+    events = BoundedList.from_seq(None, [])
+    events.dropped = 5
+    links = BoundedList.from_seq(None, [])
+    links.dropped = 7
+    span = ReadableSpan(
+        name="limited-span",
+        context=None,
+        attributes=attributes,
+        events=events,
+        links=links,
+    )
+
+    cloned_span = span_exporter_module.LangfuseTransformingSpanExporter._clone_span(
+        span=span,
+        attributes={"secret": "masked", "langfuse.masking.applied": True},
+    )
+
+    assert dict(cloned_span.attributes) == {
+        "secret": "masked",
+        "langfuse.masking.applied": True,
+    }
+    assert cloned_span.dropped_attributes == 3
+    assert cloned_span.dropped_events == 5
+    assert cloned_span.dropped_links == 7
+
+
+def test_exporter_exception_does_not_stop_background_export_thread():
+    exporter = FailsOnceSpanExporter()
+    media_manager, _ = _media_manager()
+    provider = TracerProvider(resource=Resource.create({"service.name": "test"}))
+    provider.add_span_processor(
+        BatchSpanProcessor(
+            span_exporter=span_exporter_module.LangfuseTransformingSpanExporter(
+                exporter=exporter,
+                media_manager=media_manager,
+                mask_otel_spans=None,
+            ),
+            max_export_batch_size=1,
+            schedule_delay_millis=60_000,
+        )
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    try:
+        with tracer.start_as_current_span("first-export-fails"):
+            pass
+
+        assert exporter.first_export_attempted.wait(timeout=5)
+
+        with tracer.start_as_current_span("second-export-succeeds"):
+            pass
+
+        assert exporter.second_export_succeeded.wait(timeout=5)
+    finally:
+        provider.shutdown()
+
+    exported_spans = exporter.get_finished_spans()
+
+    assert exporter.export_attempts == 2
+    assert [span.name for span in exported_spans] == ["second-export-succeeds"]
 
 
 def test_mask_otel_spans_receives_whole_span_snapshot():
