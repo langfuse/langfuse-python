@@ -1967,12 +1967,15 @@ class TestMultiProjectSetup(TestOTelBase):
     """
 
     @pytest.fixture(scope="function")
-    def multi_project_setup(self, monkeypatch):
+    def multi_project_setup(self, monkeypatch, request):
         """Create two separate Langfuse clients with different projects."""
         # Reset any previous trace providers
+        from opentelemetry import context as otel_context
         from opentelemetry import trace as trace_api_reset
 
         original_provider = trace_api_reset.get_tracer_provider()
+        context_token = otel_context.attach(otel_context.Context())
+        request.addfinalizer(lambda: otel_context.detach(context_token))
 
         # Create exporters and tracers for two projects
         exporter_project1 = InMemorySpanExporter()
