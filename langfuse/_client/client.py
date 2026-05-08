@@ -202,7 +202,7 @@ class Langfuse:
                         if "gen_ai.prompt.0.content" in span.attributes:
                             patches[identifier] = OtelSpanPatch(
                                 delete_attributes=("gen_ai.prompt.0.content",),
-                                set_attributes={"langfuse.masking.applied": True},
+                                set_attributes={"masking.applied": True},
                             )
 
                     return MaskOtelSpansResult(span_patches=patches)

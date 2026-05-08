@@ -139,7 +139,7 @@ def test_mask_otel_spans_receives_post_media_batch_and_applies_sparse_patch():
                 target_identifier: OtelSpanPatch(
                     set_attributes={
                         "gen_ai.request.model": "masked-model",
-                        "langfuse.masking.applied": True,
+                        "masking.applied": True,
                     }
                 )
             }
@@ -184,10 +184,7 @@ def test_mask_otel_spans_receives_post_media_batch_and_applies_sparse_patch():
         == "masked-model"
     )
     assert (
-        exported_by_name["third-party-media-span"].attributes[
-            "langfuse.masking.applied"
-        ]
-        is True
+        exported_by_name["third-party-media-span"].attributes["masking.applied"] is True
     )
     assert (
         exported_by_name["third-party-unchanged-span"].attributes[
@@ -463,12 +460,12 @@ def test_clone_span_preserves_dropped_attribute_event_and_link_counts():
 
     cloned_span = span_exporter_module.LangfuseTransformingSpanExporter._clone_span(
         span=span,
-        attributes={"secret": "masked", "langfuse.masking.applied": True},
+        attributes={"secret": "masked", "masking.applied": True},
     )
 
     assert dict(cloned_span.attributes) == {
         "secret": "masked",
-        "langfuse.masking.applied": True,
+        "masking.applied": True,
     }
     assert cloned_span.dropped_attributes == 3
     assert cloned_span.dropped_events == 5
@@ -928,7 +925,7 @@ def test_mask_otel_spans_invalid_set_value_deletes_attribute():
                 identifier: OtelSpanPatch(
                     set_attributes={
                         "secret": object(),
-                        "langfuse.masking.applied": True,
+                        "masking.applied": True,
                     }
                 )
             }
@@ -951,7 +948,7 @@ def test_mask_otel_spans_invalid_set_value_deletes_attribute():
 
     assert "secret" not in exported_span.attributes
     assert exported_span.attributes["gen_ai.request.model"] == "gpt-4o"
-    assert exported_span.attributes["langfuse.masking.applied"] is True
+    assert exported_span.attributes["masking.applied"] is True
 
 
 def test_mask_otel_spans_set_wins_when_key_is_deleted_and_set():

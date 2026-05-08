@@ -260,7 +260,7 @@ class MaskOtelSpansFunction(Protocol):
                             "gen_ai.prompt.0.content",
                             "gen_ai.completion.0.content",
                         ),
-                        set_attributes={"langfuse.masking.applied": True},
+                        set_attributes={"masking.applied": True},
                     )
 
             return MaskOtelSpansResult(span_patches=patches)
