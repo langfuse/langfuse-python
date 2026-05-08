@@ -14,6 +14,7 @@ from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
 from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse.types import MaskOtelSpansResult
 
 
 class NoOpSpanExporter(SpanExporter):
@@ -38,6 +39,9 @@ def test_get_client_preserves_all_settings(monkeypatch):
     def should_export(span):
         return span.name != "drop"
 
+    def mask_otel_spans(*, params):
+        return MaskOtelSpansResult()
+
     span_exporter = NoOpSpanExporter()
 
     settings = {
@@ -49,6 +53,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
         "flush_at": 100,
         "sample_rate": 0.8,
         "should_export_span": should_export,
+        "mask_otel_spans": mask_otel_spans,
         "additional_headers": {"X-Custom": "value"},
         "span_exporter": span_exporter,
     }
@@ -65,6 +70,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
     assert rm.timeout == settings["timeout"]
     assert rm.sample_rate == settings["sample_rate"]
     assert rm.should_export_span is should_export
+    assert rm.mask_otel_spans is mask_otel_spans
     assert rm.additional_headers == settings["additional_headers"]
     assert rm.span_exporter is span_exporter
 
