@@ -640,7 +640,9 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
             chunk = chunk.__dict__
 
         model = model or chunk.get("model", None) or None
-        usage = chunk.get("usage", None)
+        chunk_usage = chunk.get("usage", None)
+        if chunk_usage is not None:
+            usage = chunk_usage
 
         choices = chunk.get("choices", [])
 
@@ -649,10 +651,15 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                 choice = choice.__dict__
             if resource.type == "chat":
                 delta = choice.get("delta", None)
-                finish_reason = choice.get("finish_reason", None)
+                choice_finish_reason = choice.get("finish_reason", None)
+                if choice_finish_reason is not None:
+                    finish_reason = choice_finish_reason
 
-                if _is_openai_v1():
+                if _is_openai_v1() and delta is not None:
                     delta = delta.__dict__
+
+                if delta is None:
+                    delta = {}
 
                 if delta.get("role", None) is not None:
                     completion["role"] = delta["role"]
