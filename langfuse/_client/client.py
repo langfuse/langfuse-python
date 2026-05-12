@@ -86,6 +86,7 @@ from langfuse._utils import _get_timestamp
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
+from langfuse._utils.request import LangfuseAuthException
 from langfuse.api import (
     CreateChatPromptRequest,
     CreateChatPromptType,
@@ -3166,7 +3167,7 @@ class Langfuse:
         """Check if the provided credentials (public and secret key) are valid.
 
         Raises:
-            Exception: If no projects were found for the provided credentials.
+            LangfuseAuthException: If no projects were found for the provided credentials.
 
         Note:
             This method is blocking. It is discouraged to use it in production code.
@@ -3177,7 +3178,7 @@ class Langfuse:
                 f"Auth check successful, found {len(projects.data)} projects"
             )
             if len(projects.data) == 0:
-                raise Exception(
+                raise LangfuseAuthException(
                     "Auth check failed, no project found for the keys provided."
                 )
             return True

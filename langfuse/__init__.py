@@ -29,6 +29,7 @@ from ._client.span import (
     LangfuseTool,
 )
 from ._version import __version__
+from ._utils.request import LangfuseAuthException
 from .span_filter import (
     KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES,
     is_default_export_span,
@@ -66,6 +67,7 @@ __all__ = [
     "RunnerContext",
     "RegressionError",
     "__version__",
+    "LangfuseAuthException",
     "is_default_export_span",
     "is_langfuse_span",
     "is_genai_span",

@@ -134,3 +134,25 @@ class APIErrors(Exception):
         errors = ", ".join(str(error) for error in self.errors)
 
         return f"[Langfuse] {errors}"
+
+
+class LangfuseAuthException(Exception):
+    """Raised when Langfuse authentication fails.
+
+    This exception is raised when the provided credentials (public key and
+    secret key) are valid but no projects are accessible with them. Catching
+    this specific exception type allows callers to distinguish authentication
+    failures from other errors and handle them explicitly.
+
+    Example::
+
+        from langfuse import Langfuse, LangfuseAuthException
+
+        try:
+            Langfuse().auth_check()
+        except LangfuseAuthException as e:
+            # Handle auth failure cleanly without masking unrelated bugs
+            logger.warning("Langfuse auth failed: %s", e)
+    """
+
+    pass
