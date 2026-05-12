@@ -88,6 +88,7 @@ from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseAuthException
 from langfuse.api import (
+    AccessDeniedError,
     CreateChatPromptRequest,
     CreateChatPromptType,
     CreateTextPromptRequest,
@@ -104,6 +105,7 @@ from langfuse.api import (
     Prompt_Text,
     ScoreBody,
     TraceBody,
+    UnauthorizedError,
 )
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
@@ -3167,7 +3169,10 @@ class Langfuse:
         """Check if the provided credentials (public and secret key) are valid.
 
         Raises:
-            LangfuseAuthException: If no projects were found for the provided credentials.
+            LangfuseAuthException: If authentication fails. This covers both the
+                "credentials are valid but no projects are accessible" case and
+                the "credentials are invalid" case (HTTP 401 Unauthorized /
+                HTTP 403 Forbidden returned by the Langfuse API).
 
         Note:
             This method is blocking. It is discouraged to use it in production code.
@@ -3188,6 +3193,18 @@ class Langfuse:
                 f"Auth check failed: Client not properly initialized. Error: {e}"
             )
             return False
+
+        except (UnauthorizedError, AccessDeniedError) as e:
+            # HTTP 401 / 403 from the Langfuse API: bad public/secret key or
+            # insufficient permissions. Re-raise as LangfuseAuthException so
+            # callers can catch all auth-failure modes with one except clause,
+            # not just the "zero projects" path above.
+            handle_fern_exception(e)
+            raise LangfuseAuthException(
+                f"Auth check failed: {type(e).__name__} returned by Langfuse API. "
+                "Verify your public/secret key and host. See "
+                "https://langfuse.com/docs/sdk/python#installation-and-setup."
+            ) from e
 
         except Error as e:
             handle_fern_exception(e)
