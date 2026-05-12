@@ -284,7 +284,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             self._initialize_app_root_state()
 
     def _is_expected_exported_at_start(self, span: Span) -> bool:
-        readable_span = self._get_readable_span(span)
+        readable_span = cast(ReadableSpan, span)
 
         if is_langfuse_span(readable_span) and not self._is_langfuse_project_span(
             readable_span
@@ -306,15 +306,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             )
 
             return False
-
-    @staticmethod
-    def _get_readable_span(span: Span) -> ReadableSpan:
-        readable_span = getattr(span, "_readable_span", None)
-
-        if not callable(readable_span):
-            raise TypeError("Span does not expose a readable span snapshot.")
-
-        return cast(ReadableSpan, readable_span())
 
     def _is_blocked_instrumentation_scope(self, span: ReadableSpan) -> bool:
         return (
