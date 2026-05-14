@@ -2,8 +2,8 @@
 
 import atexit
 import logging
-import queue
 import os
+import queue
 import weakref
 from queue import Queue
 from typing import List, Optional
