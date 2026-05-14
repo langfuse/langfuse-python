@@ -4,6 +4,7 @@ import atexit
 import logging
 import queue
 import os
+import weakref
 from queue import Queue
 from typing import List, Optional
 
@@ -36,6 +37,7 @@ class TaskManager(object):
     _sdk_integration: str
     _sample_rate: float
     _mask: Optional[MaskFunction]
+    _shutdown: bool
 
     def __init__(
         self,
@@ -78,6 +80,7 @@ class TaskManager(object):
         self._enabled = enabled
         self._sample_rate = sample_rate
         self._mask = mask
+        self._shutdown = False
 
         self.init_resources()
 
@@ -88,7 +91,10 @@ class TaskManager(object):
         # When using Gunicorn with --preload, os.fork() copies memory but not threads.
         # Without this, worker processes have no consumer threads and all events are lost.
         if hasattr(os, "register_at_fork"):
-            os.register_at_fork(after_in_child=self._at_fork_reinit)
+            weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
+            os.register_at_fork(
+                after_in_child=lambda: weak_reinit()() if weak_reinit() is not None else None
+            )
 
     def _at_fork_reinit(self):
         """Reinitialize consumer threads after fork in child process.
@@ -99,6 +105,9 @@ class TaskManager(object):
         reinitialization, the child process has no consumer threads and all
         ingestion events are silently lost.
         """
+        if self._shutdown:
+            return
+
         self._log.debug(
             f"[PID {os.getpid()}] Fork detected: reinitializing Langfuse consumer threads"
         )
@@ -232,6 +241,8 @@ class TaskManager(object):
     def shutdown(self):
         """Flush all messages and cleanly shutdown the client."""
         self._log.debug("shutdown initiated")
+
+        self._shutdown = True
 
         # Unregister the atexit handler first
         atexit.unregister(self.shutdown)
