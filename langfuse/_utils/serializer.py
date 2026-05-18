@@ -126,21 +126,55 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (tuple, set, frozenset)):
                 return list(obj)
 
+            # Cycle detection for the container branches. Without these guards a
+            # cyclic dict/list/Sequence/__slots__ graph recurses until the
+            # RecursionError is swallowed inside Python's GC, leaving the asyncio
+            # loop GIL-starved (issue #1655). try/finally + discard keeps a
+            # shared object reachable from sibling subtrees (a DAG, not a cycle)
+            # from being mis-marked.
             if isinstance(obj, dict):
-                return {self.default(k): self.default(v) for k, v in obj.items()}
+                obj_id = id(obj)
+                if obj_id in self.seen:
+                    return f"<cycle:{type(obj).__name__}>"
+                self.seen.add(obj_id)
+                try:
+                    return {self.default(k): self.default(v) for k, v in obj.items()}
+                finally:
+                    self.seen.discard(obj_id)
 
             if isinstance(obj, list):
-                return [self.default(item) for item in obj]
+                obj_id = id(obj)
+                if obj_id in self.seen:
+                    return f"<cycle:{type(obj).__name__}>"
+                self.seen.add(obj_id)
+                try:
+                    return [self.default(item) for item in obj]
+                finally:
+                    self.seen.discard(obj_id)
 
             # Important: this needs to be always checked after str and bytes types
             # Useful for serializing protobuf messages
             if isinstance(obj, Sequence):
-                return [self.default(item) for item in obj]
+                obj_id = id(obj)
+                if obj_id in self.seen:
+                    return f"<cycle:{type(obj).__name__}>"
+                self.seen.add(obj_id)
+                try:
+                    return [self.default(item) for item in obj]
+                finally:
+                    self.seen.discard(obj_id)
 
             if hasattr(obj, "__slots__"):
-                return self.default(
-                    {slot: getattr(obj, slot, None) for slot in obj.__slots__}
-                )
+                obj_id = id(obj)
+                if obj_id in self.seen:
+                    return f"<cycle:{type(obj).__name__}>"
+                self.seen.add(obj_id)
+                try:
+                    return self.default(
+                        {slot: getattr(obj, slot, None) for slot in obj.__slots__}
+                    )
+                finally:
+                    self.seen.discard(obj_id)
             elif hasattr(obj, "__dict__"):
                 obj_id = id(obj)
 
@@ -149,8 +183,10 @@ class EventSerializer(JSONEncoder):
                     return type(obj).__name__
                 else:
                     self.seen.add(obj_id)
-                    result = {k: self.default(v) for k, v in vars(obj).items()}
-                    self.seen.remove(obj_id)
+                    try:
+                        result = {k: self.default(v) for k, v in vars(obj).items()}
+                    finally:
+                        self.seen.discard(obj_id)
 
                     return result
 
