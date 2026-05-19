@@ -85,17 +85,26 @@ def test_exported_parent_suppresses_exported_child_app_root(memory_exporter):
     assert processor._app_root_traces == {}
 
 
-def test_filtered_direct_parent_marks_child_even_when_grandparent_exports(
+def test_grandparent_baggage_claim_suppresses_child_through_filtered_parent(
     memory_exporter,
 ):
     tracer_provider, processor = _create_processor(memory_exporter)
     filtered_tracer = tracer_provider.get_tracer("requests")
     langfuse_tracer = _langfuse_tracer(tracer_provider)
 
-    with langfuse_tracer.start_as_current_span("grandparent"):
-        with filtered_tracer.start_as_current_span("filtered-parent"):
-            with langfuse_tracer.start_as_current_span("child"):
-                pass
+    with langfuse_tracer.start_as_current_span("grandparent") as grandparent:
+        context_with_claim = baggage.set_baggage(
+            name=LANGFUSE_TRACE_ID_BAGGAGE_KEY,
+            value=format(grandparent.context.trace_id, "032x"),
+            context=otel_context_api.get_current(),
+        )
+        token = otel_context_api.attach(context_with_claim)
+        try:
+            with filtered_tracer.start_as_current_span("filtered-parent"):
+                with langfuse_tracer.start_as_current_span("child"):
+                    pass
+        finally:
+            otel_context_api.detach(token)
 
     processor.force_flush()
 
@@ -105,7 +114,7 @@ def test_filtered_direct_parent_marks_child_even_when_grandparent_exports(
     assert (
         spans["grandparent"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
     )
-    assert spans["child"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
+    assert LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["child"].attributes
     assert processor._app_root_traces == {}
 
 
