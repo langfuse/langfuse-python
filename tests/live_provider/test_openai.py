@@ -1240,7 +1240,7 @@ def test_audio_input_and_output(openai):
 
     client.chat.completions.create(
         name=generation_name,
-        model="gpt-4o-audio-preview",
+        model="gpt-4o-audio-2025-06-03",
         modalities=["text", "audio"],
         audio={"voice": "alloy", "format": "wav"},
         messages=[
@@ -1274,7 +1274,7 @@ def test_audio_input_and_output(openai):
         in generation.data[0].input[0]["content"][1]["input_audio"]["data"]
     )
     assert generation.data[0].type == "GENERATION"
-    assert "gpt-4o-audio-preview" in generation.data[0].model
+    assert "gpt-4o-audio-2025-06-03" in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
