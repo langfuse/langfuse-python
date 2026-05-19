@@ -90,7 +90,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             else []
         )
         self._should_export_span = should_export_span or is_default_export_span
-        self._initialize_app_root_state()
+
+        self._app_root_lock = threading.Lock()
+        self._app_root_traces: Dict[str, _AppRootTraceState] = {}
 
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
         flush_at = flush_at or int(env_flush_at) if env_flush_at is not None else None
@@ -140,10 +142,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             if flush_interval is not None
             else None,
         )
-
-    def _initialize_app_root_state(self) -> None:
-        self._app_root_lock = threading.Lock()
-        self._app_root_traces: Dict[str, _AppRootTraceState] = {}
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
         context = parent_context or context_api.get_current()
@@ -215,8 +213,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             self._cleanup_app_root_state(span)
 
     def _mark_app_root_candidate(self, *, span: Span, parent_context: Context) -> None:
-        self._ensure_app_root_state()
-
         trace_id = format_trace_id(span.context.trace_id)
         span_id = format_span_id(span.context.span_id)
         parent_span_id = format_span_id(span.parent.span_id) if span.parent else None
@@ -259,8 +255,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             span.set_attribute(LangfuseOtelSpanAttributes.IS_APP_ROOT, True)
 
     def _cleanup_app_root_state(self, span: ReadableSpan) -> None:
-        self._ensure_app_root_state()
-
         trace_id = format_trace_id(span.context.trace_id)
         span_id = format_span_id(span.context.span_id)
 
@@ -278,10 +272,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
             if trace_state.active_count <= 0:
                 self._app_root_traces.pop(trace_id, None)
-
-    def _ensure_app_root_state(self) -> None:
-        if not hasattr(self, "_app_root_lock"):
-            self._initialize_app_root_state()
 
     def _is_expected_exported_at_start(self, span: Span) -> bool:
         readable_span = cast(ReadableSpan, span)
