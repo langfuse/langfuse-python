@@ -371,7 +371,13 @@ class LangfuseResourceManager:
         # here to keep this handler minimal; this mirrors the existing singleton client
         # lifecycle. If preload-time network I/O is introduced in the future, clients
         # may need fork-specific reinitialization as well.
-        self._init_consumer_threads()
+        try:
+            self._init_consumer_threads()
+        except Exception as e:
+            langfuse_logger.error(
+                f"[PID {os.getpid()}] Failed to reinitialize consumer threads after fork: {e}. "
+                f"Media upload and score ingestion will be unavailable in this worker."
+            )
 
         langfuse_logger.debug(
             f"[PID {os.getpid()}] Langfuse consumer threads reinitialized after fork"
