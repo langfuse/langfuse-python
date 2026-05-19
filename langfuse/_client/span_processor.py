@@ -236,9 +236,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 if parent_state is not None
                 else False
             )
-            suppressed_by_parent_claim = (
-                propagated_trace_id == trace_id and parent_state is None
-            )
+            suppressed_by_parent_claim = propagated_trace_id == trace_id
 
             mark_app_root = (
                 expected_exported

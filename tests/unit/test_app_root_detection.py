@@ -159,7 +159,7 @@ def test_different_trace_baggage_claim_does_not_suppress_local_app_root(
     assert processor._app_root_traces == {}
 
 
-def test_local_baggage_claim_does_not_suppress_child_of_filtered_parent(
+def test_local_baggage_claim_suppresses_child_even_when_parent_is_filtered(
     memory_exporter,
 ):
     def should_export_span(span: ReadableSpan) -> bool:
@@ -190,7 +190,7 @@ def test_local_baggage_claim_does_not_suppress_child_of_filtered_parent(
     spans = _get_spans_by_name(memory_exporter)
 
     assert "parent" not in spans
-    assert spans["child"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
+    assert LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["child"].attributes
     assert processor._app_root_traces == {}
 
 
