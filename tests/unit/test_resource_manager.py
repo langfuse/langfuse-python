@@ -166,6 +166,66 @@ def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
     assert not consumer.is_alive()
 
 
+def test_at_fork_reinit_creates_new_queues_and_consumers(monkeypatch):
+    """_at_fork_reinit() must replace queues and start fresh consumer threads."""
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-fork-reinit",
+        secret_key="sk-fork-reinit",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    old_score_queue = rm._score_ingestion_queue
+    old_media_queue = rm._media_upload_queue
+    old_ingestion_consumers = list(rm._ingestion_consumers)
+
+    rm._at_fork_reinit()
+
+    assert rm._score_ingestion_queue is not old_score_queue
+    assert rm._media_upload_queue is not old_media_queue
+    assert len(rm._ingestion_consumers) == 1
+    assert rm._ingestion_consumers[0].is_alive()
+
+    # In a real fork, old threads don't exist in the child process.
+    # In this unit test they do — stop them explicitly to avoid leaking threads.
+    for consumer in old_ingestion_consumers:
+        consumer.pause()
+        consumer.join(timeout=1.0)
+
+    client.shutdown()
+
+
+def test_at_fork_reinit_skips_when_shutdown(monkeypatch):
+    """_at_fork_reinit() must not restart threads after intentional shutdown."""
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-fork-shutdown",
+        secret_key="sk-fork-shutdown",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    old_score_queue = rm._score_ingestion_queue
+
+    rm._shutdown = True
+    rm._at_fork_reinit()
+
+    assert rm._score_ingestion_queue is old_score_queue  # queue must not be replaced
+
+    client.shutdown()
+
+
 def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_all():
     events = []
 
