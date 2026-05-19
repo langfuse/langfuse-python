@@ -95,6 +95,8 @@ def langfuse_memory_client(
     tracer_provider = TracerProvider(resource=Resource.create({"service.name": "test"}))
 
     def mock_init(self: Any, **kwargs: Any) -> None:
+        import threading
+
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
         from langfuse._client.span_filter import is_default_export_span
@@ -107,6 +109,8 @@ def langfuse_memory_client(
         self._should_export_span = (
             kwargs.get("should_export_span") or is_default_export_span
         )
+        self._app_root_lock = threading.Lock()
+        self._app_root_traces = {}
         BatchSpanProcessor.__init__(
             self,
             span_exporter=memory_exporter,
