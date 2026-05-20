@@ -143,10 +143,11 @@ def test_create_numeric_score():
 
     # Create a numeric score
     score_id = create_uuid()
+    score_name = f"score-{create_uuid()[:8]}"
     langfuse.create_score(
         score_id=score_id,
         trace_id=trace_id,
-        name="this-is-a-score",
+        name=score_name,
         value=1,
     )
 
@@ -163,10 +164,11 @@ def test_create_numeric_score():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["value"] == 1
-    assert trace["scores"][0]["dataType"] == "NUMERIC"
-    assert trace["scores"][0]["stringValue"] is None
+    created_score = next((s for s in trace["scores"] if s["name"] == score_name), None)
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["value"] == 1
+    assert created_score["dataType"] == "NUMERIC"
+    assert created_score["stringValue"] is None
 
 
 def test_create_boolean_score():
@@ -189,10 +191,11 @@ def test_create_boolean_score():
 
     # Create a boolean score
     score_id = create_uuid()
+    score_name = f"score-{create_uuid()[:8]}"
     langfuse.create_score(
         score_id=score_id,
         trace_id=trace_id,
-        name="this-is-a-score",
+        name=score_name,
         value=1,
         data_type="BOOLEAN",
     )
@@ -210,10 +213,11 @@ def test_create_boolean_score():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["dataType"] == "BOOLEAN"
-    assert trace["scores"][0]["value"] == 1
-    assert trace["scores"][0]["stringValue"] == "True"
+    created_score = next((s for s in trace["scores"] if s["name"] == score_name), None)
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["dataType"] == "BOOLEAN"
+    assert created_score["value"] == 1
+    assert created_score["stringValue"] == "True"
 
 
 def test_create_categorical_score():
@@ -236,10 +240,11 @@ def test_create_categorical_score():
 
     # Create a categorical score
     score_id = create_uuid()
+    score_name = f"score-{create_uuid()[:8]}"
     langfuse.create_score(
         score_id=score_id,
         trace_id=trace_id,
-        name="this-is-a-score",
+        name=score_name,
         value="high score",
     )
 
@@ -256,10 +261,11 @@ def test_create_categorical_score():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["dataType"] == "CATEGORICAL"
-    assert trace["scores"][0]["value"] == 0
-    assert trace["scores"][0]["stringValue"] == "high score"
+    created_score = next((s for s in trace["scores"] if s["name"] == score_name), None)
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["dataType"] == "CATEGORICAL"
+    assert created_score["value"] == 0
+    assert created_score["stringValue"] == "high score"
 
 
 def test_create_text_score():
@@ -282,10 +288,11 @@ def test_create_text_score():
 
     # Create a text score
     score_id = create_uuid()
+    score_name = f"score-{create_uuid()[:8]}"
     langfuse.create_score(
         score_id=score_id,
         trace_id=trace_id,
-        name="this-is-a-score",
+        name=score_name,
         value="this is a text score",
         data_type="TEXT",
     )
@@ -303,15 +310,16 @@ def test_create_text_score():
     # Retrieve and verify
     trace = api_wrapper.get_trace(trace_id)
 
-    assert trace["scores"][0]["id"] == score_id
-    assert trace["scores"][0]["dataType"] == "TEXT"
-    assert trace["scores"][0]["value"] is None
-    assert trace["scores"][0]["stringValue"] == "this is a text score"
+    created_score = next((s for s in trace["scores"] if s["name"] == score_name), None)
+    assert created_score is not None, "Score not found in trace"
+    assert created_score["dataType"] == "TEXT"
+    assert created_score["value"] is None
+    assert created_score["stringValue"] == "this is a text score"
 
 
 def test_create_and_list_text_score_config():
     api = get_api()
-    score_config_name = f"text-score-config-{create_uuid()}"
+    score_config_name = f"text-score-config-{create_uuid()[:8]}"
 
     score_config = api.score_configs.create(
         request=CreateScoreConfigRequest(

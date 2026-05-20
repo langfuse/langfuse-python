@@ -1220,13 +1220,14 @@ def test_audio_input_and_output(openai):
     client = openai.OpenAI()
     openai.langfuse_debug = True
     generation_name = "test_audio_input_and_output" + create_uuid()[:8]
+    model = "gpt-4o-mini-audio-preview"
 
     content_path = "static/joke_prompt.wav"
     base64_string = encode_file_to_base64(content_path)
 
     client.chat.completions.create(
         name=generation_name,
-        model="gpt-4o-audio-preview",
+        model=model,
         modalities=["text", "audio"],
         audio={"voice": "alloy", "format": "wav"},
         messages=[
@@ -1260,7 +1261,7 @@ def test_audio_input_and_output(openai):
         in generation.data[0].input[0]["content"][1]["input_audio"]["data"]
     )
     assert generation.data[0].type == "GENERATION"
-    assert "gpt-4o-audio-preview" in generation.data[0].model
+    assert model in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
