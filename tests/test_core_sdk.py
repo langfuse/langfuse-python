@@ -313,7 +313,7 @@ def test_create_text_score():
     created_score = next((s for s in trace["scores"] if s["name"] == score_name), None)
     assert created_score is not None, "Score not found in trace"
     assert created_score["dataType"] == "TEXT"
-    assert created_score["value"] is None
+    assert created_score.get("value") is None
     assert created_score["stringValue"] == "this is a text score"
 
 
