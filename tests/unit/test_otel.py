@@ -103,7 +103,7 @@ class TestOTelBase:
                 kwargs.get("should_export_span") or is_default_export_span
             )
             self._app_root_lock = threading.Lock()
-            self._app_root_traces = {}
+            self._span_export_expectation_by_id = {}
             BatchSpanProcessor.__init__(
                 self,
                 span_exporter=memory_exporter,
@@ -2005,7 +2005,7 @@ class TestMultiProjectSetup(TestOTelBase):
                 kwargs.get("should_export_span") or is_default_export_span
             )
             self._app_root_lock = threading.Lock()
-            self._app_root_traces = {}
+            self._span_export_expectation_by_id = {}
             # Use the appropriate exporter based on the project key
             if self.public_key == project1_key:
                 exporter = exporter_project1
@@ -2388,7 +2388,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
                 kwargs.get("should_export_span") or is_default_export_span
             )
             self._app_root_lock = threading.Lock()
-            self._app_root_traces = {}
+            self._span_export_expectation_by_id = {}
 
             # For testing, use the appropriate exporter based on setup
             exporter = kwargs.get("_test_exporter", blocked_exporter)
