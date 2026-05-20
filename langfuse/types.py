@@ -41,7 +41,9 @@ from langfuse.model import MapValue, ModelUsage, PromptClient
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 
-ScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
+ScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN", "TEXT"]
+
+ExperimentScoreType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
 
 
 class TraceMetadata(TypedDict):
@@ -106,6 +108,7 @@ class TraceContext(TypedDict):
 __all__ = [
     "SpanLevel",
     "ScoreDataType",
+    "ExperimentScoreType",
     "TraceMetadata",
     "ObservationParams",
     "MaskFunction",

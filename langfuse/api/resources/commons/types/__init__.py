@@ -36,14 +36,23 @@ from .score import (
     Score_Categorical,
     Score_Correction,
     Score_Numeric,
+    Score_Text,
 )
 from .score_config import ScoreConfig
 from .score_config_data_type import ScoreConfigDataType
 from .score_data_type import ScoreDataType
 from .score_source import ScoreSource
-from .score_v_1 import ScoreV1, ScoreV1_Boolean, ScoreV1_Categorical, ScoreV1_Numeric
+from .score_v_1 import (
+    ScoreV1,
+    ScoreV1_Boolean,
+    ScoreV1_Categorical,
+    ScoreV1_Numeric,
+    ScoreV1_Text,
+)
 from .session import Session
 from .session_with_traces import SessionWithTraces
+from .text_score import TextScore
+from .text_score_v_1 import TextScoreV1
 from .trace import Trace
 from .trace_with_details import TraceWithDetails
 from .trace_with_full_details import TraceWithFullDetails
@@ -89,12 +98,16 @@ __all__ = [
     "ScoreV1_Boolean",
     "ScoreV1_Categorical",
     "ScoreV1_Numeric",
+    "ScoreV1_Text",
     "Score_Boolean",
     "Score_Categorical",
     "Score_Correction",
     "Score_Numeric",
+    "Score_Text",
     "Session",
     "SessionWithTraces",
+    "TextScore",
+    "TextScoreV1",
     "Trace",
     "TraceWithDetails",
     "TraceWithFullDetails",

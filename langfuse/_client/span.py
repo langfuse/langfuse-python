@@ -287,7 +287,7 @@ class LangfuseObservationWrapper:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -313,9 +313,9 @@ class LangfuseObservationWrapper:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL)
+            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)
@@ -342,7 +342,7 @@ class LangfuseObservationWrapper:
             trace_id=self.trace_id,
             observation_id=self.id,
             score_id=score_id,
-            data_type=cast(Literal["CATEGORICAL"], data_type),
+            data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
             comment=comment,
             config_id=config_id,
             timestamp=timestamp,
@@ -370,7 +370,7 @@ class LangfuseObservationWrapper:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         timestamp: Optional[datetime] = None,
@@ -397,9 +397,9 @@ class LangfuseObservationWrapper:
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
-            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL)
+            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)
@@ -425,7 +425,7 @@ class LangfuseObservationWrapper:
             value=cast(str, value),
             trace_id=self.trace_id,
             score_id=score_id,
-            data_type=cast(Literal["CATEGORICAL"], data_type),
+            data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
             comment=comment,
             config_id=config_id,
             timestamp=timestamp,
