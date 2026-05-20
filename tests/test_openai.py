@@ -1220,7 +1220,7 @@ def test_audio_input_and_output(openai):
     client = openai.OpenAI()
     openai.langfuse_debug = True
     generation_name = "test_audio_input_and_output" + create_uuid()[:8]
-    model = "gpt-4o-mini-audio-preview"
+    model = "gpt-audio-mini-2025-12-15"
 
     content_path = "static/joke_prompt.wav"
     base64_string = encode_file_to_base64(content_path)
