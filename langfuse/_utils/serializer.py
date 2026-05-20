@@ -44,9 +44,6 @@ class EventSerializer(JSONEncoder):
         self._depth = 0
 
     def default(self, obj: Any) -> Any:
-        if self._depth >= self._MAX_DEPTH:
-            return f"<{type(obj).__name__}>"
-
         self._depth += 1
         try:
             return self._default_inner(obj)
@@ -95,9 +92,6 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, Queue):
                 return type(obj).__name__
 
-            if is_dataclass(obj):
-                return asdict(obj)  # type: ignore
-
             if isinstance(obj, UUID):
                 return str(obj)
 
@@ -110,21 +104,8 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (date)):
                 return obj.isoformat()
 
-            if isinstance(obj, BaseModel):
-                obj.model_rebuild()
-
-                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
-                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
-                    raw.model_rebuild()
-
-                return obj.model_dump()
-
             if isinstance(obj, Path):
                 return str(obj)
-
-            # if langchain is not available, the Serializable type is NoneType
-            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
-                return obj.to_json()
 
             # 64-bit integers might overflow the JavaScript safe integer range.
             # Since Node.js is run on the server that handles the serialized value,
@@ -135,6 +116,25 @@ class EventSerializer(JSONEncoder):
             # Standard JSON-encodable types
             if isinstance(obj, (str, float, type(None))):
                 return obj
+
+            if self._depth >= self._MAX_DEPTH:
+                return f"<{type(obj).__name__}>"
+
+            if is_dataclass(obj):
+                return asdict(obj)  # type: ignore
+
+            if isinstance(obj, BaseModel):
+                obj.model_rebuild()
+
+                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
+                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
+                    raw.model_rebuild()
+
+                return obj.model_dump()
+
+            # if langchain is not available, the Serializable type is NoneType
+            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
+                return obj.to_json()
 
             if isinstance(obj, (tuple, set, frozenset)):
                 return list(obj)
@@ -151,9 +151,10 @@ class EventSerializer(JSONEncoder):
                 return [self.default(item) for item in obj]
 
             if hasattr(obj, "__slots__"):
-                return self.default(
-                    {slot: getattr(obj, slot, None) for slot in obj.__slots__}
-                )
+                return {
+                    slot: self.default(getattr(obj, slot, None))
+                    for slot in obj.__slots__
+                }
             elif hasattr(obj, "__dict__"):
                 obj_id = id(obj)
 

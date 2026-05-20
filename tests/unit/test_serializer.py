@@ -6,6 +6,7 @@ from enum import Enum
 from pathlib import Path
 from uuid import UUID
 
+import pytest
 from pydantic import BaseModel
 
 from langfuse._utils.serializer import (
@@ -177,10 +178,6 @@ def test_slots():
 
 
 def test_deeply_nested_object_does_not_hang():
-    """Objects with deep nesting (e.g. HTTP clients with connection pools) must
-    not cause infinite recursion or hangs. The serializer should bail out
-    gracefully after reaching its depth limit."""
-
     class Inner:
         def __init__(self):
             self.lock = threading.Lock()
@@ -210,9 +207,6 @@ def test_deeply_nested_object_does_not_hang():
 
 
 def test_max_depth_returns_type_name():
-    """When nesting exceeds _MAX_DEPTH, the serializer should return the type
-    name as a placeholder instead of recursing further."""
-
     class Level:
         def __init__(self, child=None):
             self.child = child
@@ -238,9 +232,6 @@ def test_max_depth_returns_type_name():
 
 
 def test_deeply_nested_slots_object_is_truncated():
-    """Objects using __slots__ that are deeply nested should also be truncated
-    at the depth limit rather than recursing indefinitely."""
-
     class SlotLevel:
         __slots__ = ["child"]
 
@@ -264,6 +255,46 @@ def test_deeply_nested_slots_object_is_truncated():
         else:
             break
 
-    assert depth <= EventSerializer._MAX_DEPTH // 2 + 3, (
-        f"Nesting depth {depth} exceeded limit — serializer should have truncated"
+    assert EventSerializer._MAX_DEPTH - 2 <= depth <= EventSerializer._MAX_DEPTH + 2, (
+        f"Nesting depth {depth} not near _MAX_DEPTH ({EventSerializer._MAX_DEPTH}) — "
+        "serializer truncated too early or too late"
     )
+
+
+def test_deeply_nested_dict_preserves_keys_at_depth_boundary(monkeypatch):
+    monkeypatch.setattr(EventSerializer, "_MAX_DEPTH", 3)
+
+    input_obj = {"a": {"b": {"c": "leaf"}}}
+    expected = {"a": {"b": "<dict>"}}
+
+    serializer = EventSerializer()
+    result = json.loads(serializer.encode(input_obj))
+
+    assert result == expected
+
+
+class _Color(Enum):
+    RED = "red"
+    NUMERIC = 7
+
+
+@pytest.mark.parametrize(
+    "input_obj, expected",
+    [
+        (
+            {datetime(2024, 1, 1, tzinfo=timezone.utc): "v"},
+            {"2024-01-01T00:00:00Z": "v"},
+        ),
+        (
+            {UUID("12345678-1234-5678-1234-567812345678"): "v"},
+            {"12345678-1234-5678-1234-567812345678": "v"},
+        ),
+        ({_Color.RED: "v"}, {"red": "v"}),
+        ({_Color.NUMERIC: "v"}, {"7": "v"}),
+    ],
+    ids=["datetime", "uuid", "enum_str_value", "enum_int_value"],
+)
+def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
+    result = json.loads(EventSerializer().encode(input_obj))
+
+    assert result == expected
