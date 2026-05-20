@@ -65,7 +65,7 @@ def test_filtered_parent_marks_exported_children_as_app_roots(memory_exporter):
     assert "filtered-parent" not in spans
     assert spans["child-a"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
     assert spans["child-b"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_exported_parent_suppresses_exported_child_app_root(memory_exporter):
@@ -82,7 +82,7 @@ def test_exported_parent_suppresses_exported_child_app_root(memory_exporter):
 
     assert spans["parent"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
     assert LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["child"].attributes
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_grandparent_baggage_claim_suppresses_child_through_filtered_parent(
@@ -115,7 +115,7 @@ def test_grandparent_baggage_claim_suppresses_child_through_filtered_parent(
         spans["grandparent"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
     )
     assert LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["child"].attributes
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_same_trace_baggage_claim_suppresses_local_app_root(memory_exporter):
@@ -139,7 +139,7 @@ def test_same_trace_baggage_claim_suppresses_local_app_root(memory_exporter):
         LangfuseOtelSpanAttributes.IS_APP_ROOT
         not in spans["downstream-root"].attributes
     )
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_different_trace_baggage_claim_does_not_suppress_local_app_root(
@@ -165,7 +165,7 @@ def test_different_trace_baggage_claim_does_not_suppress_local_app_root(
         spans["downstream-root"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT]
         is True
     )
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_local_baggage_claim_suppresses_child_even_when_parent_is_filtered(
@@ -200,7 +200,7 @@ def test_local_baggage_claim_suppresses_child_even_when_parent_is_filtered(
 
     assert "parent" not in spans
     assert LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["child"].attributes
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_start_time_false_positive_can_leave_exported_child_without_app_root(
@@ -228,7 +228,7 @@ def test_start_time_false_positive_can_leave_exported_child_without_app_root(
 
     assert "parent" not in spans
     assert LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["child"].attributes
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_active_langfuse_scope_sets_baggage_after_root_start(
@@ -272,7 +272,7 @@ def test_blocked_instrumentation_scope_parent_marks_child_as_app_root(
 
     assert "blocked-parent" not in spans
     assert spans["child"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_foreign_project_langfuse_parent_marks_child_as_app_root(memory_exporter):
@@ -294,7 +294,7 @@ def test_foreign_project_langfuse_parent_marks_child_as_app_root(memory_exporter
 
     assert "foreign-parent" not in spans
     assert spans["child"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_should_export_span_raising_does_not_mark_app_root(memory_exporter):
@@ -315,7 +315,7 @@ def test_should_export_span_raising_does_not_mark_app_root(memory_exporter):
     spans = _get_spans_by_name(memory_exporter)
 
     assert "root" not in spans
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_mark_app_root_candidate_exception_is_swallowed(memory_exporter, monkeypatch):
@@ -378,10 +378,12 @@ def test_concurrent_traces_keep_state_consistent(memory_exporter):
         LangfuseOtelSpanAttributes.IS_APP_ROOT not in span.attributes
         for span in child_spans
     )
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
 
 
-def test_multiple_interleaved_traces_track_state_independently(memory_exporter):
+def test_multiple_interleaved_traces_track_active_span_state_independently(
+    memory_exporter,
+):
     tracer_provider, processor = _create_processor(memory_exporter)
     langfuse_tracer = _langfuse_tracer(tracer_provider)
 
@@ -390,15 +392,17 @@ def test_multiple_interleaved_traces_track_state_independently(memory_exporter):
     trace_b_root = langfuse_tracer.start_span("trace-b-root")
     trace_b_ctx = trace_api.set_span_in_context(trace_b_root)
 
-    assert len(processor._app_root_traces) == 2
+    assert len(processor._span_export_expectation_by_id) == 2
 
     trace_a_child = langfuse_tracer.start_span("trace-a-child", context=trace_a_ctx)
     trace_b_child = langfuse_tracer.start_span("trace-b-child", context=trace_b_ctx)
 
+    assert len(processor._span_export_expectation_by_id) == 4
+
     trace_b_child.end()
     trace_b_root.end()
 
-    assert len(processor._app_root_traces) == 1
+    assert len(processor._span_export_expectation_by_id) == 2
 
     trace_a_child.end()
     trace_a_root.end()
@@ -419,7 +423,28 @@ def test_multiple_interleaved_traces_track_state_independently(memory_exporter):
     assert (
         LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["trace-b-child"].attributes
     )
-    assert processor._app_root_traces == {}
+    assert processor._span_export_expectation_by_id == {}
+
+
+def test_child_started_after_parent_end_is_marked_as_app_root(memory_exporter):
+    tracer_provider, processor = _create_processor(memory_exporter)
+    langfuse_tracer = _langfuse_tracer(tracer_provider)
+
+    parent = langfuse_tracer.start_span("parent")
+    parent_ctx = trace_api.set_span_in_context(parent)
+
+    parent.end()
+
+    child = langfuse_tracer.start_span("child", context=parent_ctx)
+    child.end()
+
+    processor.force_flush()
+
+    spans = _get_spans_by_name(memory_exporter)
+
+    assert spans["parent"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
+    assert spans["child"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
+    assert processor._span_export_expectation_by_id == {}
 
 
 def test_set_langfuse_trace_id_in_baggage_sets_value():

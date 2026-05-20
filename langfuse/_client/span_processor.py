@@ -14,7 +14,6 @@ Key features:
 import base64
 import os
 import threading
-from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, cast
 
 from opentelemetry import context as context_api
@@ -38,18 +37,6 @@ from langfuse._client.span_filter import is_default_export_span, is_langfuse_spa
 from langfuse._client.utils import span_formatter
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
-
-
-@dataclass
-class _AppRootSpanState:
-    expected_exported_at_start: bool
-    ended: bool = False
-
-
-@dataclass
-class _AppRootTraceState:
-    active_count: int
-    spans: Dict[str, _AppRootSpanState]
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -92,7 +79,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         self._should_export_span = should_export_span or is_default_export_span
 
         self._app_root_lock = threading.Lock()
-        self._app_root_traces: Dict[str, _AppRootTraceState] = {}
+        self._span_export_expectation_by_id: Dict[str, bool] = {}
 
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
         flush_at = flush_at or int(env_flush_at) if env_flush_at is not None else None
@@ -220,23 +207,13 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         propagated_trace_id = _get_langfuse_trace_id_from_baggage(parent_context)
 
         with self._app_root_lock:
-            trace_state = self._app_root_traces.get(trace_id)
-
-            if trace_state is None:
-                trace_state = _AppRootTraceState(active_count=0, spans={})
-                self._app_root_traces[trace_id] = trace_state
-
-            parent_state = (
-                trace_state.spans.get(parent_span_id)
-                if parent_span_id is not None
-                else None
-            )
             parent_expected_exported = (
-                parent_state.expected_exported_at_start is True
-                if parent_state is not None
-                else False
+                parent_span_id is not None
+                and self._span_export_expectation_by_id.get(parent_span_id) is True
             )
             suppressed_by_parent_claim = propagated_trace_id == trace_id
+
+            self._span_export_expectation_by_id[span_id] = expected_exported
 
             mark_app_root = (
                 expected_exported
@@ -244,32 +221,14 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 and not suppressed_by_parent_claim
             )
 
-            trace_state.spans[span_id] = _AppRootSpanState(
-                expected_exported_at_start=expected_exported,
-            )
-            trace_state.active_count += 1
-
         if mark_app_root:
             span.set_attribute(LangfuseOtelSpanAttributes.IS_APP_ROOT, True)
 
     def _cleanup_app_root_state(self, span: ReadableSpan) -> None:
-        trace_id = format_trace_id(span.context.trace_id)
         span_id = format_span_id(span.context.span_id)
 
         with self._app_root_lock:
-            trace_state = self._app_root_traces.get(trace_id)
-
-            if trace_state is None:
-                return
-
-            span_state = trace_state.spans.get(span_id)
-
-            if span_state is not None and not span_state.ended:
-                span_state.ended = True
-                trace_state.active_count -= 1
-
-            if trace_state.active_count <= 0:
-                self._app_root_traces.pop(trace_id, None)
+            self._span_export_expectation_by_id.pop(span_id, None)
 
     def _is_expected_exported_at_start(self, span: Span) -> bool:
         readable_span = cast(ReadableSpan, span)
