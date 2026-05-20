@@ -1638,6 +1638,8 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         from opentelemetry import baggage
         from opentelemetry import context as otel_context
 
+        from langfuse._client.propagation import LANGFUSE_TRACE_ID_BAGGAGE_KEY
+
         with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 user_id="user_123",
@@ -1646,7 +1648,13 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
                 # Get current context and inspect baggage
                 current_context = otel_context.get_current()
                 baggage_entries = baggage.get_all(context=current_context)
-                assert len(baggage_entries) == 0
+                user_baggage_entries = {
+                    key: value
+                    for key, value in baggage_entries.items()
+                    if key != LANGFUSE_TRACE_ID_BAGGAGE_KEY
+                }
+
+                assert user_baggage_entries == {}
 
     def test_metadata_key_with_user_id_substring_doesnt_collide(
         self, langfuse_client, memory_exporter
