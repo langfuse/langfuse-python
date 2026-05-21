@@ -124,7 +124,6 @@ def test_upsert_and_get_dataset_item():
         input=new_input,
         id=item.id,
         expected_output=new_input,
-        status=DatasetStatus.ARCHIVED,
     )
 
     # Refresh dataset and find updated item
@@ -139,7 +138,24 @@ def test_upsert_and_get_dataset_item():
     assert get_new_item.input == new_input
     assert get_new_item.id == item.id
     assert get_new_item.expected_output == new_input
-    assert get_new_item.status == DatasetStatus.ARCHIVED
+    assert get_new_item.status == DatasetStatus.ACTIVE
+
+    langfuse.create_dataset_item(
+        dataset_name=name,
+        input=new_input,
+        id=item.id,
+        expected_output=new_input,
+        status=DatasetStatus.ARCHIVED,
+    )
+
+    dataset = langfuse.get_dataset(name)
+    assert all(dataset_item.id != item.id for dataset_item in dataset.items)
+
+    archived_item = langfuse.api.dataset_items.get(item.id)
+    assert archived_item.input == new_input
+    assert archived_item.id == item.id
+    assert archived_item.expected_output == new_input
+    assert archived_item.status == DatasetStatus.ARCHIVED
 
 
 def test_dataset_run_with_metadata_and_description():

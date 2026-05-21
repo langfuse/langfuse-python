@@ -10,6 +10,7 @@ class ScoreDataType(str, enum.Enum):
     NUMERIC = "NUMERIC"
     BOOLEAN = "BOOLEAN"
     CATEGORICAL = "CATEGORICAL"
+    TEXT = "TEXT"
     CORRECTION = "CORRECTION"
 
     def visit(
@@ -17,6 +18,7 @@ class ScoreDataType(str, enum.Enum):
         numeric: typing.Callable[[], T_Result],
         boolean: typing.Callable[[], T_Result],
         categorical: typing.Callable[[], T_Result],
+        text: typing.Callable[[], T_Result],
         correction: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is ScoreDataType.NUMERIC:
@@ -25,5 +27,7 @@ class ScoreDataType(str, enum.Enum):
             return boolean()
         if self is ScoreDataType.CATEGORICAL:
             return categorical()
+        if self is ScoreDataType.TEXT:
+            return text()
         if self is ScoreDataType.CORRECTION:
             return correction()

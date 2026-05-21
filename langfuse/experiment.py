@@ -19,7 +19,7 @@ from typing import (
     Union,
 )
 
-from langfuse.api import ScoreDataType
+from langfuse.types import ExperimentScoreType
 
 if TYPE_CHECKING:
     from langfuse._client.datasets import DatasetItemClient
@@ -188,7 +188,7 @@ class Evaluation:
         value: Union[int, float, str, bool],
         comment: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        data_type: Optional[ScoreDataType] = None,
+        data_type: Optional[ExperimentScoreType] = None,
         config_id: Optional[str] = None,
     ):
         """Initialize an Evaluation with the provided data.

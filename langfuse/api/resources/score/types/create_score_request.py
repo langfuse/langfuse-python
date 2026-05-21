@@ -36,7 +36,7 @@ class CreateScoreRequest(pydantic_v1.BaseModel):
     name: str
     value: CreateScoreValue = pydantic_v1.Field()
     """
-    The value of the score. Must be passed as string for categorical scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false)
+    The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
     """
 
     comment: typing.Optional[str] = None

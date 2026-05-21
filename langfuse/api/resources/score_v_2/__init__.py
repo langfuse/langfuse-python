@@ -7,10 +7,12 @@ from .types import (
     GetScoresResponseDataCategorical,
     GetScoresResponseDataCorrection,
     GetScoresResponseDataNumeric,
+    GetScoresResponseDataText,
     GetScoresResponseData_Boolean,
     GetScoresResponseData_Categorical,
     GetScoresResponseData_Correction,
     GetScoresResponseData_Numeric,
+    GetScoresResponseData_Text,
     GetScoresResponseTraceData,
 )
 
@@ -21,9 +23,11 @@ __all__ = [
     "GetScoresResponseDataCategorical",
     "GetScoresResponseDataCorrection",
     "GetScoresResponseDataNumeric",
+    "GetScoresResponseDataText",
     "GetScoresResponseData_Boolean",
     "GetScoresResponseData_Categorical",
     "GetScoresResponseData_Correction",
     "GetScoresResponseData_Numeric",
+    "GetScoresResponseData_Text",
     "GetScoresResponseTraceData",
 ]
