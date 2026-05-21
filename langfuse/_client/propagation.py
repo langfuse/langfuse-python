@@ -68,10 +68,10 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
 class PropagatedExperimentAttributes(TypedDict):
     experiment_id: str
     experiment_name: str
-    experiment_metadata: Optional[str]
+    experiment_metadata: Optional[Dict[str, str]]
     experiment_dataset_id: Optional[str]
     experiment_item_id: str
-    experiment_item_metadata: Optional[str]
+    experiment_item_metadata: Optional[Dict[str, str]]
     experiment_item_root_observation_id: str
 
 
@@ -247,9 +247,20 @@ def _propagate_attributes(
         "trace_name": trace_name,
     }
 
-    propagated_string_attributes = propagated_string_attributes | (
-        cast(Dict[str, Union[str, List[str], None]], experiment) or {}
-    )
+    propagated_metadata_attributes: Dict[str, Optional[Dict[str, str]]] = {
+        "metadata": metadata,
+    }
+
+    if experiment:
+        for key, value in experiment.items():
+            if key in ("experiment_metadata", "experiment_item_metadata"):
+                propagated_metadata_attributes[key] = cast(
+                    Optional[Dict[str, str]], value
+                )
+            else:
+                propagated_string_attributes[key] = cast(
+                    Optional[Union[str, List[str]]], value
+                )
 
     # Filter out None values
     propagated_string_attributes = {
@@ -268,16 +279,19 @@ def _propagate_attributes(
                 as_baggage=as_baggage,
             )
 
-    if metadata is not None:
+    for metadata_key, metadata_value in propagated_metadata_attributes.items():
+        if metadata_value is None:
+            continue
+
         validated_metadata: Dict[str, str] = {}
 
-        for key, value in metadata.items():
-            if _validate_string_value(value=value, key=f"metadata.{key}"):
+        for key, value in metadata_value.items():
+            if _validate_string_value(value=value, key=f"{metadata_key}.{key}"):
                 validated_metadata[key] = value
 
         if validated_metadata:
             context = _set_propagated_attribute(
-                key="metadata",
+                key=metadata_key,
                 value=validated_metadata,
                 context=context,
                 span=current_span,
@@ -302,6 +316,9 @@ def _get_propagated_attributes_from_context(
     # Handle baggage
     baggage_entries = baggage.get_all(context=context)
     for baggage_key, baggage_value in baggage_entries.items():
+        if baggage_key == LANGFUSE_TRACE_ID_BAGGAGE_KEY:
+            continue
+
         if baggage_key.startswith(LANGFUSE_BAGGAGE_PREFIX):
             span_key = _get_span_key_from_baggage_key(baggage_key)
 
@@ -322,9 +339,10 @@ def _get_propagated_attributes_from_context(
 
         if isinstance(value, dict):
             # Handle metadata
+            span_key = _get_propagated_span_key(key)
+
             for k, v in value.items():
-                span_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{k}"
-                propagated_attributes[span_key] = v
+                propagated_attributes[f"{span_key}.{k}"] = v
 
         else:
             span_key = _get_propagated_span_key(key)
@@ -387,7 +405,7 @@ def _set_propagated_attribute(
             # Handle metadata
             for k, v in value.items():
                 span.set_attribute(
-                    key=f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{k}",
+                    key=f"{span_key}.{k}",
                     value=v,
                 )
 
@@ -456,10 +474,42 @@ def _get_propagated_context_key(key: str) -> str:
 
 
 LANGFUSE_BAGGAGE_PREFIX = "langfuse_"
+LANGFUSE_TRACE_ID_BAGGAGE_KEY = "langfuse_trace_id"
 
 
 def _get_propagated_baggage_key(key: str) -> str:
     return f"{LANGFUSE_BAGGAGE_PREFIX}{key}"
+
+
+def _get_langfuse_trace_id_from_baggage(
+    context: otel_context_api.Context,
+) -> Optional[str]:
+    value = otel_baggage_api.get_baggage(
+        name=LANGFUSE_TRACE_ID_BAGGAGE_KEY,
+        context=context,
+    )
+
+    if value is None:
+        return None
+
+    return str(value).lower()
+
+
+def _set_langfuse_trace_id_in_baggage(
+    *,
+    trace_id: str,
+    context: otel_context_api.Context,
+) -> otel_context_api.Context:
+    normalized_trace_id = trace_id.lower()
+
+    if _get_langfuse_trace_id_from_baggage(context) == normalized_trace_id:
+        return context
+
+    return otel_baggage_api.set_baggage(
+        name=LANGFUSE_TRACE_ID_BAGGAGE_KEY,
+        value=normalized_trace_id,
+        context=context,
+    )
 
 
 def _get_span_key_from_baggage_key(key: str) -> Optional[str]:
@@ -469,10 +519,14 @@ def _get_span_key_from_baggage_key(key: str) -> Optional[str]:
     # Remove prefix to get the actual key name
     suffix = key[len(LANGFUSE_BAGGAGE_PREFIX) :]
 
-    if suffix.startswith("metadata_"):
-        metadata_key = suffix[len("metadata_") :]
+    for metadata_key in ("metadata", "experiment_metadata", "experiment_item_metadata"):
+        baggage_metadata_prefix = f"{metadata_key}_"
 
-        return _get_propagated_span_key(metadata_key)
+        if suffix.startswith(baggage_metadata_prefix):
+            return (
+                f"{_get_propagated_span_key(metadata_key)}."
+                f"{suffix[len(baggage_metadata_prefix) :]}"
+            )
 
     return _get_propagated_span_key(suffix)
 
@@ -484,6 +538,7 @@ def _get_propagated_span_key(key: str) -> str:
         "version": LangfuseOtelSpanAttributes.VERSION,
         "tags": LangfuseOtelSpanAttributes.TRACE_TAGS,
         "trace_name": LangfuseOtelSpanAttributes.TRACE_NAME,
+        "metadata": LangfuseOtelSpanAttributes.TRACE_METADATA,
         "experiment_id": LangfuseOtelSpanAttributes.EXPERIMENT_ID,
         "experiment_name": LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
         "experiment_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,

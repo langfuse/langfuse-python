@@ -27,8 +27,10 @@ from typing import (
 
 import backoff
 import httpx
+from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace.export import SpanExporter
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
@@ -37,7 +39,11 @@ from opentelemetry.util._decorator import (
 from packaging.version import Version
 from typing_extensions import deprecated
 
-from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    _flatten_and_serialize_metadata_values,
+    _serialize,
+)
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     ObservationTypeGenerationLike,
@@ -61,7 +67,9 @@ from langfuse._client.environment_variables import (
 )
 from langfuse._client.propagation import (
     PropagatedExperimentAttributes,
+    _detach_context_token_safely,
     _propagate_attributes,
+    _set_langfuse_trace_id_in_baggage,
 )
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
@@ -179,8 +187,9 @@ class Langfuse:
             )
             ```
         should_export_span (Optional[Callable[[ReadableSpan], bool]]): Callback to decide whether to export a span. If omitted, Langfuse uses the default filter (Langfuse SDK spans, spans with `gen_ai.*` attributes, and known LLM instrumentation scopes).
-        additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
+        additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and in the default OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well. If `span_exporter` is provided, these headers are not wired into that exporter and must be configured on the exporter instance directly.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
+        span_exporter (Optional[SpanExporter]): Custom OpenTelemetry span exporter for the Langfuse span processor. If omitted, Langfuse creates an OTLPSpanExporter pointed at the Langfuse OTLP endpoint. If provided, Langfuse does not wire `base_url`, exporter headers, exporter auth, or exporter timeout into it. Configure endpoint, headers, and timeout on the exporter instance directly. If you are sending spans to Langfuse v4 or using Langfuse Cloud Fast Preview, include `x-langfuse-ingestion-version=4` on the exporter to enable real time processing of exported spans.
 
     Example:
         ```python
@@ -244,6 +253,7 @@ class Langfuse:
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        span_exporter: Optional[SpanExporter] = None,
     ):
         self._base_url = (
             base_url
@@ -340,6 +350,7 @@ class Langfuse:
             should_export_span=should_export_span,
             additional_headers=additional_headers,
             tracer_provider=tracer_provider,
+            span_exporter=span_exporter,
         )
         self._mask = self._resources.mask
 
@@ -1170,39 +1181,54 @@ class Langfuse:
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
+            baggage_token = None
+
+            if otel_span.is_recording():
+                context_with_app_root_claim = _set_langfuse_trace_id_in_baggage(
+                    trace_id=self._get_otel_trace_id(otel_span),
+                    context=otel_context_api.get_current(),
+                )
+                baggage_token = otel_context_api.attach(context_with_app_root_claim)
+
             span_class = self._get_span_class(
                 as_type or "generation"
             )  # default was "generation"
-            common_args = {
-                "otel_span": otel_span,
-                "langfuse_client": self,
-                "environment": self._environment,
-                "release": self._release,
-                "input": input,
-                "output": output,
-                "metadata": metadata,
-                "version": version,
-                "level": level,
-                "status_message": status_message,
-            }
 
-            if span_class in [
-                LangfuseGeneration,
-                LangfuseEmbedding,
-            ]:
-                common_args.update(
-                    {
-                        "completion_start_time": completion_start_time,
-                        "model": model,
-                        "model_parameters": model_parameters,
-                        "usage_details": usage_details,
-                        "cost_details": cost_details,
-                        "prompt": prompt,
-                    }
-                )
-            # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+            try:
+                common_args = {
+                    "otel_span": otel_span,
+                    "langfuse_client": self,
+                    "environment": self._environment,
+                    "release": self._release,
+                    "input": input,
+                    "output": output,
+                    "metadata": metadata,
+                    "version": version,
+                    "level": level,
+                    "status_message": status_message,
+                }
 
-            yield span_class(**common_args)  # type: ignore[arg-type]
+                if span_class in [
+                    LangfuseGeneration,
+                    LangfuseEmbedding,
+                ]:
+                    common_args.update(
+                        {
+                            "completion_start_time": completion_start_time,
+                            "model": model,
+                            "model_parameters": model_parameters,
+                            "usage_details": usage_details,
+                            "cost_details": cost_details,
+                            "prompt": prompt,
+                        }
+                    )
+                # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+
+                yield span_class(**common_args)  # type: ignore[arg-type]
+
+            finally:
+                if baggage_token is not None:
+                    _detach_context_token_safely(baggage_token)
 
     def _get_current_otel_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
@@ -1747,7 +1773,7 @@ class Langfuse:
         trace_id: Optional[str] = None,
         score_id: Optional[str] = None,
         observation_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -1777,13 +1803,13 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
             session_id: ID of the Langfuse session to associate the score with
             dataset_run_id: ID of the Langfuse dataset run to associate the score with
             trace_id: ID of the Langfuse trace to associate the score with
             observation_id: Optional ID of the specific observation to score. Trace ID must be provided too.
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -1907,7 +1933,7 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -1931,9 +1957,9 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -1971,7 +1997,7 @@ class Langfuse:
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL"], data_type),
+                data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
                 comment=comment,
                 config_id=config_id,
                 metadata=metadata,
@@ -1997,7 +2023,7 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -2022,9 +2048,9 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -2060,7 +2086,7 @@ class Langfuse:
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL"], data_type),
+                data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
                 comment=comment,
                 config_id=config_id,
                 metadata=metadata,
@@ -2787,10 +2813,14 @@ class Langfuse:
                 propagated_experiment_attributes = PropagatedExperimentAttributes(
                     experiment_id=experiment_id,
                     experiment_name=experiment_run_name,
-                    experiment_metadata=_serialize(experiment_metadata),
+                    experiment_metadata=_flatten_and_serialize_metadata_values(
+                        experiment_metadata
+                    ),
                     experiment_dataset_id=dataset_id,
                     experiment_item_id=experiment_item_id,
-                    experiment_item_metadata=_serialize(item_metadata),
+                    experiment_item_metadata=_flatten_and_serialize_metadata_values(
+                        item_metadata if isinstance(item_metadata, dict) else None
+                    ),
                     experiment_item_root_observation_id=span.id,
                 )
 
@@ -3482,8 +3512,9 @@ class Langfuse:
                         fetch_timeout_seconds=fetch_timeout_seconds,
                     )
 
-                self._resources.prompt_cache.add_refresh_prompt_task(
+                self._resources.prompt_cache.add_refresh_prompt_task_if_current(
                     cache_key,
+                    cached_prompt,
                     refresh_task,
                 )
                 langfuse_logger.debug(

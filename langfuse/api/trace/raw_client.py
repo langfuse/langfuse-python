@@ -29,7 +29,11 @@ class RawTraceClient:
         self._client_wrapper = client_wrapper
 
     def get(
-        self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        trace_id: str,
+        *,
+        fields: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TraceWithFullDetails]:
         """
         Get a specific trace
@@ -38,6 +42,9 @@ class RawTraceClient:
         ----------
         trace_id : str
             The unique langfuse identifier of a trace
+
+        fields : typing.Optional[str]
+            Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -49,6 +56,9 @@ class RawTraceClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/traces/{jsonable_encoder(trace_id)}",
             method="GET",
+            params={
+                "fields": fields,
+            },
             request_options=request_options,
         )
         try:
@@ -621,7 +631,11 @@ class AsyncRawTraceClient:
         self._client_wrapper = client_wrapper
 
     async def get(
-        self, trace_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        trace_id: str,
+        *,
+        fields: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TraceWithFullDetails]:
         """
         Get a specific trace
@@ -630,6 +644,9 @@ class AsyncRawTraceClient:
         ----------
         trace_id : str
             The unique langfuse identifier of a trace
+
+        fields : typing.Optional[str]
+            Comma-separated list of fields to include in the response. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -641,6 +658,9 @@ class AsyncRawTraceClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/traces/{jsonable_encoder(trace_id)}",
             method="GET",
+            params={
+                "fields": fields,
+            },
             request_options=request_options,
         )
         try:

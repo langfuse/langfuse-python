@@ -33,3 +33,8 @@ docs
 tests/mocks/llama-index-storage
 
 *.local.*
+
+# Codex local runtime state
+.codex/log/
+.codex/sessions/
+.codex/tmp/

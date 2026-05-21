@@ -125,7 +125,44 @@ class ScoreV1_Boolean(UniversalBaseModel):
     )
 
 
+class ScoreV1_Text(UniversalBaseModel):
+    data_type: typing_extensions.Annotated[
+        typing.Literal["TEXT"], FieldMetadata(alias="dataType")
+    ] = "TEXT"
+    string_value: typing_extensions.Annotated[str, FieldMetadata(alias="stringValue")]
+    id: str
+    trace_id: typing_extensions.Annotated[str, FieldMetadata(alias="traceId")]
+    name: str
+    source: ScoreSource
+    observation_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="observationId")
+    ] = None
+    timestamp: dt.datetime
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
+    ]
+    updated_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="updatedAt")
+    ]
+    author_user_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="authorUserId")
+    ] = None
+    comment: typing.Optional[str] = None
+    metadata: typing.Any
+    config_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="configId")
+    ] = None
+    queue_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="queueId")
+    ] = None
+    environment: str
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
+
+
 ScoreV1 = typing_extensions.Annotated[
-    typing.Union[ScoreV1_Numeric, ScoreV1_Categorical, ScoreV1_Boolean],
+    typing.Union[ScoreV1_Numeric, ScoreV1_Categorical, ScoreV1_Boolean, ScoreV1_Text],
     pydantic.Field(discriminator="data_type"),
 ]
