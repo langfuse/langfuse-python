@@ -1,3 +1,5 @@
+import threading
+import time
 from unittest.mock import Mock, patch
 
 import pytest
@@ -143,7 +145,14 @@ def wait_for_prompt_refresh(langfuse: Langfuse) -> None:
     langfuse._resources.prompt_cache._task_manager.wait_for_idle()
 
 
-def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdown():
+def test_prompt_cache_task_manager_broadcasts_sentinels_before_joining():
+    """Shutdown must enqueue one sentinel per consumer and then join.
+
+    pause() must NOT be called before the sentinels because that creates a race:
+    a consumer that finishes its current task and sees ``self.running = False``
+    exits the loop without consuming its sentinel, leaving the sentinel orphaned
+    in the queue and causing a subsequent ``wait_for_idle()`` to block forever.
+    """
     manager = PromptCacheTaskManager(threads=0)
     events = []
 
@@ -166,10 +175,14 @@ def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdo
 
     manager.shutdown()
 
+    # pause() must never be called — only sentinel + join.
+    assert ("pause", 0) not in events and ("pause", 1) not in events and ("pause", 2) not in events, (
+        "shutdown() must not call consumer.pause() — doing so before sentinels "
+        "are enqueued creates a race where a busy consumer exits without consuming "
+        "its sentinel, causing wait_for_idle() to deadlock."
+    )
+
     assert [event[0] for event in events] == [
-        "pause",
-        "pause",
-        "pause",
         "put",
         "put",
         "put",
@@ -177,6 +190,49 @@ def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdo
         "join",
         "join",
     ]
+
+
+def test_shutdown_does_not_deadlock_when_consumer_busy_during_shutdown():
+    """Regression test for the pause()-before-sentinel race condition.
+
+    Race scenario (prior to fix):
+    1. shutdown() called → pause() sets consumer.running = False
+    2. Consumer is mid-task (between queue.get() and task_done())
+    3. Consumer finishes task, calls task_done(), then evaluates while self.running
+       → False → exits WITHOUT consuming the sentinel
+    4. Sentinel is left in the queue with task_done() never called
+    5. Any subsequent wait_for_idle() (Queue.join()) deadlocks forever
+
+    This test reproduces the race by submitting a slow task and calling shutdown()
+    while the task is running, then verifying that wait_for_idle() returns promptly.
+    """
+    task_started = threading.Event()
+    task_may_finish = threading.Event()
+
+    def slow_task():
+        task_started.set()
+        task_may_finish.wait(timeout=5.0)
+
+    manager = PromptCacheTaskManager(threads=1)
+    manager.add_task("slow-key", slow_task)
+
+    # Wait until the consumer is inside the task.
+    assert task_started.wait(timeout=5.0), "slow_task never started"
+
+    # Start shutdown in a background thread while the consumer is still running.
+    shutdown_thread = threading.Thread(target=manager.shutdown, daemon=True)
+    shutdown_thread.start()
+
+    # Let the task finish so the consumer can proceed to process the sentinel.
+    task_may_finish.set()
+
+    # Shutdown must complete promptly — it must not deadlock.
+    shutdown_thread.join(timeout=5.0)
+    assert not shutdown_thread.is_alive(), (
+        "shutdown() deadlocked. This is caused by the pause()-before-sentinel race: "
+        "the consumer exited the while loop before consuming the sentinel, leaving "
+        "it orphaned in the queue so Queue.join() blocks forever."
+    )
 
 
 def test_get_fresh_prompt(langfuse):
