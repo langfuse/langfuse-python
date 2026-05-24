@@ -184,10 +184,18 @@ class PromptCache:
             self._cache.pop(key, None)
 
     def invalidate(self, prompt_name: str) -> None:
-        """Invalidate all cached prompts with the given prompt name."""
+        """Invalidate all cached prompts with the given prompt name.
+
+        Cache keys have the form ``{name}-label:{value}`` or ``{name}-version:{n}``.
+        We match on the full name followed by a ``-label:`` or ``-version:`` token so
+        that a prompt named ``"foo"`` does not accidentally evict entries belonging to
+        the similarly-named prompt ``"foobar"`` (whose keys start with ``"foo"`` too).
+        """
+        label_prefix = prompt_name + "-label:"
+        version_prefix = prompt_name + "-version:"
         with self._lock:
             for key in list(self._cache):
-                if key.startswith(prompt_name):
+                if key.startswith(label_prefix) or key.startswith(version_prefix):
                     del self._cache[key]
 
     def add_refresh_prompt_task(self, key: str, fetch_func: Callable[[], None]) -> None:

@@ -804,3 +804,48 @@ def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
+
+
+def test_invalidate_does_not_evict_prefix_matched_prompt_names() -> None:
+    """Regression test: PromptCache.invalidate() used key.startswith(prompt_name),
+    which accidentally evicted cache entries for prompts whose names share a common
+    prefix (e.g. invalidating "foo" would also remove "foobar" entries).
+
+    The fix checks for the structured separator tokens ``-label:`` / ``-version:``
+    so only exact-name matches are removed.
+    """
+    from langfuse.api import Prompt_Text
+    from langfuse.model import TextPromptClient
+
+    cache = PromptCache()
+
+    def _make_client(name: str) -> TextPromptClient:
+        return TextPromptClient(
+            Prompt_Text(
+                name=name,
+                version=1,
+                prompt="hello",
+                labels=[],
+                type="text",
+                config={},
+                tags=[],
+            )
+        )
+
+    # Two prompts whose names share a prefix: "foo" and "foobar".
+    foo_key = PromptCache.generate_cache_key("foo", version=None, label=None)
+    foobar_key = PromptCache.generate_cache_key("foobar", version=None, label=None)
+    foo_version_key = PromptCache.generate_cache_key("foo", version=1, label=None)
+
+    cache.set(foo_key, _make_client("foo"), ttl_seconds=3600)
+    cache.set(foobar_key, _make_client("foobar"), ttl_seconds=3600)
+    cache.set(foo_version_key, _make_client("foo"), ttl_seconds=3600)
+
+    # Invalidating "foo" must NOT touch the "foobar" entry.
+    cache.invalidate("foo")
+
+    assert cache.get(foo_key) is None, "foo-label:production should have been evicted"
+    assert cache.get(foo_version_key) is None, "foo-version:1 should have been evicted"
+    assert cache.get(foobar_key) is not None, (
+        "foobar-label:production must NOT be evicted when invalidating 'foo'"
+    )
