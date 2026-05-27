@@ -298,3 +298,70 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     result = json.loads(EventSerializer().encode(input_obj))
 
     assert result == expected
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: __slots__ MRO traversal
+#
+# EventSerializer previously only iterated obj.__slots__, which returns the
+# slots of the immediate class only.  Attributes defined on parent classes via
+# __slots__ were silently dropped.
+# ---------------------------------------------------------------------------
+
+
+class _SlotBase:
+    __slots__ = ("base_attr",)
+
+    def __init__(self):
+        self.base_attr = "from_base"
+
+
+class _SlotChild(_SlotBase):
+    __slots__ = ("child_attr",)
+
+    def __init__(self):
+        super().__init__()
+        self.child_attr = "from_child"
+
+
+class _SlotGrandchild(_SlotChild):
+    __slots__ = ("grandchild_attr",)
+
+    def __init__(self):
+        super().__init__()
+        self.grandchild_attr = "from_grandchild"
+
+
+def test_slots_immediate_class_serialised():
+    """Child-class slots must appear in the serialised output."""
+    serializer = EventSerializer()
+    obj = _SlotChild()
+    result = json.loads(serializer.encode(obj))
+    assert result.get("child_attr") == "from_child", (
+        f"child_attr must be serialised; got: {result}"
+    )
+
+
+def test_slots_inherited_from_parent_serialised():
+    """Parent-class slots must not be silently dropped during serialisation.
+
+    Before the fix, obj.__slots__ returned only ('child_attr',), so
+    base_attr was completely absent from the output.
+    """
+    serializer = EventSerializer()
+    obj = _SlotChild()
+    result = json.loads(serializer.encode(obj))
+    assert result.get("base_attr") == "from_base", (
+        "base_attr is defined in the parent class's __slots__ and must appear "
+        f"in the serialised output; got: {result}"
+    )
+
+
+def test_slots_deep_inheritance_chain():
+    """All slots across a 3-level MRO must be serialised."""
+    serializer = EventSerializer()
+    obj = _SlotGrandchild()
+    result = json.loads(serializer.encode(obj))
+    assert result.get("base_attr") == "from_base", f"base_attr missing from: {result}"
+    assert result.get("child_attr") == "from_child", f"child_attr missing from: {result}"
+    assert result.get("grandchild_attr") == "from_grandchild", f"grandchild_attr missing from: {result}"

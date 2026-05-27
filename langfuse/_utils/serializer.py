@@ -151,9 +151,18 @@ class EventSerializer(JSONEncoder):
                 return [self.default(item) for item in obj]
 
             if hasattr(obj, "__slots__"):
+                # Collect slots from the entire MRO so that attributes defined
+                # on parent classes are not silently dropped.  Accessing
+                # obj.__slots__ only returns the slots of the *immediate* class;
+                # inherited slots live on their respective base classes.
+                all_slots = [
+                    slot
+                    for cls in type(obj).__mro__
+                    for slot in getattr(cls, "__slots__", ())
+                ]
                 return {
                     slot: self.default(getattr(obj, slot, None))
-                    for slot in obj.__slots__
+                    for slot in all_slots
                 }
             elif hasattr(obj, "__dict__"):
                 obj_id = id(obj)
