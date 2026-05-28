@@ -62,7 +62,7 @@ class ScoresClient:
             Page number, starts at 1.
 
         limit : typing.Optional[int]
-            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
         user_id : typing.Optional[str]
             Retrieve only scores with this userId associated to the trace.
@@ -258,7 +258,7 @@ class AsyncScoresClient:
             Page number, starts at 1.
 
         limit : typing.Optional[int]
-            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
         user_id : typing.Optional[str]
             Retrieve only scores with this userId associated to the trace.
