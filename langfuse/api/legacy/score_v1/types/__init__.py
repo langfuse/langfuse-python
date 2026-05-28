@@ -8,9 +8,11 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .create_score_request import CreateScoreRequest
     from .create_score_response import CreateScoreResponse
+    from .create_score_source import CreateScoreSource
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateScoreRequest": ".create_score_request",
     "CreateScoreResponse": ".create_score_response",
+    "CreateScoreSource": ".create_score_source",
 }
 
 
@@ -41,4 +43,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CreateScoreRequest", "CreateScoreResponse"]
+__all__ = ["CreateScoreRequest", "CreateScoreResponse", "CreateScoreSource"]

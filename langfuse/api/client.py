@@ -41,6 +41,7 @@ if typing.TYPE_CHECKING:
     from .scores.client import AsyncScoresClient, ScoresClient
     from .sessions.client import AsyncSessionsClient, SessionsClient
     from .trace.client import AsyncTraceClient, TraceClient
+    from .unstable.client import AsyncUnstableClient, UnstableClient
 
 
 class LangfuseAPI:
@@ -147,6 +148,7 @@ class LangfuseAPI:
         self._scores: typing.Optional[ScoresClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
         self._trace: typing.Optional[TraceClient] = None
+        self._unstable: typing.Optional[UnstableClient] = None
 
     @property
     def annotation_queues(self):
@@ -358,6 +360,14 @@ class LangfuseAPI:
             self._trace = TraceClient(client_wrapper=self._client_wrapper)
         return self._trace
 
+    @property
+    def unstable(self):
+        if self._unstable is None:
+            from .unstable.client import UnstableClient  # noqa: E402
+
+            self._unstable = UnstableClient(client_wrapper=self._client_wrapper)
+        return self._unstable
+
 
 class AsyncLangfuseAPI:
     """
@@ -463,6 +473,7 @@ class AsyncLangfuseAPI:
         self._scores: typing.Optional[AsyncScoresClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._trace: typing.Optional[AsyncTraceClient] = None
+        self._unstable: typing.Optional[AsyncUnstableClient] = None
 
     @property
     def annotation_queues(self):
@@ -677,3 +688,11 @@ class AsyncLangfuseAPI:
 
             self._trace = AsyncTraceClient(client_wrapper=self._client_wrapper)
         return self._trace
+
+    @property
+    def unstable(self):
+        if self._unstable is None:
+            from .unstable.client import AsyncUnstableClient  # noqa: E402
+
+            self._unstable = AsyncUnstableClient(client_wrapper=self._client_wrapper)
+        return self._unstable

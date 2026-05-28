@@ -6,11 +6,13 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .delete_llm_connection_response import DeleteLlmConnectionResponse
     from .llm_adapter import LlmAdapter
     from .llm_connection import LlmConnection
     from .paginated_llm_connections import PaginatedLlmConnections
     from .upsert_llm_connection_request import UpsertLlmConnectionRequest
 _dynamic_imports: typing.Dict[str, str] = {
+    "DeleteLlmConnectionResponse": ".delete_llm_connection_response",
     "LlmAdapter": ".llm_adapter",
     "LlmConnection": ".llm_connection",
     "PaginatedLlmConnections": ".paginated_llm_connections",
@@ -46,6 +48,7 @@ def __dir__():
 
 
 __all__ = [
+    "DeleteLlmConnectionResponse",
     "LlmAdapter",
     "LlmConnection",
     "PaginatedLlmConnections",

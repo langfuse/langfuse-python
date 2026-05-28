@@ -190,6 +190,13 @@ class ObservationV2(UniversalBaseModel):
     The total cost of the observation in USD
     """
 
+    usage_pricing_tier_name: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="usagePricingTierName")
+    ] = pydantic.Field(default=None)
+    """
+    The name of the pricing tier applied to this observation's usage costs
+    """
+
     prompt_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="promptId")
     ] = pydantic.Field(default=None)
@@ -227,7 +234,45 @@ class ObservationV2(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="modelId")
     ] = pydantic.Field(default=None)
     """
-    The matched model ID
+    The matched model ID. Null when the `model` field group is not requested.
+    """
+
+    input_price: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="inputPrice")
+    ] = pydantic.Field(default=None)
+    """
+    The input token price (USD per unit) from the matched model, serialized as a decimal string (e.g. "0.0001"). Null when the `model` field group is not requested.
+    """
+
+    output_price: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="outputPrice")
+    ] = pydantic.Field(default=None)
+    """
+    The output token price (USD per unit) from the matched model, serialized as a decimal string (e.g. "0.0001"). Null when the `model` field group is not requested.
+    """
+
+    total_price: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="totalPrice")
+    ] = pydantic.Field(default=None)
+    """
+    The total token price (USD per unit) from the matched model, serialized as a decimal string (e.g. "0.0001"). Null when the `model` field group is not requested.
+    """
+
+    trace_name: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="traceName")
+    ] = pydantic.Field(default=None)
+    """
+    The name of the parent trace
+    """
+
+    tags: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Tags from the parent trace (denormalized onto the observation)
+    """
+
+    release: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The release version of the parent trace
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

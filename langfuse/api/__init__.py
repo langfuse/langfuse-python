@@ -32,6 +32,7 @@ if typing.TYPE_CHECKING:
         scores,
         sessions,
         trace,
+        unstable,
         utils,
     )
     from .annotation_queues import (
@@ -50,8 +51,10 @@ if typing.TYPE_CHECKING:
         UpdateAnnotationQueueItemRequest,
     )
     from .blob_storage_integrations import (
+        BlobStorageExportFieldGroup,
         BlobStorageExportFrequency,
         BlobStorageExportMode,
+        BlobStorageExportSource,
         BlobStorageIntegrationDeletionResponse,
         BlobStorageIntegrationFileType,
         BlobStorageIntegrationResponse,
@@ -186,6 +189,7 @@ if typing.TYPE_CHECKING:
         UsageDetails,
     )
     from .llm_connections import (
+        DeleteLlmConnectionResponse,
         LlmAdapter,
         LlmConnection,
         PaginatedLlmConnections,
@@ -312,8 +316,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BasePrompt": ".prompts",
     "BaseScore": ".commons",
     "BaseScoreV1": ".commons",
+    "BlobStorageExportFieldGroup": ".blob_storage_integrations",
     "BlobStorageExportFrequency": ".blob_storage_integrations",
     "BlobStorageExportMode": ".blob_storage_integrations",
+    "BlobStorageExportSource": ".blob_storage_integrations",
     "BlobStorageIntegrationDeletionResponse": ".blob_storage_integrations",
     "BlobStorageIntegrationFileType": ".blob_storage_integrations",
     "BlobStorageIntegrationResponse": ".blob_storage_integrations",
@@ -368,6 +374,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DeleteAnnotationQueueItemResponse": ".annotation_queues",
     "DeleteDatasetItemResponse": ".dataset_items",
     "DeleteDatasetRunResponse": ".datasets",
+    "DeleteLlmConnectionResponse": ".llm_connections",
     "DeleteMembershipRequest": ".organizations",
     "DeleteTraceResponse": ".trace",
     "EmptyResponse": ".scim",
@@ -557,6 +564,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "scores": ".scores",
     "sessions": ".sessions",
     "trace": ".trace",
+    "unstable": ".unstable",
     "utils": ".utils",
 }
 
@@ -605,8 +613,10 @@ __all__ = [
     "BasePrompt",
     "BaseScore",
     "BaseScoreV1",
+    "BlobStorageExportFieldGroup",
     "BlobStorageExportFrequency",
     "BlobStorageExportMode",
+    "BlobStorageExportSource",
     "BlobStorageIntegrationDeletionResponse",
     "BlobStorageIntegrationFileType",
     "BlobStorageIntegrationResponse",
@@ -661,6 +671,7 @@ __all__ = [
     "DeleteAnnotationQueueItemResponse",
     "DeleteDatasetItemResponse",
     "DeleteDatasetRunResponse",
+    "DeleteLlmConnectionResponse",
     "DeleteMembershipRequest",
     "DeleteTraceResponse",
     "EmptyResponse",
@@ -850,5 +861,6 @@ __all__ = [
     "scores",
     "sessions",
     "trace",
+    "unstable",
     "utils",
 ]

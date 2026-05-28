@@ -9,8 +9,10 @@ from .raw_client import (
     AsyncRawBlobStorageIntegrationsClient,
     RawBlobStorageIntegrationsClient,
 )
+from .types.blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .types.blob_storage_export_frequency import BlobStorageExportFrequency
 from .types.blob_storage_export_mode import BlobStorageExportMode
+from .types.blob_storage_export_source import BlobStorageExportSource
 from .types.blob_storage_integration_deletion_response import (
     BlobStorageIntegrationDeletionResponse,
 )
@@ -95,6 +97,10 @@ class BlobStorageIntegrationsClient:
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
         compressed: typing.Optional[bool] = OMIT,
+        export_source: typing.Optional[BlobStorageExportSource] = OMIT,
+        export_field_groups: typing.Optional[
+            typing.Sequence[BlobStorageExportFieldGroup]
+        ] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BlobStorageIntegrationResponse:
         """
@@ -143,6 +149,20 @@ class BlobStorageIntegrationsClient:
         compressed : typing.Optional[bool]
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
+        export_source : typing.Optional[BlobStorageExportSource]
+            Data to export. When omitted on update, the existing value is preserved. When omitted on create: pre-cutoff Cloud projects and self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`; post-cutoff Cloud projects (created on or after 2026-05-20) auto-default to `OBSERVATIONS_V2`. Required when `exportFieldGroups` is provided.
+
+            **Cloud-only deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Omitting `exportSource` on these projects silently defaults to `OBSERVATIONS_V2` rather than the schema column default. Use `OBSERVATIONS_V2` for all new integrations. Projects created before 2026-05-20 and self-hosted deployments are unaffected.
+
+        export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
+            Field groups to include in each exported row.
+
+            For exportSource `OBSERVATIONS_V2` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS`: must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+
+            For exportSource `LEGACY_TRACES_OBSERVATIONS`: this field must be omitted or null. Sending an array (including an empty array) returns 400, because that source uses a fixed column set and does not honor field groups.
+
+            `exportFieldGroups` requires `exportSource` to be provided in the same request.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -173,7 +193,7 @@ class BlobStorageIntegrationsClient:
             type=BlobStorageIntegrationType.S3,
             bucket_name="bucketName",
             region="region",
-            export_frequency=BlobStorageExportFrequency.HOURLY,
+            export_frequency=BlobStorageExportFrequency.EVERY20MINUTES,
             enabled=True,
             force_path_style=True,
             file_type=BlobStorageIntegrationFileType.JSON,
@@ -196,6 +216,8 @@ class BlobStorageIntegrationsClient:
             prefix=prefix,
             export_start_date=export_start_date,
             compressed=compressed,
+            export_source=export_source,
+            export_field_groups=export_field_groups,
             request_options=request_options,
         )
         return _response.data
@@ -354,6 +376,10 @@ class AsyncBlobStorageIntegrationsClient:
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
         compressed: typing.Optional[bool] = OMIT,
+        export_source: typing.Optional[BlobStorageExportSource] = OMIT,
+        export_field_groups: typing.Optional[
+            typing.Sequence[BlobStorageExportFieldGroup]
+        ] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> BlobStorageIntegrationResponse:
         """
@@ -402,6 +428,20 @@ class AsyncBlobStorageIntegrationsClient:
         compressed : typing.Optional[bool]
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
+        export_source : typing.Optional[BlobStorageExportSource]
+            Data to export. When omitted on update, the existing value is preserved. When omitted on create: pre-cutoff Cloud projects and self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`; post-cutoff Cloud projects (created on or after 2026-05-20) auto-default to `OBSERVATIONS_V2`. Required when `exportFieldGroups` is provided.
+
+            **Cloud-only deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Omitting `exportSource` on these projects silently defaults to `OBSERVATIONS_V2` rather than the schema column default. Use `OBSERVATIONS_V2` for all new integrations. Projects created before 2026-05-20 and self-hosted deployments are unaffected.
+
+        export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
+            Field groups to include in each exported row.
+
+            For exportSource `OBSERVATIONS_V2` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS`: must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+
+            For exportSource `LEGACY_TRACES_OBSERVATIONS`: this field must be omitted or null. Sending an array (including an empty array) returns 400, because that source uses a fixed column set and does not honor field groups.
+
+            `exportFieldGroups` requires `exportSource` to be provided in the same request.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -437,7 +477,7 @@ class AsyncBlobStorageIntegrationsClient:
                 type=BlobStorageIntegrationType.S3,
                 bucket_name="bucketName",
                 region="region",
-                export_frequency=BlobStorageExportFrequency.HOURLY,
+                export_frequency=BlobStorageExportFrequency.EVERY20MINUTES,
                 enabled=True,
                 force_path_style=True,
                 file_type=BlobStorageIntegrationFileType.JSON,
@@ -463,6 +503,8 @@ class AsyncBlobStorageIntegrationsClient:
             prefix=prefix,
             export_start_date=export_start_date,
             compressed=compressed,
+            export_source=export_source,
+            export_field_groups=export_field_groups,
             request_options=request_options,
         )
         return _response.data

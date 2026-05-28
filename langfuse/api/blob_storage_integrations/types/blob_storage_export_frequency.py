@@ -8,16 +8,20 @@ T_Result = typing.TypeVar("T_Result")
 
 
 class BlobStorageExportFrequency(enum.StrEnum):
+    EVERY20MINUTES = "every_20_minutes"
     HOURLY = "hourly"
     DAILY = "daily"
     WEEKLY = "weekly"
 
     def visit(
         self,
+        every20minutes: typing.Callable[[], T_Result],
         hourly: typing.Callable[[], T_Result],
         daily: typing.Callable[[], T_Result],
         weekly: typing.Callable[[], T_Result],
     ) -> T_Result:
+        if self is BlobStorageExportFrequency.EVERY20MINUTES:
+            return every20minutes()
         if self is BlobStorageExportFrequency.HOURLY:
             return hourly()
         if self is BlobStorageExportFrequency.DAILY:
