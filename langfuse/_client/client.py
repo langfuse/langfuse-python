@@ -2870,6 +2870,7 @@ class Langfuse:
                                 observation_id=span.id,
                                 name=evaluation.name,
                                 value=evaluation.value,  # type: ignore
+                                dataset_run_id=dataset_run_id,
                                 comment=evaluation.comment,
                                 metadata=evaluation.metadata,
                                 config_id=evaluation.config_id,
