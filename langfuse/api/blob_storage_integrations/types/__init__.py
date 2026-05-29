@@ -6,8 +6,10 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .blob_storage_export_field_group import BlobStorageExportFieldGroup
     from .blob_storage_export_frequency import BlobStorageExportFrequency
     from .blob_storage_export_mode import BlobStorageExportMode
+    from .blob_storage_export_source import BlobStorageExportSource
     from .blob_storage_integration_deletion_response import (
         BlobStorageIntegrationDeletionResponse,
     )
@@ -23,8 +25,10 @@ if typing.TYPE_CHECKING:
         CreateBlobStorageIntegrationRequest,
     )
 _dynamic_imports: typing.Dict[str, str] = {
+    "BlobStorageExportFieldGroup": ".blob_storage_export_field_group",
     "BlobStorageExportFrequency": ".blob_storage_export_frequency",
     "BlobStorageExportMode": ".blob_storage_export_mode",
+    "BlobStorageExportSource": ".blob_storage_export_source",
     "BlobStorageIntegrationDeletionResponse": ".blob_storage_integration_deletion_response",
     "BlobStorageIntegrationFileType": ".blob_storage_integration_file_type",
     "BlobStorageIntegrationResponse": ".blob_storage_integration_response",
@@ -64,8 +68,10 @@ def __dir__():
 
 
 __all__ = [
+    "BlobStorageExportFieldGroup",
     "BlobStorageExportFrequency",
     "BlobStorageExportMode",
+    "BlobStorageExportSource",
     "BlobStorageIntegrationDeletionResponse",
     "BlobStorageIntegrationFileType",
     "BlobStorageIntegrationResponse",

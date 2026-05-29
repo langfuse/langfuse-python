@@ -316,6 +316,9 @@ def _get_propagated_attributes_from_context(
     # Handle baggage
     baggage_entries = baggage.get_all(context=context)
     for baggage_key, baggage_value in baggage_entries.items():
+        if baggage_key == LANGFUSE_TRACE_ID_BAGGAGE_KEY:
+            continue
+
         if baggage_key.startswith(LANGFUSE_BAGGAGE_PREFIX):
             span_key = _get_span_key_from_baggage_key(baggage_key)
 
@@ -471,10 +474,42 @@ def _get_propagated_context_key(key: str) -> str:
 
 
 LANGFUSE_BAGGAGE_PREFIX = "langfuse_"
+LANGFUSE_TRACE_ID_BAGGAGE_KEY = "langfuse_trace_id"
 
 
 def _get_propagated_baggage_key(key: str) -> str:
     return f"{LANGFUSE_BAGGAGE_PREFIX}{key}"
+
+
+def _get_langfuse_trace_id_from_baggage(
+    context: otel_context_api.Context,
+) -> Optional[str]:
+    value = otel_baggage_api.get_baggage(
+        name=LANGFUSE_TRACE_ID_BAGGAGE_KEY,
+        context=context,
+    )
+
+    if value is None:
+        return None
+
+    return str(value).lower()
+
+
+def _set_langfuse_trace_id_in_baggage(
+    *,
+    trace_id: str,
+    context: otel_context_api.Context,
+) -> otel_context_api.Context:
+    normalized_trace_id = trace_id.lower()
+
+    if _get_langfuse_trace_id_from_baggage(context) == normalized_trace_id:
+        return context
+
+    return otel_baggage_api.set_baggage(
+        name=LANGFUSE_TRACE_ID_BAGGAGE_KEY,
+        value=normalized_trace_id,
+        context=context,
+    )
 
 
 def _get_span_key_from_baggage_key(key: str) -> Optional[str]:

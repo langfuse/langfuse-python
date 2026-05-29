@@ -3,7 +3,10 @@
 from types import SimpleNamespace
 from typing import Any, Optional
 
+import pytest
+
 from langfuse.span_filter import (
+    KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES,
     is_default_export_span,
     is_genai_span,
     is_known_llm_instrumentor,
@@ -73,6 +76,56 @@ def test_is_known_llm_instrumentor_prefix_match():
         )
         is True
     )
+
+
+@pytest.mark.parametrize(
+    "scope_name",
+    [
+        "autogen-core",
+        "opentelemetry.instrumentation.agno",
+        "opentelemetry.instrumentation.alephalpha",
+        "opentelemetry.instrumentation.bedrock",
+        "opentelemetry.instrumentation.cohere",
+        "opentelemetry.instrumentation.crewai",
+        "opentelemetry.instrumentation.google_generativeai",
+        "opentelemetry.instrumentation.groq",
+        "opentelemetry.instrumentation.haystack",
+        "opentelemetry.instrumentation.langchain",
+        "opentelemetry.instrumentation.llamaindex",
+        "opentelemetry.instrumentation.mistralai",
+        "opentelemetry.instrumentation.ollama",
+        "opentelemetry.instrumentation.openai",
+        "opentelemetry.instrumentation.openai.v1",
+        "opentelemetry.instrumentation.openai_agents",
+        "opentelemetry.instrumentation.openai_v2",
+        "opentelemetry.instrumentation.replicate",
+        "opentelemetry.instrumentation.sagemaker",
+        "opentelemetry.instrumentation.together",
+        "opentelemetry.instrumentation.transformers",
+        "opentelemetry.instrumentation.vertexai",
+        "opentelemetry.instrumentation.voyageai",
+        "opentelemetry.instrumentation.watsonx",
+        "opentelemetry.instrumentation.writer",
+        "pydantic-ai",
+    ],
+)
+def test_is_known_llm_instrumentor_researched_scope_names(scope_name):
+    """Return true for researched OpenTelemetry LLM instrumentation scopes."""
+    assert is_known_llm_instrumentor(_make_span(scope_name=scope_name)) is True
+
+
+def test_known_llm_instrumentor_does_not_include_vector_store_only_scopes():
+    """Keep vector DB-only instrumentors out of the default LLM scope allowlist."""
+    vector_store_scopes = {
+        "opentelemetry.instrumentation.chromadb",
+        "opentelemetry.instrumentation.lancedb",
+        "opentelemetry.instrumentation.milvus",
+        "opentelemetry.instrumentation.pinecone",
+        "opentelemetry.instrumentation.qdrant",
+        "opentelemetry.instrumentation.weaviate",
+    }
+
+    assert vector_store_scopes.isdisjoint(KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES)
 
 
 def test_is_known_llm_instrumentor_unknown():

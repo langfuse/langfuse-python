@@ -7,12 +7,14 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        DeleteLlmConnectionResponse,
         LlmAdapter,
         LlmConnection,
         PaginatedLlmConnections,
         UpsertLlmConnectionRequest,
     )
 _dynamic_imports: typing.Dict[str, str] = {
+    "DeleteLlmConnectionResponse": ".types",
     "LlmAdapter": ".types",
     "LlmConnection": ".types",
     "PaginatedLlmConnections": ".types",
@@ -48,6 +50,7 @@ def __dir__():
 
 
 __all__ = [
+    "DeleteLlmConnectionResponse",
     "LlmAdapter",
     "LlmConnection",
     "PaginatedLlmConnections",

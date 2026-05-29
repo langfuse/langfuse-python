@@ -18,6 +18,7 @@ from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
 from .types.create_score_response import CreateScoreResponse
+from .types.create_score_source import CreateScoreSource
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -43,6 +44,7 @@ class RawScoreV1Client:
         queue_id: typing.Optional[str] = OMIT,
         data_type: typing.Optional[ScoreDataType] = OMIT,
         config_id: typing.Optional[str] = OMIT,
+        source: typing.Optional[CreateScoreSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateScoreResponse]:
         """
@@ -81,6 +83,9 @@ class RawScoreV1Client:
         config_id : typing.Optional[str]
             Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
 
+        source : typing.Optional[CreateScoreSource]
+            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -107,6 +112,7 @@ class RawScoreV1Client:
                 "queueId": queue_id,
                 "dataType": data_type,
                 "configId": config_id,
+                "source": source,
             },
             request_options=request_options,
             omit=OMIT,
@@ -304,6 +310,7 @@ class AsyncRawScoreV1Client:
         queue_id: typing.Optional[str] = OMIT,
         data_type: typing.Optional[ScoreDataType] = OMIT,
         config_id: typing.Optional[str] = OMIT,
+        source: typing.Optional[CreateScoreSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateScoreResponse]:
         """
@@ -342,6 +349,9 @@ class AsyncRawScoreV1Client:
         config_id : typing.Optional[str]
             Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
 
+        source : typing.Optional[CreateScoreSource]
+            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -368,6 +378,7 @@ class AsyncRawScoreV1Client:
                 "queueId": queue_id,
                 "dataType": data_type,
                 "configId": config_id,
+                "source": source,
             },
             request_options=request_options,
             omit=OMIT,
