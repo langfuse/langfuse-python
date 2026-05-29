@@ -359,6 +359,11 @@ class LangfuseResourceManager:
         if self._shutdown:
             return
 
+        # The class-level lock may have been held by a thread in the parent at fork time.
+        # That thread does not exist in the child, so the lock can never be released and
+        # any attempt to acquire it would deadlock. Replace it with a fresh lock first.
+        LangfuseResourceManager._lock = threading.RLock()
+
         langfuse_logger.debug(
             f"[PID {os.getpid()}] Fork detected: reinitializing Langfuse consumer threads."
         )

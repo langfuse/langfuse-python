@@ -226,6 +226,80 @@ def test_at_fork_reinit_skips_when_shutdown(monkeypatch):
     client.shutdown()
 
 
+def test_at_fork_reinit_replaces_lock(monkeypatch):
+    """_at_fork_reinit() must replace the class-level lock with a fresh one.
+
+    If a thread held _lock at fork time, the child has no such thread and the
+    lock can never be released, causing a deadlock.  The reinit handler must
+    replace it before doing any other work so the child can always acquire it.
+    """
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-fork-lock",
+        secret_key="sk-fork-lock",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    old_lock = LangfuseResourceManager._lock
+
+    rm._at_fork_reinit()
+
+    assert LangfuseResourceManager._lock is not old_lock
+    # New lock must be immediately acquirable (not held by any thread).
+    acquired = LangfuseResourceManager._lock.acquire(blocking=False)
+    assert acquired, "New lock must not be held after _at_fork_reinit()"
+    LangfuseResourceManager._lock.release()
+
+    client.shutdown()
+
+
+def test_at_fork_reinit_new_lock_acquirable_even_if_old_lock_was_held(monkeypatch):
+    """Simulate the fork-deadlock scenario: old lock held, new lock must still be acquirable.
+
+    In a real fork, a thread holding _lock in the parent disappears in the child,
+    leaving the lock permanently acquired.  Here we replicate that by acquiring the
+    old lock without releasing it, then calling _at_fork_reinit() and verifying that
+    the replacement lock is free.
+    """
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-fork-lock-held",
+        secret_key="sk-fork-lock-held",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    # Simulate the lock being permanently held (as it would be in a forked child
+    # when the owning thread no longer exists).
+    stuck_lock = LangfuseResourceManager._lock
+    stuck_lock.acquire()  # held, never released — simulates the fork scenario
+
+    try:
+        rm._at_fork_reinit()
+
+        # The new lock must be a different object and must be acquirable.
+        new_lock = LangfuseResourceManager._lock
+        assert new_lock is not stuck_lock
+        acquired = new_lock.acquire(blocking=False)
+        assert acquired, "Replacement lock must be acquirable after _at_fork_reinit()"
+        new_lock.release()
+    finally:
+        stuck_lock.release()  # clean up so other tests are not affected
+
+    client.shutdown()
+
+
 def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_all():
     events = []
 
