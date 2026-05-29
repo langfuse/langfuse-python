@@ -372,10 +372,41 @@ class LangfuseResourceManager:
         # belong to the preloaded parent process and must not be processed by every
         # worker — otherwise uploads/scores would be duplicated across workers.
         #
-        # HTTP clients (self.httpx_client, self._score_ingestion_client) are not recreated
-        # here to keep this handler minimal; this mirrors the existing singleton client
-        # lifecycle. If preload-time network I/O is introduced in the future, clients
-        # may need fork-specific reinitialization as well.
+        # HTTP clients must also be recreated. httpx.Client is thread-safe but not
+        # process-safe: fork() duplicates the parent's connection pool (TCP socket file
+        # descriptors) into the child. Both processes then share the same underlying
+        # sockets, which causes data corruption and SSL/TLS state mismatch under
+        # concurrent use. Fresh clients start with an empty pool owned solely by this
+        # child process.
+        try:
+            client_headers = self.additional_headers if self.additional_headers else {}
+            self.httpx_client = httpx.Client(
+                timeout=self.timeout, headers=client_headers
+            )
+            self.api = LangfuseAPI(
+                base_url=self.base_url,
+                username=self.public_key,
+                password=self.secret_key,
+                x_langfuse_sdk_name="python",
+                x_langfuse_sdk_version=langfuse_version,
+                x_langfuse_public_key=self.public_key,
+                httpx_client=self.httpx_client,
+                timeout=self.timeout,
+            )
+            self._score_ingestion_client = LangfuseClient(
+                public_key=self.public_key,
+                secret_key=self.secret_key,
+                base_url=self.base_url,
+                version=langfuse_version,
+                timeout=self.timeout or 20,
+                session=self.httpx_client,
+            )
+        except Exception as e:
+            langfuse_logger.error(
+                f"[PID {os.getpid()}] Failed to recreate HTTP clients after fork: {e}. "
+                f"Network requests may fail in this worker."
+            )
+
         try:
             self._init_consumer_threads()
         except Exception as e:

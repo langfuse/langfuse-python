@@ -300,6 +300,98 @@ def test_at_fork_reinit_new_lock_acquirable_even_if_old_lock_was_held(monkeypatc
     client.shutdown()
 
 
+def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
+    """_at_fork_reinit() must create a new httpx.Client to avoid sharing
+    connection-pool file descriptors (TCP sockets) across forked processes.
+    httpx.Client is thread-safe but not process-safe."""
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-fork-httpx-default",
+        secret_key="sk-fork-httpx-default",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    old_httpx_client = rm.httpx_client
+    old_api = rm.api
+    old_score_ingestion_client = rm._score_ingestion_client
+
+    rm._at_fork_reinit()
+
+    assert rm.httpx_client is not old_httpx_client
+    assert rm.api is not old_api
+    assert rm._score_ingestion_client is not old_score_ingestion_client
+
+    client.shutdown()
+
+
+def test_at_fork_reinit_replaces_custom_httpx_client(monkeypatch):
+    """_at_fork_reinit() must replace a user-provided httpx.Client too.
+    Users cannot react to fork() inside the SDK singleton, so the library
+    must always produce a process-safe client — even at the cost of losing
+    custom settings. This is a documented limitation."""
+    import httpx
+
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    custom_client = httpx.Client(timeout=99)
+    client = Langfuse(
+        public_key="pk-fork-httpx-custom",
+        secret_key="sk-fork-httpx-custom",
+        httpx_client=custom_client,
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+    assert rm.httpx_client is custom_client
+
+    rm._at_fork_reinit()
+
+    # Custom client must be replaced — sharing it cross-process is not safe.
+    assert rm.httpx_client is not custom_client
+    assert rm.api is not None
+    assert rm._score_ingestion_client is not None
+
+    custom_client.close()
+    client.shutdown()
+
+
+def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
+    monkeypatch,
+):
+    """After fork, the recreated httpx.Client must reflect the timeout and
+    additional_headers that were set on the resource manager."""
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-fork-httpx-settings",
+        secret_key="sk-fork-httpx-settings",
+        timeout=42,
+        additional_headers={"X-Custom": "value"},
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    rm._at_fork_reinit()
+
+    assert rm.httpx_client.timeout.connect == 42
+    assert rm.httpx_client.headers.get("X-Custom") == "value"
+
+    client.shutdown()
+
+
 def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_all():
     events = []
 
