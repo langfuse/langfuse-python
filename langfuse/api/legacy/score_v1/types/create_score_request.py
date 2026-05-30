@@ -8,6 +8,7 @@ from ....commons.types.create_score_value import CreateScoreValue
 from ....commons.types.score_data_type import ScoreDataType
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
+from .create_score_source import CreateScoreSource
 
 
 class CreateScoreRequest(UniversalBaseModel):
@@ -68,6 +69,11 @@ class CreateScoreRequest(UniversalBaseModel):
     ] = pydantic.Field(default=None)
     """
     Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+    """
+
+    source: typing.Optional[CreateScoreSource] = pydantic.Field(default=None)
+    """
+    The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

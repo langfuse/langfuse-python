@@ -7,8 +7,10 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
+from .blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .blob_storage_export_frequency import BlobStorageExportFrequency
 from .blob_storage_export_mode import BlobStorageExportMode
+from .blob_storage_export_source import BlobStorageExportSource
 from .blob_storage_integration_file_type import BlobStorageIntegrationFileType
 from .blob_storage_integration_type import BlobStorageIntegrationType
 
@@ -89,6 +91,29 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
     compressed: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
+    """
+
+    export_source: typing_extensions.Annotated[
+        typing.Optional[BlobStorageExportSource], FieldMetadata(alias="exportSource")
+    ] = pydantic.Field(default=None)
+    """
+    Data to export. When omitted on update, the existing value is preserved. When omitted on create: pre-cutoff Cloud projects and self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`; post-cutoff Cloud projects (created on or after 2026-05-20) auto-default to `OBSERVATIONS_V2`. Required when `exportFieldGroups` is provided.
+    
+    **Cloud-only deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Omitting `exportSource` on these projects silently defaults to `OBSERVATIONS_V2` rather than the schema column default. Use `OBSERVATIONS_V2` for all new integrations. Projects created before 2026-05-20 and self-hosted deployments are unaffected.
+    """
+
+    export_field_groups: typing_extensions.Annotated[
+        typing.Optional[typing.List[BlobStorageExportFieldGroup]],
+        FieldMetadata(alias="exportFieldGroups"),
+    ] = pydantic.Field(default=None)
+    """
+    Field groups to include in each exported row.
+    
+    For exportSource `OBSERVATIONS_V2` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS`: must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+    
+    For exportSource `LEGACY_TRACES_OBSERVATIONS`: this field must be omitted or null. Sending an array (including an empty array) returns 400, because that source uses a fixed column set and does not honor field groups.
+    
+    `exportFieldGroups` requires `exportSource` to be provided in the same request.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

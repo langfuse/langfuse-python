@@ -19,7 +19,7 @@ class UpdateScoreConfigRequest(UniversalBaseModel):
 
     name: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The name of the score config
+    Name of the score config. Max 35 characters. Only letters, numbers, underscores, spaces, periods, parentheses, and hyphens are allowed.
     """
 
     categories: typing.Optional[typing.List[ConfigCategory]] = pydantic.Field(
