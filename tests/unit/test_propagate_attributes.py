@@ -517,7 +517,7 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.bool_val",
-            "True",
+            "true",
         )        
 
 class TestPropagateAttributesNesting(TestPropagateAttributesBase):

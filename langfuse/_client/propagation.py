@@ -286,7 +286,7 @@ def _propagate_attributes(
         for key, value in metadata_value.items():
             if value is None:
                 continue
-            string_value = value if isinstance(value, str) else str(value)
+            string_value = value if isinstance(value, str) else ("true" if value is True else "false" if value is False else str(value))
             if _validate_string_value(value=string_value, key=f"{metadata_key}.{key}"):
                 validated_metadata[key] = string_value
 
