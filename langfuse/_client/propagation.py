@@ -90,12 +90,11 @@ def _detach_context_token_safely(token: Any) -> None:
     except Exception:
         pass
 
-
 def propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -229,7 +228,7 @@ def _propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -247,10 +246,9 @@ def _propagate_attributes(
         "trace_name": trace_name,
     }
 
-    propagated_metadata_attributes: Dict[str, Optional[Dict[str, str]]] = {
+    propagated_metadata_attributes: Dict[str, Optional[Dict[str, Any]]] = {
         "metadata": metadata,
     }
-
     if experiment:
         for key, value in experiment.items():
             if key in ("experiment_metadata", "experiment_item_metadata"):
@@ -286,8 +284,11 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata_value.items():
-            if _validate_string_value(value=value, key=f"{metadata_key}.{key}"):
-                validated_metadata[key] = value
+            if value is None:
+                continue
+            string_value = value if isinstance(value, str) else str(value)
+            if _validate_string_value(value=string_value, key=f"{metadata_key}.{key}"):
+                validated_metadata[key] = string_value
 
         if validated_metadata:
             context = _set_propagated_attribute(
