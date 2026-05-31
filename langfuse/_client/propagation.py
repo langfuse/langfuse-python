@@ -287,7 +287,16 @@ def _propagate_attributes(
         for key, value in metadata_value.items():
             if value is None:
                 continue
-            string_value = value if isinstance(value, str) else ("true" if value is True else "false" if value is False else str(value))
+            if isinstance(value, str):
+                string_value = value
+            elif isinstance(value, bool):
+                string_value = "true" if value else "false"
+            elif isinstance(value, (dict, list, tuple)):
+                import json
+                string_value = json.dumps(value)
+            else:
+                string_value = str(value)
+
             if _validate_string_value(value=string_value, key=f"{metadata_key}.{key}"):
                 validated_metadata[key] = string_value
 

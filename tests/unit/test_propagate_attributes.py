@@ -491,13 +491,15 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         )
 
     def test_metadata_coercion_of_non_string_values(self, langfuse_client, memory_exporter):
-        """Verify metadata values that are not strings (int, float, bool) are coerced to strings."""
+        """Verify metadata values that are not strings (int, float, bool, dict, list) are coerced to strings."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={
                     "int_val": 42,  # type: ignore
                     "float_val": 3.14,  # type: ignore
                     "bool_val": True,  # type: ignore
+                    "dict_val": {"nested": "val"},  # type: ignore
+                    "list_val": [1, 2],  # type: ignore
                 }
             ):
                 child = langfuse_client.start_observation(name="child-span")
@@ -519,6 +521,16 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.bool_val",
             "true",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.dict_val",
+            '{"nested": "val"}',
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.list_val",
+            "[1, 2]",
         )
 
 class TestPropagateAttributesNesting(TestPropagateAttributesBase):
