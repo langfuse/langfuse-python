@@ -3744,7 +3744,7 @@ class Langfuse:
         # “%”, “?”, “#”, “|”, … in query/path parts).  Re-quoting here would
         # double-encode, so we skip when the value is about to be sent straight
         # to httpx (`is_url_param=True`) and the installed version is ≥ 0.28.
-        if is_url_param and Version(httpx.__version__) >= Version("0.28.0"):
+        if is_url_param:
             return url
 
         # urllib.parse.quote does not escape slashes "/" by default; we need to add safe="" to force escaping
