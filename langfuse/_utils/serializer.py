@@ -36,11 +36,21 @@ logger = getLogger(__name__)
 
 
 class EventSerializer(JSONEncoder):
+    _MAX_DEPTH = 20
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.seen: set[int] = set()  # Track seen objects to detect circular references
+        self._depth = 0
 
     def default(self, obj: Any) -> Any:
+        self._depth += 1
+        try:
+            return self._default_inner(obj)
+        finally:
+            self._depth -= 1
+
+    def _default_inner(self, obj: Any) -> Any:
         try:
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
@@ -66,7 +76,7 @@ class EventSerializer(JSONEncoder):
                 return "NaN"
 
             if isinstance(obj, float) and math.isinf(obj):
-                return "Infinity"
+                return "-Infinity" if obj < 0 else "Infinity"
 
             if isinstance(obj, (Exception, KeyboardInterrupt)):
                 return f"{type(obj).__name__}: {str(obj)}"
@@ -82,9 +92,6 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, Queue):
                 return type(obj).__name__
 
-            if is_dataclass(obj):
-                return asdict(obj)  # type: ignore
-
             if isinstance(obj, UUID):
                 return str(obj)
 
@@ -97,21 +104,8 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (date)):
                 return obj.isoformat()
 
-            if isinstance(obj, BaseModel):
-                obj.model_rebuild()
-
-                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
-                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
-                    raw.model_rebuild()
-
-                return obj.model_dump()
-
             if isinstance(obj, Path):
                 return str(obj)
-
-            # if langchain is not available, the Serializable type is NoneType
-            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
-                return obj.to_json()
 
             # 64-bit integers might overflow the JavaScript safe integer range.
             # Since Node.js is run on the server that handles the serialized value,
@@ -122,6 +116,25 @@ class EventSerializer(JSONEncoder):
             # Standard JSON-encodable types
             if isinstance(obj, (str, float, type(None))):
                 return obj
+
+            if self._depth >= self._MAX_DEPTH:
+                return f"<{type(obj).__name__}>"
+
+            if is_dataclass(obj):
+                return asdict(obj)  # type: ignore
+
+            if isinstance(obj, BaseModel):
+                obj.model_rebuild()
+
+                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
+                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
+                    raw.model_rebuild()
+
+                return obj.model_dump()
+
+            # if langchain is not available, the Serializable type is NoneType
+            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
+                return obj.to_json()
 
             if isinstance(obj, (tuple, set, frozenset)):
                 return list(obj)
@@ -138,9 +151,10 @@ class EventSerializer(JSONEncoder):
                 return [self.default(item) for item in obj]
 
             if hasattr(obj, "__slots__"):
-                return self.default(
-                    {slot: getattr(obj, slot, None) for slot in obj.__slots__}
-                )
+                return {
+                    slot: self.default(getattr(obj, slot, None))
+                    for slot in obj.__slots__
+                }
             elif hasattr(obj, "__dict__"):
                 obj_id = id(obj)
 
@@ -167,6 +181,7 @@ class EventSerializer(JSONEncoder):
 
     def encode(self, obj: Any) -> str:
         self.seen.clear()  # Clear seen objects before each encode call
+        self._depth = 0
 
         try:
             return super().encode(self.default(obj))
