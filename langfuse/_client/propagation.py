@@ -204,8 +204,9 @@ def propagate_attributes(
 
     Note:
         - **Validation**: All attribute values (user_id, session_id, metadata values)
-          must be strings ≤200 characters. Invalid values will be dropped with a
-          warning logged. Ensure values meet constraints before calling.
+          must be ≤200 characters. Non-string metadata values (int, float, bool, etc.)
+          are automatically coerced to their string representation. Values exceeding
+          200 characters will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
 
