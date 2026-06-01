@@ -219,6 +219,7 @@ class LangfuseResourceManager:
         ## use connection pools with limited capacity. Creating multiple instances
         ## could exhaust the OS's maximum number of available TCP sockets (file descriptors),
         ## leading to connection errors.
+        self._custom_httpx_client = httpx_client
         if httpx_client is not None:
             self.httpx_client = httpx_client
         else:
@@ -372,17 +373,22 @@ class LangfuseResourceManager:
         # belong to the preloaded parent process and must not be processed by every
         # worker — otherwise uploads/scores would be duplicated across workers.
         #
-        # HTTP clients must also be recreated. httpx.Client is thread-safe but not
-        # process-safe: fork() duplicates the parent's connection pool (TCP socket file
-        # descriptors) into the child. Both processes then share the same underlying
-        # sockets, which causes data corruption and SSL/TLS state mismatch under
-        # concurrent use. Fresh clients start with an empty pool owned solely by this
-        # child process.
+        # Internally-managed httpx clients must also be recreated: fork() duplicates the
+        # parent's connection pool (TCP socket file descriptors) into the child. Both
+        # processes then share the same underlying sockets, causing data corruption and
+        # SSL/TLS state mismatch under concurrent use. Fresh clients start with an empty
+        # pool owned solely by this child process.
+        #
+        # Custom httpx clients provided by the caller are NOT recreated. The fork-inherited
+        # copy is reused as-is, giving the caller the opportunity to handle process-safety
+        # themselves (e.g. by registering their own os.register_at_fork handler).
         try:
-            client_headers = self.additional_headers if self.additional_headers else {}
-            self.httpx_client = httpx.Client(
-                timeout=self.timeout, headers=client_headers
-            )
+            if self._custom_httpx_client is None:
+                client_headers = self.additional_headers if self.additional_headers else {}
+                self.httpx_client = httpx.Client(
+                    timeout=self.timeout, headers=client_headers
+                )
+
             self.api = LangfuseAPI(
                 base_url=self.base_url,
                 username=self.public_key,
