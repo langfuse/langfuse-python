@@ -14,17 +14,17 @@ from langfuse._utils.serializer import (
 )
 
 
-class TestEnum(Enum):
+class MockEnum(Enum):
     A = 1
     B = 2
 
 
 @dataclass
-class TestDataclass:
+class MockDataclass:
     field: str
 
 
-class TestBaseModel(BaseModel):
+class MockBaseModel(BaseModel):
     field: str
 
 
@@ -43,7 +43,7 @@ def test_date():
 
 def test_enum():
     serializer = EventSerializer()
-    assert serializer.encode(TestEnum.A) == "1"
+    assert serializer.encode(MockEnum.A) == "1"
 
 
 def test_uuid():
@@ -59,13 +59,12 @@ def test_bytes():
 
 
 def test_dataclass():
-    dc = TestDataclass(field="test")
+    dc = MockDataclass(field="test")
     serializer = EventSerializer()
     assert json.loads(serializer.encode(dc)) == {"field": "test"}
 
-
 def test_pydantic_model():
-    model = TestBaseModel(field="test")
+    model = MockBaseModel(field="test")
     serializer = EventSerializer()
     assert json.loads(serializer.encode(model)) == {"field": "test"}
 
@@ -298,3 +297,11 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     result = json.loads(EventSerializer().encode(input_obj))
 
     assert result == expected
+
+
+def test_float_special_values():
+    serializer = EventSerializer()
+
+    assert serializer.encode(float("inf")) == '"Infinity"'
+    assert serializer.encode(float("-inf")) == '"-Infinity"'
+    assert serializer.encode(float("nan")) == '"NaN"'
