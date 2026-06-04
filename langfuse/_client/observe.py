@@ -26,6 +26,7 @@ from langfuse._client.constants import (
     ObservationTypeLiteralNoEvent,
     get_observation_types_list,
 )
+from langfuse._utils.control_flow import get_error_level
 from langfuse._client.environment_variables import (
     LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED,
 )
@@ -302,7 +303,8 @@ class LangfuseDecorator:
                         return result
                     except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
-                            level="ERROR", status_message=str(e) or type(e).__name__
+                            level=get_error_level(e),
+                            status_message=str(e) or type(e).__name__,
                         )
 
                         raise e
@@ -393,7 +395,8 @@ class LangfuseDecorator:
                         return result
                     except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
-                            level="ERROR", status_message=str(e) or type(e).__name__
+                            level=get_error_level(e),
+                            status_message=str(e) or type(e).__name__,
                         )
 
                         raise e
@@ -591,7 +594,8 @@ class _ContextPreservedSyncGeneratorWrapper:
             return
 
         self.span.update(
-            level="ERROR", status_message=str(error) or type(error).__name__
+            level=get_error_level(error),
+            status_message=str(error) or type(error).__name__,
         ).end()
         self._span_ended = True
 
@@ -686,7 +690,8 @@ class _ContextPreservedAsyncGeneratorWrapper:
             return
 
         self.span.update(
-            level="ERROR", status_message=str(error) or type(error).__name__
+            level=get_error_level(error),
+            status_message=str(error) or type(error).__name__,
         ).end()
         self._span_ended = True
 

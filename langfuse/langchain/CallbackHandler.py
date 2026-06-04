@@ -85,16 +85,11 @@ except ImportError:
     )
 
 LANGSMITH_TAG_HIDDEN: str = "langsmith:hidden"
-CONTROL_FLOW_EXCEPTION_TYPES: Set[Type[BaseException]] = set()
-LANGGRAPH_COMMAND_TYPE: Optional[Type[Any]] = None
 MAX_PENDING_RESUME_TRACE_CONTEXTS = 1024
 
-try:
-    from langgraph.errors import GraphBubbleUp
+from langfuse._utils.control_flow import CONTROL_FLOW_EXCEPTION_TYPES, get_error_level
 
-    CONTROL_FLOW_EXCEPTION_TYPES.add(GraphBubbleUp)
-except ImportError:
-    pass
+LANGGRAPH_COMMAND_TYPE: Optional[Type[Any]] = None
 
 try:
     from langgraph.types import Command as LangGraphCommand
@@ -358,10 +353,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> tuple[Literal["DEFAULT", "ERROR"], str]:
         # LangGraph uses GraphBubbleUp subclasses for expected control flow such as
         # interrupts and handoffs, so they should stay visible without being errors.
-        if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
-            return "DEFAULT", str(error) or type(error).__name__
+        level = get_error_level(error)
+        if level == "DEFAULT":
+            return level, str(error) or type(error).__name__
 
-        return "ERROR", str(error)
+        return level, str(error)
 
     def _get_observation_type_from_serialized(
         self, serialized: Optional[Dict[str, Any]], callback_type: str, **kwargs: Any
