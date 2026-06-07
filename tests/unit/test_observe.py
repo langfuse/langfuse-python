@@ -248,27 +248,17 @@ async def test_async_generator_wrapper_aclose_preserves_context() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_generator_wrapper_fallback_preserves_context(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_async_generator_wrapper_preserves_asyncio_timeout() -> None:
+    """__anext__ must not create new tasks, otherwise asyncio.timeout
+    loses track of the task it should cancel (langfuse/langfuse#13349)."""
     marker = contextvars.ContextVar("marker", default="ambient")
     seen: list[str] = []
-    original_create_task = asyncio.create_task
-
-    def create_task_with_type_error(*args: Any, **kwargs: Any) -> asyncio.Task[Any]:
-        if "context" in kwargs:
-            raise TypeError("context argument unsupported")
-
-        return original_create_task(*args, **kwargs)
-
-    monkeypatch.setattr(asyncio, "create_task", create_task_with_type_error)
 
     async def generator() -> AsyncGenerator[str, None]:
-        try:
-            yield marker.get()
-            yield "item_1"
-        finally:
+        for i in range(3):
             seen.append(marker.get())
+            yield f"item_{i}"
+            await asyncio.sleep(0)
 
     span = SpanRecorder()
     context = contextvars.copy_context()
@@ -281,13 +271,50 @@ async def test_async_generator_wrapper_fallback_preserves_context(
         None,
     )
 
-    assert await wrapper.__anext__() == "preserved"
-    marker.set("ambient-now")
+    # asyncio.timeout should work — the generator completes before the deadline
+    async with asyncio.timeout(1.0):
+        items = []
+        async for item in wrapper:
+            items.append(item)
 
-    await wrapper.aclose()
-
-    assert seen == ["preserved"]
+    assert items == ["item_0", "item_1", "item_2"]
+    assert seen == ["preserved", "preserved", "preserved"]
     assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_respects_asyncio_timeout() -> None:
+    """asyncio.timeout must be able to cancel a hanging generator decorated
+    with @observe (langfuse/langfuse#13349).  Without the fix, the timeout
+    becomes a no-op because each __anext__ creates a fresh task."""
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        for i in range(10):
+            seen.append(marker.get())
+            yield f"item_{i}"
+            await asyncio.sleep(0.1)
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    with pytest.raises(asyncio.TimeoutError):
+        async with asyncio.timeout(0.05):
+            async for _item in wrapper:
+                pass
+
+    # Should have yielded at least once before the timeout fired
+    assert len(seen) >= 1
+    assert all(v == "preserved" for v in seen)
 
 
 @pytest.mark.asyncio
