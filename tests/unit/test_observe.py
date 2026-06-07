@@ -114,6 +114,34 @@ async def test_streaming_response_preserves_context_without_output_capture(
     assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT not in endpoint_span.attributes
 
 
+def test_observe_capture_output_false_preserves_as_type_after_current_span_update(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(
+        name="probe.with_capture_output_false",
+        as_type="guardrail",
+        capture_output=False,
+    )
+    def probe() -> dict[str, bool]:
+        langfuse_memory_client.update_current_span(output={"verdict": "manually set"})
+
+        return {"decorator_output": True}
+
+    assert probe() == {"decorator_output": True}
+
+    langfuse_memory_client.flush()
+
+    probe_span = _finished_spans_by_name(
+        memory_exporter, "probe.with_capture_output_false"
+    )[0]
+
+    assert (
+        probe_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
+        == "guardrail"
+    )
+    assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT in probe_span.attributes
+
+
 def test_sync_generator_wrapper_close_ends_span_without_exhaustion() -> None:
     def generator() -> Generator[str, None, None]:
         yield "item_0"
