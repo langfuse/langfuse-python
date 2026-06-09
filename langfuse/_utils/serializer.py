@@ -76,7 +76,7 @@ class EventSerializer(JSONEncoder):
                 return "NaN"
 
             if isinstance(obj, float) and math.isinf(obj):
-                return "Infinity"
+                return "-Infinity" if obj < 0 else "Infinity"
 
             if isinstance(obj, (Exception, KeyboardInterrupt)):
                 return f"{type(obj).__name__}: {str(obj)}"
