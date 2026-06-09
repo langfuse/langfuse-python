@@ -2,74 +2,11 @@
 
 import typing
 
-import pydantic
-from ....core.pydantic_utilities import UniversalBaseModel
-from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
-from ...commons.types.evaluation_rule_mapping import EvaluationRuleMapping
-from ...commons.types.evaluation_rule_target import EvaluationRuleTarget
-from .evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
+from .create_code_evaluation_rule_request import CreateCodeEvaluationRuleRequest
+from .create_llm_as_judge_evaluation_rule_request import (
+    CreateLlmAsJudgeEvaluationRuleRequest,
+)
 
-
-class CreateEvaluationRuleRequest(UniversalBaseModel):
-    """
-    Request body for creating an evaluation rule.
-
-    Checklist for agents and SDK clients:
-    - reference an existing evaluator family by `evaluator.name` and `evaluator.scope`
-    - choose `target=observation` or `target=experiment`
-    - if `target=experiment` and you want a dataset filter, call `GET /api/public/v2/datasets` first and use dataset `id` values in `filter[].value`
-    - fetch or inspect the evaluator first, then provide a complete variable mapping for every evaluator variable listed in `variables`
-    - optionally narrow execution with `filter`
-    - set `enabled=true` only when you want live execution immediately
-    """
-
-    name: str = pydantic.Field()
-    """
-    Human-readable deployment name.
-    """
-
-    evaluator: EvaluationRuleEvaluatorReference = pydantic.Field()
-    """
-    Evaluator family to use.
-    
-    Use `name` and `scope` from the evaluator endpoints.
-    Langfuse resolves that family to its latest version before saving the rule.
-    """
-
-    target: EvaluationRuleTarget = pydantic.Field()
-    """
-    Target object type to evaluate.
-    """
-
-    enabled: bool = pydantic.Field()
-    """
-    Whether the deployment should be active immediately after creation.
-    """
-
-    sampling: typing.Optional[float] = pydantic.Field(default=None)
-    """
-    Optional sampling fraction. Defaults to `1`.
-    """
-
-    filter: typing.Optional[typing.List[EvaluationRuleFilter]] = pydantic.Field(
-        default=None
-    )
-    """
-    Optional filter list.
-    
-    Omit or pass an empty list to evaluate all matching targets for the selected `target`.
-    Each filter object must use a column that is valid for that `target`.
-    For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
-    """
-
-    mapping: typing.List[EvaluationRuleMapping] = pydantic.Field()
-    """
-    Required variable mappings.
-    
-    Every evaluator variable must appear exactly once.
-    Build this list from the evaluator `variables` array returned by the evaluator endpoints.
-    """
-
-    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-        extra="allow", frozen=True
-    )
+CreateEvaluationRuleRequest = typing.Union[
+    CreateLlmAsJudgeEvaluationRuleRequest, CreateCodeEvaluationRuleRequest
+]

@@ -6,11 +6,33 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import CreateEvaluatorRequest, Evaluator, Evaluators
+    from .types import (
+        CodeEvaluator,
+        CreateCodeEvaluatorRequest,
+        CreateEvaluatorRequest,
+        CreateEvaluatorRequest_Code,
+        CreateEvaluatorRequest_LlmAsJudge,
+        CreateLlmAsJudgeEvaluatorRequest,
+        Evaluator,
+        EvaluatorBase,
+        Evaluator_Code,
+        Evaluator_LlmAsJudge,
+        Evaluators,
+        LlmAsJudgeEvaluator,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
+    "CodeEvaluator": ".types",
+    "CreateCodeEvaluatorRequest": ".types",
     "CreateEvaluatorRequest": ".types",
+    "CreateEvaluatorRequest_Code": ".types",
+    "CreateEvaluatorRequest_LlmAsJudge": ".types",
+    "CreateLlmAsJudgeEvaluatorRequest": ".types",
     "Evaluator": ".types",
+    "EvaluatorBase": ".types",
+    "Evaluator_Code": ".types",
+    "Evaluator_LlmAsJudge": ".types",
     "Evaluators": ".types",
+    "LlmAsJudgeEvaluator": ".types",
 }
 
 
@@ -41,4 +63,17 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CreateEvaluatorRequest", "Evaluator", "Evaluators"]
+__all__ = [
+    "CodeEvaluator",
+    "CreateCodeEvaluatorRequest",
+    "CreateEvaluatorRequest",
+    "CreateEvaluatorRequest_Code",
+    "CreateEvaluatorRequest_LlmAsJudge",
+    "CreateLlmAsJudgeEvaluatorRequest",
+    "Evaluator",
+    "EvaluatorBase",
+    "Evaluator_Code",
+    "Evaluator_LlmAsJudge",
+    "Evaluators",
+    "LlmAsJudgeEvaluator",
+]

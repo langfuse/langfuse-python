@@ -19,8 +19,9 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
 
     Practical guidance:
     - If you only want to rename the rule or change sampling, send just those fields.
-    - If you change `evaluator`, send a fresh `mapping` unless you are certain the existing mapping still matches the evaluator variables.
-    - If you change `target`, usually send both `filter` and `mapping` in the same request.
+    - If you change to an LLM-as-judge `evaluator`, send a fresh `mapping` unless you are certain the existing mapping still matches the evaluator variables.
+    - If you change `target` for an LLM-as-judge rule, usually send both `filter` and `mapping` in the same request.
+    - For code evaluator rules, omit `mapping`; Langfuse stores the fixed code runtime mapping automatically.
     - If you change an experiment `datasetId` filter, call `GET /api/public/v2/datasets` and use dataset `id` values from that response.
     """
 
@@ -36,6 +37,7 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
     Updated evaluator family.
     
     Langfuse resolves the provided evaluator family to its latest version before saving the rule.
+    A rule's evaluator type cannot be changed: provide `name` and `scope` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
     """
 
     target: typing.Optional[EvaluationRuleTarget] = pydantic.Field(default=None)
@@ -66,7 +68,9 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
         default=None
     )
     """
-    Updated variable mappings.
+    Updated LLM-as-judge variable mappings.
+    
+    Do not send this field for code evaluator rules. Langfuse stores the fixed code runtime mapping automatically and returns it in the response.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

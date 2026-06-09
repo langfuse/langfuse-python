@@ -11,7 +11,9 @@ from .evaluation_rule_mapping_source import EvaluationRuleMappingSource
 
 class EvaluationRuleMapping(UniversalBaseModel):
     """
-    Maps one evaluator prompt variable to one source field from the target object.
+    Maps one evaluator variable to one source field from the target object.
+
+    Manual mappings are used for `llm_as_judge` evaluators. `code` evaluators use a fixed runtime mapping managed by Langfuse.
 
     How to build a valid mapping list:
     1. Create the evaluator or fetch it with `GET /evaluators/{id}`.
@@ -24,7 +26,7 @@ class EvaluationRuleMapping(UniversalBaseModel):
 
     Recovery guidance:
     - `invalid_variable_mapping`: the variable name is unknown for this evaluator, or the selected `source` is not valid for the chosen `target`
-    - `missing_variable_mapping`: one or more evaluator variables are not mapped yet
+    - `missing_variable_mapping`: one or more LLM-as-judge evaluator variables are not mapped yet
     - `duplicate_variable_mapping`: the same evaluator variable appears more than once
     - `invalid_json_path`: the JSONPath expression is malformed. Remove it or correct it.
 

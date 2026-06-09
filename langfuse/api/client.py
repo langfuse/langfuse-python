@@ -39,6 +39,7 @@ if typing.TYPE_CHECKING:
     from .scim.client import AsyncScimClient, ScimClient
     from .score_configs.client import AsyncScoreConfigsClient, ScoreConfigsClient
     from .scores.client import AsyncScoresClient, ScoresClient
+    from .scores_v3.client import AsyncScoresV3Client, ScoresV3Client
     from .sessions.client import AsyncSessionsClient, SessionsClient
     from .trace.client import AsyncTraceClient, TraceClient
     from .unstable.client import AsyncUnstableClient, UnstableClient
@@ -145,6 +146,7 @@ class LangfuseAPI:
         self._prompts: typing.Optional[PromptsClient] = None
         self._scim: typing.Optional[ScimClient] = None
         self._score_configs: typing.Optional[ScoreConfigsClient] = None
+        self._scores_v3: typing.Optional[ScoresV3Client] = None
         self._scores: typing.Optional[ScoresClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
         self._trace: typing.Optional[TraceClient] = None
@@ -337,6 +339,14 @@ class LangfuseAPI:
         return self._score_configs
 
     @property
+    def scores_v3(self):
+        if self._scores_v3 is None:
+            from .scores_v3.client import ScoresV3Client  # noqa: E402
+
+            self._scores_v3 = ScoresV3Client(client_wrapper=self._client_wrapper)
+        return self._scores_v3
+
+    @property
     def scores(self):
         if self._scores is None:
             from .scores.client import ScoresClient  # noqa: E402
@@ -470,6 +480,7 @@ class AsyncLangfuseAPI:
         self._prompts: typing.Optional[AsyncPromptsClient] = None
         self._scim: typing.Optional[AsyncScimClient] = None
         self._score_configs: typing.Optional[AsyncScoreConfigsClient] = None
+        self._scores_v3: typing.Optional[AsyncScoresV3Client] = None
         self._scores: typing.Optional[AsyncScoresClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._trace: typing.Optional[AsyncTraceClient] = None
@@ -664,6 +675,14 @@ class AsyncLangfuseAPI:
                 client_wrapper=self._client_wrapper
             )
         return self._score_configs
+
+    @property
+    def scores_v3(self):
+        if self._scores_v3 is None:
+            from .scores_v3.client import AsyncScoresV3Client  # noqa: E402
+
+            self._scores_v3 = AsyncScoresV3Client(client_wrapper=self._client_wrapper)
+        return self._scores_v3
 
     @property
     def scores(self):

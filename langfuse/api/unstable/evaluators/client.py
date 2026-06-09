@@ -4,9 +4,8 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
-from ..commons.types.evaluator_model_config import EvaluatorModelConfig
-from ..commons.types.evaluator_output_definition import EvaluatorOutputDefinition
 from .raw_client import AsyncRawEvaluatorsClient, RawEvaluatorsClient
+from .types.create_evaluator_request import CreateEvaluatorRequest
 from .types.evaluator import Evaluator
 from .types.evaluators import Evaluators
 
@@ -32,16 +31,15 @@ class EvaluatorsClient:
     def create(
         self,
         *,
-        name: str,
-        prompt: str,
-        output_definition: EvaluatorOutputDefinition,
-        model_config: typing.Optional[EvaluatorModelConfig] = OMIT,
+        request: CreateEvaluatorRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Evaluator:
         """
         Create an evaluator in the authenticated project.
 
-        Use evaluators to define **how** Langfuse should score data: the prompt, the expected structured output, and the optional model configuration.
+        Use evaluators to define **how** Langfuse should score data.
+        LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration.
+        Code evaluators define source code and a runtime language.
 
         Naming behavior:
         - If this is a new evaluator name in your project, Langfuse creates version `1`.
@@ -54,30 +52,22 @@ class EvaluatorsClient:
         3. Read the returned `outputDefinition.dataType` so the client knows whether future scores will be numeric, boolean, or categorical.
         4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `scope`.
 
+        Code evaluator validation:
+        - At creation, Langfuse only validates the request shape
+        - The `sourceCode` itself is not executed here. It is first run (preflight-tested against a sample observation) when you link the evaluator to an evaluation rule, so runtime errors in the code surface at evaluation-rule creation, not at evaluator creation.
+
         Recovery guidance:
         - `422` with `code=evaluator_preflight_failed`: the evaluator cannot run with the resolved model configuration. Add a valid explicit `modelConfig`, or configure the project's default evaluation model, then retry the same request.
         - `400` with `code=invalid_body`: the request shape is malformed. Use the structured `details.issues` array to fix the specific fields and retry.
-        - `400` with `code=invalid_body` on `outputDefinition`: send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - `400` with `code=invalid_body` on `outputDefinition`: for `type=llm_as_judge`, send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - If `type` is omitted, Langfuse treats the request as `type=llm_as_judge` for backwards compatibility. New clients should send `type` explicitly.
 
         Unstable API note:
         - This surface may evolve while the underlying evaluation data model is being redesigned.
 
         Parameters
         ----------
-        name : str
-            Evaluator name within the authenticated project.
-
-        prompt : str
-            Prompt template used by the evaluator.
-
-        output_definition : EvaluatorOutputDefinition
-            Structured output schema the evaluator must return.
-
-            Always send `dataType`.
-            Do not send `version`; it is an internal storage detail and not part of the public request contract.
-
-        model_config : typing.Optional[EvaluatorModelConfig]
-            Optional explicit model configuration. Omit or set to `null` to use the project default evaluation model.
+        request : CreateEvaluatorRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -95,6 +85,7 @@ class EvaluatorsClient:
             EvaluatorOutputDefinition_Numeric,
             EvaluatorOutputFieldDefinition,
         )
+        from langfuse.unstable.evaluators import CreateEvaluatorRequest_LlmAsJudge
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -105,29 +96,27 @@ class EvaluatorsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.unstable.evaluators.create(
-            name="answer-correctness",
-            prompt="You are grading an answer.\n\nInput:\n{{input}}\n\nOutput:\n{{output}}\n\nReturn a score between 0 and 1.\n",
-            output_definition=EvaluatorOutputDefinition_Numeric(
-                data_type=EvaluatorOutputDataType.NUMERIC,
-                reasoning=EvaluatorOutputFieldDefinition(
-                    description="Explain why the score was assigned.",
+            request=CreateEvaluatorRequest_LlmAsJudge(
+                name="answer-correctness",
+                prompt="You are grading an answer.\n\nInput:\n{{input}}\n\nOutput:\n{{output}}\n\nReturn a score between 0 and 1.\n",
+                output_definition=EvaluatorOutputDefinition_Numeric(
+                    data_type=EvaluatorOutputDataType.NUMERIC,
+                    reasoning=EvaluatorOutputFieldDefinition(
+                        description="Explain why the score was assigned.",
+                    ),
+                    score=EvaluatorOutputFieldDefinition(
+                        description="Correctness score between 0 and 1.",
+                    ),
                 ),
-                score=EvaluatorOutputFieldDefinition(
-                    description="Correctness score between 0 and 1.",
+                model_config=EvaluatorModelConfig(
+                    provider="openai",
+                    model="gpt-4.1-mini",
                 ),
-            ),
-            model_config=EvaluatorModelConfig(
-                provider="openai",
-                model="gpt-4.1-mini",
             ),
         )
         """
         _response = self._raw_client.create(
-            name=name,
-            prompt=prompt,
-            output_definition=output_definition,
-            model_config=model_config,
-            request_options=request_options,
+            request=request, request_options=request_options
         )
         return _response.data
 
@@ -241,16 +230,15 @@ class AsyncEvaluatorsClient:
     async def create(
         self,
         *,
-        name: str,
-        prompt: str,
-        output_definition: EvaluatorOutputDefinition,
-        model_config: typing.Optional[EvaluatorModelConfig] = OMIT,
+        request: CreateEvaluatorRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Evaluator:
         """
         Create an evaluator in the authenticated project.
 
-        Use evaluators to define **how** Langfuse should score data: the prompt, the expected structured output, and the optional model configuration.
+        Use evaluators to define **how** Langfuse should score data.
+        LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration.
+        Code evaluators define source code and a runtime language.
 
         Naming behavior:
         - If this is a new evaluator name in your project, Langfuse creates version `1`.
@@ -263,30 +251,22 @@ class AsyncEvaluatorsClient:
         3. Read the returned `outputDefinition.dataType` so the client knows whether future scores will be numeric, boolean, or categorical.
         4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `scope`.
 
+        Code evaluator validation:
+        - At creation, Langfuse only validates the request shape
+        - The `sourceCode` itself is not executed here. It is first run (preflight-tested against a sample observation) when you link the evaluator to an evaluation rule, so runtime errors in the code surface at evaluation-rule creation, not at evaluator creation.
+
         Recovery guidance:
         - `422` with `code=evaluator_preflight_failed`: the evaluator cannot run with the resolved model configuration. Add a valid explicit `modelConfig`, or configure the project's default evaluation model, then retry the same request.
         - `400` with `code=invalid_body`: the request shape is malformed. Use the structured `details.issues` array to fix the specific fields and retry.
-        - `400` with `code=invalid_body` on `outputDefinition`: send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - `400` with `code=invalid_body` on `outputDefinition`: for `type=llm_as_judge`, send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - If `type` is omitted, Langfuse treats the request as `type=llm_as_judge` for backwards compatibility. New clients should send `type` explicitly.
 
         Unstable API note:
         - This surface may evolve while the underlying evaluation data model is being redesigned.
 
         Parameters
         ----------
-        name : str
-            Evaluator name within the authenticated project.
-
-        prompt : str
-            Prompt template used by the evaluator.
-
-        output_definition : EvaluatorOutputDefinition
-            Structured output schema the evaluator must return.
-
-            Always send `dataType`.
-            Do not send `version`; it is an internal storage detail and not part of the public request contract.
-
-        model_config : typing.Optional[EvaluatorModelConfig]
-            Optional explicit model configuration. Omit or set to `null` to use the project default evaluation model.
+        request : CreateEvaluatorRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -306,6 +286,7 @@ class AsyncEvaluatorsClient:
             EvaluatorOutputDefinition_Numeric,
             EvaluatorOutputFieldDefinition,
         )
+        from langfuse.unstable.evaluators import CreateEvaluatorRequest_LlmAsJudge
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -319,20 +300,22 @@ class AsyncEvaluatorsClient:
 
         async def main() -> None:
             await client.unstable.evaluators.create(
-                name="answer-correctness",
-                prompt="You are grading an answer.\n\nInput:\n{{input}}\n\nOutput:\n{{output}}\n\nReturn a score between 0 and 1.\n",
-                output_definition=EvaluatorOutputDefinition_Numeric(
-                    data_type=EvaluatorOutputDataType.NUMERIC,
-                    reasoning=EvaluatorOutputFieldDefinition(
-                        description="Explain why the score was assigned.",
+                request=CreateEvaluatorRequest_LlmAsJudge(
+                    name="answer-correctness",
+                    prompt="You are grading an answer.\n\nInput:\n{{input}}\n\nOutput:\n{{output}}\n\nReturn a score between 0 and 1.\n",
+                    output_definition=EvaluatorOutputDefinition_Numeric(
+                        data_type=EvaluatorOutputDataType.NUMERIC,
+                        reasoning=EvaluatorOutputFieldDefinition(
+                            description="Explain why the score was assigned.",
+                        ),
+                        score=EvaluatorOutputFieldDefinition(
+                            description="Correctness score between 0 and 1.",
+                        ),
                     ),
-                    score=EvaluatorOutputFieldDefinition(
-                        description="Correctness score between 0 and 1.",
+                    model_config=EvaluatorModelConfig(
+                        provider="openai",
+                        model="gpt-4.1-mini",
                     ),
-                ),
-                model_config=EvaluatorModelConfig(
-                    provider="openai",
-                    model="gpt-4.1-mini",
                 ),
             )
 
@@ -340,11 +323,7 @@ class AsyncEvaluatorsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
-            name=name,
-            prompt=prompt,
-            output_definition=output_definition,
-            model_config=model_config,
-            request_options=request_options,
+            request=request, request_options=request_options
         )
         return _response.data
 

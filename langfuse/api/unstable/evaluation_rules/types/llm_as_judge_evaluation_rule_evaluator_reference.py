@@ -5,14 +5,12 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
 from ...commons.types.evaluator_scope import EvaluatorScope
+from .llm_as_judge_evaluator_type import LlmAsJudgeEvaluatorType
 
 
-class EvaluationRuleEvaluatorReference(UniversalBaseModel):
+class LlmAsJudgeEvaluationRuleEvaluatorReference(UniversalBaseModel):
     """
-    Evaluator family reference used when updating an evaluation rule.
-
-    `name` and `scope` identify the evaluator family in the authenticated project context.
-    A rule's evaluator type cannot be changed, so this reference does not accept a `type`; the family must match the rule's current evaluator type.
+    LLM-as-judge evaluator family reference used when creating an evaluation rule.
     """
 
     name: str = pydantic.Field()
@@ -23,6 +21,11 @@ class EvaluationRuleEvaluatorReference(UniversalBaseModel):
     scope: EvaluatorScope = pydantic.Field()
     """
     Whether the evaluator family is project-owned or Langfuse-managed.
+    """
+
+    type: typing.Optional[LlmAsJudgeEvaluatorType] = pydantic.Field(default=None)
+    """
+    Evaluator engine type. Defaults to `llm_as_judge` when omitted.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
