@@ -5,6 +5,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawLlmConnectionsClient, RawLlmConnectionsClient
+from .types.delete_llm_connection_response import DeleteLlmConnectionResponse
 from .types.llm_adapter import LlmAdapter
 from .types.llm_connection import LlmConnection
 from .types.paginated_llm_connections import PaginatedLlmConnections
@@ -112,7 +113,7 @@ class LlmConnectionsClient:
             Extra headers to send with requests
 
         config : typing.Optional[typing.Dict[str, typing.Any]]
-            Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
+            Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **OpenAI**: Optional. If provided, must be `{"useResponsesApi": <boolean>}` to control whether Langfuse routes calls through OpenAI's Responses API. - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -151,6 +152,42 @@ class LlmConnectionsClient:
             config=config,
             request_options=request_options,
         )
+        return _response.data
+
+    def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteLlmConnectionResponse:
+        """
+        Delete an LLM connection by id. Evaluators that depend on the deleted connection are automatically paused.
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteLlmConnectionResponse
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.llm_connections.delete(
+            id="id",
+        )
+        """
+        _response = self._raw_client.delete(id, request_options=request_options)
         return _response.data
 
 
@@ -261,7 +298,7 @@ class AsyncLlmConnectionsClient:
             Extra headers to send with requests
 
         config : typing.Optional[typing.Dict[str, typing.Any]]
-            Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
+            Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **OpenAI**: Optional. If provided, must be `{"useResponsesApi": <boolean>}` to control whether Langfuse routes calls through OpenAI's Responses API. - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -308,4 +345,48 @@ class AsyncLlmConnectionsClient:
             config=config,
             request_options=request_options,
         )
+        return _response.data
+
+    async def delete(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteLlmConnectionResponse:
+        """
+        Delete an LLM connection by id. Evaluators that depend on the deleted connection are automatically paused.
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteLlmConnectionResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.llm_connections.delete(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(id, request_options=request_options)
         return _response.data

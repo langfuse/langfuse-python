@@ -7,8 +7,10 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
+from .blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .blob_storage_export_frequency import BlobStorageExportFrequency
 from .blob_storage_export_mode import BlobStorageExportMode
+from .blob_storage_export_source import BlobStorageExportSource
 from .blob_storage_integration_file_type import BlobStorageIntegrationFileType
 from .blob_storage_integration_type import BlobStorageIntegrationType
 
@@ -41,6 +43,17 @@ class BlobStorageIntegrationResponse(UniversalBaseModel):
         typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
     ] = None
     compressed: bool
+    export_source: typing_extensions.Annotated[
+        BlobStorageExportSource, FieldMetadata(alias="exportSource")
+    ]
+    export_field_groups: typing_extensions.Annotated[
+        typing.Optional[typing.List[BlobStorageExportFieldGroup]],
+        FieldMetadata(alias="exportFieldGroups"),
+    ] = pydantic.Field(default=None)
+    """
+    Field groups included in each exported row for `OBSERVATIONS_V2` / `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` sources. Always `null` when exportSource is `LEGACY_TRACES_OBSERVATIONS` (the field does not apply to that source; any legacy DB value is hidden from the public surface).
+    """
+
     next_sync_at: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="nextSyncAt")
     ] = None
