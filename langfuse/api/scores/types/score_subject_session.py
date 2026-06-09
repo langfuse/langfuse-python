@@ -4,13 +4,13 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
-from .get_scores_v3meta import GetScoresV3Meta
-from .score_v3 import ScoreV3
 
 
-class GetScoresV3Response(UniversalBaseModel):
-    data: typing.List[ScoreV3]
-    meta: GetScoresV3Meta
+class ScoreSubjectSession(UniversalBaseModel):
+    id: str = pydantic.Field()
+    """
+    The session ID.
+    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

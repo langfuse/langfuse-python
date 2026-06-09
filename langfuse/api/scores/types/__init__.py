@@ -6,35 +6,57 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .base_score_v3 import BaseScoreV3
+    from .boolean_score_v3 import BooleanScoreV3
+    from .categorical_score_v3 import CategoricalScoreV3
+    from .correction_score_v3 import CorrectionScoreV3
+    from .get_scores_meta import GetScoresMeta
     from .get_scores_response import GetScoresResponse
-    from .get_scores_response_data import (
-        GetScoresResponseData,
-        GetScoresResponseData_Boolean,
-        GetScoresResponseData_Categorical,
-        GetScoresResponseData_Correction,
-        GetScoresResponseData_Numeric,
-        GetScoresResponseData_Text,
+    from .numeric_score_v3 import NumericScoreV3
+    from .score_subject import (
+        ScoreSubject,
+        ScoreSubject_Experiment,
+        ScoreSubject_Observation,
+        ScoreSubject_Session,
+        ScoreSubject_Trace,
     )
-    from .get_scores_response_data_boolean import GetScoresResponseDataBoolean
-    from .get_scores_response_data_categorical import GetScoresResponseDataCategorical
-    from .get_scores_response_data_correction import GetScoresResponseDataCorrection
-    from .get_scores_response_data_numeric import GetScoresResponseDataNumeric
-    from .get_scores_response_data_text import GetScoresResponseDataText
-    from .get_scores_response_trace_data import GetScoresResponseTraceData
+    from .score_subject_experiment import ScoreSubjectExperiment
+    from .score_subject_observation import ScoreSubjectObservation
+    from .score_subject_session import ScoreSubjectSession
+    from .score_subject_trace import ScoreSubjectTrace
+    from .score_v3 import (
+        ScoreV3,
+        ScoreV3_Boolean,
+        ScoreV3_Categorical,
+        ScoreV3_Correction,
+        ScoreV3_Numeric,
+        ScoreV3_Text,
+    )
+    from .text_score_v3 import TextScoreV3
 _dynamic_imports: typing.Dict[str, str] = {
+    "BaseScoreV3": ".base_score_v3",
+    "BooleanScoreV3": ".boolean_score_v3",
+    "CategoricalScoreV3": ".categorical_score_v3",
+    "CorrectionScoreV3": ".correction_score_v3",
+    "GetScoresMeta": ".get_scores_meta",
     "GetScoresResponse": ".get_scores_response",
-    "GetScoresResponseData": ".get_scores_response_data",
-    "GetScoresResponseDataBoolean": ".get_scores_response_data_boolean",
-    "GetScoresResponseDataCategorical": ".get_scores_response_data_categorical",
-    "GetScoresResponseDataCorrection": ".get_scores_response_data_correction",
-    "GetScoresResponseDataNumeric": ".get_scores_response_data_numeric",
-    "GetScoresResponseDataText": ".get_scores_response_data_text",
-    "GetScoresResponseData_Boolean": ".get_scores_response_data",
-    "GetScoresResponseData_Categorical": ".get_scores_response_data",
-    "GetScoresResponseData_Correction": ".get_scores_response_data",
-    "GetScoresResponseData_Numeric": ".get_scores_response_data",
-    "GetScoresResponseData_Text": ".get_scores_response_data",
-    "GetScoresResponseTraceData": ".get_scores_response_trace_data",
+    "NumericScoreV3": ".numeric_score_v3",
+    "ScoreSubject": ".score_subject",
+    "ScoreSubjectExperiment": ".score_subject_experiment",
+    "ScoreSubjectObservation": ".score_subject_observation",
+    "ScoreSubjectSession": ".score_subject_session",
+    "ScoreSubjectTrace": ".score_subject_trace",
+    "ScoreSubject_Experiment": ".score_subject",
+    "ScoreSubject_Observation": ".score_subject",
+    "ScoreSubject_Session": ".score_subject",
+    "ScoreSubject_Trace": ".score_subject",
+    "ScoreV3": ".score_v3",
+    "ScoreV3_Boolean": ".score_v3",
+    "ScoreV3_Categorical": ".score_v3",
+    "ScoreV3_Correction": ".score_v3",
+    "ScoreV3_Numeric": ".score_v3",
+    "ScoreV3_Text": ".score_v3",
+    "TextScoreV3": ".text_score_v3",
 }
 
 
@@ -66,17 +88,27 @@ def __dir__():
 
 
 __all__ = [
+    "BaseScoreV3",
+    "BooleanScoreV3",
+    "CategoricalScoreV3",
+    "CorrectionScoreV3",
+    "GetScoresMeta",
     "GetScoresResponse",
-    "GetScoresResponseData",
-    "GetScoresResponseDataBoolean",
-    "GetScoresResponseDataCategorical",
-    "GetScoresResponseDataCorrection",
-    "GetScoresResponseDataNumeric",
-    "GetScoresResponseDataText",
-    "GetScoresResponseData_Boolean",
-    "GetScoresResponseData_Categorical",
-    "GetScoresResponseData_Correction",
-    "GetScoresResponseData_Numeric",
-    "GetScoresResponseData_Text",
-    "GetScoresResponseTraceData",
+    "NumericScoreV3",
+    "ScoreSubject",
+    "ScoreSubjectExperiment",
+    "ScoreSubjectObservation",
+    "ScoreSubjectSession",
+    "ScoreSubjectTrace",
+    "ScoreSubject_Experiment",
+    "ScoreSubject_Observation",
+    "ScoreSubject_Session",
+    "ScoreSubject_Trace",
+    "ScoreV3",
+    "ScoreV3_Boolean",
+    "ScoreV3_Categorical",
+    "ScoreV3_Correction",
+    "ScoreV3_Numeric",
+    "ScoreV3_Text",
+    "TextScoreV3",
 ]

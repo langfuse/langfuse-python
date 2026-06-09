@@ -4,8 +4,8 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...core.pydantic_utilities import UniversalBaseModel
-from ...core.serialization import FieldMetadata
+from ....core.pydantic_utilities import UniversalBaseModel
+from ....core.serialization import FieldMetadata
 
 
 class GetScoresResponseTraceData(UniversalBaseModel):

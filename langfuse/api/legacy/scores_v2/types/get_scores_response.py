@@ -3,14 +3,14 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import UniversalBaseModel
-from .get_scores_meta import GetScoresMeta
-from .score_v3 import ScoreV3
+from ....core.pydantic_utilities import UniversalBaseModel
+from ....utils.pagination.types.meta_response import MetaResponse
+from .get_scores_response_data import GetScoresResponseData
 
 
 class GetScoresResponse(UniversalBaseModel):
-    data: typing.List[ScoreV3]
-    meta: GetScoresMeta
+    data: typing.List[GetScoresResponseData]
+    meta: MetaResponse
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

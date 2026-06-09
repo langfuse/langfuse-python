@@ -8,7 +8,7 @@ from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 
 
-class ScoreSubjectObservationV3(UniversalBaseModel):
+class ScoreSubjectObservation(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     The observation ID.

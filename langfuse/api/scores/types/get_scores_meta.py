@@ -6,7 +6,7 @@ import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
 
 
-class GetScoresV3Meta(UniversalBaseModel):
+class GetScoresMeta(UniversalBaseModel):
     limit: int
     cursor: typing.Optional[str] = pydantic.Field(default=None)
     """

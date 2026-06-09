@@ -3,11 +3,11 @@
 import typing
 
 import pydantic
-from ...commons.types.boolean_score import BooleanScore
+from ....commons.types.categorical_score import CategoricalScore
 from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 
-class GetScoresResponseDataBoolean(BooleanScore):
+class GetScoresResponseDataCategorical(CategoricalScore):
     trace: typing.Optional[GetScoresResponseTraceData] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

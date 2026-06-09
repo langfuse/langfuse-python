@@ -6,7 +6,7 @@ import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
 
 
-class ScoreSubjectExperimentV3(UniversalBaseModel):
+class ScoreSubjectExperiment(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     The dataset run ID (experiment ID).

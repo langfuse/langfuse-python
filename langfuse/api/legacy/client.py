@@ -11,6 +11,7 @@ if typing.TYPE_CHECKING:
     from .metrics_v1.client import AsyncMetricsV1Client, MetricsV1Client
     from .observations_v1.client import AsyncObservationsV1Client, ObservationsV1Client
     from .score_v1.client import AsyncScoreV1Client, ScoreV1Client
+    from .scores_v2.client import AsyncScoresV2Client, ScoresV2Client
 
 
 class LegacyClient:
@@ -20,6 +21,7 @@ class LegacyClient:
         self._metrics_v1: typing.Optional[MetricsV1Client] = None
         self._observations_v1: typing.Optional[ObservationsV1Client] = None
         self._score_v1: typing.Optional[ScoreV1Client] = None
+        self._scores_v2: typing.Optional[ScoresV2Client] = None
 
     @property
     def with_raw_response(self) -> RawLegacyClient:
@@ -58,6 +60,14 @@ class LegacyClient:
             self._score_v1 = ScoreV1Client(client_wrapper=self._client_wrapper)
         return self._score_v1
 
+    @property
+    def scores_v2(self):
+        if self._scores_v2 is None:
+            from .scores_v2.client import ScoresV2Client  # noqa: E402
+
+            self._scores_v2 = ScoresV2Client(client_wrapper=self._client_wrapper)
+        return self._scores_v2
+
 
 class AsyncLegacyClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -66,6 +76,7 @@ class AsyncLegacyClient:
         self._metrics_v1: typing.Optional[AsyncMetricsV1Client] = None
         self._observations_v1: typing.Optional[AsyncObservationsV1Client] = None
         self._score_v1: typing.Optional[AsyncScoreV1Client] = None
+        self._scores_v2: typing.Optional[AsyncScoresV2Client] = None
 
     @property
     def with_raw_response(self) -> AsyncRawLegacyClient:
@@ -103,3 +114,11 @@ class AsyncLegacyClient:
 
             self._score_v1 = AsyncScoreV1Client(client_wrapper=self._client_wrapper)
         return self._score_v1
+
+    @property
+    def scores_v2(self):
+        if self._scores_v2 is None:
+            from .scores_v2.client import AsyncScoresV2Client  # noqa: E402
+
+            self._scores_v2 = AsyncScoresV2Client(client_wrapper=self._client_wrapper)
+        return self._scores_v2
