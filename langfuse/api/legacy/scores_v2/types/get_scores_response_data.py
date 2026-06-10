@@ -7,9 +7,9 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...commons.types.score_source import ScoreSource
-from ...core.pydantic_utilities import UniversalBaseModel
-from ...core.serialization import FieldMetadata
+from ....commons.types.score_source import ScoreSource
+from ....core.pydantic_utilities import UniversalBaseModel
+from ....core.serialization import FieldMetadata
 from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 

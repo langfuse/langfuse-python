@@ -6,7 +6,7 @@ import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
 
 
-class ScoreSubjectTraceV3(UniversalBaseModel):
+class ScoreSubjectTrace(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     The trace ID.

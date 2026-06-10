@@ -3,7 +3,7 @@
 import typing
 
 import pydantic
-from ...commons.types.numeric_score import NumericScore
+from ....commons.types.numeric_score import NumericScore
 from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 

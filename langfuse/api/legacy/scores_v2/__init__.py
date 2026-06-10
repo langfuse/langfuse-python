@@ -6,11 +6,7 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from . import metrics_v1, observations_v1, score_v1, scores_v2
-    from .metrics_v1 import MetricsResponse
-    from .observations_v1 import Observations, ObservationsViews
-    from .score_v1 import CreateScoreRequest, CreateScoreResponse, CreateScoreSource
-    from .scores_v2 import (
+    from .types import (
         GetScoresResponse,
         GetScoresResponseData,
         GetScoresResponseDataBoolean,
@@ -26,29 +22,19 @@ if typing.TYPE_CHECKING:
         GetScoresResponseTraceData,
     )
 _dynamic_imports: typing.Dict[str, str] = {
-    "CreateScoreRequest": ".score_v1",
-    "CreateScoreResponse": ".score_v1",
-    "CreateScoreSource": ".score_v1",
-    "GetScoresResponse": ".scores_v2",
-    "GetScoresResponseData": ".scores_v2",
-    "GetScoresResponseDataBoolean": ".scores_v2",
-    "GetScoresResponseDataCategorical": ".scores_v2",
-    "GetScoresResponseDataCorrection": ".scores_v2",
-    "GetScoresResponseDataNumeric": ".scores_v2",
-    "GetScoresResponseDataText": ".scores_v2",
-    "GetScoresResponseData_Boolean": ".scores_v2",
-    "GetScoresResponseData_Categorical": ".scores_v2",
-    "GetScoresResponseData_Correction": ".scores_v2",
-    "GetScoresResponseData_Numeric": ".scores_v2",
-    "GetScoresResponseData_Text": ".scores_v2",
-    "GetScoresResponseTraceData": ".scores_v2",
-    "MetricsResponse": ".metrics_v1",
-    "Observations": ".observations_v1",
-    "ObservationsViews": ".observations_v1",
-    "metrics_v1": ".metrics_v1",
-    "observations_v1": ".observations_v1",
-    "score_v1": ".score_v1",
-    "scores_v2": ".scores_v2",
+    "GetScoresResponse": ".types",
+    "GetScoresResponseData": ".types",
+    "GetScoresResponseDataBoolean": ".types",
+    "GetScoresResponseDataCategorical": ".types",
+    "GetScoresResponseDataCorrection": ".types",
+    "GetScoresResponseDataNumeric": ".types",
+    "GetScoresResponseDataText": ".types",
+    "GetScoresResponseData_Boolean": ".types",
+    "GetScoresResponseData_Categorical": ".types",
+    "GetScoresResponseData_Correction": ".types",
+    "GetScoresResponseData_Numeric": ".types",
+    "GetScoresResponseData_Text": ".types",
+    "GetScoresResponseTraceData": ".types",
 }
 
 
@@ -80,9 +66,6 @@ def __dir__():
 
 
 __all__ = [
-    "CreateScoreRequest",
-    "CreateScoreResponse",
-    "CreateScoreSource",
     "GetScoresResponse",
     "GetScoresResponseData",
     "GetScoresResponseDataBoolean",
@@ -96,11 +79,4 @@ __all__ = [
     "GetScoresResponseData_Numeric",
     "GetScoresResponseData_Text",
     "GetScoresResponseTraceData",
-    "MetricsResponse",
-    "Observations",
-    "ObservationsViews",
-    "metrics_v1",
-    "observations_v1",
-    "score_v1",
-    "scores_v2",
 ]

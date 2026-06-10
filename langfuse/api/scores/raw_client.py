@@ -9,14 +9,10 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.score import Score
-from ..commons.types.score_data_type import ScoreDataType
-from ..commons.types.score_source import ScoreSource
 from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.datetime_utils import serialize_datetime
 from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import jsonable_encoder
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from .types.get_scores_response import GetScoresResponse
@@ -29,96 +25,109 @@ class RawScoresClient:
     def get_many(
         self,
         *,
-        page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        user_id: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        fields: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        source: typing.Optional[str] = None,
+        data_type: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        queue_id: typing.Optional[str] = None,
+        author_user_id: typing.Optional[str] = None,
+        value: typing.Optional[str] = None,
+        value_min: typing.Optional[float] = None,
+        value_max: typing.Optional[float] = None,
+        trace_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        experiment_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
-        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        source: typing.Optional[ScoreSource] = None,
-        operator: typing.Optional[str] = None,
-        value: typing.Optional[float] = None,
-        score_ids: typing.Optional[str] = None,
-        config_id: typing.Optional[str] = None,
-        session_id: typing.Optional[str] = None,
-        dataset_run_id: typing.Optional[str] = None,
-        trace_id: typing.Optional[str] = None,
-        observation_id: typing.Optional[str] = None,
-        queue_id: typing.Optional[str] = None,
-        data_type: typing.Optional[ScoreDataType] = None,
-        trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        fields: typing.Optional[str] = None,
-        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetScoresResponse]:
         """
-        Get a list of scores (supports both trace and session scores)
+        Get a list of scores with a polymorphic `value` field (v3).
+
+        The `value` field type depends on `dataType`:
+        - `NUMERIC` → number
+        - `BOOLEAN` → boolean
+        - `CATEGORICAL`, `TEXT`, `CORRECTION` → string
+
+        The response always includes the core fields: id, projectId, name,
+        value, dataType, source, timestamp, environment, createdAt, updatedAt.
+
+        Additional field groups can be requested via the `fields` parameter:
+        - `details` — adds comment, configId, metadata
+        - `subject` — adds the subject object describing the entity the score
+          is attached to: kind (trace, observation, session, or experiment),
+          id, and traceId for observation-level scores
+        - `annotation` — adds authorUserId, queueId
+
+        Unknown group names return HTTP 400.
 
         Parameters
         ----------
-        page : typing.Optional[int]
-            Page number, starts at 1.
-
         limit : typing.Optional[int]
-            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Number of items per page. Maximum 100, default 50. Requests with a limit greater than 100 return HTTP 400.
 
-        user_id : typing.Optional[str]
-            Retrieve only scores with this userId associated to the trace.
-
-        name : typing.Optional[str]
-            Retrieve only scores with this name.
-
-        from_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created on or after a certain datetime (ISO 8601)
-
-        to_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created before a certain datetime (ISO 8601)
-
-        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Optional filter for scores where the environment is one of the provided values.
-
-        source : typing.Optional[ScoreSource]
-            Retrieve only scores from a specific source.
-
-        operator : typing.Optional[str]
-            Retrieve only scores with <operator> value.
-
-        value : typing.Optional[float]
-            Retrieve only scores with <operator> value.
-
-        score_ids : typing.Optional[str]
-            Comma-separated list of score IDs to limit the results to.
-
-        config_id : typing.Optional[str]
-            Retrieve only scores with a specific configId.
-
-        session_id : typing.Optional[str]
-            Retrieve only scores with a specific sessionId.
-
-        dataset_run_id : typing.Optional[str]
-            Retrieve only scores with a specific datasetRunId.
-
-        trace_id : typing.Optional[str]
-            Retrieve only scores with a specific traceId.
-
-        observation_id : typing.Optional[str]
-            Comma-separated list of observation IDs to filter scores by.
-
-        queue_id : typing.Optional[str]
-            Retrieve only scores with a specific annotation queueId.
-
-        data_type : typing.Optional[ScoreDataType]
-            Retrieve only scores with a specific dataType.
-
-        trace_tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Only scores linked to traces that include all of these tags will be returned.
+        cursor : typing.Optional[str]
+            URL-safe base64 (base64url) cursor for pagination. Use the cursor from the previous response to get the next page. Absent on the final page.
 
         fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment, sessionId). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
+            Comma-separated field groups to include in addition to the always-returned core fields. Allowed: details, subject, annotation — see the endpoint description for the fields each group adds. Unknown names return HTTP 400.
 
-        filter : typing.Optional[str]
-            A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
+        id : typing.Optional[str]
+            Comma-separated list of score IDs to filter by (OR within, AND across filters).
+
+        name : typing.Optional[str]
+            Comma-separated list of score names to filter by.
+
+        source : typing.Optional[str]
+            Comma-separated list of score sources to filter by (e.g. API, ANNOTATION, EVAL). Case-insensitive — `api` and `API` are equivalent.
+
+        data_type : typing.Optional[str]
+            Comma-separated list of data types to filter by (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, CORRECTION). Case-insensitive — `numeric` and `NUMERIC` are equivalent. Must be a single value when used with value, valueMin, or valueMax; otherwise the request returns HTTP 400. Must be NUMERIC when used with valueMin or valueMax.
+
+        environment : typing.Optional[str]
+            Comma-separated list of environments to filter by.
+
+        config_id : typing.Optional[str]
+            Comma-separated list of score config IDs to filter by.
+
+        queue_id : typing.Optional[str]
+            Comma-separated list of annotation queue IDs to filter by.
+
+        author_user_id : typing.Optional[str]
+            Comma-separated list of author user IDs to filter by.
+
+        value : typing.Optional[str]
+            Comma-separated list of exact values to filter by. Requires a single dataType from NUMERIC, BOOLEAN, or CATEGORICAL; any other dataType, multiple dataTypes, or omitting dataType returns HTTP 400. For BOOLEAN, each value must be "true" or "false"; for NUMERIC, each value must be a finite number. Otherwise the request returns HTTP 400.
+
+        value_min : typing.Optional[float]
+            Inclusive lower bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        value_max : typing.Optional[float]
+            Inclusive upper bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        trace_id : typing.Optional[str]
+            Comma-separated list of trace IDs to filter by. Mutually exclusive with sessionId, experimentId. May be combined with observationId to scope the observation lookup to a specific trace.
+
+        session_id : typing.Optional[str]
+            Comma-separated list of session IDs to filter by. Mutually exclusive with traceId, observationId, experimentId.
+
+        observation_id : typing.Optional[str]
+            Comma-separated list of observation IDs to filter by. Requires traceId to be specified, because observation IDs are scoped to a trace. Mutually exclusive with sessionId, experimentId. Returns HTTP 400 when used without traceId.
+
+        experiment_id : typing.Optional[str]
+            Comma-separated list of dataset run IDs (experiment IDs) to filter by. Mutually exclusive with traceId, sessionId, observationId.
+
+        from_timestamp : typing.Optional[dt.datetime]
+            Inclusive lower bound on the score timestamp.
+
+        to_timestamp : typing.Optional[dt.datetime]
+            Exclusive upper bound on the score timestamp.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -128,34 +137,33 @@ class RawScoresClient:
         HttpResponse[GetScoresResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/v2/scores",
+            "api/public/v3/scores",
             method="GET",
             params={
-                "page": page,
                 "limit": limit,
-                "userId": user_id,
+                "cursor": cursor,
+                "fields": fields,
+                "id": id,
                 "name": name,
+                "source": source,
+                "dataType": data_type,
+                "environment": environment,
+                "configId": config_id,
+                "queueId": queue_id,
+                "authorUserId": author_user_id,
+                "value": value,
+                "valueMin": value_min,
+                "valueMax": value_max,
+                "traceId": trace_id,
+                "sessionId": session_id,
+                "observationId": observation_id,
+                "experimentId": experiment_id,
                 "fromTimestamp": serialize_datetime(from_timestamp)
                 if from_timestamp is not None
                 else None,
                 "toTimestamp": serialize_datetime(to_timestamp)
                 if to_timestamp is not None
                 else None,
-                "environment": environment,
-                "source": source,
-                "operator": operator,
-                "value": value,
-                "scoreIds": score_ids,
-                "configId": config_id,
-                "sessionId": session_id,
-                "datasetRunId": dataset_run_id,
-                "traceId": trace_id,
-                "observationId": observation_id,
-                "queueId": queue_id,
-                "dataType": data_type,
-                "traceTags": trace_tags,
-                "fields": fields,
-                "filter": filter,
             },
             request_options=request_options,
         )
@@ -165,107 +173,6 @@ class RawScoresClient:
                     GetScoresResponse,
                     parse_obj_as(
                         type_=GetScoresResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    def get_by_id(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[Score]:
-        """
-        Get a score (supports both trace and session scores)
-
-        Parameters
-        ----------
-        score_id : str
-            The unique langfuse identifier of a score
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[Score]
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/v2/scores/{jsonable_encoder(score_id)}",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    Score,
-                    parse_obj_as(
-                        type_=Score,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -346,96 +253,109 @@ class AsyncRawScoresClient:
     async def get_many(
         self,
         *,
-        page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        user_id: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        fields: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        source: typing.Optional[str] = None,
+        data_type: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        queue_id: typing.Optional[str] = None,
+        author_user_id: typing.Optional[str] = None,
+        value: typing.Optional[str] = None,
+        value_min: typing.Optional[float] = None,
+        value_max: typing.Optional[float] = None,
+        trace_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        experiment_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
-        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        source: typing.Optional[ScoreSource] = None,
-        operator: typing.Optional[str] = None,
-        value: typing.Optional[float] = None,
-        score_ids: typing.Optional[str] = None,
-        config_id: typing.Optional[str] = None,
-        session_id: typing.Optional[str] = None,
-        dataset_run_id: typing.Optional[str] = None,
-        trace_id: typing.Optional[str] = None,
-        observation_id: typing.Optional[str] = None,
-        queue_id: typing.Optional[str] = None,
-        data_type: typing.Optional[ScoreDataType] = None,
-        trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        fields: typing.Optional[str] = None,
-        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetScoresResponse]:
         """
-        Get a list of scores (supports both trace and session scores)
+        Get a list of scores with a polymorphic `value` field (v3).
+
+        The `value` field type depends on `dataType`:
+        - `NUMERIC` → number
+        - `BOOLEAN` → boolean
+        - `CATEGORICAL`, `TEXT`, `CORRECTION` → string
+
+        The response always includes the core fields: id, projectId, name,
+        value, dataType, source, timestamp, environment, createdAt, updatedAt.
+
+        Additional field groups can be requested via the `fields` parameter:
+        - `details` — adds comment, configId, metadata
+        - `subject` — adds the subject object describing the entity the score
+          is attached to: kind (trace, observation, session, or experiment),
+          id, and traceId for observation-level scores
+        - `annotation` — adds authorUserId, queueId
+
+        Unknown group names return HTTP 400.
 
         Parameters
         ----------
-        page : typing.Optional[int]
-            Page number, starts at 1.
-
         limit : typing.Optional[int]
-            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Number of items per page. Maximum 100, default 50. Requests with a limit greater than 100 return HTTP 400.
 
-        user_id : typing.Optional[str]
-            Retrieve only scores with this userId associated to the trace.
-
-        name : typing.Optional[str]
-            Retrieve only scores with this name.
-
-        from_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created on or after a certain datetime (ISO 8601)
-
-        to_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created before a certain datetime (ISO 8601)
-
-        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Optional filter for scores where the environment is one of the provided values.
-
-        source : typing.Optional[ScoreSource]
-            Retrieve only scores from a specific source.
-
-        operator : typing.Optional[str]
-            Retrieve only scores with <operator> value.
-
-        value : typing.Optional[float]
-            Retrieve only scores with <operator> value.
-
-        score_ids : typing.Optional[str]
-            Comma-separated list of score IDs to limit the results to.
-
-        config_id : typing.Optional[str]
-            Retrieve only scores with a specific configId.
-
-        session_id : typing.Optional[str]
-            Retrieve only scores with a specific sessionId.
-
-        dataset_run_id : typing.Optional[str]
-            Retrieve only scores with a specific datasetRunId.
-
-        trace_id : typing.Optional[str]
-            Retrieve only scores with a specific traceId.
-
-        observation_id : typing.Optional[str]
-            Comma-separated list of observation IDs to filter scores by.
-
-        queue_id : typing.Optional[str]
-            Retrieve only scores with a specific annotation queueId.
-
-        data_type : typing.Optional[ScoreDataType]
-            Retrieve only scores with a specific dataType.
-
-        trace_tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Only scores linked to traces that include all of these tags will be returned.
+        cursor : typing.Optional[str]
+            URL-safe base64 (base64url) cursor for pagination. Use the cursor from the previous response to get the next page. Absent on the final page.
 
         fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment, sessionId). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
+            Comma-separated field groups to include in addition to the always-returned core fields. Allowed: details, subject, annotation — see the endpoint description for the fields each group adds. Unknown names return HTTP 400.
 
-        filter : typing.Optional[str]
-            A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
+        id : typing.Optional[str]
+            Comma-separated list of score IDs to filter by (OR within, AND across filters).
+
+        name : typing.Optional[str]
+            Comma-separated list of score names to filter by.
+
+        source : typing.Optional[str]
+            Comma-separated list of score sources to filter by (e.g. API, ANNOTATION, EVAL). Case-insensitive — `api` and `API` are equivalent.
+
+        data_type : typing.Optional[str]
+            Comma-separated list of data types to filter by (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, CORRECTION). Case-insensitive — `numeric` and `NUMERIC` are equivalent. Must be a single value when used with value, valueMin, or valueMax; otherwise the request returns HTTP 400. Must be NUMERIC when used with valueMin or valueMax.
+
+        environment : typing.Optional[str]
+            Comma-separated list of environments to filter by.
+
+        config_id : typing.Optional[str]
+            Comma-separated list of score config IDs to filter by.
+
+        queue_id : typing.Optional[str]
+            Comma-separated list of annotation queue IDs to filter by.
+
+        author_user_id : typing.Optional[str]
+            Comma-separated list of author user IDs to filter by.
+
+        value : typing.Optional[str]
+            Comma-separated list of exact values to filter by. Requires a single dataType from NUMERIC, BOOLEAN, or CATEGORICAL; any other dataType, multiple dataTypes, or omitting dataType returns HTTP 400. For BOOLEAN, each value must be "true" or "false"; for NUMERIC, each value must be a finite number. Otherwise the request returns HTTP 400.
+
+        value_min : typing.Optional[float]
+            Inclusive lower bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        value_max : typing.Optional[float]
+            Inclusive upper bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        trace_id : typing.Optional[str]
+            Comma-separated list of trace IDs to filter by. Mutually exclusive with sessionId, experimentId. May be combined with observationId to scope the observation lookup to a specific trace.
+
+        session_id : typing.Optional[str]
+            Comma-separated list of session IDs to filter by. Mutually exclusive with traceId, observationId, experimentId.
+
+        observation_id : typing.Optional[str]
+            Comma-separated list of observation IDs to filter by. Requires traceId to be specified, because observation IDs are scoped to a trace. Mutually exclusive with sessionId, experimentId. Returns HTTP 400 when used without traceId.
+
+        experiment_id : typing.Optional[str]
+            Comma-separated list of dataset run IDs (experiment IDs) to filter by. Mutually exclusive with traceId, sessionId, observationId.
+
+        from_timestamp : typing.Optional[dt.datetime]
+            Inclusive lower bound on the score timestamp.
+
+        to_timestamp : typing.Optional[dt.datetime]
+            Exclusive upper bound on the score timestamp.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -445,34 +365,33 @@ class AsyncRawScoresClient:
         AsyncHttpResponse[GetScoresResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/v2/scores",
+            "api/public/v3/scores",
             method="GET",
             params={
-                "page": page,
                 "limit": limit,
-                "userId": user_id,
+                "cursor": cursor,
+                "fields": fields,
+                "id": id,
                 "name": name,
+                "source": source,
+                "dataType": data_type,
+                "environment": environment,
+                "configId": config_id,
+                "queueId": queue_id,
+                "authorUserId": author_user_id,
+                "value": value,
+                "valueMin": value_min,
+                "valueMax": value_max,
+                "traceId": trace_id,
+                "sessionId": session_id,
+                "observationId": observation_id,
+                "experimentId": experiment_id,
                 "fromTimestamp": serialize_datetime(from_timestamp)
                 if from_timestamp is not None
                 else None,
                 "toTimestamp": serialize_datetime(to_timestamp)
                 if to_timestamp is not None
                 else None,
-                "environment": environment,
-                "source": source,
-                "operator": operator,
-                "value": value,
-                "scoreIds": score_ids,
-                "configId": config_id,
-                "sessionId": session_id,
-                "datasetRunId": dataset_run_id,
-                "traceId": trace_id,
-                "observationId": observation_id,
-                "queueId": queue_id,
-                "dataType": data_type,
-                "traceTags": trace_tags,
-                "fields": fields,
-                "filter": filter,
             },
             request_options=request_options,
         )
@@ -482,107 +401,6 @@ class AsyncRawScoresClient:
                     GetScoresResponse,
                     parse_obj_as(
                         type_=GetScoresResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    async def get_by_id(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[Score]:
-        """
-        Get a score (supports both trace and session scores)
-
-        Parameters
-        ----------
-        score_id : str
-            The unique langfuse identifier of a score
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[Score]
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/v2/scores/{jsonable_encoder(score_id)}",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    Score,
-                    parse_obj_as(
-                        type_=Score,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

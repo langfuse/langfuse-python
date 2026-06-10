@@ -3,11 +3,11 @@
 import typing
 
 import pydantic
-from ...commons.types.correction_score import CorrectionScore
+from ....commons.types.text_score import TextScore
 from .get_scores_response_trace_data import GetScoresResponseTraceData
 
 
-class GetScoresResponseDataCorrection(CorrectionScore):
+class GetScoresResponseDataText(TextScore):
     trace: typing.Optional[GetScoresResponseTraceData] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

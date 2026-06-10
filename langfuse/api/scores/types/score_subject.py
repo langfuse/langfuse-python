@@ -10,7 +10,7 @@ from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 
 
-class ScoreSubjectV3_Trace(UniversalBaseModel):
+class ScoreSubject_Trace(UniversalBaseModel):
     """
     A reference to the entity this score is attached to. Discriminated by "kind" — one of trace, observation, session, or experiment.
     """
@@ -23,7 +23,7 @@ class ScoreSubjectV3_Trace(UniversalBaseModel):
     )
 
 
-class ScoreSubjectV3_Observation(UniversalBaseModel):
+class ScoreSubject_Observation(UniversalBaseModel):
     """
     A reference to the entity this score is attached to. Discriminated by "kind" — one of trace, observation, session, or experiment.
     """
@@ -39,7 +39,7 @@ class ScoreSubjectV3_Observation(UniversalBaseModel):
     )
 
 
-class ScoreSubjectV3_Session(UniversalBaseModel):
+class ScoreSubject_Session(UniversalBaseModel):
     """
     A reference to the entity this score is attached to. Discriminated by "kind" — one of trace, observation, session, or experiment.
     """
@@ -52,7 +52,7 @@ class ScoreSubjectV3_Session(UniversalBaseModel):
     )
 
 
-class ScoreSubjectV3_Experiment(UniversalBaseModel):
+class ScoreSubject_Experiment(UniversalBaseModel):
     """
     A reference to the entity this score is attached to. Discriminated by "kind" — one of trace, observation, session, or experiment.
     """
@@ -65,12 +65,12 @@ class ScoreSubjectV3_Experiment(UniversalBaseModel):
     )
 
 
-ScoreSubjectV3 = typing_extensions.Annotated[
+ScoreSubject = typing_extensions.Annotated[
     typing.Union[
-        ScoreSubjectV3_Trace,
-        ScoreSubjectV3_Observation,
-        ScoreSubjectV3_Session,
-        ScoreSubjectV3_Experiment,
+        ScoreSubject_Trace,
+        ScoreSubject_Observation,
+        ScoreSubject_Session,
+        ScoreSubject_Experiment,
     ],
     pydantic.Field(discriminator="kind"),
 ]

@@ -8,7 +8,7 @@ import typing_extensions
 from ...commons.types.score_source import ScoreSource
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
-from .score_subject_v3 import ScoreSubjectV3
+from .score_subject import ScoreSubject
 
 
 class BaseScoreV3(UniversalBaseModel):
@@ -61,7 +61,7 @@ class BaseScoreV3(UniversalBaseModel):
     The annotation queue this score belongs to, if any. Present when "annotation" is included in the fields parameter.
     """
 
-    subject: typing.Optional[ScoreSubjectV3] = pydantic.Field(default=None)
+    subject: typing.Optional[ScoreSubject] = pydantic.Field(default=None)
     """
     The entity this score is attached to (trace, observation, session, or experiment). Present when "subject" is included in the fields parameter.
     """

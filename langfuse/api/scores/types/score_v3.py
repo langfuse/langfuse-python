@@ -10,7 +10,7 @@ import typing_extensions
 from ...commons.types.score_source import ScoreSource
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
-from .score_subject_v3 import ScoreSubjectV3
+from .score_subject import ScoreSubject
 
 
 class ScoreV3_Numeric(UniversalBaseModel):
@@ -41,7 +41,7 @@ class ScoreV3_Numeric(UniversalBaseModel):
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    subject: typing.Optional[ScoreSubjectV3] = None
+    subject: typing.Optional[ScoreSubject] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -76,7 +76,7 @@ class ScoreV3_Boolean(UniversalBaseModel):
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    subject: typing.Optional[ScoreSubjectV3] = None
+    subject: typing.Optional[ScoreSubject] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -111,7 +111,7 @@ class ScoreV3_Categorical(UniversalBaseModel):
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    subject: typing.Optional[ScoreSubjectV3] = None
+    subject: typing.Optional[ScoreSubject] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -146,7 +146,7 @@ class ScoreV3_Text(UniversalBaseModel):
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    subject: typing.Optional[ScoreSubjectV3] = None
+    subject: typing.Optional[ScoreSubject] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -181,7 +181,7 @@ class ScoreV3_Correction(UniversalBaseModel):
     queue_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="queueId")
     ] = None
-    subject: typing.Optional[ScoreSubjectV3] = None
+    subject: typing.Optional[ScoreSubject] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
