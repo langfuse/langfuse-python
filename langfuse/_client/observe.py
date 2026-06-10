@@ -632,7 +632,17 @@ class _ContextPreservedSyncGeneratorWrapper:
 
 
 class _ContextPreservedAsyncGeneratorWrapper:
-    """Async generator wrapper that ensures each iteration runs in preserved context."""
+    """Async generator wrapper that ensures each iteration runs in preserved context.
+
+    .. note::
+        The wrapper snapshots the caller's contextvars once at construction time
+        and re-applies those values before each ``__anext__`` call.  This means
+        mutations issued by the generator body *across* ``yield`` points are
+        discarded between iterations.  For Langfuse's own tracing this is fine
+        because child spans are opened and closed within a single ``__anext__``
+        call, but user generators that rely on context-var state persisting
+        across yields will not see those changes.
+    """
 
     def __init__(
         self,
