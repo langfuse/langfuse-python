@@ -338,6 +338,7 @@ async def test_async_generator_wrapper_respects_asyncio_timeout() -> None:
     # Should have yielded at least once before the timeout fired
     assert len(seen) >= 1
     assert all(v == "preserved" for v in seen)
+    assert span.ended == 1
 
 
 @pytest.mark.asyncio
