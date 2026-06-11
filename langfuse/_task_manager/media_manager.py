@@ -84,10 +84,8 @@ class MediaManager:
         max_levels = 10
 
         def _process_data_recursively(data: Any, level: int) -> Any:
-            if id(data) in seen or level > max_levels:
+            if level > max_levels:
                 return data
-
-            seen.add(id(data))
 
             if isinstance(data, LangfuseMedia):
                 self._process_media(
@@ -168,13 +166,67 @@ class MediaManager:
                 return copied
 
             if isinstance(data, list):
-                return [_process_data_recursively(item, level + 1) for item in data]
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return [_process_data_recursively(item, level + 1) for item in data]
+                finally:
+                    seen.discard(id(data))
 
             if isinstance(data, dict):
-                return {
-                    key: _process_data_recursively(value, level + 1)
-                    for key, value in data.items()
-                }
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return {
+                        key: _process_data_recursively(value, level + 1)
+                        for key, value in data.items()
+                    }
+                finally:
+                    seen.discard(id(data))
+
+            if (
+                hasattr(data, "__pydantic_fields__")
+                and hasattr(data, "model_dump")
+                and callable(data.model_dump)
+            ):
+                # Pydantic v2 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    try:
+                        dumped = data.model_dump()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
+                finally:
+                    seen.discard(id(data))
+
+            if hasattr(data, "dict") and callable(data.dict) and hasattr(data, "__fields__"):
+                # Pydantic v1 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    try:
+                        dumped = data.dict()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
+                finally:
+                    seen.discard(id(data))
 
             return data
 
