@@ -107,11 +107,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
         FieldMetadata(alias="exportFieldGroups"),
     ] = pydantic.Field(default=None)
     """
-    Field groups to include in each exported row.
-    
-    For exportSource `OBSERVATIONS_V2` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS`: must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
-    
-    For exportSource `LEGACY_TRACES_OBSERVATIONS`: this field must be omitted or null. Sending an array (including an empty array) returns 400, because that source uses a fixed column set and does not honor field groups.
+    Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
     
     `exportFieldGroups` requires `exportSource` to be provided in the same request.
     """
