@@ -164,6 +164,13 @@ class Langfuse:
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
         httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
+            **Fork safety**: ``httpx.Client`` is thread-safe but not process-safe. When using
+            ``fork()``-based servers (e.g. Gunicorn with ``--preload``), the SDK automatically
+            recreates its internally-managed HTTP client in child processes after fork. A custom
+            ``httpx_client`` is intentionally left as-is (the fork-inherited copy is reused), so
+            you retain the opportunity to handle process-safety yourself — for example by
+            registering your own ``os.register_at_fork(after_in_child=...)`` handler to close and
+            reopen connections on the custom client.
         debug (bool): Enable debug logging. Defaults to False. Can also be set via LANGFUSE_DEBUG environment variable.
         tracing_enabled (Optional[bool]): Enable or disable tracing. Defaults to True. Can also be set via LANGFUSE_TRACING_ENABLED environment variable.
         flush_at (Optional[int]): Number of spans to batch before sending to the API. Defaults to 512. Can also be set via LANGFUSE_FLUSH_AT environment variable.
