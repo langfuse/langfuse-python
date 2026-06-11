@@ -126,6 +126,7 @@ class MediaManager:
                 and data["type"] == "base64"
                 and "media_type" in data
                 and "data" in data
+                and isinstance(data["data"], str)
             ):
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['media_type']};base64," + data["data"],
@@ -150,6 +151,7 @@ class MediaManager:
                 and data["type"] == "media"
                 and "mime_type" in data
                 and "data" in data
+                and isinstance(data["data"], str)
             ):
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['mime_type']};base64," + data["data"],

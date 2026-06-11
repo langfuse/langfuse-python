@@ -194,3 +194,25 @@ def test_find_and_process_media_sse_in_nested_structure_passes_through():
 
     assert result == data
     assert queue.empty()
+
+
+def test_find_and_process_media_base64_block_with_bytes_data_passes_through():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    # Anthropic/Vertex media blocks whose "data" is raw bytes rather than a
+    # base64 string must not crash media processing.
+    data = [
+        {"type": "base64", "media_type": "image/png", "data": b"\x89PNG raw"},
+        {"type": "media", "mime_type": "image/png", "data": b"\x89PNG raw"},
+    ]
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert result == data
+    assert queue.empty()
