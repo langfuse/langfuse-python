@@ -90,12 +90,11 @@ def _detach_context_token_safely(token: Any) -> None:
     except Exception:
         pass
 
-
 def propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -205,8 +204,9 @@ def propagate_attributes(
 
     Note:
         - **Validation**: All attribute values (user_id, session_id, metadata values)
-          must be strings ≤200 characters. Invalid values will be dropped with a
-          warning logged. Ensure values meet constraints before calling.
+          must be ≤200 characters. Non-string metadata values (int, float, bool, etc.)
+          are automatically coerced to their string representation. Values exceeding
+          200 characters will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
 
@@ -229,7 +229,7 @@ def _propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -247,10 +247,9 @@ def _propagate_attributes(
         "trace_name": trace_name,
     }
 
-    propagated_metadata_attributes: Dict[str, Optional[Dict[str, str]]] = {
+    propagated_metadata_attributes: Dict[str, Optional[Dict[str, Any]]] = {
         "metadata": metadata,
     }
-
     if experiment:
         for key, value in experiment.items():
             if key in ("experiment_metadata", "experiment_item_metadata"):
@@ -286,8 +285,20 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata_value.items():
-            if _validate_string_value(value=value, key=f"{metadata_key}.{key}"):
-                validated_metadata[key] = value
+            if value is None:
+                continue
+            if isinstance(value, str):
+                string_value = value
+            elif isinstance(value, bool):
+                string_value = "true" if value else "false"
+            elif isinstance(value, (dict, list, tuple)):
+                import json
+                string_value = json.dumps(value)
+            else:
+                string_value = str(value)
+
+            if _validate_string_value(value=string_value, key=f"{metadata_key}.{key}"):
+                validated_metadata[key] = string_value
 
         if validated_metadata:
             context = _set_propagated_attribute(
