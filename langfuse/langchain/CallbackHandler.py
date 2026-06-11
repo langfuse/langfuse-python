@@ -1191,6 +1191,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                         current_parent_run_id
                     )
 
+            # Keep trace attributes if llm runs isolated outside chain, or caller forces it via metadata
+            keep_langfuse_trace_attributes = bool(
+                (metadata or {}).get("keep_trace_attributes") or parent_run_id is None
+            )
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
@@ -1198,10 +1202,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     parent_run_id=parent_run_id,
                     tags=tags,
                     metadata=metadata,
-                    # If llm is run isolated and outside chain, keep trace attributes
-                    keep_langfuse_trace_attributes=True
-                    if parent_run_id is None
-                    else False,
+                    keep_langfuse_trace_attributes=keep_langfuse_trace_attributes,
                 ),
                 "model": model_name,
                 "model_parameters": self._parse_model_parameters(kwargs),
