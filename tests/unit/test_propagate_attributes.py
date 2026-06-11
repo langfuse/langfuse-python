@@ -489,7 +489,36 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         self.verify_missing_attribute(
             child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.invalid_key"
         )
+    def test_metadata_coercion_of_non_string_values(self, langfuse_client, memory_exporter):
+        """Verify metadata values that are not strings (int, float, bool) are coerced to strings."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(
+                metadata={
+                    "int_val": 42,  # type: ignore
+                    "float_val": 3.14,  # type: ignore
+                    "bool_val": True,  # type: ignore
+                }
+            ):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
 
+        # Verify child has all metadata keys coerced to string values
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.int_val",
+            "42",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.float_val",
+            "3.14",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.bool_val",
+            "True",
+        )        
 
 class TestPropagateAttributesNesting(TestPropagateAttributesBase):
     """Tests for nested propagate_attributes contexts."""
