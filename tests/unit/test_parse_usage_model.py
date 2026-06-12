@@ -60,7 +60,7 @@ def test_anthropic_cache_creation_legacy_field_not_overwritten():
     usage = {
         "input_tokens": 100,
         "output_tokens": 50,
-        "cache_creation_input_tokens": 300,  # legacy field already present
+        "cache_creation_input_tokens": 999,  # legacy field already present; intentionally != tier sum (300)
         "cache_creation": {
             "ephemeral_1h_input_tokens": 200,
             "ephemeral_5m_input_tokens": 100,
@@ -69,7 +69,7 @@ def test_anthropic_cache_creation_legacy_field_not_overwritten():
     result = _parse_usage_model(usage)
 
     # setdefault must not overwrite the existing legacy value
-    assert result["cache_creation_input_tokens"] == 300
+    assert result["cache_creation_input_tokens"] == 999
     assert "cache_creation" not in result
 
 
