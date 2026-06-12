@@ -47,7 +47,6 @@ from langfuse._client.attributes import (
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     ObservationTypeGenerationLike,
-    ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
     get_observation_types_list,
@@ -1069,7 +1068,7 @@ class Langfuse:
 
     def _get_span_class(
         self,
-        as_type: ObservationTypeLiteral,
+        as_type: str,
     ) -> Union[
         Type[LangfuseAgent],
         Type[LangfuseTool],
@@ -1378,7 +1377,15 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            span = LangfuseSpan(
+            existing_observation_type = (
+                current_otel_span.attributes.get(  # type: ignore[attr-defined]
+                    LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+                )
+                if current_otel_span.is_recording()
+                else "span"
+            )
+            span_class = self._get_span_class(existing_observation_type)
+            span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
