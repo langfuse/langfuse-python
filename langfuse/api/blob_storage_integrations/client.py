@@ -150,16 +150,14 @@ class BlobStorageIntegrationsClient:
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
         export_source : typing.Optional[BlobStorageExportSource]
-            Data to export. When omitted on update, the existing value is preserved. When omitted on create: pre-cutoff Cloud projects and self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`; post-cutoff Cloud projects (created on or after 2026-05-20) auto-default to `OBSERVATIONS_V2`. Required when `exportFieldGroups` is provided.
+            Data to export. When omitted on update, the existing value is preserved. When omitted on create: integrations on Langfuse Cloud default to `OBSERVATIONS_V2`; self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`. Required when `exportFieldGroups` is provided.
 
-            **Cloud-only deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Omitting `exportSource` on these projects silently defaults to `OBSERVATIONS_V2` rather than the schema column default. Use `OBSERVATIONS_V2` for all new integrations. Projects created before 2026-05-20 and self-hosted deployments are unaffected.
+            **Cloud-only project deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` for all new integrations. Self-hosted deployments are unaffected.
+
+            **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
 
         export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
-            Field groups to include in each exported row.
-
-            For exportSource `OBSERVATIONS_V2` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS`: must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
-
-            For exportSource `LEGACY_TRACES_OBSERVATIONS`: this field must be omitted or null. Sending an array (including an empty array) returns 400, because that source uses a fixed column set and does not honor field groups.
+            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
 
             `exportFieldGroups` requires `exportSource` to be provided in the same request.
 
@@ -429,16 +427,14 @@ class AsyncBlobStorageIntegrationsClient:
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
         export_source : typing.Optional[BlobStorageExportSource]
-            Data to export. When omitted on update, the existing value is preserved. When omitted on create: pre-cutoff Cloud projects and self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`; post-cutoff Cloud projects (created on or after 2026-05-20) auto-default to `OBSERVATIONS_V2`. Required when `exportFieldGroups` is provided.
+            Data to export. When omitted on update, the existing value is preserved. When omitted on create: integrations on Langfuse Cloud default to `OBSERVATIONS_V2`; self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`. Required when `exportFieldGroups` is provided.
 
-            **Cloud-only deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Omitting `exportSource` on these projects silently defaults to `OBSERVATIONS_V2` rather than the schema column default. Use `OBSERVATIONS_V2` for all new integrations. Projects created before 2026-05-20 and self-hosted deployments are unaffected.
+            **Cloud-only project deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` for all new integrations. Self-hosted deployments are unaffected.
+
+            **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
 
         export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
-            Field groups to include in each exported row.
-
-            For exportSource `OBSERVATIONS_V2` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS`: must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
-
-            For exportSource `LEGACY_TRACES_OBSERVATIONS`: this field must be omitted or null. Sending an array (including an empty array) returns 400, because that source uses a fixed column set and does not honor field groups.
+            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
 
             `exportFieldGroups` requires `exportSource` to be provided in the same request.
 
