@@ -1107,6 +1107,21 @@ class Langfuse:
         else:
             return LangfuseSpan
 
+    @staticmethod
+    def _get_observation_type_from_otel_span(otel_span: otel_trace_api.Span) -> str:
+        if not otel_span.is_recording():
+            return "span"
+
+        attributes = getattr(otel_span, "attributes", None)
+        if attributes is None or not hasattr(attributes, "get"):
+            return "span"
+
+        observation_type = attributes.get(
+            LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+        )
+
+        return observation_type if isinstance(observation_type, str) else "span"
+
     @_agnosticcontextmanager
     def _create_span_with_parent_context(
         self,
@@ -1377,14 +1392,9 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            existing_observation_type = (
-                current_otel_span.attributes.get(  # type: ignore[attr-defined]
-                    LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
-                )
-                if current_otel_span.is_recording()
-                else "span"
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
             )
-            span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
@@ -1438,11 +1448,9 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None and current_otel_span.is_recording():
-            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
-                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
             )
-            # We need to preserve the class to keep the correct observation type
-            span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
@@ -1475,11 +1483,9 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None and current_otel_span.is_recording():
-            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
-                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
             )
-            # We need to preserve the class to keep the correct observation type
-            span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
