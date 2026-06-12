@@ -1647,6 +1647,22 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                             0, usage_model[f"input_modality_{item['modality']}"] - value
                         )
 
+        # Anthropic extended prompt caching: cache_creation is a dict keyed by cache tier.
+        # Example: {"ephemeral_1h_input_tokens": 500, "ephemeral_5m_input_tokens": 0}
+        # Flatten into individual keys and expose an aggregated total that mirrors the
+        # legacy cache_creation_input_tokens field for backward-compatible cost tracking.
+        if "cache_creation" in usage_model and isinstance(
+            usage_model["cache_creation"], dict
+        ):
+            cache_creation = usage_model.pop("cache_creation")
+            total = 0
+            for tier_key, tier_val in cache_creation.items():
+                if isinstance(tier_val, int):
+                    usage_model[f"cache_creation_{tier_key}"] = tier_val
+                    total += tier_val
+            if total > 0:
+                usage_model.setdefault("cache_creation_input_tokens", total)
+
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
