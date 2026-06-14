@@ -165,9 +165,10 @@ class BasePromptClient(ABC):
 
         # Match any Langfuse variable name between {{ }} (Langfuse allows names
         # with hyphens, spaces, unicode, etc.), not just \w+. The character class
-        # excludes braces and quotes so already-escaped JSON (which appears as
-        # {{"key": ...}} after _escape_json_for_langchain) is left untouched.
-        return re.sub(r'{{\s*([^{}"]+?)\s*}}', r"{\g<1>}", json_escaped_content)
+        # excludes braces and both quote styles so already-escaped JSON (which
+        # _escape_json_for_langchain doubles to {{"...}} or {{'...}}) is left
+        # untouched.
+        return re.sub(r"{{\s*([^{}\"']+?)\s*}}", r"{\g<1>}", json_escaped_content)
 
     @staticmethod
     def _escape_json_for_langchain(text: str) -> str:

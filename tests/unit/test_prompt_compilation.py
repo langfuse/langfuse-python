@@ -278,6 +278,25 @@ class TestLangchainPromptCompilation:
         assert langchain_prompt.input_variables == ["user-name"]
         assert langchain_prompt.format(**{"user-name": "Ada"}) == "Hello Ada!"
 
+    def test_get_langchain_prompt_leaves_quoted_json_escaped(self):
+        """Brace-pairs wrapping JSON (single- or double-quoted) must stay doubled
+        for langchain, not be converted as if they were variables."""
+        prompt = TextPromptClient(
+            Prompt_Text(
+                type="text",
+                name="json_braces",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt="Reply with {'key': 'value'} and {{name}}",
+            )
+        )
+
+        result = prompt.get_langchain_prompt()
+
+        assert result == "Reply with {{'key': 'value'}} and {name}"
+
     def test_mixed_variables_with_nested_json(self):
         """Test normal variables (double braces) and Langchain variables (single braces) with nested JSON."""
         prompt_string = """Normal variable: {{user_name}}
