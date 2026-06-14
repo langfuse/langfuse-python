@@ -1,6 +1,7 @@
 """@private"""
 
 import datetime as dt
+import decimal
 import enum
 import math
 from asyncio import Queue
@@ -72,6 +73,12 @@ class EventSerializer(JSONEncoder):
             if np is not None and isinstance(obj, np.ndarray):
                 return obj.tolist()
 
+            # Route Decimal through float so it is preserved as a number
+            # (and Decimal("NaN")/Decimal("Infinity") reuse the handlers below)
+            # instead of falling through to the "<Decimal>" type fallback.
+            if isinstance(obj, decimal.Decimal):
+                return self.default(float(obj))
+
             if isinstance(obj, float) and math.isnan(obj):
                 return "NaN"
 
@@ -140,7 +147,19 @@ class EventSerializer(JSONEncoder):
                 return list(obj)
 
             if isinstance(obj, dict):
-                return {self.default(k): self.default(v) for k, v in obj.items()}
+                result = {}
+                for k, v in obj.items():
+                    serialized_key = self.default(k)
+                    # JSON object keys must be scalars. If a key serializes to a
+                    # container/object (e.g. tuple, set, or custom object), fall back
+                    # to its string form so a single non-primitive key does not
+                    # discard the whole dict.
+                    if not isinstance(
+                        serialized_key, (str, int, float, bool, type(None))
+                    ):
+                        serialized_key = str(k)
+                    result[serialized_key] = self.default(v)
+                return result
 
             if isinstance(obj, list):
                 return [self.default(item) for item in obj]
