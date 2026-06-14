@@ -73,11 +73,13 @@ class EventSerializer(JSONEncoder):
             if np is not None and isinstance(obj, np.ndarray):
                 return obj.tolist()
 
-            # Route Decimal through float so it is preserved as a number
-            # (and Decimal("NaN")/Decimal("Infinity") reuse the handlers below)
-            # instead of falling through to the "<Decimal>" type fallback.
+            # Serialize Decimal as its exact string form rather than via float():
+            # float() would silently round high-precision values (and overflow on
+            # very large ones), and JSON numbers are parsed as doubles downstream
+            # anyway. str() preserves the exact value; NaN/Infinity render as
+            # "NaN"/"Infinity"/"-Infinity", matching the float handling below.
             if isinstance(obj, decimal.Decimal):
-                return self.default(float(obj))
+                return str(obj)
 
             if isinstance(obj, float) and math.isnan(obj):
                 return "NaN"

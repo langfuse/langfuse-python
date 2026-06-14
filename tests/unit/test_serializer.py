@@ -307,11 +307,22 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     assert result == expected
 
 
-def test_decimal_is_preserved_as_number():
-    assert json.loads(EventSerializer().encode(Decimal("1.5"))) == 1.5
+def test_decimal_is_preserved_exactly():
+    # Serialized to its exact string form (never the "<Decimal>" fallback)
+    assert json.loads(EventSerializer().encode(Decimal("19.99"))) == "19.99"
     assert json.loads(EventSerializer().encode({"price": Decimal("19.99")})) == {
-        "price": 19.99
+        "price": "19.99"
     }
+    # High-precision values are preserved exactly (a float() conversion would
+    # silently round these).
+    assert (
+        json.loads(EventSerializer().encode(Decimal("1.0000000000000001")))
+        == "1.0000000000000001"
+    )
+    assert (
+        json.loads(EventSerializer().encode(Decimal("123456789012345678")))
+        == "123456789012345678"
+    )
 
 
 def test_decimal_special_values():
