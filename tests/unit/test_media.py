@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from langfuse.media import LangfuseMedia
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
 # Test data
 SAMPLE_JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
@@ -105,6 +105,23 @@ def test_nonexistent_file():
     assert media._source is None
     assert media._content_bytes is None
     assert media._content_type is None
+
+
+def test_media_reference_fetch_uses_timeout(monkeypatch):
+    response = Mock()
+    response.content = b"test-bytes"
+    response.raise_for_status.return_value = None
+    httpx_get = Mock(return_value=response)
+    monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+
+    reference = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/jpeg",
+        url="https://example.com/test.jpg",
+    )
+
+    assert reference.fetch_bytes(timeout=12.5) == b"test-bytes"
+    httpx_get.assert_called_once_with("https://example.com/test.jpg", timeout=12.5)
 
 
 def test_resolve_media_references_uses_configured_httpx_client():

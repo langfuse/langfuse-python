@@ -47,20 +47,20 @@ class LangfuseMediaReference:
 
         return expiry_datetime <= datetime.now(timezone.utc)
 
-    def fetch_bytes(self) -> bytes:
+    def fetch_bytes(self, *, timeout: float = 30.0) -> bytes:
         """Fetch the media content from the signed URL."""
-        response = httpx.get(self.url)
+        response = httpx.get(self.url, timeout=timeout)
         response.raise_for_status()
 
         return response.content
 
-    def fetch_base64(self) -> str:
+    def fetch_base64(self, *, timeout: float = 30.0) -> str:
         """Fetch media and return raw base64 without a data URI prefix."""
-        return base64.b64encode(self.fetch_bytes()).decode()
+        return base64.b64encode(self.fetch_bytes(timeout=timeout)).decode()
 
-    def fetch_data_uri(self) -> str:
+    def fetch_data_uri(self, *, timeout: float = 30.0) -> str:
         """Fetch media and return it as a data URI."""
-        return f"data:{self.content_type};base64,{self.fetch_base64()}"
+        return f"data:{self.content_type};base64,{self.fetch_base64(timeout=timeout)}"
 
 
 class LangfuseMedia:

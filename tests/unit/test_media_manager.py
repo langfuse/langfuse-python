@@ -172,6 +172,18 @@ def test_upload_media_sync_uploads_without_trace_context():
     media_api.patch.assert_called_once()
 
 
+def test_upload_media_sync_rejects_invalid_media():
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=Queue(),
+    )
+    media = LangfuseMedia()
+
+    with pytest.raises(ValueError, match="Cannot upload invalid LangfuseMedia"):
+        manager._upload_media_sync(media=media)
+
+
 def test_find_and_process_media_data_uri_without_comma_passes_through():
     queue = Queue()
     manager = MediaManager(

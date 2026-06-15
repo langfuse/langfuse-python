@@ -92,15 +92,19 @@ def test_create_dataset_item_processes_media_before_api_call():
     client = object.__new__(Langfuse)
     client._resources = SimpleNamespace(_media_manager=media_manager)
     client.api = SimpleNamespace(dataset_items=dataset_items_api)
+    input_data = {"image": media}
+    metadata = {"items": [media], "keep": "value"}
 
     result = client.create_dataset_item(
         dataset_name="dataset",
-        input={"image": media},
+        input=input_data,
         expected_output=root_media,
-        metadata={"items": [media], "keep": "value"},
+        metadata=metadata,
     )
 
     assert result == "created-item"
+    assert input_data == {"image": media}
+    assert metadata == {"items": [media], "keep": "value"}
     media_manager._upload_media_sync.assert_any_call(media=media)
     media_manager._upload_media_sync.assert_any_call(media=root_media)
     assert media_manager._upload_media_sync.call_count == 2

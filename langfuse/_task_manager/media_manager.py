@@ -240,11 +240,10 @@ class MediaManager:
             or media._content_sha256_hash is None
             or media._content_bytes is None
         ):
-            return
+            raise ValueError("Cannot upload invalid LangfuseMedia.")
 
         if media._media_id is None:
-            logger.error("Media ID is None. Skipping upload.")
-            return
+            raise ValueError("Cannot upload LangfuseMedia without media ID.")
 
         upload_media_job = UploadMediaJob(
             media_id=media._media_id,
