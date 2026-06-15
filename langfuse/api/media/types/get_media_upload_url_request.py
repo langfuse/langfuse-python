@@ -10,18 +10,18 @@ from .media_content_type import MediaContentType
 
 
 class GetMediaUploadUrlRequest(UniversalBaseModel):
-    trace_id: typing_extensions.Annotated[str, FieldMetadata(alias="traceId")] = (
-        pydantic.Field()
-    )
+    trace_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="traceId")
+    ] = pydantic.Field(default=None)
     """
-    The trace ID associated with the media record
+    The trace ID associated with the media record. If null, the media record is not associated with a trace, e.g. when uploading media for dataset items.
     """
 
     observation_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="observationId")
     ] = pydantic.Field(default=None)
     """
-    The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
+    The observation ID associated with the media record. If provided, traceId must be provided as well. If the media record is associated directly with a trace, this will be null.
     """
 
     content_type: typing_extensions.Annotated[
@@ -41,9 +41,9 @@ class GetMediaUploadUrlRequest(UniversalBaseModel):
     The SHA-256 hash of the media record
     """
 
-    field: str = pydantic.Field()
+    field: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`
+    The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`. Required if traceId is provided, ignored otherwise.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

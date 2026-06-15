@@ -138,12 +138,12 @@ class MediaClient:
     def get_upload_url(
         self,
         *,
-        trace_id: str,
         content_type: MediaContentType,
         content_length: int,
         sha256hash: str,
-        field: str,
+        trace_id: typing.Optional[str] = OMIT,
         observation_id: typing.Optional[str] = OMIT,
+        field: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetMediaUploadUrlResponse:
         """
@@ -151,9 +151,6 @@ class MediaClient:
 
         Parameters
         ----------
-        trace_id : str
-            The trace ID associated with the media record
-
         content_type : MediaContentType
 
         content_length : int
@@ -162,11 +159,14 @@ class MediaClient:
         sha256hash : str
             The SHA-256 hash of the media record
 
-        field : str
-            The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`
+        trace_id : typing.Optional[str]
+            The trace ID associated with the media record. If null, the media record is not associated with a trace, e.g. when uploading media for dataset items.
 
         observation_id : typing.Optional[str]
-            The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
+            The observation ID associated with the media record. If provided, traceId must be provided as well. If the media record is associated directly with a trace, this will be null.
+
+        field : typing.Optional[str]
+            The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`. Required if traceId is provided, ignored otherwise.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -189,20 +189,18 @@ class MediaClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.media.get_upload_url(
-            trace_id="traceId",
             content_type=MediaContentType.IMAGE_PNG,
             content_length=1,
             sha256hash="sha256Hash",
-            field="field",
         )
         """
         _response = self._raw_client.get_upload_url(
-            trace_id=trace_id,
             content_type=content_type,
             content_length=content_length,
             sha256hash=sha256hash,
-            field=field,
+            trace_id=trace_id,
             observation_id=observation_id,
+            field=field,
             request_options=request_options,
         )
         return _response.data
@@ -349,12 +347,12 @@ class AsyncMediaClient:
     async def get_upload_url(
         self,
         *,
-        trace_id: str,
         content_type: MediaContentType,
         content_length: int,
         sha256hash: str,
-        field: str,
+        trace_id: typing.Optional[str] = OMIT,
         observation_id: typing.Optional[str] = OMIT,
+        field: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetMediaUploadUrlResponse:
         """
@@ -362,9 +360,6 @@ class AsyncMediaClient:
 
         Parameters
         ----------
-        trace_id : str
-            The trace ID associated with the media record
-
         content_type : MediaContentType
 
         content_length : int
@@ -373,11 +368,14 @@ class AsyncMediaClient:
         sha256hash : str
             The SHA-256 hash of the media record
 
-        field : str
-            The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`
+        trace_id : typing.Optional[str]
+            The trace ID associated with the media record. If null, the media record is not associated with a trace, e.g. when uploading media for dataset items.
 
         observation_id : typing.Optional[str]
-            The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
+            The observation ID associated with the media record. If provided, traceId must be provided as well. If the media record is associated directly with a trace, this will be null.
+
+        field : typing.Optional[str]
+            The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`. Required if traceId is provided, ignored otherwise.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -405,23 +403,21 @@ class AsyncMediaClient:
 
         async def main() -> None:
             await client.media.get_upload_url(
-                trace_id="traceId",
                 content_type=MediaContentType.IMAGE_PNG,
                 content_length=1,
                 sha256hash="sha256Hash",
-                field="field",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.get_upload_url(
-            trace_id=trace_id,
             content_type=content_type,
             content_length=content_length,
             sha256hash=sha256hash,
-            field=field,
+            trace_id=trace_id,
             observation_id=observation_id,
+            field=field,
             request_options=request_options,
         )
         return _response.data
