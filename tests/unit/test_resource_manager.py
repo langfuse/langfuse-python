@@ -167,7 +167,11 @@ def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
 
 
 def test_at_fork_reinit_creates_new_queues_and_consumers(monkeypatch):
-    """_at_fork_reinit() must replace queues and start fresh consumer threads."""
+    """_at_fork_reinit() replaces queues immediately; consumers start on first use.
+
+    Heavy work (httpx.Client, thread spawning) is deferred to avoid segfaults
+    caused by SSL/TLS initialization inside the after_in_child handler on macOS.
+    """
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
 
     with LangfuseResourceManager._lock:
@@ -187,10 +191,19 @@ def test_at_fork_reinit_creates_new_queues_and_consumers(monkeypatch):
 
     rm._at_fork_reinit()
 
+    # Queues are replaced immediately (lightweight, safe in after_in_child).
     assert rm._score_ingestion_queue is not old_score_queue
     assert rm._media_upload_queue is not old_media_queue
+    # Consumer threads are NOT started yet — deferred to first use.
+    assert len(rm._ingestion_consumers) == 0
+    assert rm._needs_post_fork_reinit is True
+
+    # Trigger lazy initialization (as add_score_task / add_trace_task would).
+    rm._ensure_post_fork_initialized()
+
     assert len(rm._ingestion_consumers) == 1
     assert rm._ingestion_consumers[0].is_alive()
+    assert rm._needs_post_fork_reinit is False
 
     # In a real fork, old threads don't exist in the child process.
     # In this unit test they do — stop them explicitly to avoid leaking threads.
@@ -301,8 +314,8 @@ def test_at_fork_reinit_new_lock_acquirable_even_if_old_lock_was_held(monkeypatc
 
 
 def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
-    """_at_fork_reinit() must create a new httpx.Client to avoid sharing
-    connection-pool file descriptors (TCP sockets) across forked processes.
+    """After fork, an internally-managed httpx.Client is replaced on first use to
+    avoid sharing connection-pool file descriptors (TCP sockets) across processes.
     httpx.Client is thread-safe but not process-safe."""
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
 
@@ -322,6 +335,11 @@ def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
     old_score_ingestion_client = rm._score_ingestion_client
 
     rm._at_fork_reinit()
+    # Lazy: heavy init has not run yet.
+    assert rm.httpx_client is old_httpx_client
+
+    # Trigger lazy initialization (as add_score_task / add_trace_task would).
+    rm._ensure_post_fork_initialized()
 
     assert rm.httpx_client is not old_httpx_client
     assert rm.api is not old_api
@@ -330,11 +348,10 @@ def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
     client.shutdown()
 
 
-def test_at_fork_reinit_replaces_custom_httpx_client(monkeypatch):
-    """_at_fork_reinit() must replace a user-provided httpx.Client too.
-    Users cannot react to fork() inside the SDK singleton, so the library
-    must always produce a process-safe client — even at the cost of losing
-    custom settings. This is a documented limitation."""
+def test_at_fork_reinit_preserves_custom_httpx_client(monkeypatch):
+    """After fork, a caller-supplied httpx.Client is reused as-is.
+    The caller is responsible for their own fork-safety (e.g. via their own
+    os.register_at_fork handler). The SDK must not silently replace it."""
     import httpx
 
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
@@ -354,9 +371,10 @@ def test_at_fork_reinit_replaces_custom_httpx_client(monkeypatch):
     assert rm.httpx_client is custom_client
 
     rm._at_fork_reinit()
+    rm._ensure_post_fork_initialized()
 
-    # Custom client must be replaced — sharing it cross-process is not safe.
-    assert rm.httpx_client is not custom_client
+    # Custom client must be preserved — caller owns process-safety for it.
+    assert rm.httpx_client is custom_client
     assert rm.api is not None
     assert rm._score_ingestion_client is not None
 
@@ -385,6 +403,7 @@ def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
     assert rm is not None
 
     rm._at_fork_reinit()
+    rm._ensure_post_fork_initialized()
 
     assert rm.httpx_client.timeout.connect == 42
     assert rm.httpx_client.headers.get("X-Custom") == "value"
