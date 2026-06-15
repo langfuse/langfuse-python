@@ -1,9 +1,14 @@
 import time
 from datetime import timedelta
+from pathlib import Path
 
 from langfuse import Langfuse
 from langfuse.api import DatasetStatus
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 from tests.support.utils import create_uuid, wait_for_result
+
+SAMPLE_IMAGE_PATH = Path("static/puton.jpg")
+SAMPLE_IMAGE_CONTENT_TYPE = "image/jpeg"
 
 
 def test_create_and_get_dataset():
@@ -67,6 +72,57 @@ def test_create_dataset_item():
     assert dataset.items[0].source_observation_id is None
     assert dataset.items[0].source_trace_id is None
     assert dataset.items[0].dataset_name == name
+
+
+def test_create_and_get_dataset_item_with_media():
+    langfuse = Langfuse(debug=False)
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+    sample_image_bytes = SAMPLE_IMAGE_PATH.read_bytes()
+
+    created_item = langfuse.create_dataset_item(
+        dataset_name=name,
+        input={
+            "question": "What is in this image?",
+            "image": LangfuseMedia(
+                file_path=str(SAMPLE_IMAGE_PATH),
+                content_type=SAMPLE_IMAGE_CONTENT_TYPE,
+            ),
+        },
+        expected_output={
+            "reference": LangfuseMedia(
+                file_path=str(SAMPLE_IMAGE_PATH),
+                content_type=SAMPLE_IMAGE_CONTENT_TYPE,
+            ),
+        },
+        metadata={
+            "thumbnail": LangfuseMedia(
+                file_path=str(SAMPLE_IMAGE_PATH),
+                content_type=SAMPLE_IMAGE_CONTENT_TYPE,
+            )
+        },
+    )
+
+    assert created_item.input["image"].startswith("@@@langfuseMedia:")
+
+    raw_dataset = langfuse.get_dataset(name)
+    assert isinstance(raw_dataset.items[0].input["image"], str)
+
+    resolved_dataset = wait_for_result(
+        lambda: langfuse.get_dataset(name, resolve_media_references=True),
+        is_result_ready=lambda dataset: isinstance(
+            dataset.items[0].input["image"], LangfuseMediaReference
+        ),
+    )
+
+    resolved_item = resolved_dataset.items[0]
+    assert isinstance(resolved_item.input["image"], LangfuseMediaReference)
+    assert isinstance(
+        resolved_item.expected_output["reference"], LangfuseMediaReference
+    )
+    assert isinstance(resolved_item.metadata["thumbnail"], LangfuseMediaReference)
+    assert resolved_item.input["image"].content_type == SAMPLE_IMAGE_CONTENT_TYPE
+    assert resolved_item.input["image"].fetch_bytes() == sample_image_bytes
 
 
 def test_get_all_items():

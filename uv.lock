@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-06-04T15:30:59.411452714Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -470,6 +470,15 @@ wheels = [
 ]
 
 [[package]]
+name = "jsonpath-ng"
+version = "1.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/58/250751940d75c8019659e15482d548a4aa3b6ce122c515102a4bfdac50e3/jsonpath_ng-1.8.0.tar.gz", hash = "sha256:54252968134b5e549ea5b872f1df1168bd7defe1a52fed5a358c194e1943ddc3", size = 74513, upload-time = "2026-02-24T14:42:06.182Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/99/33c7d78a3fb70d545fd5411ac67a651c81602cc09c9cf0df383733f068c5/jsonpath_ng-1.8.0-py3-none-any.whl", hash = "sha256:b8dde192f8af58d646fc031fac9c99fe4d00326afc4148f1f043c601a8cfe138", size = 67844, upload-time = "2026-02-28T00:53:19.637Z" },
+]
+
+[[package]]
 name = "jsonpointer"
 version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -559,6 +568,7 @@ source = { editable = "." }
 dependencies = [
     { name = "backoff" },
     { name = "httpx" },
+    { name = "jsonpath-ng" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
@@ -593,6 +603,7 @@ docs = [
 requires-dist = [
     { name = "backoff", specifier = ">=1.10.0" },
     { name = "httpx", specifier = ">=0.15.4,<1.0" },
+    { name = "jsonpath-ng", specifier = ">=1.8.0" },
     { name = "opentelemetry-api", specifier = ">=1.33.1,<2" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.33.1,<2" },
     { name = "opentelemetry-sdk", specifier = ">=1.33.1,<2" },

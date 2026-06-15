@@ -142,6 +142,36 @@ def test_find_and_process_media_valid_base64_uri_is_processed():
     assert not queue.empty()
 
 
+def test_upload_media_sync_uploads_without_trace_context():
+    media_api = Mock()
+    media_api.get_upload_url.return_value = SimpleNamespace(
+        upload_url="https://example.com/upload",
+        media_id=None,
+    )
+    media_api.patch.return_value = None
+
+    httpx_client = Mock()
+    httpx_client.put.return_value = _upload_response(200, "ok")
+
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=media_api),
+        httpx_client=httpx_client,
+        media_upload_queue=Queue(),
+    )
+
+    media = LangfuseMedia(content_bytes=b"payload", content_type="image/jpeg")
+    media_api.get_upload_url.return_value.media_id = media._media_id
+
+    manager._upload_media_sync(media=media)
+
+    media_api.get_upload_url.assert_called_once()
+    assert media_api.get_upload_url.call_args.kwargs["trace_id"] is None
+    assert media_api.get_upload_url.call_args.kwargs["observation_id"] is None
+    assert media_api.get_upload_url.call_args.kwargs["field"] is None
+    httpx_client.put.assert_called_once()
+    media_api.patch.assert_called_once()
+
+
 def test_find_and_process_media_data_uri_without_comma_passes_through():
     queue = Queue()
     manager = MediaManager(

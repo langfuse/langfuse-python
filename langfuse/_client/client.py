@@ -27,6 +27,7 @@ from typing import (
 
 import backoff
 import httpx
+from jsonpath_ng.ext import parse as parse_jsonpath  # type: ignore[import-untyped]
 from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -127,7 +128,7 @@ from langfuse.experiment import (
     _run_task,
 )
 from langfuse.logger import langfuse_logger
-from langfuse.media import LangfuseMedia
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 from langfuse.model import (
     ChatMessageDict,
     ChatMessageWithPlaceholdersDict,
@@ -2262,15 +2263,17 @@ class Langfuse:
         *,
         fetch_items_page_size: Optional[int] = 50,
         version: Optional[datetime] = None,
+        resolve_media_references: bool = False,
     ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
         Args:
-            name (str): The name of the dataset to fetch.
-            fetch_items_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
-            version (Optional[datetime]): Retrieve dataset items as they existed at this specific point in time (UTC).
+            name: The name of the dataset to fetch.
+            fetch_items_page_size: All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+            version: Retrieve dataset items as they existed at this specific point in time (UTC).
                 If provided, returns the state of items at the specified UTC timestamp.
                 If not provided, returns the latest version. Must be a timezone-aware datetime object in UTC.
+            resolve_media_references: If true, resolve media reference strings in dataset items to LangfuseMediaReference objects.
 
         Returns:
             DatasetClient: The dataset with the given name.
@@ -2279,7 +2282,7 @@ class Langfuse:
             langfuse_logger.debug(f"Getting datasets {name}")
             dataset = self.api.datasets.get(dataset_name=self._url_encode(name))
 
-            dataset_items = []
+            dataset_items: List[DatasetItem] = []
             page = 1
 
             while True:
@@ -2288,8 +2291,16 @@ class Langfuse:
                     page=page,
                     limit=fetch_items_page_size,
                     version=version,
+                    include_media_references=resolve_media_references or None,
                 )
-                dataset_items.extend(new_items.data)
+                dataset_items.extend(
+                    [
+                        self._hydrate_dataset_item_media_references(item)
+                        for item in new_items.data
+                    ]
+                    if resolve_media_references
+                    else new_items.data
+                )
 
                 if new_items.meta.total_pages <= page:
                     break
@@ -3295,6 +3306,17 @@ class Langfuse:
         try:
             langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
 
+            uploaded_media_ids: set[str] = set()
+            input = self._process_dataset_item_media(
+                data=input, uploaded_media_ids=uploaded_media_ids
+            )
+            expected_output = self._process_dataset_item_media(
+                data=expected_output, uploaded_media_ids=uploaded_media_ids
+            )
+            metadata = self._process_dataset_item_media(
+                data=metadata, uploaded_media_ids=uploaded_media_ids
+            )
+
             result = self.api.dataset_items.create(
                 dataset_name=dataset_name,
                 input=input,
@@ -3310,6 +3332,98 @@ class Langfuse:
         except Error as e:
             handle_fern_exception(e)
             raise e
+
+    def _process_dataset_item_media(
+        self, *, data: Any, uploaded_media_ids: set[str]
+    ) -> Any:
+        if self._resources is None:
+            return data
+
+        for match in parse_jsonpath("$..`this`").find(data):
+            if not isinstance(match.value, LangfuseMedia):
+                continue
+
+            data = match.full_path.update(
+                data,
+                self._upload_dataset_item_media(
+                    media=match.value, uploaded_media_ids=uploaded_media_ids
+                ),
+            )
+
+        return data
+
+    def _upload_dataset_item_media(
+        self, *, media: LangfuseMedia, uploaded_media_ids: set[str]
+    ) -> str:
+        reference_string = media._reference_string
+        media_id = media._media_id
+
+        if reference_string is None or media_id is None:
+            raise ValueError("Cannot create dataset item with invalid LangfuseMedia.")
+
+        if media_id not in uploaded_media_ids:
+            assert self._resources is not None
+            self._resources._media_manager._upload_media_sync(media=media)
+            uploaded_media_ids.add(media_id)
+
+        return reference_string
+
+    def _hydrate_dataset_item_media_references(self, item: DatasetItem) -> DatasetItem:
+        media_references = item.media_references or []
+        if not media_references:
+            return item
+
+        hydrated_fields = {
+            "input": item.input,
+            "expected_output": item.expected_output,
+            "metadata": item.metadata,
+        }
+
+        for media_reference in media_references:
+            media = media_reference.media
+            if media is None:
+                continue
+
+            field = media_reference.field.value
+            if field not in hydrated_fields:
+                continue
+
+            replacement = LangfuseMediaReference(
+                media_id=media.media_id,
+                content_type=media.content_type,
+                url=media.url,
+                url_expiry=media.url_expiry,
+                content_length=media.content_length,
+            )
+            hydrated_fields[field] = self._replace_json_path_value(
+                value=hydrated_fields[field],
+                json_path=media_reference.json_path,
+                replacement=replacement,
+            )
+
+        return item.model_copy(
+            update={
+                "input": hydrated_fields["input"],
+                "expected_output": hydrated_fields["expected_output"],
+                "metadata": hydrated_fields["metadata"],
+            }
+        )
+
+    def _replace_json_path_value(
+        self, *, value: Any, json_path: str, replacement: LangfuseMediaReference
+    ) -> Any:
+        if json_path == "$":
+            return replacement
+
+        try:
+            parse_jsonpath(json_path).update(value, replacement)
+        except Exception as e:
+            langfuse_logger.debug(
+                f"Failed to hydrate dataset media reference at JSONPath {json_path}",
+                exc_info=e,
+            )
+
+        return value
 
     def resolve_media_references(
         self,

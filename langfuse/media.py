@@ -4,6 +4,8 @@ import base64
 import hashlib
 import os
 import re
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
 import httpx
@@ -16,6 +18,49 @@ if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
 
 T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class LangfuseMediaReference:
+    """Resolved reference to media stored in Langfuse."""
+
+    media_id: str
+    content_type: str
+    url: str
+    url_expiry: Optional[str] = None
+    content_length: Optional[int] = None
+
+    def url_is_expired(self) -> bool:
+        """Return whether the signed URL is already expired."""
+        if self.url_expiry is None:
+            return False
+
+        expiry = self.url_expiry.replace("Z", "+00:00")
+
+        try:
+            expiry_datetime = datetime.fromisoformat(expiry)
+        except ValueError:
+            return False
+
+        if expiry_datetime.tzinfo is None:
+            expiry_datetime = expiry_datetime.replace(tzinfo=timezone.utc)
+
+        return expiry_datetime <= datetime.now(timezone.utc)
+
+    def fetch_bytes(self) -> bytes:
+        """Fetch the media content from the signed URL."""
+        response = httpx.get(self.url)
+        response.raise_for_status()
+
+        return response.content
+
+    def fetch_base64(self) -> str:
+        """Fetch media and return raw base64 without a data URI prefix."""
+        return base64.b64encode(self.fetch_bytes()).decode()
+
+    def fetch_data_uri(self) -> str:
+        """Fetch media and return it as a data URI."""
+        return f"data:{self.content_type};base64,{self.fetch_base64()}"
 
 
 class LangfuseMedia:

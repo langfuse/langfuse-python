@@ -230,6 +230,35 @@ class MediaManager:
                 f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
 
+    def _upload_media_sync(self, *, media: LangfuseMedia) -> None:
+        if not self._enabled:
+            raise ValueError("Cannot upload LangfuseMedia while media upload is disabled.")
+
+        if (
+            media._content_length is None
+            or media._content_type is None
+            or media._content_sha256_hash is None
+            or media._content_bytes is None
+        ):
+            return
+
+        if media._media_id is None:
+            logger.error("Media ID is None. Skipping upload.")
+            return
+
+        upload_media_job = UploadMediaJob(
+            media_id=media._media_id,
+            content_bytes=media._content_bytes,
+            content_type=media._content_type,
+            content_length=media._content_length,
+            content_sha256_hash=media._content_sha256_hash,
+            trace_id=None,
+            observation_id=None,
+            field=None,
+        )
+
+        self._process_upload_media_job(data=upload_media_job)
+
     def _process_upload_media_job(
         self,
         *,
