@@ -42,6 +42,7 @@ class EvaluationRule(UniversalBaseModel):
         EvaluationRuleStatus,
         EvaluationRuleTarget,
         EvaluatorScope,
+        EvaluatorType,
     )
     from langfuse.unstable.evaluation_rules import (
         EvaluationRule,
@@ -55,6 +56,7 @@ class EvaluationRule(UniversalBaseModel):
             id="evaltmpl_123",
             name="answer-correctness",
             scope=EvaluatorScope.PROJECT,
+            type=EvaluatorType.LLM_AS_JUDGE,
         ),
         target=EvaluationRuleTarget.OBSERVATION,
         enabled=True,
@@ -150,7 +152,7 @@ class EvaluationRule(UniversalBaseModel):
 
     mapping: typing.List[EvaluationRuleMapping] = pydantic.Field()
     """
-    Variable mappings used to populate the evaluator prompt from the live target object.
+    Variable mappings used to populate evaluator runtime variables from the live target object.
     """
 
     created_at: typing_extensions.Annotated[

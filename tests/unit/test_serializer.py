@@ -165,6 +165,12 @@ def test_none():
     assert serializer.encode(None) == "null"
 
 
+def test_infinity_floats():
+    serializer = EventSerializer()
+    assert serializer.encode(float("inf")) == '"Infinity"'
+    assert serializer.encode(float("-inf")) == '"-Infinity"'
+
+
 def test_slots():
     class SlotClass:
         __slots__ = ["field"]

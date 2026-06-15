@@ -7,21 +7,31 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        CodeEvaluationRuleEvaluatorReference,
+        CreateCodeEvaluationRuleRequest,
         CreateEvaluationRuleRequest,
+        CreateLlmAsJudgeEvaluationRuleRequest,
         DeleteEvaluationRuleResponse,
         EvaluationRule,
         EvaluationRuleEvaluator,
         EvaluationRuleEvaluatorReference,
         EvaluationRules,
+        LlmAsJudgeEvaluationRuleEvaluatorReference,
+        LlmAsJudgeEvaluatorType,
         UpdateEvaluationRuleRequest,
     )
 _dynamic_imports: typing.Dict[str, str] = {
+    "CodeEvaluationRuleEvaluatorReference": ".types",
+    "CreateCodeEvaluationRuleRequest": ".types",
     "CreateEvaluationRuleRequest": ".types",
+    "CreateLlmAsJudgeEvaluationRuleRequest": ".types",
     "DeleteEvaluationRuleResponse": ".types",
     "EvaluationRule": ".types",
     "EvaluationRuleEvaluator": ".types",
     "EvaluationRuleEvaluatorReference": ".types",
     "EvaluationRules": ".types",
+    "LlmAsJudgeEvaluationRuleEvaluatorReference": ".types",
+    "LlmAsJudgeEvaluatorType": ".types",
     "UpdateEvaluationRuleRequest": ".types",
 }
 
@@ -54,11 +64,16 @@ def __dir__():
 
 
 __all__ = [
+    "CodeEvaluationRuleEvaluatorReference",
+    "CreateCodeEvaluationRuleRequest",
     "CreateEvaluationRuleRequest",
+    "CreateLlmAsJudgeEvaluationRuleRequest",
     "DeleteEvaluationRuleResponse",
     "EvaluationRule",
     "EvaluationRuleEvaluator",
     "EvaluationRuleEvaluatorReference",
     "EvaluationRules",
+    "LlmAsJudgeEvaluationRuleEvaluatorReference",
+    "LlmAsJudgeEvaluatorType",
     "UpdateEvaluationRuleRequest",
 ]

@@ -51,7 +51,7 @@ class BlobStorageIntegrationResponse(UniversalBaseModel):
         FieldMetadata(alias="exportFieldGroups"),
     ] = pydantic.Field(default=None)
     """
-    Field groups included in each exported row for `OBSERVATIONS_V2` / `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` sources. Always `null` when exportSource is `LEGACY_TRACES_OBSERVATIONS` (the field does not apply to that source; any legacy DB value is hidden from the public surface).
+    Field groups included in each exported observation row. An empty list is treated as all groups during export.
     """
 
     next_sync_at: typing_extensions.Annotated[

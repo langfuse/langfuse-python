@@ -6,20 +6,36 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .code_evaluation_rule_evaluator_reference import (
+        CodeEvaluationRuleEvaluatorReference,
+    )
+    from .create_code_evaluation_rule_request import CreateCodeEvaluationRuleRequest
     from .create_evaluation_rule_request import CreateEvaluationRuleRequest
+    from .create_llm_as_judge_evaluation_rule_request import (
+        CreateLlmAsJudgeEvaluationRuleRequest,
+    )
     from .delete_evaluation_rule_response import DeleteEvaluationRuleResponse
     from .evaluation_rule import EvaluationRule
     from .evaluation_rule_evaluator import EvaluationRuleEvaluator
     from .evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
     from .evaluation_rules import EvaluationRules
+    from .llm_as_judge_evaluation_rule_evaluator_reference import (
+        LlmAsJudgeEvaluationRuleEvaluatorReference,
+    )
+    from .llm_as_judge_evaluator_type import LlmAsJudgeEvaluatorType
     from .update_evaluation_rule_request import UpdateEvaluationRuleRequest
 _dynamic_imports: typing.Dict[str, str] = {
+    "CodeEvaluationRuleEvaluatorReference": ".code_evaluation_rule_evaluator_reference",
+    "CreateCodeEvaluationRuleRequest": ".create_code_evaluation_rule_request",
     "CreateEvaluationRuleRequest": ".create_evaluation_rule_request",
+    "CreateLlmAsJudgeEvaluationRuleRequest": ".create_llm_as_judge_evaluation_rule_request",
     "DeleteEvaluationRuleResponse": ".delete_evaluation_rule_response",
     "EvaluationRule": ".evaluation_rule",
     "EvaluationRuleEvaluator": ".evaluation_rule_evaluator",
     "EvaluationRuleEvaluatorReference": ".evaluation_rule_evaluator_reference",
     "EvaluationRules": ".evaluation_rules",
+    "LlmAsJudgeEvaluationRuleEvaluatorReference": ".llm_as_judge_evaluation_rule_evaluator_reference",
+    "LlmAsJudgeEvaluatorType": ".llm_as_judge_evaluator_type",
     "UpdateEvaluationRuleRequest": ".update_evaluation_rule_request",
 }
 
@@ -52,11 +68,16 @@ def __dir__():
 
 
 __all__ = [
+    "CodeEvaluationRuleEvaluatorReference",
+    "CreateCodeEvaluationRuleRequest",
     "CreateEvaluationRuleRequest",
+    "CreateLlmAsJudgeEvaluationRuleRequest",
     "DeleteEvaluationRuleResponse",
     "EvaluationRule",
     "EvaluationRuleEvaluator",
     "EvaluationRuleEvaluatorReference",
     "EvaluationRules",
+    "LlmAsJudgeEvaluationRuleEvaluatorReference",
+    "LlmAsJudgeEvaluatorType",
     "UpdateEvaluationRuleRequest",
 ]

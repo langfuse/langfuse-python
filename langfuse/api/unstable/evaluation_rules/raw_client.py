@@ -44,6 +44,7 @@ from ..errors.errors.unauthorized_error import (
 )
 from ..errors.errors.unprocessable_content_error import UnprocessableContentError
 from ..errors.types.public_api_error import PublicApiError
+from .types.create_evaluation_rule_request import CreateEvaluationRuleRequest
 from .types.delete_evaluation_rule_response import DeleteEvaluationRuleResponse
 from .types.evaluation_rule import EvaluationRule
 from .types.evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
@@ -60,13 +61,7 @@ class RawEvaluationRulesClient:
     def create(
         self,
         *,
-        name: str,
-        evaluator: EvaluationRuleEvaluatorReference,
-        target: EvaluationRuleTarget,
-        enabled: bool,
-        mapping: typing.Sequence[EvaluationRuleMapping],
-        sampling: typing.Optional[float] = OMIT,
-        filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
+        request: CreateEvaluationRuleRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[EvaluationRule]:
         """
@@ -82,8 +77,9 @@ class RawEvaluationRulesClient:
         - `evaluator.name` + `evaluator.scope` must identify an existing evaluator family returned by the evaluator endpoints
         - Langfuse resolves that family to its latest version before saving the evaluation rule
         - for `target=experiment`, use dataset `id` values from `GET /api/public/v2/datasets` when filtering by `datasetId`
-        - every evaluator prompt variable must be mapped exactly once
-        - `expected_output` and `experiment_item_metadata` mappings are only valid for `target=experiment`
+        - for `llm_as_judge` evaluators, every evaluator prompt variable must be mapped exactly once
+        - for `code` evaluators, Langfuse uses the fixed code runtime mapping; omit `mapping` in create and update requests
+        - for user-provided `llm_as_judge` mappings, `expected_output` and `experiment_item_metadata` are only valid for `target=experiment`
         - if `enabled=true`, Langfuse validates that the referenced evaluator can currently run
         - at most 50 evaluation rules can be effectively active in one project at the same time
 
@@ -100,44 +96,15 @@ class RawEvaluationRulesClient:
         Recovery guidance:
         - `400 invalid_filter_value`: fix the filter `column` or `value` using `details.column`, `details.invalidValues`, and `details.allowedValues`
         - `400 invalid_filter_value` with `details.column=datasetId`: call `GET /api/public/v2/datasets`, then retry with dataset `id` values from that response
-        - `400 missing_variable_mapping`: fetch the evaluator again and make sure every variable in `variables` appears exactly once in `mapping`
+        - `400 missing_variable_mapping`: for `llm_as_judge` evaluators, fetch the evaluator again and make sure every variable in `variables` appears exactly once in `mapping`
         - `400 duplicate_variable_mapping`: remove repeated mappings for the same variable
-        - `400 invalid_variable_mapping`: switch to a valid `source` for the selected `target`, or fix the variable name
+        - `400 invalid_variable_mapping`: for `llm_as_judge`, switch to a valid `source` for the selected `target`, or fix the variable name
         - `400 invalid_json_path`: remove or correct the `jsonPath`
         - `422 evaluator_preflight_failed`: the selected evaluator cannot run with the resolved model configuration. Fix the evaluator/default model setup, then retry the create request.
 
         Parameters
         ----------
-        name : str
-            Human-readable deployment name.
-
-        evaluator : EvaluationRuleEvaluatorReference
-            Evaluator family to use.
-
-            Use `name` and `scope` from the evaluator endpoints.
-            Langfuse resolves that family to its latest version before saving the rule.
-
-        target : EvaluationRuleTarget
-            Target object type to evaluate.
-
-        enabled : bool
-            Whether the deployment should be active immediately after creation.
-
-        mapping : typing.Sequence[EvaluationRuleMapping]
-            Required variable mappings.
-
-            Every evaluator variable must appear exactly once.
-            Build this list from the evaluator `variables` array returned by the evaluator endpoints.
-
-        sampling : typing.Optional[float]
-            Optional sampling fraction. Defaults to `1`.
-
-        filter : typing.Optional[typing.Sequence[EvaluationRuleFilter]]
-            Optional filter list.
-
-            Omit or pass an empty list to evaluate all matching targets for the selected `target`.
-            Each filter object must use a column that is valid for that `target`.
-            For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
+        request : CreateEvaluationRuleRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -149,27 +116,11 @@ class RawEvaluationRulesClient:
         _response = self._client_wrapper.httpx_client.request(
             "api/public/unstable/evaluation-rules",
             method="POST",
-            json={
-                "name": name,
-                "evaluator": convert_and_respect_annotation_metadata(
-                    object_=evaluator,
-                    annotation=EvaluationRuleEvaluatorReference,
-                    direction="write",
-                ),
-                "target": target,
-                "enabled": enabled,
-                "sampling": sampling,
-                "filter": convert_and_respect_annotation_metadata(
-                    object_=filter,
-                    annotation=typing.Sequence[EvaluationRuleFilter],
-                    direction="write",
-                ),
-                "mapping": convert_and_respect_annotation_metadata(
-                    object_=mapping,
-                    annotation=typing.Sequence[EvaluationRuleMapping],
-                    direction="write",
-                ),
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request,
+                annotation=CreateEvaluationRuleRequest,
+                direction="write",
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -734,18 +685,19 @@ class RawEvaluationRulesClient:
         - switch to another evaluator
         - adjust sampling
         - change filters
-        - update variable mappings
+        - update LLM-as-judge variable mappings
 
         Important behavior:
         - provide only the fields you want to change
         - if you provide `evaluator`, Langfuse resolves that evaluator family to its latest version before saving
-        - changing `target`, `filter`, or `mapping` must still produce a valid target-specific configuration
-        - if you change `target`, also send a compatible `filter` and `mapping` in the same request unless the existing ones are still valid for the new target
+        - changing `target`, `filter`, or an LLM-as-judge `mapping` must still produce a valid target-specific configuration
+        - if you change `target` for an LLM-as-judge rule, also send a compatible `filter` and `mapping` in the same request unless the existing ones are still valid for the new target
+        - for `code` evaluator rules, omit `mapping`; Langfuse stores the fixed code runtime mapping automatically
         - if the resulting config is enabled, Langfuse re-validates that the selected evaluator can run
         - if the update would move a non-active evaluation rule into the active state and the project already has 50 active evaluation rules, the API returns `409`
 
         Recovery guidance:
-        - if the update fails with `missing_variable_mapping` or `invalid_variable_mapping` after changing `evaluator` or `target`, resend the request with a complete new `mapping`
+        - if an LLM-as-judge update fails with `missing_variable_mapping` or `invalid_variable_mapping` after changing `evaluator` or `target`, resend the request with a complete new `mapping`
         - if the update fails with `invalid_filter_value` after changing `target`, resend the request with a target-compatible `filter`
 
         Parameters
@@ -760,6 +712,7 @@ class RawEvaluationRulesClient:
             Updated evaluator family.
 
             Langfuse resolves the provided evaluator family to its latest version before saving the rule.
+            A rule's evaluator type cannot be changed: provide `name` and `scope` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
 
         target : typing.Optional[EvaluationRuleTarget]
             Updated target object type.
@@ -776,7 +729,9 @@ class RawEvaluationRulesClient:
             For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
 
         mapping : typing.Optional[typing.Sequence[EvaluationRuleMapping]]
-            Updated variable mappings.
+            Updated LLM-as-judge variable mappings.
+
+            Do not send this field for code evaluator rules. Langfuse stores the fixed code runtime mapping automatically and returns it in the response.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1169,13 +1124,7 @@ class AsyncRawEvaluationRulesClient:
     async def create(
         self,
         *,
-        name: str,
-        evaluator: EvaluationRuleEvaluatorReference,
-        target: EvaluationRuleTarget,
-        enabled: bool,
-        mapping: typing.Sequence[EvaluationRuleMapping],
-        sampling: typing.Optional[float] = OMIT,
-        filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
+        request: CreateEvaluationRuleRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[EvaluationRule]:
         """
@@ -1191,8 +1140,9 @@ class AsyncRawEvaluationRulesClient:
         - `evaluator.name` + `evaluator.scope` must identify an existing evaluator family returned by the evaluator endpoints
         - Langfuse resolves that family to its latest version before saving the evaluation rule
         - for `target=experiment`, use dataset `id` values from `GET /api/public/v2/datasets` when filtering by `datasetId`
-        - every evaluator prompt variable must be mapped exactly once
-        - `expected_output` and `experiment_item_metadata` mappings are only valid for `target=experiment`
+        - for `llm_as_judge` evaluators, every evaluator prompt variable must be mapped exactly once
+        - for `code` evaluators, Langfuse uses the fixed code runtime mapping; omit `mapping` in create and update requests
+        - for user-provided `llm_as_judge` mappings, `expected_output` and `experiment_item_metadata` are only valid for `target=experiment`
         - if `enabled=true`, Langfuse validates that the referenced evaluator can currently run
         - at most 50 evaluation rules can be effectively active in one project at the same time
 
@@ -1209,44 +1159,15 @@ class AsyncRawEvaluationRulesClient:
         Recovery guidance:
         - `400 invalid_filter_value`: fix the filter `column` or `value` using `details.column`, `details.invalidValues`, and `details.allowedValues`
         - `400 invalid_filter_value` with `details.column=datasetId`: call `GET /api/public/v2/datasets`, then retry with dataset `id` values from that response
-        - `400 missing_variable_mapping`: fetch the evaluator again and make sure every variable in `variables` appears exactly once in `mapping`
+        - `400 missing_variable_mapping`: for `llm_as_judge` evaluators, fetch the evaluator again and make sure every variable in `variables` appears exactly once in `mapping`
         - `400 duplicate_variable_mapping`: remove repeated mappings for the same variable
-        - `400 invalid_variable_mapping`: switch to a valid `source` for the selected `target`, or fix the variable name
+        - `400 invalid_variable_mapping`: for `llm_as_judge`, switch to a valid `source` for the selected `target`, or fix the variable name
         - `400 invalid_json_path`: remove or correct the `jsonPath`
         - `422 evaluator_preflight_failed`: the selected evaluator cannot run with the resolved model configuration. Fix the evaluator/default model setup, then retry the create request.
 
         Parameters
         ----------
-        name : str
-            Human-readable deployment name.
-
-        evaluator : EvaluationRuleEvaluatorReference
-            Evaluator family to use.
-
-            Use `name` and `scope` from the evaluator endpoints.
-            Langfuse resolves that family to its latest version before saving the rule.
-
-        target : EvaluationRuleTarget
-            Target object type to evaluate.
-
-        enabled : bool
-            Whether the deployment should be active immediately after creation.
-
-        mapping : typing.Sequence[EvaluationRuleMapping]
-            Required variable mappings.
-
-            Every evaluator variable must appear exactly once.
-            Build this list from the evaluator `variables` array returned by the evaluator endpoints.
-
-        sampling : typing.Optional[float]
-            Optional sampling fraction. Defaults to `1`.
-
-        filter : typing.Optional[typing.Sequence[EvaluationRuleFilter]]
-            Optional filter list.
-
-            Omit or pass an empty list to evaluate all matching targets for the selected `target`.
-            Each filter object must use a column that is valid for that `target`.
-            For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
+        request : CreateEvaluationRuleRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1258,27 +1179,11 @@ class AsyncRawEvaluationRulesClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/unstable/evaluation-rules",
             method="POST",
-            json={
-                "name": name,
-                "evaluator": convert_and_respect_annotation_metadata(
-                    object_=evaluator,
-                    annotation=EvaluationRuleEvaluatorReference,
-                    direction="write",
-                ),
-                "target": target,
-                "enabled": enabled,
-                "sampling": sampling,
-                "filter": convert_and_respect_annotation_metadata(
-                    object_=filter,
-                    annotation=typing.Sequence[EvaluationRuleFilter],
-                    direction="write",
-                ),
-                "mapping": convert_and_respect_annotation_metadata(
-                    object_=mapping,
-                    annotation=typing.Sequence[EvaluationRuleMapping],
-                    direction="write",
-                ),
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request,
+                annotation=CreateEvaluationRuleRequest,
+                direction="write",
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -1843,18 +1748,19 @@ class AsyncRawEvaluationRulesClient:
         - switch to another evaluator
         - adjust sampling
         - change filters
-        - update variable mappings
+        - update LLM-as-judge variable mappings
 
         Important behavior:
         - provide only the fields you want to change
         - if you provide `evaluator`, Langfuse resolves that evaluator family to its latest version before saving
-        - changing `target`, `filter`, or `mapping` must still produce a valid target-specific configuration
-        - if you change `target`, also send a compatible `filter` and `mapping` in the same request unless the existing ones are still valid for the new target
+        - changing `target`, `filter`, or an LLM-as-judge `mapping` must still produce a valid target-specific configuration
+        - if you change `target` for an LLM-as-judge rule, also send a compatible `filter` and `mapping` in the same request unless the existing ones are still valid for the new target
+        - for `code` evaluator rules, omit `mapping`; Langfuse stores the fixed code runtime mapping automatically
         - if the resulting config is enabled, Langfuse re-validates that the selected evaluator can run
         - if the update would move a non-active evaluation rule into the active state and the project already has 50 active evaluation rules, the API returns `409`
 
         Recovery guidance:
-        - if the update fails with `missing_variable_mapping` or `invalid_variable_mapping` after changing `evaluator` or `target`, resend the request with a complete new `mapping`
+        - if an LLM-as-judge update fails with `missing_variable_mapping` or `invalid_variable_mapping` after changing `evaluator` or `target`, resend the request with a complete new `mapping`
         - if the update fails with `invalid_filter_value` after changing `target`, resend the request with a target-compatible `filter`
 
         Parameters
@@ -1869,6 +1775,7 @@ class AsyncRawEvaluationRulesClient:
             Updated evaluator family.
 
             Langfuse resolves the provided evaluator family to its latest version before saving the rule.
+            A rule's evaluator type cannot be changed: provide `name` and `scope` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
 
         target : typing.Optional[EvaluationRuleTarget]
             Updated target object type.
@@ -1885,7 +1792,9 @@ class AsyncRawEvaluationRulesClient:
             For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
 
         mapping : typing.Optional[typing.Sequence[EvaluationRuleMapping]]
-            Updated variable mappings.
+            Updated LLM-as-judge variable mappings.
+
+            Do not send this field for code evaluator rules. Langfuse stores the fixed code runtime mapping automatically and returns it in the response.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

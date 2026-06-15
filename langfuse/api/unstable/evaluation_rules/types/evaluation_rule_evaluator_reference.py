@@ -9,9 +9,10 @@ from ...commons.types.evaluator_scope import EvaluatorScope
 
 class EvaluationRuleEvaluatorReference(UniversalBaseModel):
     """
-    Evaluator family reference used when creating or updating an evaluation rule.
+    Evaluator family reference used when updating an evaluation rule.
 
-    `name` and `scope` are enough to identify the evaluator family in the authenticated project context.
+    `name` and `scope` identify the evaluator family in the authenticated project context.
+    A rule's evaluator type cannot be changed, so this reference does not accept a `type`; the family must match the rule's current evaluator type.
     """
 
     name: str = pydantic.Field()
