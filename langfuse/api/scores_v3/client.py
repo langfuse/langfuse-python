@@ -52,15 +52,22 @@ class ScoresV3Client:
         """
         Get a list of scores with a polymorphic `value` field (v3).
 
-        This endpoint requires Langfuse v4 or later.
-
         The `value` field type depends on `dataType`:
         - `NUMERIC` → number
         - `BOOLEAN` → boolean
         - `CATEGORICAL`, `TEXT`, `CORRECTION` → string
 
-        Use the `fields` parameter to include optional field groups beyond the
-        default `core`. Unknown group names return HTTP 400.
+        The response always includes the core fields: id, projectId, name,
+        value, dataType, source, timestamp, environment, createdAt, updatedAt.
+
+        Additional field groups can be requested via the `fields` parameter:
+        - `details` — adds comment, configId, metadata
+        - `subject` — adds the subject object describing the entity the score
+          is attached to: kind (trace, observation, session, or experiment),
+          id, and traceId for observation-level scores
+        - `annotation` — adds authorUserId, queueId
+
+        Unknown group names return HTTP 400.
 
         Parameters
         ----------
@@ -71,7 +78,7 @@ class ScoresV3Client:
             URL-safe base64 (base64url) cursor for pagination. Use the cursor from the previous response to get the next page. Absent on the final page.
 
         fields : typing.Optional[str]
-            Comma-separated field groups to include. Allowed: core, details, subject, annotation. Defaults to "core". Unknown names return HTTP 400.
+            Comma-separated field groups to include in addition to the always-returned core fields. Allowed: details, subject, annotation — see the endpoint description for the fields each group adds. Unknown names return HTTP 400.
 
         id : typing.Optional[str]
             Comma-separated list of score IDs to filter by (OR within, AND across filters).
@@ -214,15 +221,22 @@ class AsyncScoresV3Client:
         """
         Get a list of scores with a polymorphic `value` field (v3).
 
-        This endpoint requires Langfuse v4 or later.
-
         The `value` field type depends on `dataType`:
         - `NUMERIC` → number
         - `BOOLEAN` → boolean
         - `CATEGORICAL`, `TEXT`, `CORRECTION` → string
 
-        Use the `fields` parameter to include optional field groups beyond the
-        default `core`. Unknown group names return HTTP 400.
+        The response always includes the core fields: id, projectId, name,
+        value, dataType, source, timestamp, environment, createdAt, updatedAt.
+
+        Additional field groups can be requested via the `fields` parameter:
+        - `details` — adds comment, configId, metadata
+        - `subject` — adds the subject object describing the entity the score
+          is attached to: kind (trace, observation, session, or experiment),
+          id, and traceId for observation-level scores
+        - `annotation` — adds authorUserId, queueId
+
+        Unknown group names return HTTP 400.
 
         Parameters
         ----------
@@ -233,7 +247,7 @@ class AsyncScoresV3Client:
             URL-safe base64 (base64url) cursor for pagination. Use the cursor from the previous response to get the next page. Absent on the final page.
 
         fields : typing.Optional[str]
-            Comma-separated field groups to include. Allowed: core, details, subject, annotation. Defaults to "core". Unknown names return HTTP 400.
+            Comma-separated field groups to include in addition to the always-returned core fields. Allowed: details, subject, annotation — see the endpoint description for the fields each group adds. Unknown names return HTTP 400.
 
         id : typing.Optional[str]
             Comma-separated list of score IDs to filter by (OR within, AND across filters).
