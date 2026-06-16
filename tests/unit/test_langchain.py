@@ -248,28 +248,32 @@ def test_root_chain_metadata_propagates_trace_name(
 def test_root_chain_exports_when_end_runs_in_copied_context(
     langfuse_memory_client, get_span
 ):
+    context_token = otel_context.attach(otel_context.Context())
     handler = CallbackHandler()
     run_id = uuid4()
 
-    handler.on_chain_start(
-        {"id": ["RunnableSequence"]},
-        {"topic": "otters"},
-        run_id=run_id,
-        metadata={"langfuse_trace_name": "async-root-trace"},
-    )
+    try:
+        handler.on_chain_start(
+            {"id": ["RunnableSequence"]},
+            {"topic": "otters"},
+            run_id=run_id,
+            metadata={"langfuse_trace_name": "async-root-trace"},
+        )
 
-    copy_context().run(
-        handler.on_chain_end,
-        {"output": "knock knock"},
-        run_id=run_id,
-    )
+        copy_context().run(
+            handler.on_chain_end,
+            {"output": "knock knock"},
+            run_id=run_id,
+        )
 
-    langfuse_memory_client.flush()
-    root_span = get_span("RunnableSequence")
+        langfuse_memory_client.flush()
+        root_span = get_span("RunnableSequence")
 
-    assert root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == (
-        "async-root-trace"
-    )
+        assert root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == (
+            "async-root-trace"
+        )
+    finally:
+        otel_context.detach(context_token)
 
 
 def test_control_flow_errors_use_default_level_and_keep_status_message(
