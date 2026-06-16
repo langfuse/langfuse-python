@@ -42,6 +42,7 @@ from ..errors.errors.unauthorized_error import (
 from ..errors.errors.unprocessable_content_error import UnprocessableContentError
 from ..errors.types.public_api_error import PublicApiError
 from .types.create_evaluator_request import CreateEvaluatorRequest
+from .types.delete_evaluator_response import DeleteEvaluatorResponse
 from .types.evaluator import Evaluator
 from .types.evaluators import Evaluators
 
@@ -642,6 +643,204 @@ class RawEvaluatorsClient:
             body=_response_json,
         )
 
+    def delete(
+        self,
+        evaluator_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[DeleteEvaluatorResponse]:
+        """
+        Delete an evaluator.
+
+        Important behavior:
+        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
+        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
+        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - Scores already produced by the evaluator are not deleted.
+
+        Parameters
+        ----------
+        evaluator_id : str
+            Evaluator identifier returned by the evaluator endpoints.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DeleteEvaluatorResponse]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/evaluators/{jsonable_encoder(evaluator_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteEvaluatorResponse,
+                    parse_obj_as(
+                        type_=DeleteEvaluatorResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
 
 class AsyncRawEvaluatorsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -1137,6 +1336,204 @@ class AsyncRawEvaluatorsClient:
                 )
             if _response.status_code == 405:
                 raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def delete(
+        self,
+        evaluator_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[DeleteEvaluatorResponse]:
+        """
+        Delete an evaluator.
+
+        Important behavior:
+        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
+        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
+        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - Scores already produced by the evaluator are not deleted.
+
+        Parameters
+        ----------
+        evaluator_id : str
+            Evaluator identifier returned by the evaluator endpoints.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DeleteEvaluatorResponse]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/evaluators/{jsonable_encoder(evaluator_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteEvaluatorResponse,
+                    parse_obj_as(
+                        type_=DeleteEvaluatorResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         PublicApiError,
