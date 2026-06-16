@@ -84,7 +84,7 @@ class LangfuseResourceManager:
         with cls._lock:
             instances = list(cls._instances.values())
 
-            if len(instances) != 1:
+            if not instances:
                 return None
 
             return instances[0].httpx_client

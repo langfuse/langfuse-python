@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-06-09T08:44:29.596356662Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -603,7 +603,7 @@ docs = [
 requires-dist = [
     { name = "backoff", specifier = ">=1.10.0" },
     { name = "httpx", specifier = ">=0.15.4,<1.0" },
-    { name = "jsonpath-ng", specifier = ">=1.8.0" },
+    { name = "jsonpath-ng", specifier = ">=1.8.0,<2" },
     { name = "opentelemetry-api", specifier = ">=1.33.1,<2" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.33.1,<2" },
     { name = "opentelemetry-sdk", specifier = ">=1.33.1,<2" },

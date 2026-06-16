@@ -3502,7 +3502,7 @@ class Langfuse:
         try:
             value = parse_jsonpath(json_path).update(value, replacement)
         except Exception as e:
-            langfuse_logger.debug(
+            langfuse_logger.warning(
                 f"Failed to hydrate dataset media reference at JSONPath {json_path}",
                 exc_info=e,
             )
