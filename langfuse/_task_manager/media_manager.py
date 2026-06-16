@@ -21,6 +21,14 @@ P = ParamSpec("P")
 _SHUTDOWN_SENTINEL = object()
 
 
+def _is_langfuse_media_reference(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith("@@@langfuseMedia:")
+        and value.endswith("@@@")
+    )
+
+
 class MediaManager:
     def __init__(
         self,
@@ -127,6 +135,9 @@ class MediaManager:
                 and "media_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['media_type']};base64," + data["data"],
                 )
@@ -151,6 +162,9 @@ class MediaManager:
                 and "mime_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['mime_type']};base64," + data["data"],
                 )
@@ -166,6 +180,46 @@ class MediaManager:
                 copied["data"] = media
 
                 return copied
+
+            # Google Gemini / Vertex inline data
+            if isinstance(data, dict):
+                for inline_data_key in ("inline_data", "inlineData"):
+                    inline_data = data.get(inline_data_key)
+
+                    if not isinstance(inline_data, dict) or "data" not in inline_data:
+                        continue
+
+                    content_type = inline_data.get("mime_type") or inline_data.get(
+                        "mimeType"
+                    )
+
+                    if not content_type:
+                        continue
+
+                    if not isinstance(inline_data["data"], str):
+                        continue
+
+                    if _is_langfuse_media_reference(inline_data["data"]):
+                        return data
+
+                    media = LangfuseMedia(
+                        base64_data_uri=f"data:{content_type};base64,"
+                        + inline_data["data"],
+                    )
+
+                    self._process_media(
+                        media=media,
+                        trace_id=trace_id,
+                        observation_id=observation_id,
+                        field=field,
+                    )
+
+                    copied = data.copy()
+                    copied_inline_data = inline_data.copy()
+                    copied_inline_data["data"] = media
+                    copied[inline_data_key] = copied_inline_data
+
+                    return copied
 
             if isinstance(data, list):
                 return [_process_data_recursively(item, level + 1) for item in data]

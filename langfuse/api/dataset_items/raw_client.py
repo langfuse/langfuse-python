@@ -60,7 +60,7 @@ class RawDatasetItemsClient:
         source_observation_id : typing.Optional[str]
 
         id : typing.Optional[str]
-            Dataset items are upserted on their id. Id needs to be unique (project-level) and cannot be reused across datasets.
+            Dataset items are upserted on their id. Id needs to be unique (project-level), cannot be reused across datasets, and must be at most 255 characters.
 
         status : typing.Optional[DatasetStatus]
             Defaults to ACTIVE for newly created items
@@ -534,7 +534,7 @@ class AsyncRawDatasetItemsClient:
         source_observation_id : typing.Optional[str]
 
         id : typing.Optional[str]
-            Dataset items are upserted on their id. Id needs to be unique (project-level) and cannot be reused across datasets.
+            Dataset items are upserted on their id. Id needs to be unique (project-level), cannot be reused across datasets, and must be at most 255 characters.
 
         status : typing.Optional[DatasetStatus]
             Defaults to ACTIVE for newly created items
