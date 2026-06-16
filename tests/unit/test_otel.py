@@ -88,6 +88,8 @@ class TestOTelBase:
         """Mock the LangfuseSpanProcessor initialization to avoid HTTP traffic."""
 
         def mock_init(self, **kwargs):
+            import threading
+
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
             from langfuse._client.span_filter import is_default_export_span
@@ -100,6 +102,8 @@ class TestOTelBase:
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
+            self._app_root_lock = threading.Lock()
+            self._span_export_expectation_by_id = {}
             BatchSpanProcessor.__init__(
                 self,
                 span_exporter=memory_exporter,
@@ -1993,6 +1997,8 @@ class TestMultiProjectSetup(TestOTelBase):
 
         # Setup tracers with appropriate project-specific span exporting
         def mock_processor_init(self, **kwargs):
+            import threading
+
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
             from langfuse._client.span_filter import is_default_export_span
@@ -2001,6 +2007,8 @@ class TestMultiProjectSetup(TestOTelBase):
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
+            self._app_root_lock = threading.Lock()
+            self._span_export_expectation_by_id = {}
             # Use the appropriate exporter based on the project key
             if self.public_key == project1_key:
                 exporter = exporter_project1
@@ -2368,6 +2376,8 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
 
         # Mock the LangfuseSpanProcessor to use our test exporters
         def mock_processor_init(self, **kwargs):
+            import threading
+
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
             from langfuse._client.span_filter import is_default_export_span
@@ -2380,6 +2390,8 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
+            self._app_root_lock = threading.Lock()
+            self._span_export_expectation_by_id = {}
 
             # For testing, use the appropriate exporter based on setup
             exporter = kwargs.get("_test_exporter", blocked_exporter)

@@ -101,6 +101,64 @@ def _make_chat_stream_chunks():
     ]
 
 
+def _make_chat_stream_chunks_with_trailing_content_filter_chunk():
+    usage = SimpleNamespace(prompt_tokens=3, completion_tokens=1, total_tokens=4)
+
+    return [
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role="assistant",
+                        content="2",
+                        function_call=None,
+                        tool_calls=None,
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=None,
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role=None,
+                        content=None,
+                        function_call=None,
+                        tool_calls=None,
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=usage,
+        ),
+        SimpleNamespace(
+            model="",
+            choices=[
+                SimpleNamespace(
+                    delta=None,
+                    finish_reason=None,
+                    content_filter_offsets={
+                        "check_offset": 44,
+                        "start_offset": 44,
+                        "end_offset": 121,
+                    },
+                    content_filter_results={
+                        "hate": {"filtered": False, "severity": "safe"},
+                        "self_harm": {"filtered": False, "severity": "safe"},
+                        "sexual": {"filtered": False, "severity": "safe"},
+                        "violence": {"filtered": False, "severity": "safe"},
+                    },
+                )
+            ],
+            usage=None,
+        ),
+    ]
+
+
 def _make_single_chunk_stream():
     return SimpleNamespace(
         model="gpt-4o-mini",
@@ -307,6 +365,41 @@ def test_openai_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "prompt_tokens": 3,
+        "completion_tokens": 1,
+        "total_tokens": 4,
+    }
+
+
+def test_openai_stream_handles_trailing_azure_content_filter_chunk(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    raw_stream = DummyOpenAIStream(
+        _make_chat_stream_chunks_with_trailing_content_filter_chunk(),
+        DummySyncResponse(),
+    )
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=raw_stream):
+        stream = openai_client.chat.completions.create(
+            name="unit-openai-native-stream-azure-filter",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            stream=True,
+        )
+
+    chunks = list(stream)
+    stream.close()
+
+    assert len(chunks) == 3
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-native-stream-azure-filter")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
     assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,

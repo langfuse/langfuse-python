@@ -27,6 +27,7 @@ from typing import (
 
 import backoff
 import httpx
+from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter
@@ -46,7 +47,6 @@ from langfuse._client.attributes import (
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     ObservationTypeGenerationLike,
-    ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
     get_observation_types_list,
@@ -66,7 +66,9 @@ from langfuse._client.environment_variables import (
 )
 from langfuse._client.propagation import (
     PropagatedExperimentAttributes,
+    _detach_context_token_safely,
     _propagate_attributes,
+    _set_langfuse_trace_id_in_baggage,
 )
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
@@ -1107,7 +1109,7 @@ class Langfuse:
 
     def _get_span_class(
         self,
-        as_type: ObservationTypeLiteral,
+        as_type: str,
     ) -> Union[
         Type[LangfuseAgent],
         Type[LangfuseTool],
@@ -1145,6 +1147,21 @@ class Langfuse:
             return LangfuseSpan
         else:
             return LangfuseSpan
+
+    @staticmethod
+    def _get_observation_type_from_otel_span(otel_span: otel_trace_api.Span) -> str:
+        if not otel_span.is_recording():
+            return "span"
+
+        attributes = getattr(otel_span, "attributes", None)
+        if attributes is None or not hasattr(attributes, "get"):
+            return "span"
+
+        observation_type = attributes.get(
+            LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+        )
+
+        return observation_type if isinstance(observation_type, str) else "span"
 
     @_agnosticcontextmanager
     def _create_span_with_parent_context(
@@ -1219,39 +1236,54 @@ class Langfuse:
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
+            baggage_token = None
+
+            if otel_span.is_recording():
+                context_with_app_root_claim = _set_langfuse_trace_id_in_baggage(
+                    trace_id=self._get_otel_trace_id(otel_span),
+                    context=otel_context_api.get_current(),
+                )
+                baggage_token = otel_context_api.attach(context_with_app_root_claim)
+
             span_class = self._get_span_class(
                 as_type or "generation"
             )  # default was "generation"
-            common_args = {
-                "otel_span": otel_span,
-                "langfuse_client": self,
-                "environment": self._environment,
-                "release": self._release,
-                "input": input,
-                "output": output,
-                "metadata": metadata,
-                "version": version,
-                "level": level,
-                "status_message": status_message,
-            }
 
-            if span_class in [
-                LangfuseGeneration,
-                LangfuseEmbedding,
-            ]:
-                common_args.update(
-                    {
-                        "completion_start_time": completion_start_time,
-                        "model": model,
-                        "model_parameters": model_parameters,
-                        "usage_details": usage_details,
-                        "cost_details": cost_details,
-                        "prompt": prompt,
-                    }
-                )
-            # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+            try:
+                common_args = {
+                    "otel_span": otel_span,
+                    "langfuse_client": self,
+                    "environment": self._environment,
+                    "release": self._release,
+                    "input": input,
+                    "output": output,
+                    "metadata": metadata,
+                    "version": version,
+                    "level": level,
+                    "status_message": status_message,
+                }
 
-            yield span_class(**common_args)  # type: ignore[arg-type]
+                if span_class in [
+                    LangfuseGeneration,
+                    LangfuseEmbedding,
+                ]:
+                    common_args.update(
+                        {
+                            "completion_start_time": completion_start_time,
+                            "model": model,
+                            "model_parameters": model_parameters,
+                            "usage_details": usage_details,
+                            "cost_details": cost_details,
+                            "prompt": prompt,
+                        }
+                    )
+                # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+
+                yield span_class(**common_args)  # type: ignore[arg-type]
+
+            finally:
+                if baggage_token is not None:
+                    _detach_context_token_safely(baggage_token)
 
     def _get_current_otel_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
@@ -1401,7 +1433,10 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            span = LangfuseSpan(
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
+            )
+            span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
@@ -1454,11 +1489,9 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None and current_otel_span.is_recording():
-            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
-                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
             )
-            # We need to preserve the class to keep the correct observation type
-            span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
@@ -1491,11 +1524,9 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None and current_otel_span.is_recording():
-            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
-                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
             )
-            # We need to preserve the class to keep the correct observation type
-            span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,

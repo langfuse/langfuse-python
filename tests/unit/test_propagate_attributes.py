@@ -461,6 +461,35 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID
         )
 
+    def test_non_string_metadata_values_coerced(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        """Verify non-string metadata values are coerced instead of dropped."""
+
+        caplog.set_level("WARNING", logger="langfuse")
+        metadata = {
+            "langgraph_step": 1,
+            "langgraph_triggers": ["branch:agent"],
+            "langgraph_path": ("root", "agent"),
+            "max_search_results": 5,
+        }
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata=metadata):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+
+        for key, value in metadata.items():
+            self.verify_span_attribute(
+                child_span,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}",
+                str(value),
+            )
+
+        assert "value is not a string. Dropping value." not in caplog.text
+
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -1638,6 +1667,8 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         from opentelemetry import baggage
         from opentelemetry import context as otel_context
 
+        from langfuse._client.propagation import LANGFUSE_TRACE_ID_BAGGAGE_KEY
+
         with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 user_id="user_123",
@@ -1646,7 +1677,13 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
                 # Get current context and inspect baggage
                 current_context = otel_context.get_current()
                 baggage_entries = baggage.get_all(context=current_context)
-                assert len(baggage_entries) == 0
+                user_baggage_entries = {
+                    key: value
+                    for key, value in baggage_entries.items()
+                    if key != LANGFUSE_TRACE_ID_BAGGAGE_KEY
+                }
+
+                assert user_baggage_entries == {}
 
     def test_metadata_key_with_user_id_substring_doesnt_collide(
         self, langfuse_client, memory_exporter

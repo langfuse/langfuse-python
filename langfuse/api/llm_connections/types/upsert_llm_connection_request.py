@@ -61,7 +61,7 @@ class UpsertLlmConnectionRequest(UniversalBaseModel):
 
     config: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
+    Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **OpenAI**: Optional. If provided, must be `{"useResponsesApi": <boolean>}` to control whether Langfuse routes calls through OpenAI's Responses API. - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

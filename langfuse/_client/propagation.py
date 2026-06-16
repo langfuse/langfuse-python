@@ -95,7 +95,7 @@ def propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -125,10 +125,11 @@ def propagate_attributes(
             Must be US-ASCII string, ≤200 characters. Use this to group related traces
             within a user session (e.g., a conversation thread, multi-turn interaction).
         metadata: Additional key-value metadata to propagate to all spans.
-            - Keys and values must be US-ASCII strings
-            - All values must be ≤200 characters
+            - Keys must be US-ASCII strings
+            - Values are coerced to strings
+            - Coerced values must be ≤200 characters
             - Use for dimensions like internal correlating identifiers
-            - AVOID: large payloads, sensitive data, non-string values (will be dropped with warning)
+            - AVOID: large payloads or sensitive data
         version: Version identfier for parts of your application that are independently versioned, e.g. agents
         tags: List of tags to categorize the group of observations
         trace_name: Name to assign to the trace. Must be US-ASCII string, ≤200 characters.
@@ -204,9 +205,10 @@ def propagate_attributes(
         ```
 
     Note:
-        - **Validation**: All attribute values (user_id, session_id, metadata values)
-          must be strings ≤200 characters. Invalid values will be dropped with a
-          warning logged. Ensure values meet constraints before calling.
+        - **Validation**: Attribute values (user_id, session_id, version, tags,
+          trace_name) must be strings ≤200 characters. Metadata values are
+          coerced to strings before the 200 character limit is applied. Invalid
+          values will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
 
@@ -229,7 +231,7 @@ def _propagate_attributes(
     *,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
-    metadata: Optional[Dict[str, str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
@@ -247,7 +249,7 @@ def _propagate_attributes(
         "trace_name": trace_name,
     }
 
-    propagated_metadata_attributes: Dict[str, Optional[Dict[str, str]]] = {
+    propagated_metadata_attributes: Dict[str, Optional[Dict[str, Any]]] = {
         "metadata": metadata,
     }
 
@@ -286,8 +288,10 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata_value.items():
-            if _validate_string_value(value=value, key=f"{metadata_key}.{key}"):
-                validated_metadata[key] = value
+            coerced_value = value if isinstance(value, str) else str(value)
+
+            if _validate_string_value(value=coerced_value, key=f"{metadata_key}.{key}"):
+                validated_metadata[key] = coerced_value
 
         if validated_metadata:
             context = _set_propagated_attribute(
@@ -316,6 +320,9 @@ def _get_propagated_attributes_from_context(
     # Handle baggage
     baggage_entries = baggage.get_all(context=context)
     for baggage_key, baggage_value in baggage_entries.items():
+        if baggage_key == LANGFUSE_TRACE_ID_BAGGAGE_KEY:
+            continue
+
         if baggage_key.startswith(LANGFUSE_BAGGAGE_PREFIX):
             span_key = _get_span_key_from_baggage_key(baggage_key)
 
@@ -471,10 +478,42 @@ def _get_propagated_context_key(key: str) -> str:
 
 
 LANGFUSE_BAGGAGE_PREFIX = "langfuse_"
+LANGFUSE_TRACE_ID_BAGGAGE_KEY = "langfuse_trace_id"
 
 
 def _get_propagated_baggage_key(key: str) -> str:
     return f"{LANGFUSE_BAGGAGE_PREFIX}{key}"
+
+
+def _get_langfuse_trace_id_from_baggage(
+    context: otel_context_api.Context,
+) -> Optional[str]:
+    value = otel_baggage_api.get_baggage(
+        name=LANGFUSE_TRACE_ID_BAGGAGE_KEY,
+        context=context,
+    )
+
+    if value is None:
+        return None
+
+    return str(value).lower()
+
+
+def _set_langfuse_trace_id_in_baggage(
+    *,
+    trace_id: str,
+    context: otel_context_api.Context,
+) -> otel_context_api.Context:
+    normalized_trace_id = trace_id.lower()
+
+    if _get_langfuse_trace_id_from_baggage(context) == normalized_trace_id:
+        return context
+
+    return otel_baggage_api.set_baggage(
+        name=LANGFUSE_TRACE_ID_BAGGAGE_KEY,
+        value=normalized_trace_id,
+        context=context,
+    )
 
 
 def _get_span_key_from_baggage_key(key: str) -> Optional[str]:

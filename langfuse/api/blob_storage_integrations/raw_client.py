@@ -15,8 +15,10 @@ from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from .types.blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .types.blob_storage_export_frequency import BlobStorageExportFrequency
 from .types.blob_storage_export_mode import BlobStorageExportMode
+from .types.blob_storage_export_source import BlobStorageExportSource
 from .types.blob_storage_integration_deletion_response import (
     BlobStorageIntegrationDeletionResponse,
 )
@@ -152,6 +154,10 @@ class RawBlobStorageIntegrationsClient:
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
         compressed: typing.Optional[bool] = OMIT,
+        export_source: typing.Optional[BlobStorageExportSource] = OMIT,
+        export_field_groups: typing.Optional[
+            typing.Sequence[BlobStorageExportFieldGroup]
+        ] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BlobStorageIntegrationResponse]:
         """
@@ -200,6 +206,18 @@ class RawBlobStorageIntegrationsClient:
         compressed : typing.Optional[bool]
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
+        export_source : typing.Optional[BlobStorageExportSource]
+            Data to export. When omitted on update, the existing value is preserved. When omitted on create: integrations on Langfuse Cloud default to `OBSERVATIONS_V2`; self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`. Required when `exportFieldGroups` is provided.
+
+            **Cloud-only project deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` for all new integrations. Self-hosted deployments are unaffected.
+
+            **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
+
+        export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
+            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+
+            `exportFieldGroups` requires `exportSource` to be provided in the same request.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -226,6 +244,8 @@ class RawBlobStorageIntegrationsClient:
                 "exportMode": export_mode,
                 "exportStartDate": export_start_date,
                 "compressed": compressed,
+                "exportSource": export_source,
+                "exportFieldGroups": export_field_groups,
             },
             request_options=request_options,
             omit=OMIT,
@@ -629,6 +649,10 @@ class AsyncRawBlobStorageIntegrationsClient:
         prefix: typing.Optional[str] = OMIT,
         export_start_date: typing.Optional[dt.datetime] = OMIT,
         compressed: typing.Optional[bool] = OMIT,
+        export_source: typing.Optional[BlobStorageExportSource] = OMIT,
+        export_field_groups: typing.Optional[
+            typing.Sequence[BlobStorageExportFieldGroup]
+        ] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BlobStorageIntegrationResponse]:
         """
@@ -677,6 +701,18 @@ class AsyncRawBlobStorageIntegrationsClient:
         compressed : typing.Optional[bool]
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
 
+        export_source : typing.Optional[BlobStorageExportSource]
+            Data to export. When omitted on update, the existing value is preserved. When omitted on create: integrations on Langfuse Cloud default to `OBSERVATIONS_V2`; self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`. Required when `exportFieldGroups` is provided.
+
+            **Cloud-only project deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` for all new integrations. Self-hosted deployments are unaffected.
+
+            **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
+
+        export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
+            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+
+            `exportFieldGroups` requires `exportSource` to be provided in the same request.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -703,6 +739,8 @@ class AsyncRawBlobStorageIntegrationsClient:
                 "exportMode": export_mode,
                 "exportStartDate": export_start_date,
                 "compressed": compressed,
+                "exportSource": export_source,
+                "exportFieldGroups": export_field_groups,
             },
             request_options=request_options,
             omit=OMIT,

@@ -62,9 +62,10 @@ class ObservationsClient:
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
         - `model` - providedModelName, internalModelId, modelParameters
-        - `usage` - usageDetails, costDetails, totalCost
+        - `usage` - usageDetails, costDetails, totalCost, usagePricingTierName
         - `prompt` - promptId, promptName, promptVersion
         - `metrics` - latency, timeToFirstToken
+        - `trace_context` - tags, release, traceName
 
         If not specified, `core` and `basic` field groups are returned.
 
@@ -76,7 +77,7 @@ class ObservationsClient:
         ----------
         fields : typing.Optional[str]
             Comma-separated list of field groups to include in the response.
-            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
+            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics, trace_context.
             If not specified, `core` and `basic` field groups are returned.
             Example: "basic,usage,model"
 
@@ -135,12 +136,12 @@ class ObservationsClient:
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
-                                          // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - string: "=", "contains", "does not contain", "starts with", "ends with", "matches"
                                           // - stringOptions: "any of", "none of"
                                           // - categoryOptions: "any of", "none of"
                                           // - arrayOptions: "any of", "none of", "all of"
                                           // - number: "=", ">", "<", ">=", "<="
-                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches"
                                           // - numberObject: "=", ">", "<", ">=", "<="
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
@@ -192,7 +193,11 @@ class ObservationsClient:
             - `promptVersion` (number) - Associated prompt version
 
             ### Structured Data
+            - `input` (string) - Observation input. Supports accelerated indexed literal search with the `matches` operator.
+            - `output` (string) - Observation output. Supports accelerated indexed literal search with the `matches` operator.
             - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            The `matches` operator is only supported for `input`, `output`, and stringObject `metadata` filters. It performs indexed literal search with token-boundary pruning using the events table text indexes. Case sensitivity differs by target: `input` and `output` matches are case-insensitive, while metadata value matches are case-sensitive. Unlike SQL `LIKE`, `%` and `_` are treated as literal characters. Use `contains` for legacy substring semantics where the API allows it. Any v2 `input` or `output` filter must be accompanied by at least one `=` or `matches` filter on `input` or `output`; standalone `contains`, `starts with`, `ends with`, and `does not contain` filters on these columns are rejected.
 
             ## Filter Examples
             ```json
@@ -215,6 +220,12 @@ class ObservationsClient:
                 "key": "environment",
                 "operator": "=",
                 "value": "production"
+              },
+              {
+                "type": "string",
+                "column": "output",
+                "operator": "matches",
+                "value": "needle"
               }
             ]
             ```
@@ -314,9 +325,10 @@ class AsyncObservationsClient:
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
         - `model` - providedModelName, internalModelId, modelParameters
-        - `usage` - usageDetails, costDetails, totalCost
+        - `usage` - usageDetails, costDetails, totalCost, usagePricingTierName
         - `prompt` - promptId, promptName, promptVersion
         - `metrics` - latency, timeToFirstToken
+        - `trace_context` - tags, release, traceName
 
         If not specified, `core` and `basic` field groups are returned.
 
@@ -328,7 +340,7 @@ class AsyncObservationsClient:
         ----------
         fields : typing.Optional[str]
             Comma-separated list of field groups to include in the response.
-            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics.
+            Available groups: core, basic, time, io, metadata, model, usage, prompt, metrics, trace_context.
             If not specified, `core` and `basic` field groups are returned.
             Example: "basic,usage,model"
 
@@ -387,12 +399,12 @@ class AsyncObservationsClient:
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
-                                          // - string: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - string: "=", "contains", "does not contain", "starts with", "ends with", "matches"
                                           // - stringOptions: "any of", "none of"
                                           // - categoryOptions: "any of", "none of"
                                           // - arrayOptions: "any of", "none of", "all of"
                                           // - number: "=", ">", "<", ">=", "<="
-                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
+                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches"
                                           // - numberObject: "=", ">", "<", ">=", "<="
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
@@ -444,7 +456,11 @@ class AsyncObservationsClient:
             - `promptVersion` (number) - Associated prompt version
 
             ### Structured Data
+            - `input` (string) - Observation input. Supports accelerated indexed literal search with the `matches` operator.
+            - `output` (string) - Observation output. Supports accelerated indexed literal search with the `matches` operator.
             - `metadata` (stringObject/numberObject/categoryOptions) - Metadata key-value pairs. Use `key` parameter to filter on specific metadata keys.
+
+            The `matches` operator is only supported for `input`, `output`, and stringObject `metadata` filters. It performs indexed literal search with token-boundary pruning using the events table text indexes. Case sensitivity differs by target: `input` and `output` matches are case-insensitive, while metadata value matches are case-sensitive. Unlike SQL `LIKE`, `%` and `_` are treated as literal characters. Use `contains` for legacy substring semantics where the API allows it. Any v2 `input` or `output` filter must be accompanied by at least one `=` or `matches` filter on `input` or `output`; standalone `contains`, `starts with`, `ends with`, and `does not contain` filters on these columns are rejected.
 
             ## Filter Examples
             ```json
@@ -467,6 +483,12 @@ class AsyncObservationsClient:
                 "key": "environment",
                 "operator": "=",
                 "value": "production"
+              },
+              {
+                "type": "string",
+                "column": "output",
+                "operator": "matches",
+                "value": "needle"
               }
             ]
             ```
