@@ -238,3 +238,28 @@ def test_find_and_process_media_gemini_inline_data_camel_case_is_processed():
 
     assert isinstance(result["inlineData"]["data"], LangfuseMedia)
     assert not queue.empty()
+
+
+@pytest.mark.parametrize("inline_data_value", [b"image-bytes", 123, {"raw": "data"}])
+def test_find_and_process_media_gemini_inline_data_non_string_data_passes_through(
+    inline_data_value,
+):
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = {
+        "inline_data": {
+            "mime_type": "image/jpeg",
+            "data": inline_data_value,
+        }
+    }
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert result == data
+    assert queue.empty()

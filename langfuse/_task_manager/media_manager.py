@@ -196,6 +196,9 @@ class MediaManager:
                     if not content_type:
                         continue
 
+                    if not isinstance(inline_data["data"], str):
+                        continue
+
                     if _is_langfuse_media_reference(inline_data["data"]):
                         return data
 
