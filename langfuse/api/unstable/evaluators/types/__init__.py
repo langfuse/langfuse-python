@@ -14,6 +14,7 @@ if typing.TYPE_CHECKING:
         CreateEvaluatorRequest_LlmAsJudge,
     )
     from .create_llm_as_judge_evaluator_request import CreateLlmAsJudgeEvaluatorRequest
+    from .delete_evaluator_response import DeleteEvaluatorResponse
     from .evaluator import Evaluator, Evaluator_Code, Evaluator_LlmAsJudge
     from .evaluator_base import EvaluatorBase
     from .evaluators import Evaluators
@@ -25,6 +26,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateEvaluatorRequest_Code": ".create_evaluator_request",
     "CreateEvaluatorRequest_LlmAsJudge": ".create_evaluator_request",
     "CreateLlmAsJudgeEvaluatorRequest": ".create_llm_as_judge_evaluator_request",
+    "DeleteEvaluatorResponse": ".delete_evaluator_response",
     "Evaluator": ".evaluator",
     "EvaluatorBase": ".evaluator_base",
     "Evaluator_Code": ".evaluator",
@@ -68,6 +70,7 @@ __all__ = [
     "CreateEvaluatorRequest_Code",
     "CreateEvaluatorRequest_LlmAsJudge",
     "CreateLlmAsJudgeEvaluatorRequest",
+    "DeleteEvaluatorResponse",
     "Evaluator",
     "EvaluatorBase",
     "Evaluator_Code",

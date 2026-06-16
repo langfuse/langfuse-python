@@ -6,6 +6,7 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawEvaluatorsClient, RawEvaluatorsClient
 from .types.create_evaluator_request import CreateEvaluatorRequest
+from .types.delete_evaluator_response import DeleteEvaluatorResponse
 from .types.evaluator import Evaluator
 from .types.evaluators import Evaluators
 
@@ -209,6 +210,54 @@ class EvaluatorsClient:
         )
         """
         _response = self._raw_client.get(evaluator_id, request_options=request_options)
+        return _response.data
+
+    def delete(
+        self,
+        evaluator_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DeleteEvaluatorResponse:
+        """
+        Delete an evaluator.
+
+        Important behavior:
+        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
+        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
+        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - Scores already produced by the evaluator are not deleted.
+
+        Parameters
+        ----------
+        evaluator_id : str
+            Evaluator identifier returned by the evaluator endpoints.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteEvaluatorResponse
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.unstable.evaluators.delete(
+            evaluator_id="evaluatorId",
+        )
+        """
+        _response = self._raw_client.delete(
+            evaluator_id, request_options=request_options
+        )
         return _response.data
 
 
@@ -432,6 +481,62 @@ class AsyncEvaluatorsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(
+            evaluator_id, request_options=request_options
+        )
+        return _response.data
+
+    async def delete(
+        self,
+        evaluator_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DeleteEvaluatorResponse:
+        """
+        Delete an evaluator.
+
+        Important behavior:
+        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
+        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
+        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - Scores already produced by the evaluator are not deleted.
+
+        Parameters
+        ----------
+        evaluator_id : str
+            Evaluator identifier returned by the evaluator endpoints.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteEvaluatorResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.unstable.evaluators.delete(
+                evaluator_id="evaluatorId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(
             evaluator_id, request_options=request_options
         )
         return _response.data

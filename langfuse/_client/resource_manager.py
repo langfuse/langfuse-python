@@ -45,7 +45,7 @@ from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseClient
 from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
-from langfuse.types import MaskFunction
+from langfuse.types import MaskFunction, MaskOtelSpansFunction
 
 from .._version import __version__ as langfuse_version
 
@@ -104,6 +104,7 @@ class LangfuseResourceManager:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: Optional[bool] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
@@ -138,6 +139,7 @@ class LangfuseResourceManager:
                     media_upload_thread_count=media_upload_thread_count,
                     sample_rate=sample_rate,
                     mask=mask,
+                    mask_otel_spans=mask_otel_spans,
                     tracing_enabled=tracing_enabled
                     if tracing_enabled is not None
                     else True,
@@ -167,6 +169,7 @@ class LangfuseResourceManager:
         httpx_client: Optional[httpx.Client] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: bool = True,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
@@ -179,6 +182,7 @@ class LangfuseResourceManager:
         self.tracing_enabled = tracing_enabled
         self.base_url = base_url
         self.mask = mask
+        self.mask_otel_spans = mask_otel_spans
         self.environment = environment
 
         # Store additional client settings for get_client() to use
@@ -193,33 +197,6 @@ class LangfuseResourceManager:
         self.additional_headers = additional_headers
         self.span_exporter = span_exporter
         self.tracer_provider: Optional[TracerProvider] = None
-
-        # OTEL Tracer
-        if tracing_enabled:
-            tracer_provider = tracer_provider or _init_tracer_provider(
-                environment=environment, release=release, sample_rate=sample_rate
-            )
-            self.tracer_provider = tracer_provider
-
-            langfuse_processor = LangfuseSpanProcessor(
-                public_key=self.public_key,
-                secret_key=secret_key,
-                base_url=base_url,
-                timeout=timeout,
-                flush_at=flush_at,
-                flush_interval=flush_interval,
-                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
-                should_export_span=should_export_span,
-                additional_headers=additional_headers,
-                span_exporter=span_exporter,
-            )
-            tracer_provider.add_span_processor(langfuse_processor)
-
-            self._otel_tracer = tracer_provider.get_tracer(
-                LANGFUSE_TRACER_NAME,
-                langfuse_version,
-                attributes={"public_key": self.public_key},
-            )
 
         # API Clients
 
@@ -275,6 +252,35 @@ class LangfuseResourceManager:
             max_retries=3,
         )
         self._media_upload_consumers = []
+
+        # OTEL Tracer
+        if tracing_enabled:
+            tracer_provider = tracer_provider or _init_tracer_provider(
+                environment=environment, release=release, sample_rate=sample_rate
+            )
+            self.tracer_provider = tracer_provider
+
+            langfuse_processor = LangfuseSpanProcessor(
+                public_key=self.public_key,
+                secret_key=secret_key,
+                base_url=base_url,
+                timeout=timeout,
+                flush_at=flush_at,
+                flush_interval=flush_interval,
+                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                should_export_span=should_export_span,
+                additional_headers=additional_headers,
+                span_exporter=span_exporter,
+                media_manager=self._media_manager,
+                mask_otel_spans=mask_otel_spans,
+            )
+            tracer_provider.add_span_processor(langfuse_processor)
+
+            self._otel_tracer = tracer_provider.get_tracer(
+                LANGFUSE_TRACER_NAME,
+                langfuse_version,
+                attributes={"public_key": self.public_key},
+            )
 
         media_upload_thread_count = media_upload_thread_count or max(
             int(os.getenv(LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT, 1)), 1
