@@ -494,7 +494,9 @@ def _create_otel_span_data(
     attributes: Dict[str, AttributeValue],
     identifier: OtelSpanIdentifier,
 ) -> OtelSpanData:
-    instrumentation_scope = span.instrumentation_scope
+    instrumentation_scope = span.instrumentation_scope or getattr(
+        span, "_instrumentation_info", None
+    )
 
     return OtelSpanData(
         trace_id=identifier.trace_id,

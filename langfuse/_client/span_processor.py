@@ -87,14 +87,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         self._span_export_expectation_by_id: Dict[str, bool] = {}
 
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
-        flush_at = flush_at or int(env_flush_at) if env_flush_at is not None else None
+        if flush_at is None and env_flush_at is not None:
+            flush_at = int(env_flush_at)
 
         env_flush_interval = os.environ.get(LANGFUSE_FLUSH_INTERVAL, None)
-        flush_interval = (
-            flush_interval or float(env_flush_interval)
-            if env_flush_interval is not None
-            else None
-        )
+        if flush_interval is None and env_flush_interval is not None:
+            flush_interval = float(env_flush_interval)
 
         if span_exporter is None:
             basic_auth_header = "Basic " + base64.b64encode(

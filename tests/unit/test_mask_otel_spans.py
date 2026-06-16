@@ -490,6 +490,43 @@ def test_clone_span_preserves_deprecated_instrumentation_info():
     assert getattr(cloned_span, "_instrumentation_info") is instrumentation_info
 
 
+def test_mask_otel_spans_receives_deprecated_instrumentation_info_scope():
+    exporter = InMemorySpanExporter()
+    seen_params: list[MaskOtelSpansParams] = []
+    valid_context = SpanContext(
+        trace_id=1,
+        span_id=2,
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        trace_state=TraceState(),
+    )
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        seen_params.append(params)
+        return None
+
+    with pytest.warns(DeprecationWarning, match="InstrumentationScope"):
+        instrumentation_info = InstrumentationInfo("legacy-instrumentation", "1.2.3")
+    span = ReadableSpan(
+        name="legacy-instrumentation-span",
+        context=valid_context,
+        attributes={},
+        instrumentation_info=instrumentation_info,
+    )
+    transforming_exporter = span_exporter_module.LangfuseTransformingSpanExporter(
+        exporter=exporter,
+        media_manager=None,
+        mask_otel_spans=mask_otel_spans,
+    )
+
+    result = transforming_exporter.export([span])
+    span_data = next(iter(seen_params[0].spans.values()))
+
+    assert result == SpanExportResult.SUCCESS
+    assert span_data.instrumentation_scope_name == "legacy-instrumentation"
+    assert span_data.instrumentation_scope_version == "1.2.3"
+
+
 def test_mask_otel_spans_drops_contextless_spans_without_dropping_batch(caplog):
     exporter = InMemorySpanExporter()
     seen_span_names: list[str] = []
