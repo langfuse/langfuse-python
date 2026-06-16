@@ -206,3 +206,41 @@ def test_create_dataset_item_processes_shared_media_subtrees():
         "a": {"image": media._reference_string},
         "b": {"image": media._reference_string},
     }
+
+
+def test_create_dataset_item_processes_media_in_tuples():
+    media = LangfuseMedia(content_bytes=b"payload", content_type="image/png")
+
+    media_manager = Mock()
+    dataset_items_api = Mock()
+    dataset_items_api.create.return_value = "created-item"
+
+    client = object.__new__(Langfuse)
+    client._resources = SimpleNamespace(_media_manager=media_manager)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api)
+
+    client.create_dataset_item(dataset_name="dataset", input={"images": (media,)})
+
+    media_manager._upload_media_sync.assert_called_once_with(media=media)
+    assert dataset_items_api.create.call_args.kwargs["input"] == {
+        "images": (media._reference_string,)
+    }
+
+
+def test_create_dataset_item_processes_media_in_sets():
+    media = LangfuseMedia(content_bytes=b"payload", content_type="image/png")
+
+    media_manager = Mock()
+    dataset_items_api = Mock()
+    dataset_items_api.create.return_value = "created-item"
+
+    client = object.__new__(Langfuse)
+    client._resources = SimpleNamespace(_media_manager=media_manager)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api)
+
+    client.create_dataset_item(dataset_name="dataset", input={"images": {media}})
+
+    media_manager._upload_media_sync.assert_called_once_with(media=media)
+    assert dataset_items_api.create.call_args.kwargs["input"] == {
+        "images": {media._reference_string}
+    }
