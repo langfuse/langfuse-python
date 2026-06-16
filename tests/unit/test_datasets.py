@@ -133,6 +133,56 @@ def test_create_dataset_item_processes_media_before_api_call():
     )
 
 
+def test_create_dataset_item_roundtrips_resolved_media_reference():
+    # get_dataset(resolve_media_references=True) hydrates strings into
+    # LangfuseMediaReference instances. Feeding such an item back into
+    # create_dataset_item must re-emit the original reference string, otherwise
+    # the dataclass is serialized as an opaque dict and the media is orphaned.
+    reference_string = "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"
+    item = DatasetItem(
+        id="item-id",
+        status=DatasetStatus.ACTIVE,
+        input={"image": reference_string},
+        expected_output=None,
+        metadata=None,
+        dataset_id="dataset-id",
+        dataset_name="dataset-name",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        media_references=[
+            DatasetItemMediaReference(
+                field=DatasetItemMediaReferenceField.INPUT,
+                reference_string=reference_string,
+                json_path="$['image']",
+                media=DatasetItemMediaReferenceMedia(
+                    media_id="media-id",
+                    content_type="image/png",
+                    content_length=7,
+                    url="https://example.com/image.png",
+                    url_expiry="2026-06-15T12:00:00.000Z",
+                ),
+            )
+        ],
+    )
+
+    client = object.__new__(Langfuse)
+    hydrated = client._hydrate_dataset_item_media_references(item)
+    assert isinstance(hydrated.input["image"], LangfuseMediaReference)
+
+    media_manager = Mock()
+    dataset_items_api = Mock()
+    dataset_items_api.create.return_value = "created-item"
+    client._resources = SimpleNamespace(_media_manager=media_manager)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api)
+
+    client.create_dataset_item(dataset_name="dataset", input=hydrated.input)
+
+    assert dataset_items_api.create.call_args.kwargs["input"] == {
+        "image": reference_string
+    }
+    media_manager._upload_media_sync.assert_not_called()
+
+
 def test_create_dataset_item_processes_shared_media_subtrees():
     media = LangfuseMedia(content_bytes=b"payload", content_type="image/png")
     shared = {"image": media}

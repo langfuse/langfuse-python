@@ -3411,6 +3411,9 @@ class Langfuse:
                     media=data, uploaded_media_ids=uploaded_media_ids
                 )
 
+            if isinstance(data, LangfuseMediaReference):
+                return data.reference_string if data.reference_string else data
+
             if not isinstance(data, (list, dict)):
                 return data
 
@@ -3481,6 +3484,7 @@ class Langfuse:
                 url=media.url,
                 url_expiry=media.url_expiry,
                 content_length=media.content_length,
+                reference_string=media_reference.reference_string,
             )
             hydrated_fields[field] = self._replace_json_path_value(
                 value=hydrated_fields[field],

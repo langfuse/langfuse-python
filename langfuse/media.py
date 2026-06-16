@@ -29,6 +29,7 @@ class LangfuseMediaReference:
     url: str
     url_expiry: Optional[str] = None
     content_length: Optional[int] = None
+    reference_string: Optional[str] = None
 
     def url_is_expired(self) -> bool:
         """Return whether the signed URL is already expired."""
