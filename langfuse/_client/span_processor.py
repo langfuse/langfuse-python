@@ -33,10 +33,13 @@ from langfuse._client.propagation import (
     _get_langfuse_trace_id_from_baggage,
     _get_propagated_attributes_from_context,
 )
+from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
 from langfuse._client.utils import span_formatter
+from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
+from langfuse.types import MaskOtelSpansFunction
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -69,6 +72,8 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         span_exporter: Optional[SpanExporter] = None,
+        media_manager: Optional[MediaManager] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
     ):
         self.public_key = public_key
         self.blocked_instrumentation_scopes = (
@@ -82,14 +87,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         self._span_export_expectation_by_id: Dict[str, bool] = {}
 
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
-        flush_at = flush_at or int(env_flush_at) if env_flush_at is not None else None
+        if flush_at is None and env_flush_at is not None:
+            flush_at = int(env_flush_at)
 
         env_flush_interval = os.environ.get(LANGFUSE_FLUSH_INTERVAL, None)
-        flush_interval = (
-            flush_interval or float(env_flush_interval)
-            if env_flush_interval is not None
-            else None
-        )
+        if flush_interval is None and env_flush_interval is not None:
+            flush_interval = float(env_flush_interval)
 
         if span_exporter is None:
             basic_auth_header = "Basic " + base64.b64encode(
@@ -119,6 +122,13 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
+            )
+
+        if media_manager is not None or mask_otel_spans is not None:
+            span_exporter = LangfuseTransformingSpanExporter(
+                exporter=span_exporter,
+                media_manager=media_manager,
+                mask_otel_spans=mask_otel_spans,
             )
 
         super().__init__(

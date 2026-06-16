@@ -219,7 +219,11 @@ jobs:
           uv run --frozen python --version
           mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
           set +e
-          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "not serial_e2e"
+          uv run --frozen pytest \
+            -n 4 --dist worksteal \
+            -s -v --log-cli-level=INFO \
+            --timeout=180 --timeout-method=thread --durations=20 \
+            "${e2e_files[@]}" -m "not serial_e2e"
           status=$?
           set -e
           if [ "$status" -eq 5 ]; then
@@ -233,7 +237,10 @@ jobs:
         run: |
           mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
           set +e
-          uv run --frozen pytest -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "serial_e2e"
+          uv run --frozen pytest \
+            -s -v --log-cli-level=INFO \
+            --timeout=180 --timeout-method=thread --durations=20 \
+            "${e2e_files[@]}" -m "serial_e2e"
           status=$?
           set -e
           if [ "$status" -eq 5 ]; then
@@ -246,7 +253,11 @@ jobs:
         if: ${{ matrix.suite == 'live_provider' }}
         run: |
           uv run --frozen python --version
-          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO tests/live_provider -m "live_provider"
+          uv run --frozen pytest \
+            -n 4 --dist worksteal \
+            -s -v --log-cli-level=INFO \
+            --timeout=180 --timeout-method=thread --durations=20 \
+            tests/live_provider -m "live_provider"
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix
