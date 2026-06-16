@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
 # Test data
@@ -107,12 +108,19 @@ def test_nonexistent_file():
     assert media._content_type is None
 
 
-def test_media_reference_fetch_uses_timeout(monkeypatch):
+def test_media_reference_fetch_uses_configured_httpx_client(monkeypatch):
     response = Mock()
     response.content = b"test-bytes"
     response.raise_for_status.return_value = None
-    httpx_get = Mock(return_value=response)
+    configured_httpx_client = Mock()
+    configured_httpx_client.get.return_value = response
+    httpx_get = Mock()
     monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+    monkeypatch.setattr(
+        LangfuseResourceManager,
+        "_instances",
+        {"pk-test": SimpleNamespace(httpx_client=configured_httpx_client)},
+    )
 
     reference = LangfuseMediaReference(
         media_id="media-id",
@@ -121,7 +129,10 @@ def test_media_reference_fetch_uses_timeout(monkeypatch):
     )
 
     assert reference.fetch_bytes(timeout=12.5) == b"test-bytes"
-    httpx_get.assert_called_once_with("https://example.com/test.jpg", timeout=12.5)
+    configured_httpx_client.get.assert_called_once_with(
+        "https://example.com/test.jpg", timeout=12.5
+    )
+    httpx_get.assert_not_called()
 
 
 def test_resolve_media_references_uses_configured_httpx_client():

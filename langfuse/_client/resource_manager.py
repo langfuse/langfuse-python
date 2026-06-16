@@ -79,6 +79,16 @@ class LangfuseResourceManager:
     _instances: Dict[str, "LangfuseResourceManager"] = {}
     _lock = threading.RLock()
 
+    @classmethod
+    def get_singleton_httpx_client(cls) -> Optional[httpx.Client]:
+        with cls._lock:
+            instances = list(cls._instances.values())
+
+            if len(instances) != 1:
+                return None
+
+            return instances[0].httpx_client
+
     def __new__(
         cls,
         *,

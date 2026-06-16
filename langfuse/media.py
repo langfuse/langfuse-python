@@ -49,7 +49,14 @@ class LangfuseMediaReference:
 
     def fetch_bytes(self, *, timeout: float = 30.0) -> bytes:
         """Fetch the media content from the signed URL."""
-        response = httpx.get(self.url, timeout=timeout)
+        from langfuse._client.resource_manager import LangfuseResourceManager
+
+        httpx_client = LangfuseResourceManager.get_singleton_httpx_client()
+        response = (
+            httpx_client.get(self.url, timeout=timeout)
+            if httpx_client is not None
+            else httpx.get(self.url, timeout=timeout)
+        )
         response.raise_for_status()
 
         return response.content

@@ -3339,12 +3339,13 @@ class Langfuse:
         if self._resources is None:
             return data
 
-        seen = set()
         max_levels = 10
 
-        def _process_data_recursively(data: Any, level: int) -> Any:
-            # Avoid jsonpath-ng here: create_dataset_item should not fail under
-            # python -OO for users who are not resolving media references.
+        def _process_data_recursively(
+            data: Any, level: int, ancestor_container_ids: set[int]
+        ) -> Any:
+            # Avoid jsonpath-ng here: dataset writes should keep working
+            # under python -OO where parser docstrings may be stripped.
             if isinstance(data, LangfuseMedia):
                 return self._upload_dataset_item_media(
                     media=data, uploaded_media_ids=uploaded_media_ids
@@ -3353,20 +3354,30 @@ class Langfuse:
             if not isinstance(data, (list, dict)):
                 return data
 
-            if id(data) in seen or level > max_levels:
+            # Container ids only protect against recursive cycles; media upload
+            # dedupe is handled by uploaded_media_ids.
+            data_id = id(data)
+            if data_id in ancestor_container_ids or level > max_levels:
                 return data
 
-            seen.add(id(data))
+            next_ancestor_container_ids = ancestor_container_ids | {data_id}
 
             if isinstance(data, list):
-                return [_process_data_recursively(item, level + 1) for item in data]
+                return [
+                    _process_data_recursively(
+                        item, level + 1, next_ancestor_container_ids
+                    )
+                    for item in data
+                ]
 
             return {
-                key: _process_data_recursively(value, level + 1)
+                key: _process_data_recursively(
+                    value, level + 1, next_ancestor_container_ids
+                )
                 for key, value in data.items()
             }
 
-        return _process_data_recursively(data, 1)
+        return _process_data_recursively(data, 1, set())
 
     def _upload_dataset_item_media(
         self, *, media: LangfuseMedia, uploaded_media_ids: set[str]
@@ -3428,9 +3439,6 @@ class Langfuse:
     def _replace_json_path_value(
         self, *, value: Any, json_path: str, replacement: LangfuseMediaReference
     ) -> Any:
-        if json_path == "$":
-            return replacement
-
         try:
             value = parse_jsonpath(json_path).update(value, replacement)
         except Exception as e:
