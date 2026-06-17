@@ -3415,7 +3415,9 @@ class Langfuse:
             if isinstance(data, LangfuseMediaReference):
                 return data.reference_string if data.reference_string else data
 
-            if not isinstance(data, (list, tuple, set, frozenset, dict)):
+            # Tuples are intentionally excluded: namedtuple subclasses can't be
+            # rebuilt from an iterable, so media inside them is left untouched.
+            if not isinstance(data, (list, set, frozenset, dict)):
                 return data
 
             # Container ids only protect against recursive cycles; media upload
@@ -3426,7 +3428,7 @@ class Langfuse:
 
             next_ancestor_container_ids = ancestor_container_ids | {data_id}
 
-            if isinstance(data, (list, tuple, set, frozenset)):
+            if isinstance(data, (list, set, frozenset)):
                 processed = (
                     _process_data_recursively(
                         item, level + 1, next_ancestor_container_ids
