@@ -48,11 +48,23 @@ class LangfuseMediaReference:
 
         return expiry_datetime <= datetime.now(timezone.utc)
 
-    def fetch_bytes(self, *, timeout: float = 30.0) -> bytes:
-        """Fetch the media content from the signed URL."""
+    def fetch_bytes(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> bytes:
+        """Fetch the media content from the signed URL.
+
+        Args:
+            timeout: Request timeout in seconds.
+            client: Optional httpx client to use for the request. Pass this to
+                honor custom transport settings (proxy, CA bundle, mTLS) — in
+                particular when multiple Langfuse clients are configured, since
+                the SDK cannot otherwise tell which client produced this
+                reference. When omitted, the single configured client is used,
+                falling back to a default httpx client.
+        """
         from langfuse._client.resource_manager import LangfuseResourceManager
 
-        httpx_client = LangfuseResourceManager.get_singleton_httpx_client()
+        httpx_client = client or LangfuseResourceManager.get_singleton_httpx_client()
         response = (
             httpx_client.get(self.url, timeout=timeout)
             if httpx_client is not None
@@ -62,13 +74,25 @@ class LangfuseMediaReference:
 
         return response.content
 
-    def fetch_base64(self, *, timeout: float = 30.0) -> str:
-        """Fetch media and return raw base64 without a data URI prefix."""
-        return base64.b64encode(self.fetch_bytes(timeout=timeout)).decode()
+    def fetch_base64(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> str:
+        """Fetch media and return raw base64 without a data URI prefix.
 
-    def fetch_data_uri(self, *, timeout: float = 30.0) -> str:
-        """Fetch media and return it as a data URI."""
-        return f"data:{self.content_type};base64,{self.fetch_base64(timeout=timeout)}"
+        See :meth:`fetch_bytes` for the ``client`` argument.
+        """
+        return base64.b64encode(
+            self.fetch_bytes(timeout=timeout, client=client)
+        ).decode()
+
+    def fetch_data_uri(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> str:
+        """Fetch media and return it as a data URI.
+
+        See :meth:`fetch_bytes` for the ``client`` argument.
+        """
+        return f"data:{self.content_type};base64,{self.fetch_base64(timeout=timeout, client=client)}"
 
 
 class LangfuseMedia:
