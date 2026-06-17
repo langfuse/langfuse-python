@@ -95,6 +95,7 @@ from langfuse.api import (
     CreateTextPromptRequest,
     Dataset,
     DatasetItem,
+    DatasetItemMediaReferenceField,
     DatasetRunWithItems,
     DatasetStatus,
     DeleteDatasetRunResponse,
@@ -3464,6 +3465,13 @@ class Langfuse:
         if not media_references:
             return item
 
+        # Map the API enum member to the snake_case model attribute so this keeps
+        # working regardless of the enum's wire value (e.g. "expectedOutput").
+        attr_by_field = {
+            DatasetItemMediaReferenceField.INPUT: "input",
+            DatasetItemMediaReferenceField.EXPECTED_OUTPUT: "expected_output",
+            DatasetItemMediaReferenceField.METADATA: "metadata",
+        }
         hydrated_fields = {
             "input": item.input,
             "expected_output": item.expected_output,
@@ -3475,8 +3483,8 @@ class Langfuse:
             if media is None:
                 continue
 
-            field = media_reference.field.value
-            if field not in hydrated_fields:
+            field = attr_by_field.get(media_reference.field)
+            if field is None:
                 continue
 
             replacement = LangfuseMediaReference(

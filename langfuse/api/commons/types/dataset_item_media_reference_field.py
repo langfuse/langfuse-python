@@ -9,7 +9,7 @@ T_Result = typing.TypeVar("T_Result")
 
 class DatasetItemMediaReferenceField(enum.StrEnum):
     INPUT = "input"
-    EXPECTED_OUTPUT = "expected_output"
+    EXPECTED_OUTPUT = "expectedOutput"
     METADATA = "metadata"
 
     def visit(
