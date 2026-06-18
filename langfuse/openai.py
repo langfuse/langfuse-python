@@ -17,6 +17,7 @@ The integration is fully interoperable with the `observe()` decorator and the lo
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
+import json
 import types
 from collections import defaultdict
 from dataclasses import dataclass
@@ -27,6 +28,7 @@ from typing import Any, Optional, cast
 from openai._types import NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
+from pydantic_core import to_jsonable_python
 from wrapt import wrap_function_wrapper
 
 from langfuse._client.get_client import get_client
@@ -217,7 +219,12 @@ def _serialize_openai_value(value: Any) -> Any:
                 value.model_dump(mode="json", warnings=False)
             )
         except Exception:
-            return _serialize_openai_value(value.model_dump(warnings=False))
+            try:
+                return _serialize_openai_value(
+                    json.loads(value.model_dump_json(warnings=False))
+                )
+            except Exception:
+                return _serialize_openai_value(value.model_dump(warnings=False))
 
     if isinstance(value, dict):
         return {
@@ -229,7 +236,10 @@ def _serialize_openai_value(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_serialize_openai_value(item) for item in value]
 
-    return value
+    try:
+        return to_jsonable_python(value)
+    except Exception:
+        return str(value)
 
 
 def _get_structured_output_metadata(metadata: Optional[Any], kwargs: Any) -> Any:
@@ -242,10 +252,12 @@ def _get_structured_output_metadata(metadata: Optional[Any], kwargs: Any) -> Any
             structured_output_metadata[key] = _serialize_openai_value(value)
 
     if not structured_output_metadata:
-        return metadata
+        return _serialize_openai_value(metadata)
 
     metadata_dict = (
-        metadata.model_dump() if isinstance(metadata, BaseModel) else metadata
+        _serialize_openai_value(metadata)
+        if isinstance(metadata, BaseModel)
+        else metadata
     )
 
     if metadata_dict is None:
@@ -286,6 +298,7 @@ class OpenAiArgsExtractor:
         **kwargs: Any,
     ) -> None:
         self.args = {}
+        self.metadata = metadata
         self.args["metadata"] = _get_structured_output_metadata(metadata, kwargs)
         self.args["name"] = name
         self.args["langfuse_public_key"] = langfuse_public_key
@@ -299,19 +312,15 @@ class OpenAiArgsExtractor:
         return {**self.args, **self.kwargs}
 
     def get_openai_args(self) -> Any:
+        openai_args = self.kwargs.copy()
+
         # If OpenAI model distillation is enabled, we need to add the metadata to the kwargs
         # https://platform.openai.com/docs/guides/distillation
-        if self.kwargs.get("store", False):
-            self.kwargs["metadata"] = (
-                {} if self.args.get("metadata", None) is None else self.args["metadata"]
-            )
+        if openai_args.get("store", False):
+            metadata = _serialize_openai_value(self.metadata)
+            openai_args["metadata"] = metadata if isinstance(metadata, dict) else {}
 
-            # OpenAI does not support non-string type values in metadata when using
-            # model distillation feature
-            for key in _STRUCTURED_OUTPUT_METADATA_FIELDS:
-                self.kwargs["metadata"].pop(key, None)
-
-        return self.kwargs
+        return openai_args
 
 
 def _langfuse_wrapper(func: Any) -> Any:
@@ -513,7 +522,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         and not isinstance(metadata, dict)
     ):
         if isinstance(metadata, BaseModel):
-            metadata = metadata.model_dump()
+            metadata = _serialize_openai_value(metadata)
         else:
             metadata = {}
 
