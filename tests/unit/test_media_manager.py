@@ -23,6 +23,8 @@ def _upload_job() -> dict:
         "content_sha256_hash": "sha256hash",
         "trace_id": "trace-id",
         "observation_id": None,
+        "dataset_id": None,
+        "dataset_item_id": None,
         "field": "input",
     }
 

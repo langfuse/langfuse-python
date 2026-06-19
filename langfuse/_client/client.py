@@ -3373,7 +3373,7 @@ class Langfuse:
             # reuse it for the create call below. The dataset id is invariant for
             # the call, so resolve it once here rather than per uploaded media.
             item_id = id if id is not None else str(uuid.uuid4())
-            dataset_id = self.api.datasets.get(dataset_name).id
+            dataset_id = self.api.datasets.get(self._url_encode(dataset_name)).id
 
             uploaded_media_ids: set[str] = set()
             input = self._process_dataset_item_media(
