@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import urllib.parse
+import uuid
 import warnings
 from datetime import datetime
 from hashlib import sha256
@@ -3367,15 +3368,32 @@ class Langfuse:
         try:
             langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
 
+            # Media uploads must reference the (dataset, item) they belong to, and
+            # the item need not exist yet — so settle on the item id up front and
+            # reuse it for the create call below.
+            item_id = id if id is not None else str(uuid.uuid4())
+
             uploaded_media_ids: set[str] = set()
             input = self._process_dataset_item_media(
-                data=input, uploaded_media_ids=uploaded_media_ids
+                data=input,
+                uploaded_media_ids=uploaded_media_ids,
+                dataset_name=dataset_name,
+                dataset_item_id=item_id,
+                field=DatasetItemMediaReferenceField.INPUT.value,
             )
             expected_output = self._process_dataset_item_media(
-                data=expected_output, uploaded_media_ids=uploaded_media_ids
+                data=expected_output,
+                uploaded_media_ids=uploaded_media_ids,
+                dataset_name=dataset_name,
+                dataset_item_id=item_id,
+                field=DatasetItemMediaReferenceField.EXPECTED_OUTPUT.value,
             )
             metadata = self._process_dataset_item_media(
-                data=metadata, uploaded_media_ids=uploaded_media_ids
+                data=metadata,
+                uploaded_media_ids=uploaded_media_ids,
+                dataset_name=dataset_name,
+                dataset_item_id=item_id,
+                field=DatasetItemMediaReferenceField.METADATA.value,
             )
 
             result = self.api.dataset_items.create(
@@ -3386,7 +3404,7 @@ class Langfuse:
                 source_trace_id=source_trace_id,
                 source_observation_id=source_observation_id,
                 status=status,
-                id=id,
+                id=item_id,
             )
 
             return cast(DatasetItem, result)
@@ -3395,7 +3413,13 @@ class Langfuse:
             raise e
 
     def _process_dataset_item_media(
-        self, *, data: Any, uploaded_media_ids: set[str]
+        self,
+        *,
+        data: Any,
+        uploaded_media_ids: set[str],
+        dataset_name: str,
+        dataset_item_id: str,
+        field: str,
     ) -> Any:
         if self._resources is None:
             return data
@@ -3409,7 +3433,11 @@ class Langfuse:
             # under python -OO where parser docstrings may be stripped.
             if isinstance(data, LangfuseMedia):
                 return self._upload_dataset_item_media(
-                    media=data, uploaded_media_ids=uploaded_media_ids
+                    media=data,
+                    uploaded_media_ids=uploaded_media_ids,
+                    dataset_name=dataset_name,
+                    dataset_item_id=dataset_item_id,
+                    field=field,
                 )
 
             if isinstance(data, LangfuseMediaReference):
@@ -3447,7 +3475,13 @@ class Langfuse:
         return _process_data_recursively(data, 1, set())
 
     def _upload_dataset_item_media(
-        self, *, media: LangfuseMedia, uploaded_media_ids: set[str]
+        self,
+        *,
+        media: LangfuseMedia,
+        uploaded_media_ids: set[str],
+        dataset_name: str,
+        dataset_item_id: str,
+        field: str,
     ) -> str:
         reference_string = media._reference_string
         media_id = media._media_id
@@ -3457,7 +3491,12 @@ class Langfuse:
 
         if media_id not in uploaded_media_ids:
             assert self._resources is not None
-            self._resources._media_manager._upload_media_sync(media=media)
+            self._resources._media_manager._upload_media_sync(
+                media=media,
+                dataset_id=self.api.datasets.get(dataset_name).id,
+                dataset_item_id=dataset_item_id,
+                field=field,
+            )
             uploaded_media_ids.add(media_id)
 
         return reference_string

@@ -14,14 +14,28 @@ class GetMediaUploadUrlRequest(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="traceId")
     ] = pydantic.Field(default=None)
     """
-    The trace ID associated with the media record. If null, the media record is not associated with a trace, e.g. when uploading media for dataset items.
+    The trace the media is associated with. Null for dataset item media uploads.
     """
 
     observation_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="observationId")
     ] = pydantic.Field(default=None)
     """
-    The observation ID associated with the media record. If provided, traceId must be provided as well. If the media record is associated directly with a trace, this will be null.
+    The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
+    """
+
+    dataset_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="datasetId")
+    ] = pydantic.Field(default=None)
+    """
+    The dataset the media belongs to. Null for trace/observation media uploads.
+    """
+
+    dataset_item_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="datasetItemId")
+    ] = pydantic.Field(default=None)
+    """
+    The dataset item the media is associated with (need not exist yet). Null for trace/observation media uploads.
     """
 
     content_type: typing_extensions.Annotated[
@@ -43,7 +57,7 @@ class GetMediaUploadUrlRequest(UniversalBaseModel):
 
     field: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`. Required if traceId is provided, ignored otherwise.
+    The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

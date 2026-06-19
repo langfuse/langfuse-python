@@ -9,4 +9,6 @@ class UploadMediaJob(TypedDict):
     content_sha256_hash: str
     trace_id: Optional[str]
     observation_id: Optional[str]
+    dataset_id: Optional[str]
+    dataset_item_id: Optional[str]
     field: Optional[str]

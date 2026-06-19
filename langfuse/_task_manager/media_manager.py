@@ -263,6 +263,8 @@ class MediaManager:
                 content_sha256_hash=media._content_sha256_hash,
                 trace_id=trace_id,
                 observation_id=observation_id,
+                dataset_id=None,
+                dataset_item_id=None,
                 field=field,
             )
 
@@ -284,7 +286,14 @@ class MediaManager:
                 f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
 
-    def _upload_media_sync(self, *, media: LangfuseMedia) -> None:
+    def _upload_media_sync(
+        self,
+        *,
+        media: LangfuseMedia,
+        dataset_id: Optional[str] = None,
+        dataset_item_id: Optional[str] = None,
+        field: Optional[str] = None,
+    ) -> None:
         if not self._enabled:
             raise ValueError("Cannot upload LangfuseMedia while media upload is disabled.")
 
@@ -307,7 +316,9 @@ class MediaManager:
             content_sha256_hash=media._content_sha256_hash,
             trace_id=None,
             observation_id=None,
-            field=None,
+            dataset_id=dataset_id,
+            dataset_item_id=dataset_item_id,
+            field=field,
         )
 
         self._process_upload_media_job(data=upload_media_job)
@@ -322,9 +333,11 @@ class MediaManager:
             content_length=data["content_length"],
             content_type=cast(MediaContentType, data["content_type"]),
             sha256hash=data["content_sha256_hash"],
-            field=data["field"],
             trace_id=data["trace_id"],
             observation_id=data["observation_id"],
+            dataset_id=data["dataset_id"],
+            dataset_item_id=data["dataset_item_id"],
+            field=data["field"],
         )
 
         upload_url = upload_url_response.upload_url

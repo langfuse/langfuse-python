@@ -256,6 +256,8 @@ class RawMediaClient:
         sha256hash: str,
         trace_id: typing.Optional[str] = OMIT,
         observation_id: typing.Optional[str] = OMIT,
+        dataset_id: typing.Optional[str] = OMIT,
+        dataset_item_id: typing.Optional[str] = OMIT,
         field: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetMediaUploadUrlResponse]:
@@ -273,13 +275,19 @@ class RawMediaClient:
             The SHA-256 hash of the media record
 
         trace_id : typing.Optional[str]
-            The trace ID associated with the media record. If null, the media record is not associated with a trace, e.g. when uploading media for dataset items.
+            The trace the media is associated with. Null for dataset item media uploads.
 
         observation_id : typing.Optional[str]
-            The observation ID associated with the media record. If provided, traceId must be provided as well. If the media record is associated directly with a trace, this will be null.
+            The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
+
+        dataset_id : typing.Optional[str]
+            The dataset the media belongs to. Null for trace/observation media uploads.
+
+        dataset_item_id : typing.Optional[str]
+            The dataset item the media is associated with (need not exist yet). Null for trace/observation media uploads.
 
         field : typing.Optional[str]
-            The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`. Required if traceId is provided, ignored otherwise.
+            The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -294,6 +302,8 @@ class RawMediaClient:
             json={
                 "traceId": trace_id,
                 "observationId": observation_id,
+                "datasetId": dataset_id,
+                "datasetItemId": dataset_item_id,
                 "contentType": content_type,
                 "contentLength": content_length,
                 "sha256Hash": sha256hash,
@@ -614,6 +624,8 @@ class AsyncRawMediaClient:
         sha256hash: str,
         trace_id: typing.Optional[str] = OMIT,
         observation_id: typing.Optional[str] = OMIT,
+        dataset_id: typing.Optional[str] = OMIT,
+        dataset_item_id: typing.Optional[str] = OMIT,
         field: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetMediaUploadUrlResponse]:
@@ -631,13 +643,19 @@ class AsyncRawMediaClient:
             The SHA-256 hash of the media record
 
         trace_id : typing.Optional[str]
-            The trace ID associated with the media record. If null, the media record is not associated with a trace, e.g. when uploading media for dataset items.
+            The trace the media is associated with. Null for dataset item media uploads.
 
         observation_id : typing.Optional[str]
-            The observation ID associated with the media record. If provided, traceId must be provided as well. If the media record is associated directly with a trace, this will be null.
+            The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
+
+        dataset_id : typing.Optional[str]
+            The dataset the media belongs to. Null for trace/observation media uploads.
+
+        dataset_item_id : typing.Optional[str]
+            The dataset item the media is associated with (need not exist yet). Null for trace/observation media uploads.
 
         field : typing.Optional[str]
-            The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`. Required if traceId is provided, ignored otherwise.
+            The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -652,6 +670,8 @@ class AsyncRawMediaClient:
             json={
                 "traceId": trace_id,
                 "observationId": observation_id,
+                "datasetId": dataset_id,
+                "datasetItemId": dataset_item_id,
                 "contentType": content_type,
                 "contentLength": content_length,
                 "sha256Hash": sha256hash,

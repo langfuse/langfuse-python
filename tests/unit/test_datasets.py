@@ -101,10 +101,12 @@ def test_create_dataset_item_processes_media_before_api_call():
     media_manager = Mock()
     dataset_items_api = Mock()
     dataset_items_api.create.return_value = "created-item"
+    datasets_api = Mock()
+    datasets_api.get.return_value = SimpleNamespace(id="dataset-id")
 
     client = object.__new__(Langfuse)
     client._resources = SimpleNamespace(_media_manager=media_manager)
-    client.api = SimpleNamespace(dataset_items=dataset_items_api)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api, datasets=datasets_api)
     input_data = {"image": media}
     metadata = {"items": [media], "keep": "value"}
 
@@ -113,13 +115,23 @@ def test_create_dataset_item_processes_media_before_api_call():
         input=input_data,
         expected_output=root_media,
         metadata=metadata,
+        id="item-id",
     )
 
     assert result == "created-item"
     assert input_data == {"image": media}
     assert metadata == {"items": [media], "keep": "value"}
-    media_manager._upload_media_sync.assert_any_call(media=media)
-    media_manager._upload_media_sync.assert_any_call(media=root_media)
+    # Each upload carries the dataset id (resolved from the name) plus the item
+    # id and the field the media lives in.
+    media_manager._upload_media_sync.assert_any_call(
+        media=media, dataset_id="dataset-id", dataset_item_id="item-id", field="input"
+    )
+    media_manager._upload_media_sync.assert_any_call(
+        media=root_media,
+        dataset_id="dataset-id",
+        dataset_item_id="item-id",
+        field="expectedOutput",
+    )
     assert media_manager._upload_media_sync.call_count == 2
     dataset_items_api.create.assert_called_once_with(
         dataset_name="dataset",
@@ -129,7 +141,7 @@ def test_create_dataset_item_processes_media_before_api_call():
         source_trace_id=None,
         source_observation_id=None,
         status=None,
-        id=None,
+        id="item-id",
     )
 
 
@@ -190,18 +202,23 @@ def test_create_dataset_item_processes_shared_media_subtrees():
     media_manager = Mock()
     dataset_items_api = Mock()
     dataset_items_api.create.return_value = "created-item"
+    datasets_api = Mock()
+    datasets_api.get.return_value = SimpleNamespace(id="dataset-id")
 
     client = object.__new__(Langfuse)
     client._resources = SimpleNamespace(_media_manager=media_manager)
-    client.api = SimpleNamespace(dataset_items=dataset_items_api)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api, datasets=datasets_api)
 
     client.create_dataset_item(
         dataset_name="dataset",
         input={"a": shared, "b": shared},
+        id="item-id",
     )
 
     assert shared == {"image": media}
-    media_manager._upload_media_sync.assert_called_once_with(media=media)
+    media_manager._upload_media_sync.assert_called_once_with(
+        media=media, dataset_id="dataset-id", dataset_item_id="item-id", field="input"
+    )
     assert dataset_items_api.create.call_args.kwargs["input"] == {
         "a": {"image": media._reference_string},
         "b": {"image": media._reference_string},
@@ -214,14 +231,20 @@ def test_create_dataset_item_processes_media_in_sets():
     media_manager = Mock()
     dataset_items_api = Mock()
     dataset_items_api.create.return_value = "created-item"
+    datasets_api = Mock()
+    datasets_api.get.return_value = SimpleNamespace(id="dataset-id")
 
     client = object.__new__(Langfuse)
     client._resources = SimpleNamespace(_media_manager=media_manager)
-    client.api = SimpleNamespace(dataset_items=dataset_items_api)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api, datasets=datasets_api)
 
-    client.create_dataset_item(dataset_name="dataset", input={"images": {media}})
+    client.create_dataset_item(
+        dataset_name="dataset", input={"images": {media}}, id="item-id"
+    )
 
-    media_manager._upload_media_sync.assert_called_once_with(media=media)
+    media_manager._upload_media_sync.assert_called_once_with(
+        media=media, dataset_id="dataset-id", dataset_item_id="item-id", field="input"
+    )
     assert dataset_items_api.create.call_args.kwargs["input"] == {
         "images": {media._reference_string}
     }
