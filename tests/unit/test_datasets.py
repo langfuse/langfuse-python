@@ -253,3 +253,25 @@ def test_create_dataset_item_processes_media_in_sets():
     assert dataset_items_api.create.call_args.kwargs["input"] == {
         "images": {media._reference_string}
     }
+
+
+def test_create_dataset_item_skips_dataset_lookup_without_media():
+    media_manager = Mock()
+    dataset_items_api = Mock()
+    dataset_items_api.create.return_value = "created-item"
+    datasets_api = Mock()
+
+    client = object.__new__(Langfuse)
+    client._resources = SimpleNamespace(_media_manager=media_manager)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api, datasets=datasets_api)
+
+    client.create_dataset_item(
+        dataset_name="dataset",
+        input={"question": "no media here"},
+        expected_output="plain text",
+        metadata={"k": "v"},
+    )
+
+    # No media to upload, so the dataset id is never looked up.
+    datasets_api.get.assert_not_called()
+    media_manager._upload_media_sync.assert_not_called()

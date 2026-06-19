@@ -20,6 +20,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     Type,
     Union,
     cast,
@@ -3370,33 +3371,42 @@ class Langfuse:
 
             # Media uploads must reference the (dataset, item) they belong to, and
             # the item need not exist yet — so settle on the item id up front and
-            # reuse it for the create call below. The dataset id is invariant for
-            # the call, so resolve it once here rather than per uploaded media.
+            # reuse it for the create call below.
             item_id = id if id is not None else str(uuid.uuid4())
-            dataset_id = self.api.datasets.get(self._url_encode(dataset_name)).id
 
-            uploaded_media_ids: set[str] = set()
+            # Single pass per field: swap each LangfuseMedia for its reference
+            # string (derived from content, not the upload) and collect the media
+            # still to upload, deduped by media id and tagged with its field.
+            pending_media: Dict[str, Tuple[LangfuseMedia, str]] = {}
             input = self._process_dataset_item_media(
                 data=input,
-                uploaded_media_ids=uploaded_media_ids,
-                dataset_id=dataset_id,
-                dataset_item_id=item_id,
+                pending_media=pending_media,
                 field=DatasetItemMediaReferenceField.INPUT.value,
             )
             expected_output = self._process_dataset_item_media(
                 data=expected_output,
-                uploaded_media_ids=uploaded_media_ids,
-                dataset_id=dataset_id,
-                dataset_item_id=item_id,
+                pending_media=pending_media,
                 field=DatasetItemMediaReferenceField.EXPECTED_OUTPUT.value,
             )
             metadata = self._process_dataset_item_media(
                 data=metadata,
-                uploaded_media_ids=uploaded_media_ids,
-                dataset_id=dataset_id,
-                dataset_item_id=item_id,
+                pending_media=pending_media,
                 field=DatasetItemMediaReferenceField.METADATA.value,
             )
+
+            # The upload needs the dataset id, but the create API only takes the
+            # name. Resolve it once, and only when there is actually media to
+            # upload — a plain item pays no extra datasets.get round-trip.
+            if pending_media:
+                assert self._resources is not None
+                dataset_id = self.api.datasets.get(self._url_encode(dataset_name)).id
+                for media, field in pending_media.values():
+                    self._resources._media_manager._upload_media_sync(
+                        media=media,
+                        dataset_id=dataset_id,
+                        dataset_item_id=item_id,
+                        field=field,
+                    )
 
             result = self.api.dataset_items.create(
                 dataset_name=dataset_name,
@@ -3418,11 +3428,15 @@ class Langfuse:
         self,
         *,
         data: Any,
-        uploaded_media_ids: set[str],
-        dataset_id: str,
-        dataset_item_id: str,
+        pending_media: Dict[str, Tuple[LangfuseMedia, str]],
         field: str,
     ) -> Any:
+        """Swap each ``LangfuseMedia`` for its reference string in ``data``.
+
+        Each replaced media is recorded in ``pending_media`` (keyed by media id,
+        so the same media across fields uploads once) for the caller to upload
+        after the dataset id has been resolved.
+        """
         if self._resources is None:
             return data
 
@@ -3434,13 +3448,15 @@ class Langfuse:
             # Avoid jsonpath-ng here: dataset writes should keep working
             # under python -OO where parser docstrings may be stripped.
             if isinstance(data, LangfuseMedia):
-                return self._upload_dataset_item_media(
-                    media=data,
-                    uploaded_media_ids=uploaded_media_ids,
-                    dataset_id=dataset_id,
-                    dataset_item_id=dataset_item_id,
-                    field=field,
-                )
+                reference_string = data._reference_string
+                media_id = data._media_id
+                if reference_string is None or media_id is None:
+                    raise ValueError(
+                        "Cannot create dataset item with invalid LangfuseMedia."
+                    )
+                # First field a media appears in wins; later duplicates dedupe.
+                pending_media.setdefault(media_id, (data, field))
+                return reference_string
 
             if isinstance(data, LangfuseMediaReference):
                 return data.reference_string if data.reference_string else data
@@ -3450,8 +3466,7 @@ class Langfuse:
             if not isinstance(data, (list, set, frozenset, dict)):
                 return data
 
-            # Container ids only protect against recursive cycles; media upload
-            # dedupe is handled by uploaded_media_ids.
+            # Container ids only protect against recursive cycles.
             data_id = id(data)
             if data_id in ancestor_container_ids or level > max_levels:
                 return data
@@ -3475,33 +3490,6 @@ class Langfuse:
             }
 
         return _process_data_recursively(data, 1, set())
-
-    def _upload_dataset_item_media(
-        self,
-        *,
-        media: LangfuseMedia,
-        uploaded_media_ids: set[str],
-        dataset_id: str,
-        dataset_item_id: str,
-        field: str,
-    ) -> str:
-        reference_string = media._reference_string
-        media_id = media._media_id
-
-        if reference_string is None or media_id is None:
-            raise ValueError("Cannot create dataset item with invalid LangfuseMedia.")
-
-        if media_id not in uploaded_media_ids:
-            assert self._resources is not None
-            self._resources._media_manager._upload_media_sync(
-                media=media,
-                dataset_id=dataset_id,
-                dataset_item_id=dataset_item_id,
-                field=field,
-            )
-            uploaded_media_ids.add(media_id)
-
-        return reference_string
 
     def _hydrate_dataset_item_media_references(self, item: DatasetItem) -> DatasetItem:
         media_references = item.media_references or []
