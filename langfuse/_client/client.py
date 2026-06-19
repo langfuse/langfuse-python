@@ -3370,28 +3370,30 @@ class Langfuse:
 
             # Media uploads must reference the (dataset, item) they belong to, and
             # the item need not exist yet — so settle on the item id up front and
-            # reuse it for the create call below.
+            # reuse it for the create call below. The dataset id is invariant for
+            # the call, so resolve it once here rather than per uploaded media.
             item_id = id if id is not None else str(uuid.uuid4())
+            dataset_id = self.api.datasets.get(dataset_name).id
 
             uploaded_media_ids: set[str] = set()
             input = self._process_dataset_item_media(
                 data=input,
                 uploaded_media_ids=uploaded_media_ids,
-                dataset_name=dataset_name,
+                dataset_id=dataset_id,
                 dataset_item_id=item_id,
                 field=DatasetItemMediaReferenceField.INPUT.value,
             )
             expected_output = self._process_dataset_item_media(
                 data=expected_output,
                 uploaded_media_ids=uploaded_media_ids,
-                dataset_name=dataset_name,
+                dataset_id=dataset_id,
                 dataset_item_id=item_id,
                 field=DatasetItemMediaReferenceField.EXPECTED_OUTPUT.value,
             )
             metadata = self._process_dataset_item_media(
                 data=metadata,
                 uploaded_media_ids=uploaded_media_ids,
-                dataset_name=dataset_name,
+                dataset_id=dataset_id,
                 dataset_item_id=item_id,
                 field=DatasetItemMediaReferenceField.METADATA.value,
             )
@@ -3417,7 +3419,7 @@ class Langfuse:
         *,
         data: Any,
         uploaded_media_ids: set[str],
-        dataset_name: str,
+        dataset_id: str,
         dataset_item_id: str,
         field: str,
     ) -> Any:
@@ -3435,7 +3437,7 @@ class Langfuse:
                 return self._upload_dataset_item_media(
                     media=data,
                     uploaded_media_ids=uploaded_media_ids,
-                    dataset_name=dataset_name,
+                    dataset_id=dataset_id,
                     dataset_item_id=dataset_item_id,
                     field=field,
                 )
@@ -3479,7 +3481,7 @@ class Langfuse:
         *,
         media: LangfuseMedia,
         uploaded_media_ids: set[str],
-        dataset_name: str,
+        dataset_id: str,
         dataset_item_id: str,
         field: str,
     ) -> str:
@@ -3493,7 +3495,7 @@ class Langfuse:
             assert self._resources is not None
             self._resources._media_manager._upload_media_sync(
                 media=media,
-                dataset_id=self.api.datasets.get(dataset_name).id,
+                dataset_id=dataset_id,
                 dataset_item_id=dataset_item_id,
                 field=field,
             )

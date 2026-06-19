@@ -133,6 +133,9 @@ def test_create_dataset_item_processes_media_before_api_call():
         field="expectedOutput",
     )
     assert media_manager._upload_media_sync.call_count == 2
+    # The dataset id is invariant for the call, so it is resolved exactly once
+    # regardless of how many distinct media the item carries.
+    datasets_api.get.assert_called_once_with("dataset")
     dataset_items_api.create.assert_called_once_with(
         dataset_name="dataset",
         input={"image": media._reference_string},
@@ -184,8 +187,10 @@ def test_create_dataset_item_roundtrips_resolved_media_reference():
     media_manager = Mock()
     dataset_items_api = Mock()
     dataset_items_api.create.return_value = "created-item"
+    datasets_api = Mock()
+    datasets_api.get.return_value = SimpleNamespace(id="dataset-id")
     client._resources = SimpleNamespace(_media_manager=media_manager)
-    client.api = SimpleNamespace(dataset_items=dataset_items_api)
+    client.api = SimpleNamespace(dataset_items=dataset_items_api, datasets=datasets_api)
 
     client.create_dataset_item(dataset_name="dataset", input=hydrated.input)
 
