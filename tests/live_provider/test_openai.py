@@ -1385,7 +1385,10 @@ def test_response_api_web_search(openai):
     assert len(generation.data) != 0
     generationData = generation.data[0]
     assert generationData.name == generation_name
-    assert generationData.input == "What was a positive news story from today?"
+    assert generationData.input == {
+        "input": "What was a positive news story from today?",
+        "tools": [{"type": "web_search_preview"}],
+    }
     assert generationData.type == "GENERATION"
     assert "gpt-4o" in generationData.model
     assert generationData.start_time is not None
@@ -1479,7 +1482,11 @@ def test_response_api_functions(openai):
     assert len(generation.data) != 0
     generationData = generation.data[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input == "What is the weather like in Boston today?"
+    assert generation.data[0].input == {
+        "input": "What is the weather like in Boston today?",
+        "tools": tools,
+        "tool_choice": "auto",
+    }
     assert generationData.type == "GENERATION"
     assert "gpt-4o" in generationData.model
     assert generationData.start_time is not None
