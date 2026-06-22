@@ -29,7 +29,6 @@ from typing import (
 
 import backoff
 import httpx
-from jsonpath_ng.ext import parse as parse_jsonpath  # type: ignore[import-untyped]
 from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -89,6 +88,7 @@ from langfuse._client.span import (
 from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
 from langfuse._utils import _get_timestamp
 from langfuse._utils.environment import get_common_release_envs
+from langfuse._utils.json_path import set_value_at_path
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import (
@@ -3537,14 +3537,14 @@ class Langfuse:
         self, *, value: Any, json_path: str, replacement: LangfuseMediaReference
     ) -> Any:
         try:
-            value = parse_jsonpath(json_path).update(value, replacement)
+            return set_value_at_path(value, json_path, replacement)
         except Exception as e:
             langfuse_logger.warning(
                 f"Failed to hydrate dataset media reference at JSONPath {json_path}",
                 exc_info=e,
             )
 
-        return value
+            return value
 
     def resolve_media_references(
         self,

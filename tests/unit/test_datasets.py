@@ -26,9 +26,7 @@ from langfuse.media import LangfuseMedia, LangfuseMediaReference
         ),
         (
             DatasetItemMediaReferenceField.INPUT,
-            {
-                "image": "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"
-            },
+            {"image": "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"},
             "$['image']",
             lambda item: isinstance(item.input["image"], LangfuseMediaReference),
         ),
@@ -36,19 +34,16 @@ from langfuse.media import LangfuseMedia, LangfuseMediaReference
             DatasetItemMediaReferenceField.EXPECTED_OUTPUT,
             ["@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"],
             "$[0]",
-            lambda item: isinstance(
-                item.expected_output[0], LangfuseMediaReference
-            ),
+            lambda item: isinstance(item.expected_output[0], LangfuseMediaReference),
         ),
         (
             DatasetItemMediaReferenceField.METADATA,
             {
                 "image'key": "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"
             },
-            r"$['image\'key']",
-            lambda item: isinstance(
-                item.metadata["image'key"], LangfuseMediaReference
-            ),
+            # jsonpath-plus does not escape the quote: key image'key -> $['image'key'].
+            "$['image'key']",
+            lambda item: isinstance(item.metadata["image'key"], LangfuseMediaReference),
         ),
     ],
 )
@@ -66,7 +61,9 @@ def test_hydrate_dataset_item_media_references_supports_json_path_cases(
         expected_output=field_value
         if field == DatasetItemMediaReferenceField.EXPECTED_OUTPUT
         else None,
-        metadata=field_value if field == DatasetItemMediaReferenceField.METADATA else None,
+        metadata=field_value
+        if field == DatasetItemMediaReferenceField.METADATA
+        else None,
         dataset_id="dataset-id",
         dataset_name="dataset-name",
         created_at=datetime.now(timezone.utc),
