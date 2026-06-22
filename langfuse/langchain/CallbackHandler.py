@@ -978,6 +978,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             observation_type = self._get_observation_type_from_serialized(
                 serialized, "tool", **kwargs
             )
+            tool_input = kwargs.get("inputs")
+            if tool_input is None:
+                tool_input = input_str
 
             parent_observation = self._get_parent_observation(parent_run_id)
             if isinstance(parent_observation, Langfuse):
@@ -985,7 +988,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     trace_context=self._trace_context,
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     as_type=observation_type,
-                    input=input_str,
+                    input=tool_input,
                     metadata=meta,
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
@@ -993,7 +996,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 span = parent_observation.start_observation(
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     as_type=observation_type,
-                    input=input_str,
+                    input=tool_input,
                     metadata=meta,
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
