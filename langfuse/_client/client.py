@@ -86,9 +86,8 @@ from langfuse._client.span import (
     LangfuseTool,
 )
 from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
-from langfuse._utils import _get_timestamp
+from langfuse._utils import _get_timestamp, json_path
 from langfuse._utils.environment import get_common_release_envs
-from langfuse._utils.json_path import set_value_at_path
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import (
@@ -3438,8 +3437,6 @@ class Langfuse:
         def _process_data_recursively(
             data: Any, level: int, ancestor_container_ids: set[int]
         ) -> Any:
-            # Avoid jsonpath-ng here: dataset writes should keep working
-            # under python -OO where parser docstrings may be stripped.
             if isinstance(data, LangfuseMedia):
                 reference_string = data._reference_string
                 media_id = data._media_id
@@ -3521,7 +3518,7 @@ class Langfuse:
             )
             hydrated_fields[field] = self._replace_json_path_value(
                 value=hydrated_fields[field],
-                json_path=media_reference.json_path,
+                path=media_reference.json_path,
                 replacement=replacement,
             )
 
@@ -3534,13 +3531,13 @@ class Langfuse:
         )
 
     def _replace_json_path_value(
-        self, *, value: Any, json_path: str, replacement: LangfuseMediaReference
+        self, *, value: Any, path: str, replacement: LangfuseMediaReference
     ) -> Any:
         try:
-            return set_value_at_path(value, json_path, replacement)
+            return json_path.set_value_at_path(value, path, replacement)
         except Exception as e:
             langfuse_logger.warning(
-                f"Failed to hydrate dataset media reference at JSONPath {json_path}",
+                f"Failed to hydrate dataset media reference at JSONPath {path}",
                 exc_info=e,
             )
 
