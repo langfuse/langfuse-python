@@ -1,5 +1,4 @@
 import base64
-from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -97,20 +96,11 @@ def test_parse_invalid_reference_string():
     [
         (None, False),
         ("not-a-date", False),
-        (
-            (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat(),
-            True,
-        ),
-        (
-            (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat(),
-            False,
-        ),
-        (
-            (datetime.now(timezone.utc) - timedelta(minutes=1))
-            .isoformat()
-            .replace("+00:00", "Z"),
-            True,
-        ),
+        # Fixed past/future timestamps so the test ids stay stable across xdist
+        # workers (a computed datetime.now() would differ per worker collection).
+        ("2000-01-01T00:00:00+00:00", True),
+        ("2999-01-01T00:00:00+00:00", False),
+        ("2000-01-01T00:00:00Z", True),  # "Z" suffix, in the past
     ],
 )
 def test_media_reference_is_url_expired(url_expiry, expected):
