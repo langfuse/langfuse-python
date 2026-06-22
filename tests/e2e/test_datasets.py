@@ -105,11 +105,8 @@ def test_create_and_get_dataset_item_with_media():
 
     assert created_item.input["image"].startswith("@@@langfuseMedia:")
 
-    raw_dataset = langfuse.get_dataset(name)
-    assert isinstance(raw_dataset.items[0].input["image"], str)
-
     resolved_dataset = wait_for_result(
-        lambda: langfuse.get_dataset(name, resolve_media_references=True),
+        lambda: langfuse.get_dataset(name),
         is_result_ready=lambda dataset: isinstance(
             dataset.items[0].input["image"], LangfuseMediaReference
         ),

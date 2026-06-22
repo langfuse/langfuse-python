@@ -103,11 +103,7 @@ class DatasetItemsClient:
         return _response.data
 
     def get(
-        self,
-        id: str,
-        *,
-        include_media_references: typing.Optional[bool] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
         """
         Get a dataset item
@@ -115,9 +111,6 @@ class DatasetItemsClient:
         Parameters
         ----------
         id : str
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -142,11 +135,7 @@ class DatasetItemsClient:
             id="id",
         )
         """
-        _response = self._raw_client.get(
-            id,
-            include_media_references=include_media_references,
-            request_options=request_options,
-        )
+        _response = self._raw_client.get(id, request_options=request_options)
         return _response.data
 
     def list(
@@ -156,7 +145,6 @@ class DatasetItemsClient:
         source_trace_id: typing.Optional[str] = None,
         source_observation_id: typing.Optional[str] = None,
         version: typing.Optional[dt.datetime] = None,
-        include_media_references: typing.Optional[bool] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -177,9 +165,6 @@ class DatasetItemsClient:
             ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
             If provided, returns state of dataset at this timestamp.
             If not provided, returns the latest version. Requires datasetName to be specified.
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         page : typing.Optional[int]
             page number, starts at 1
@@ -213,7 +198,6 @@ class DatasetItemsClient:
             source_trace_id=source_trace_id,
             source_observation_id=source_observation_id,
             version=version,
-            include_media_references=include_media_references,
             page=page,
             limit=limit,
             request_options=request_options,
@@ -353,11 +337,7 @@ class AsyncDatasetItemsClient:
         return _response.data
 
     async def get(
-        self,
-        id: str,
-        *,
-        include_media_references: typing.Optional[bool] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatasetItem:
         """
         Get a dataset item
@@ -365,9 +345,6 @@ class AsyncDatasetItemsClient:
         Parameters
         ----------
         id : str
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -400,11 +377,7 @@ class AsyncDatasetItemsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get(
-            id,
-            include_media_references=include_media_references,
-            request_options=request_options,
-        )
+        _response = await self._raw_client.get(id, request_options=request_options)
         return _response.data
 
     async def list(
@@ -414,7 +387,6 @@ class AsyncDatasetItemsClient:
         source_trace_id: typing.Optional[str] = None,
         source_observation_id: typing.Optional[str] = None,
         version: typing.Optional[dt.datetime] = None,
-        include_media_references: typing.Optional[bool] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -435,9 +407,6 @@ class AsyncDatasetItemsClient:
             ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
             If provided, returns state of dataset at this timestamp.
             If not provided, returns the latest version. Requires datasetName to be specified.
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         page : typing.Optional[int]
             page number, starts at 1
@@ -479,7 +448,6 @@ class AsyncDatasetItemsClient:
             source_trace_id=source_trace_id,
             source_observation_id=source_observation_id,
             version=version,
-            include_media_references=include_media_references,
             page=page,
             limit=limit,
             request_options=request_options,

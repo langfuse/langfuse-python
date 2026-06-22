@@ -54,11 +54,10 @@ class DatasetItem(UniversalBaseModel):
         dt.datetime, FieldMetadata(alias="updatedAt")
     ]
     media_references: typing_extensions.Annotated[
-        typing.Optional[typing.List[DatasetItemMediaReference]],
-        FieldMetadata(alias="mediaReferences"),
-    ] = pydantic.Field(default=None)
+        typing.List[DatasetItemMediaReference], FieldMetadata(alias="mediaReferences")
+    ] = pydantic.Field()
     """
-    Resolved Langfuse media references found in input, expectedOutput, and metadata. Only present when requested via includeMediaReferences.
+    Resolved Langfuse media references found in input, expectedOutput, and metadata.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

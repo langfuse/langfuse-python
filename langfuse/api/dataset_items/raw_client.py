@@ -167,11 +167,7 @@ class RawDatasetItemsClient:
         )
 
     def get(
-        self,
-        id: str,
-        *,
-        include_media_references: typing.Optional[bool] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DatasetItem]:
         """
         Get a dataset item
@@ -179,9 +175,6 @@ class RawDatasetItemsClient:
         Parameters
         ----------
         id : str
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -193,9 +186,6 @@ class RawDatasetItemsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/dataset-items/{jsonable_encoder(id)}",
             method="GET",
-            params={
-                "includeMediaReferences": include_media_references,
-            },
             request_options=request_options,
         )
         try:
@@ -283,7 +273,6 @@ class RawDatasetItemsClient:
         source_trace_id: typing.Optional[str] = None,
         source_observation_id: typing.Optional[str] = None,
         version: typing.Optional[dt.datetime] = None,
-        include_media_references: typing.Optional[bool] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -304,9 +293,6 @@ class RawDatasetItemsClient:
             ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
             If provided, returns state of dataset at this timestamp.
             If not provided, returns the latest version. Requires datasetName to be specified.
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         page : typing.Optional[int]
             page number, starts at 1
@@ -329,7 +315,6 @@ class RawDatasetItemsClient:
                 "sourceTraceId": source_trace_id,
                 "sourceObservationId": source_observation_id,
                 "version": serialize_datetime(version) if version is not None else None,
-                "includeMediaReferences": include_media_references,
                 "page": page,
                 "limit": limit,
             },
@@ -656,11 +641,7 @@ class AsyncRawDatasetItemsClient:
         )
 
     async def get(
-        self,
-        id: str,
-        *,
-        include_media_references: typing.Optional[bool] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DatasetItem]:
         """
         Get a dataset item
@@ -668,9 +649,6 @@ class AsyncRawDatasetItemsClient:
         Parameters
         ----------
         id : str
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -682,9 +660,6 @@ class AsyncRawDatasetItemsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/dataset-items/{jsonable_encoder(id)}",
             method="GET",
-            params={
-                "includeMediaReferences": include_media_references,
-            },
             request_options=request_options,
         )
         try:
@@ -772,7 +747,6 @@ class AsyncRawDatasetItemsClient:
         source_trace_id: typing.Optional[str] = None,
         source_observation_id: typing.Optional[str] = None,
         version: typing.Optional[dt.datetime] = None,
-        include_media_references: typing.Optional[bool] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -793,9 +767,6 @@ class AsyncRawDatasetItemsClient:
             ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
             If provided, returns state of dataset at this timestamp.
             If not provided, returns the latest version. Requires datasetName to be specified.
-
-        include_media_references : typing.Optional[bool]
-            If true, resolve Langfuse media references in input, expectedOutput, and metadata to signed download URLs and include them as mediaReferences. Defaults to false.
 
         page : typing.Optional[int]
             page number, starts at 1
@@ -818,7 +789,6 @@ class AsyncRawDatasetItemsClient:
                 "sourceTraceId": source_trace_id,
                 "sourceObservationId": source_observation_id,
                 "version": serialize_datetime(version) if version is not None else None,
-                "includeMediaReferences": include_media_references,
                 "page": page,
                 "limit": limit,
             },

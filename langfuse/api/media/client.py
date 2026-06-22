@@ -141,11 +141,11 @@ class MediaClient:
         content_type: MediaContentType,
         content_length: int,
         sha256hash: str,
+        field: str,
         trace_id: typing.Optional[str] = OMIT,
         observation_id: typing.Optional[str] = OMIT,
         dataset_id: typing.Optional[str] = OMIT,
         dataset_item_id: typing.Optional[str] = OMIT,
-        field: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetMediaUploadUrlResponse:
         """
@@ -161,6 +161,9 @@ class MediaClient:
         sha256hash : str
             The SHA-256 hash of the media record
 
+        field : str
+            The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
+
         trace_id : typing.Optional[str]
             The trace the media is associated with. Null for dataset item media uploads.
 
@@ -172,9 +175,6 @@ class MediaClient:
 
         dataset_item_id : typing.Optional[str]
             The dataset item the media is associated with (need not exist yet). Null for trace/observation media uploads.
-
-        field : typing.Optional[str]
-            The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -200,17 +200,18 @@ class MediaClient:
             content_type=MediaContentType.IMAGE_PNG,
             content_length=1,
             sha256hash="sha256Hash",
+            field="field",
         )
         """
         _response = self._raw_client.get_upload_url(
             content_type=content_type,
             content_length=content_length,
             sha256hash=sha256hash,
+            field=field,
             trace_id=trace_id,
             observation_id=observation_id,
             dataset_id=dataset_id,
             dataset_item_id=dataset_item_id,
-            field=field,
             request_options=request_options,
         )
         return _response.data
@@ -360,11 +361,11 @@ class AsyncMediaClient:
         content_type: MediaContentType,
         content_length: int,
         sha256hash: str,
+        field: str,
         trace_id: typing.Optional[str] = OMIT,
         observation_id: typing.Optional[str] = OMIT,
         dataset_id: typing.Optional[str] = OMIT,
         dataset_item_id: typing.Optional[str] = OMIT,
-        field: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetMediaUploadUrlResponse:
         """
@@ -380,6 +381,9 @@ class AsyncMediaClient:
         sha256hash : str
             The SHA-256 hash of the media record
 
+        field : str
+            The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
+
         trace_id : typing.Optional[str]
             The trace the media is associated with. Null for dataset item media uploads.
 
@@ -391,9 +395,6 @@ class AsyncMediaClient:
 
         dataset_item_id : typing.Optional[str]
             The dataset item the media is associated with (need not exist yet). Null for trace/observation media uploads.
-
-        field : typing.Optional[str]
-            The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -424,6 +425,7 @@ class AsyncMediaClient:
                 content_type=MediaContentType.IMAGE_PNG,
                 content_length=1,
                 sha256hash="sha256Hash",
+                field="field",
             )
 
 
@@ -433,11 +435,11 @@ class AsyncMediaClient:
             content_type=content_type,
             content_length=content_length,
             sha256hash=sha256hash,
+            field=field,
             trace_id=trace_id,
             observation_id=observation_id,
             dataset_id=dataset_id,
             dataset_item_id=dataset_item_id,
-            field=field,
             request_options=request_options,
         )
         return _response.data

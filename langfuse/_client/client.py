@@ -2326,7 +2326,6 @@ class Langfuse:
         *,
         fetch_items_page_size: Optional[int] = 50,
         version: Optional[datetime] = None,
-        resolve_media_references: bool = False,
     ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
@@ -2336,7 +2335,6 @@ class Langfuse:
             version: Retrieve dataset items as they existed at this specific point in time (UTC).
                 If provided, returns the state of items at the specified UTC timestamp.
                 If not provided, returns the latest version. Must be a timezone-aware datetime object in UTC.
-            resolve_media_references: If true, resolve media reference strings in dataset items to LangfuseMediaReference objects.
 
         Returns:
             DatasetClient: The dataset with the given name.
@@ -2354,15 +2352,10 @@ class Langfuse:
                     page=page,
                     limit=fetch_items_page_size,
                     version=version,
-                    include_media_references=resolve_media_references or None,
                 )
                 dataset_items.extend(
-                    [
-                        self._hydrate_dataset_item_media_references(item)
-                        for item in new_items.data
-                    ]
-                    if resolve_media_references
-                    else new_items.data
+                    self._hydrate_dataset_item_media_references(item)
+                    for item in new_items.data
                 )
 
                 if new_items.meta.total_pages <= page:

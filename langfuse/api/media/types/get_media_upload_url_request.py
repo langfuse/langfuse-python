@@ -10,6 +10,10 @@ from .media_content_type import MediaContentType
 
 
 class GetMediaUploadUrlRequest(UniversalBaseModel):
+    """
+    Request a presigned media upload URL. Provide exactly one context: a trace (traceId, optionally observationId) or a dataset item (datasetId + datasetItemId). field is required and must match the chosen context.
+    """
+
     trace_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="traceId")
     ] = pydantic.Field(default=None)
@@ -55,7 +59,7 @@ class GetMediaUploadUrlRequest(UniversalBaseModel):
     The SHA-256 hash of the media record
     """
 
-    field: typing.Optional[str] = pydantic.Field(default=None)
+    field: str = pydantic.Field()
     """
     The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
     """

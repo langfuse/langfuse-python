@@ -149,8 +149,8 @@ def test_create_dataset_item_processes_media_before_api_call():
 
 
 def test_create_dataset_item_roundtrips_resolved_media_reference():
-    # get_dataset(resolve_media_references=True) hydrates strings into
-    # LangfuseMediaReference instances. Feeding such an item back into
+    # get_dataset hydrates media reference strings into LangfuseMediaReference
+    # instances. Feeding such an item back into
     # create_dataset_item must re-emit the original reference string, otherwise
     # the dataclass is serialized as an opaque dict and the media is orphaned.
     reference_string = "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"
