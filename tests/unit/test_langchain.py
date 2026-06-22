@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from langchain.messages import HumanMessage
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
 from langchain_core.prompts import ChatPromptTemplate
@@ -789,6 +789,39 @@ def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
     assert _has_pending_resume_context(handler, "retriever-thread")
     assert _get_root_resume_key(handler, retriever_run_id) is None
     assert not _has_run_state(handler, retriever_run_id)
+
+
+def test_handled_tool_error_marks_observation_error(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    handler.on_tool_start(
+        {"name": "failing_tool"},
+        '{"query": "x"}',
+        run_id=run_id,
+    )
+    handler.on_tool_end(
+        ToolMessage(
+            content="handled failure",
+            tool_call_id="call_1",
+            status="error",
+        ),
+        run_id=run_id,
+    )
+
+    langfuse_memory_client.flush()
+    span = get_span("failing_tool")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+        == "handled failure"
+    )
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT)["status"] == (
+        "error"
+    )
 
 
 def test_pending_resume_contexts_are_capped(langfuse_memory_client, monkeypatch):

@@ -1091,7 +1091,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
     def on_tool_end(
         self,
-        output: str,
+        output: Any,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -1105,10 +1105,24 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if observation is not None:
                 if parent_run_id is None:
                     self._clear_root_run_resume_key(run_id)
-                observation.update(
-                    output=output,
-                    input=kwargs.get("inputs"),
-                ).end()
+
+                update_kwargs: Dict[str, Any] = {
+                    "output": output,
+                    "input": kwargs.get("inputs"),
+                }
+
+                if (
+                    isinstance(output, ToolMessage)
+                    and getattr(output, "status", None) == "error"
+                ):
+                    update_kwargs["level"] = "ERROR"
+                    update_kwargs["status_message"] = (
+                        output.content
+                        if isinstance(output.content, str)
+                        else str(output.content)
+                    )
+
+                observation.update(**update_kwargs).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
