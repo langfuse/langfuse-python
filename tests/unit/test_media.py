@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -89,6 +90,38 @@ def test_parse_invalid_reference_string():
         LangfuseMedia.parse_reference_string(
             "@@@langfuseMedia:type=image/jpeg@@@"
         )  # Missing fields
+
+
+@pytest.mark.parametrize(
+    ("url_expiry", "expected"),
+    [
+        (None, False),
+        ("not-a-date", False),
+        (
+            (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat(),
+            True,
+        ),
+        (
+            (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat(),
+            False,
+        ),
+        (
+            (datetime.now(timezone.utc) - timedelta(minutes=1))
+            .isoformat()
+            .replace("+00:00", "Z"),
+            True,
+        ),
+    ],
+)
+def test_media_reference_is_url_expired(url_expiry, expected):
+    reference = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/jpeg",
+        url="https://example.com/test.jpg",
+        url_expiry=url_expiry,
+    )
+
+    assert reference.is_url_expired() is expected
 
 
 def test_file_handling():
