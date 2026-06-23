@@ -962,6 +962,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
             )
 
+            structured_input = kwargs.get("inputs")
+            tool_input = structured_input if structured_input is not None else input_str
+
             meta = self._get_langchain_observation_metadata(
                 parent_run_id=parent_run_id,
                 tags=tags,
@@ -972,15 +975,16 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 meta = {}
 
             meta.update(
-                {key: value for key, value in kwargs.items() if value is not None}
+                {
+                    key: value
+                    for key, value in kwargs.items()
+                    if value is not None and key != "inputs"
+                }
             )
 
             observation_type = self._get_observation_type_from_serialized(
                 serialized, "tool", **kwargs
             )
-            tool_input = kwargs.get("inputs")
-            if tool_input is None:
-                tool_input = input_str
 
             parent_observation = self._get_parent_observation(parent_run_id)
             if isinstance(parent_observation, Langfuse):

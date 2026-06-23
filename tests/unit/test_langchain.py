@@ -818,6 +818,34 @@ def test_tool_start_prefers_structured_inputs_when_available(
     )
 
 
+def test_tool_when_structured_inputs_only_store_in_inputs_attribute_not_metadata(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    structured_inputs = {
+        "path": "/tmp/example.md",
+        "content": "this should be in inputs, not metadata",
+    }
+
+    handler.on_tool_start(
+        {"name": "write_document"},
+        str(structured_inputs),
+        run_id=run_id,
+        metadata={"custom_key": "custom_value"},
+        inputs=structured_inputs,
+    )
+    handler.on_tool_end("ok", run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("write_document")
+
+    metadata_prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+
+    assert span.attributes[f"{metadata_prefix}.custom_key"] == "custom_value"
+    assert f"{metadata_prefix}.inputs" not in span.attributes
+
+
 def test_handled_tool_error_marks_observation_error(
     langfuse_memory_client, get_span, json_attr
 ):
