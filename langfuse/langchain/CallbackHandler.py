@@ -978,6 +978,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             observation_type = self._get_observation_type_from_serialized(
                 serialized, "tool", **kwargs
             )
+            tool_input = kwargs.get("inputs")
+            if tool_input is None:
+                tool_input = input_str
 
             parent_observation = self._get_parent_observation(parent_run_id)
             if isinstance(parent_observation, Langfuse):
@@ -985,7 +988,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     trace_context=self._trace_context,
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     as_type=observation_type,
-                    input=input_str,
+                    input=tool_input,
                     metadata=meta,
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
@@ -993,7 +996,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 span = parent_observation.start_observation(
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     as_type=observation_type,
-                    input=input_str,
+                    input=tool_input,
                     metadata=meta,
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
@@ -1091,7 +1094,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
     def on_tool_end(
         self,
-        output: str,
+        output: Any,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -1105,10 +1108,24 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if observation is not None:
                 if parent_run_id is None:
                     self._clear_root_run_resume_key(run_id)
-                observation.update(
-                    output=output,
-                    input=kwargs.get("inputs"),
-                ).end()
+
+                update_kwargs: Dict[str, Any] = {
+                    "output": output,
+                    "input": kwargs.get("inputs"),
+                }
+
+                if (
+                    isinstance(output, ToolMessage)
+                    and getattr(output, "status", None) == "error"
+                ):
+                    update_kwargs["level"] = "ERROR"
+                    update_kwargs["status_message"] = (
+                        output.content
+                        if isinstance(output.content, str)
+                        else str(output.content)
+                    )
+
+                observation.update(**update_kwargs).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
