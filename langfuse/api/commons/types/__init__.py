@@ -19,6 +19,9 @@ if typing.TYPE_CHECKING:
     from .create_score_value import CreateScoreValue
     from .dataset import Dataset
     from .dataset_item import DatasetItem
+    from .dataset_item_media_reference import DatasetItemMediaReference
+    from .dataset_item_media_reference_field import DatasetItemMediaReferenceField
+    from .dataset_item_media_reference_media import DatasetItemMediaReferenceMedia
     from .dataset_run import DatasetRun
     from .dataset_run_item import DatasetRunItem
     from .dataset_run_with_items import DatasetRunWithItems
@@ -78,6 +81,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScoreValue": ".create_score_value",
     "Dataset": ".dataset",
     "DatasetItem": ".dataset_item",
+    "DatasetItemMediaReference": ".dataset_item_media_reference",
+    "DatasetItemMediaReferenceField": ".dataset_item_media_reference_field",
+    "DatasetItemMediaReferenceMedia": ".dataset_item_media_reference_media",
     "DatasetRun": ".dataset_run",
     "DatasetRunItem": ".dataset_run_item",
     "DatasetRunWithItems": ".dataset_run_with_items",
@@ -163,6 +169,9 @@ __all__ = [
     "CreateScoreValue",
     "Dataset",
     "DatasetItem",
+    "DatasetItemMediaReference",
+    "DatasetItemMediaReferenceField",
+    "DatasetItemMediaReferenceMedia",
     "DatasetRun",
     "DatasetRunItem",
     "DatasetRunWithItems",

@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-06-12T09:30:40.624403737Z"
+exclude-newer = "2026-06-16T10:02:31.722624305Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -554,7 +554,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "4.9.1"
+version = "4.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "backoff" },
