@@ -791,6 +791,33 @@ def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
     assert not _has_run_state(handler, retriever_run_id)
 
 
+def test_tool_start_prefers_structured_inputs_when_available(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    structured_inputs = {
+        "path": "/tmp/example.md",
+        "content": '# Title\n\nThis has "quotes" and JSON-like text: {"a": 1}',
+    }
+
+    handler.on_tool_start(
+        {"name": "write_document"},
+        str(structured_inputs),
+        run_id=run_id,
+        inputs=structured_inputs,
+    )
+    handler.on_tool_end("ok", run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("write_document")
+
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT)
+        == structured_inputs
+    )
+
+
 def test_handled_tool_error_marks_observation_error(
     langfuse_memory_client, get_span, json_attr
 ):
