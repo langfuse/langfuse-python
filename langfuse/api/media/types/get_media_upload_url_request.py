@@ -10,11 +10,15 @@ from .media_content_type import MediaContentType
 
 
 class GetMediaUploadUrlRequest(UniversalBaseModel):
-    trace_id: typing_extensions.Annotated[str, FieldMetadata(alias="traceId")] = (
-        pydantic.Field()
-    )
     """
-    The trace ID associated with the media record
+    Request a presigned media upload URL. Provide exactly one context: a trace (traceId, optionally observationId) or a dataset item (datasetId + datasetItemId). field is required and must match the chosen context.
+    """
+
+    trace_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="traceId")
+    ] = pydantic.Field(default=None)
+    """
+    The trace the media is associated with. Null for dataset item media uploads.
     """
 
     observation_id: typing_extensions.Annotated[
@@ -22,6 +26,20 @@ class GetMediaUploadUrlRequest(UniversalBaseModel):
     ] = pydantic.Field(default=None)
     """
     The observation ID associated with the media record. If the media record is associated directly with a trace, this will be null.
+    """
+
+    dataset_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="datasetId")
+    ] = pydantic.Field(default=None)
+    """
+    The dataset the media belongs to. Null for trace/observation media uploads.
+    """
+
+    dataset_item_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="datasetItemId")
+    ] = pydantic.Field(default=None)
+    """
+    The dataset item the media is associated with (need not exist yet). Null for trace/observation media uploads.
     """
 
     content_type: typing_extensions.Annotated[
@@ -43,7 +61,7 @@ class GetMediaUploadUrlRequest(UniversalBaseModel):
 
     field: str = pydantic.Field()
     """
-    The trace / observation field the media record is associated with. This can be one of `input`, `output`, `metadata`
+    The item field the media is in: `input`/`output`/`metadata` (trace) or `input`/`expectedOutput`/`metadata` (dataset item).
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
