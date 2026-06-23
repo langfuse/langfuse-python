@@ -3501,9 +3501,6 @@ class Langfuse:
 
         for media_reference in media_references:
             media = media_reference.media
-            if media is None:
-                continue
-
             field = attr_by_field.get(media_reference.field)
             if field is None:
                 continue

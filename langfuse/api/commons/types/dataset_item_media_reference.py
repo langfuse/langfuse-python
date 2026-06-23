@@ -30,11 +30,9 @@ class DatasetItemMediaReference(UniversalBaseModel):
     JSONPath of the string holding the reference within the field, e.g. `$['image']`
     """
 
-    media: typing.Optional[DatasetItemMediaReferenceMedia] = pydantic.Field(
-        default=None
-    )
+    media: DatasetItemMediaReferenceMedia = pydantic.Field()
     """
-    The resolved media record. Null if the referenced media does not exist or has not been uploaded successfully.
+    The resolved media record.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

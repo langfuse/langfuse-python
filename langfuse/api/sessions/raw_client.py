@@ -35,7 +35,12 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaginatedSessions]:
         """
-        Get sessions
+        Get sessions.
+
+        This legacy endpoint is not recommended for new data extraction workflows.
+        Use the v2 observations endpoint with a bounded time range and group rows by
+        `sessionId` instead:
+        `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`.
 
         Parameters
         ----------
@@ -162,7 +167,12 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SessionWithTraces]:
         """
-        Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
+        Get a session.
+
+        Please note that `traces` on this endpoint are not paginated. For large
+        sessions or new data extraction workflows, use the v2 observations endpoint
+        with a URL-encoded `sessionId` filter and a bounded time range:
+        `GET /api/public/v2/observations?filter=<sessionId filter>&fromStartTime=<from>&toStartTime=<to>`.
 
         Parameters
         ----------
@@ -275,7 +285,12 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaginatedSessions]:
         """
-        Get sessions
+        Get sessions.
+
+        This legacy endpoint is not recommended for new data extraction workflows.
+        Use the v2 observations endpoint with a bounded time range and group rows by
+        `sessionId` instead:
+        `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`.
 
         Parameters
         ----------
@@ -402,7 +417,12 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SessionWithTraces]:
         """
-        Get a session. Please note that `traces` on this endpoint are not paginated, if you plan to fetch large sessions, consider `GET /api/public/traces?sessionId=<sessionId>`
+        Get a session.
+
+        Please note that `traces` on this endpoint are not paginated. For large
+        sessions or new data extraction workflows, use the v2 observations endpoint
+        with a URL-encoded `sessionId` filter and a bounded time range:
+        `GET /api/public/v2/observations?filter=<sessionId filter>&fromStartTime=<from>&toStartTime=<to>`.
 
         Parameters
         ----------
