@@ -4,6 +4,8 @@ import base64
 import hashlib
 import os
 import re
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
 import httpx
@@ -16,6 +18,81 @@ if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
 
 T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class LangfuseMediaReference:
+    """Resolved reference to media stored in Langfuse."""
+
+    media_id: str
+    content_type: str
+    url: str
+    url_expiry: Optional[str] = None
+    content_length: Optional[int] = None
+    reference_string: Optional[str] = None
+
+    def is_url_expired(self) -> bool:
+        """Return whether the signed URL is already expired."""
+        if self.url_expiry is None:
+            return False
+
+        expiry = self.url_expiry.replace("Z", "+00:00")
+
+        try:
+            expiry_datetime = datetime.fromisoformat(expiry)
+        except ValueError:
+            return False
+
+        if expiry_datetime.tzinfo is None:
+            expiry_datetime = expiry_datetime.replace(tzinfo=timezone.utc)
+
+        return expiry_datetime <= datetime.now(timezone.utc)
+
+    def fetch_bytes(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> bytes:
+        """Fetch the media content from the signed URL.
+
+        Args:
+            timeout: Request timeout in seconds.
+            client: Optional httpx client to use for the request. Pass this to
+                honor custom transport settings (proxy, CA bundle, mTLS) — in
+                particular when multiple Langfuse clients are configured, since
+                the SDK cannot otherwise tell which client produced this
+                reference. When omitted, the single configured client is used,
+                falling back to a default httpx client.
+        """
+        from langfuse._client.resource_manager import LangfuseResourceManager
+
+        httpx_client = client or LangfuseResourceManager.get_singleton_httpx_client()
+        response = (
+            httpx_client.get(self.url, timeout=timeout)
+            if httpx_client is not None
+            else httpx.get(self.url, timeout=timeout)
+        )
+        response.raise_for_status()
+
+        return response.content
+
+    def fetch_base64(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> str:
+        """Fetch media and return raw base64 without a data URI prefix.
+
+        See :meth:`fetch_bytes` for the ``client`` argument.
+        """
+        return base64.b64encode(
+            self.fetch_bytes(timeout=timeout, client=client)
+        ).decode()
+
+    def fetch_data_uri(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> str:
+        """Fetch media and return it as a data URI.
+
+        See :meth:`fetch_bytes` for the ``client`` argument.
+        """
+        return f"data:{self.content_type};base64,{self.fetch_base64(timeout=timeout, client=client)}"
 
 
 class LangfuseMedia:

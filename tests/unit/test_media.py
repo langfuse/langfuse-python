@@ -4,7 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from langfuse.media import LangfuseMedia
+from langfuse._client.resource_manager import LangfuseResourceManager
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
 # Test data
 SAMPLE_JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
@@ -90,6 +91,29 @@ def test_parse_invalid_reference_string():
         )  # Missing fields
 
 
+@pytest.mark.parametrize(
+    ("url_expiry", "expected"),
+    [
+        (None, False),
+        ("not-a-date", False),
+        # Fixed past/future timestamps so the test ids stay stable across xdist
+        # workers (a computed datetime.now() would differ per worker collection).
+        ("2000-01-01T00:00:00+00:00", True),
+        ("2999-01-01T00:00:00+00:00", False),
+        ("2000-01-01T00:00:00Z", True),  # "Z" suffix, in the past
+    ],
+)
+def test_media_reference_is_url_expired(url_expiry, expected):
+    reference = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/jpeg",
+        url="https://example.com/test.jpg",
+        url_expiry=url_expiry,
+    )
+
+    assert reference.is_url_expired() is expected
+
+
 def test_file_handling():
     file_path = "static/puton.jpg"
 
@@ -105,6 +129,105 @@ def test_nonexistent_file():
     assert media._source is None
     assert media._content_bytes is None
     assert media._content_type is None
+
+
+def test_media_reference_fetch_uses_configured_httpx_client(monkeypatch):
+    response = Mock()
+    response.content = b"test-bytes"
+    response.raise_for_status.return_value = None
+    configured_httpx_client = Mock()
+    configured_httpx_client.get.return_value = response
+    httpx_get = Mock()
+    monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+    monkeypatch.setattr(
+        LangfuseResourceManager,
+        "_instances",
+        {"pk-test": SimpleNamespace(httpx_client=configured_httpx_client)},
+    )
+
+    reference = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/jpeg",
+        url="https://example.com/test.jpg",
+    )
+
+    assert reference.fetch_bytes(timeout=12.5) == b"test-bytes"
+    configured_httpx_client.get.assert_called_once_with(
+        "https://example.com/test.jpg", timeout=12.5
+    )
+    httpx_get.assert_not_called()
+
+
+def test_media_reference_fetch_uses_explicit_client(monkeypatch):
+    response = Mock()
+    response.content = b"explicit-bytes"
+    response.raise_for_status.return_value = None
+    explicit_client = Mock()
+    explicit_client.get.return_value = response
+
+    singleton_client = Mock()
+    httpx_get = Mock()
+    monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+    monkeypatch.setattr(
+        LangfuseResourceManager,
+        "_instances",
+        {"pk-test": SimpleNamespace(httpx_client=singleton_client)},
+    )
+
+    reference = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/jpeg",
+        url="https://example.com/test.jpg",
+    )
+
+    assert (
+        reference.fetch_bytes(timeout=5.0, client=explicit_client) == b"explicit-bytes"
+    )
+    explicit_client.get.assert_called_once_with(
+        "https://example.com/test.jpg", timeout=5.0
+    )
+    # Explicit client wins over the configured singleton and the default httpx.
+    singleton_client.get.assert_not_called()
+    httpx_get.assert_not_called()
+
+
+def test_media_reference_fetch_falls_back_to_default_with_multiple_clients(
+    monkeypatch, caplog
+):
+    import logging
+
+    response = Mock()
+    response.content = b"default-bytes"
+    response.raise_for_status.return_value = None
+    httpx_get = Mock(return_value=response)
+    monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+
+    client_a = Mock()
+    client_b = Mock()
+    monkeypatch.setattr(
+        LangfuseResourceManager,
+        "_instances",
+        {
+            "pk-a": SimpleNamespace(httpx_client=client_a),
+            "pk-b": SimpleNamespace(httpx_client=client_b),
+        },
+    )
+
+    reference = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/jpeg",
+        url="https://example.com/test.jpg",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        assert reference.fetch_bytes(timeout=8.0) == b"default-bytes"
+
+    # Ambiguous multi-client setup: warn and fall back to the default httpx
+    # instead of silently using an arbitrary instance's transport config.
+    assert "Multiple Langfuse clients" in caplog.text
+    httpx_get.assert_called_once_with("https://example.com/test.jpg", timeout=8.0)
+    client_a.get.assert_not_called()
+    client_b.get.assert_not_called()
 
 
 def test_resolve_media_references_uses_configured_httpx_client():

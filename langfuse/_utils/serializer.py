@@ -15,7 +15,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from langfuse.media import LangfuseMedia
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
 # Attempt to import Serializable
 try:
@@ -61,6 +61,12 @@ class EventSerializer(JSONEncoder):
                     obj._reference_string
                     or f"<Upload handling failed for LangfuseMedia of type {obj._content_type}>"
                 )
+
+            if (
+                isinstance(obj, LangfuseMediaReference)
+                and obj.reference_string is not None
+            ):
+                return obj.reference_string
 
             # Check if numpy is available and if the object is a numpy scalar
             # If so, convert it to a Python scalar using the item() method
