@@ -18,6 +18,21 @@
 pip install langfuse
 ```
 
+## OpenTelemetry ID generator
+
+Langfuse uses OpenTelemetry span IDs as Langfuse observation IDs. By default, Langfuse does not customize OpenTelemetry ID generation; when Langfuse creates its own `TracerProvider`, the OpenTelemetry SDK default ID generator is used.
+
+If you need to override ID generation for the provider that Langfuse creates, pass an OpenTelemetry `IdGenerator`:
+
+```python
+from langfuse import Langfuse
+from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+
+langfuse = Langfuse(id_generator=RandomIdGenerator())
+```
+
+This only applies when Langfuse creates the `TracerProvider`. If you pass `tracer_provider=...`, or if another library has already registered a global OpenTelemetry `TracerProvider`, configure the ID generator on that provider directly.
+
 ## Docs
 
 Please [see our docs](https://langfuse.com/docs/sdk/python/sdk-v3) for detailed information on this SDK.

@@ -25,6 +25,7 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from opentelemetry.trace import Tracer
 
@@ -100,6 +101,7 @@ class LangfuseResourceManager:
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
@@ -137,6 +139,7 @@ class LangfuseResourceManager:
                     should_export_span=should_export_span,
                     additional_headers=additional_headers,
                     tracer_provider=tracer_provider,
+                    id_generator=id_generator,
                     span_exporter=span_exporter,
                 )
 
@@ -165,6 +168,7 @@ class LangfuseResourceManager:
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ) -> None:
         self.public_key = public_key
@@ -185,6 +189,7 @@ class LangfuseResourceManager:
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.should_export_span = should_export_span
         self.additional_headers = additional_headers
+        self.id_generator = id_generator
         self.span_exporter = span_exporter
         self.tracer_provider: Optional[TracerProvider] = None
 
@@ -246,7 +251,10 @@ class LangfuseResourceManager:
         # OTEL Tracer
         if tracing_enabled:
             tracer_provider = tracer_provider or _init_tracer_provider(
-                environment=environment, release=release, sample_rate=sample_rate
+                environment=environment,
+                release=release,
+                sample_rate=sample_rate,
+                id_generator=id_generator,
             )
             self.tracer_provider = tracer_provider
 
@@ -467,6 +475,7 @@ def _init_tracer_provider(
     environment: Optional[str] = None,
     release: Optional[str] = None,
     sample_rate: Optional[float] = None,
+    id_generator: Optional[IdGenerator] = None,
 ) -> TracerProvider:
     environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
     release = release or os.environ.get(LANGFUSE_RELEASE) or get_common_release_envs()
@@ -489,10 +498,17 @@ def _init_tracer_provider(
             sampler=TraceIdRatioBased(sample_rate)
             if sample_rate is not None and sample_rate < 1
             else None,
+            id_generator=id_generator,
         )
         otel_trace_api.set_tracer_provider(provider)
 
     else:
+        if id_generator is not None:
+            langfuse_logger.warning(
+                "Configuration: id_generator was ignored because an OpenTelemetry TracerProvider is already registered. "
+                "Pass a TracerProvider configured with the desired id_generator to Langfuse(tracer_provider=...) instead."
+            )
+
         provider = default_provider
 
     return provider
