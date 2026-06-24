@@ -80,6 +80,29 @@ class LangfuseResourceManager:
     _instances: Dict[str, "LangfuseResourceManager"] = {}
     _lock = threading.RLock()
 
+    @classmethod
+    def get_singleton_httpx_client(cls) -> Optional[httpx.Client]:
+        with cls._lock:
+            instances = list(cls._instances.values())
+
+            if not instances:
+                return None
+
+            if len(instances) > 1:
+                # Mirror get_client's safety stance: with multiple clients we
+                # cannot tell which one produced a given reference, so fall back
+                # to a default httpx client rather than silently using an
+                # arbitrary instance's transport config (proxy / CA / mTLS).
+                langfuse_logger.warning(
+                    "Multiple Langfuse clients are instantiated; falling back to a "
+                    "default httpx client for LangfuseMediaReference fetches. Pass an "
+                    "explicit `client` to fetch_bytes/fetch_base64/fetch_data_uri to "
+                    "honor per-client transport settings."
+                )
+                return None
+
+            return instances[0].httpx_client
+
     def __new__(
         cls,
         *,

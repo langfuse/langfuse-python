@@ -17,6 +17,7 @@ The integration is fully interoperable with the `observe()` decorator and the lo
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
+import json
 import types
 from collections import defaultdict
 from dataclasses import dataclass
@@ -27,6 +28,7 @@ from typing import Any, Optional, cast
 from openai._types import NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
+from pydantic_core import to_jsonable_python
 from wrapt import wrap_function_wrapper
 
 from langfuse._client.get_client import get_client
@@ -185,6 +187,103 @@ OPENAI_METHODS_V1 = [
 ]
 
 
+_RESPONSES_PROMPT_FIELDS = ("tools", "tool_choice", "parallel_tool_calls")
+_STRUCTURED_OUTPUT_METADATA_FIELDS = ("response_format", "text_format")
+
+
+def _is_not_given(value: Any) -> bool:
+    return isinstance(value, NotGiven)
+
+
+def _get_attr_or_item(value: Any, key: str, default: Any = None) -> Any:
+    if isinstance(value, dict):
+        return value.get(key, default)
+
+    return getattr(value, key, default)
+
+
+def _serialize_openai_value(value: Any) -> Any:
+    """Convert OpenAI SDK request/response wrapper values into plain data."""
+
+    if _is_not_given(value):
+        return None
+
+    if isclass(value) and issubclass(value, BaseModel):
+        return value.model_json_schema()
+
+    if isinstance(value, BaseModel):
+        value.model_rebuild()
+
+        try:
+            return _serialize_openai_value(
+                value.model_dump(mode="json", warnings=False)
+            )
+        except Exception:
+            try:
+                return _serialize_openai_value(
+                    json.loads(value.model_dump_json(warnings=False))
+                )
+            except Exception:
+                return _serialize_openai_value(value.model_dump(warnings=False))
+
+    if isinstance(value, dict):
+        return {
+            key: _serialize_openai_value(val)
+            for key, val in value.items()
+            if not _is_not_given(val)
+        }
+
+    if isinstance(value, (list, tuple)):
+        return [_serialize_openai_value(item) for item in value]
+
+    try:
+        return to_jsonable_python(value)
+    except Exception:
+        return str(value)
+
+
+def _get_structured_output_metadata(metadata: Optional[Any], kwargs: Any) -> Any:
+    structured_output_metadata = {}
+
+    for key in _STRUCTURED_OUTPUT_METADATA_FIELDS:
+        value = kwargs.get(key, None)
+
+        if value is not None and not _is_not_given(value):
+            structured_output_metadata[key] = _serialize_openai_value(value)
+
+    if not structured_output_metadata:
+        return _serialize_openai_value(metadata)
+
+    metadata_dict = (
+        _serialize_openai_value(metadata)
+        if isinstance(metadata, BaseModel)
+        else metadata
+    )
+
+    if metadata_dict is None:
+        metadata_dict = {}
+
+    if not isinstance(metadata_dict, dict):
+        metadata_dict = {}
+
+    return {**metadata_dict, **structured_output_metadata}
+
+
+def _extract_response_api_completion(output: Any) -> Any:
+    output = _serialize_openai_value(output)
+
+    if not isinstance(output, list):
+        return output
+
+    if len(output) > 1:
+        return output
+
+    if len(output) == 1:
+        return output[0]
+
+    return None
+
+
 class OpenAiArgsExtractor:
     def __init__(
         self,
@@ -199,17 +298,8 @@ class OpenAiArgsExtractor:
         **kwargs: Any,
     ) -> None:
         self.args = {}
-        self.args["metadata"] = (
-            metadata
-            if "response_format" not in kwargs
-            else {
-                **(metadata or {}),
-                "response_format": kwargs["response_format"].model_json_schema()
-                if isclass(kwargs["response_format"])
-                and issubclass(kwargs["response_format"], BaseModel)
-                else kwargs["response_format"],
-            }
-        )
+        self.metadata = metadata
+        self.args["metadata"] = _get_structured_output_metadata(metadata, kwargs)
         self.args["name"] = name
         self.args["langfuse_public_key"] = langfuse_public_key
         self.args["langfuse_prompt"] = langfuse_prompt
@@ -222,18 +312,15 @@ class OpenAiArgsExtractor:
         return {**self.args, **self.kwargs}
 
     def get_openai_args(self) -> Any:
+        openai_args = self.kwargs.copy()
+
         # If OpenAI model distillation is enabled, we need to add the metadata to the kwargs
         # https://platform.openai.com/docs/guides/distillation
-        if self.kwargs.get("store", False):
-            self.kwargs["metadata"] = (
-                {} if self.args.get("metadata", None) is None else self.args["metadata"]
-            )
+        if openai_args.get("store", False):
+            metadata = _serialize_openai_value(self.metadata)
+            openai_args["metadata"] = metadata if isinstance(metadata, dict) else {}
 
-            # OpenAI does not support non-string type values in metadata when using
-            # model distillation feature
-            self.kwargs["metadata"].pop("response_format", None)
-
-        return self.kwargs
+        return openai_args
 
 
 def _langfuse_wrapper(func: Any) -> Any:
@@ -249,6 +336,13 @@ def _langfuse_wrapper(func: Any) -> Any:
 def _extract_responses_prompt(kwargs: Any) -> Any:
     input_value = kwargs.get("input", None)
     instructions = kwargs.get("instructions", None)
+    prompt_fields = {}
+
+    for key in _RESPONSES_PROMPT_FIELDS:
+        value = kwargs.get(key, None)
+
+        if value is not None and not isinstance(value, NotGiven):
+            prompt_fields[key] = _serialize_openai_value(value)
 
     if isinstance(input_value, NotGiven):
         input_value = None
@@ -257,21 +351,29 @@ def _extract_responses_prompt(kwargs: Any) -> Any:
         instructions = None
 
     if instructions is None:
-        return input_value
-
-    if input_value is None:
-        return {"instructions": instructions}
-
-    if isinstance(input_value, str):
-        return [
+        prompt = input_value
+    elif input_value is None:
+        prompt = {"instructions": instructions}
+    elif isinstance(input_value, str):
+        prompt = [
             {"role": "system", "content": instructions},
             {"role": "user", "content": input_value},
         ]
+    elif isinstance(input_value, list):
+        prompt = [{"role": "system", "content": instructions}, *input_value]
+    else:
+        prompt = {"instructions": instructions, "input": input_value}
 
-    if isinstance(input_value, list):
-        return [{"role": "system", "content": instructions}, *input_value]
+    if not prompt_fields:
+        return prompt
 
-    return {"instructions": instructions, "input": input_value}
+    if isinstance(prompt, dict) and set(prompt.keys()) <= {"instructions", "input"}:
+        return {**prompt, **prompt_fields}
+
+    if prompt is not None:
+        return {"input": prompt, **prompt_fields}
+
+    return prompt_fields
 
 
 def _extract_chat_prompt(kwargs: Any) -> Any:
@@ -420,7 +522,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         and not isinstance(metadata, dict)
     ):
         if isinstance(metadata, BaseModel):
-            metadata = metadata.model_dump()
+            metadata = _serialize_openai_value(metadata)
         else:
             metadata = {}
 
@@ -620,13 +722,7 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
                     metadata[key] = val
 
                 if key == "output":
-                    output = val
-                    if not isinstance(output, list):
-                        completion = output
-                    elif len(output) > 1:
-                        completion = output
-                    elif len(output) == 1:
-                        completion = output[0]
+                    completion = _extract_response_api_completion(val)
 
     return (model, completion, usage, metadata)
 
@@ -670,7 +766,8 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         if completion["content"] is None
                         else completion["content"] + delta.get("content", None)
                     )
-                elif delta.get("function_call", None) is not None:
+
+                if delta.get("function_call", None) is not None:
                     curr = completion["function_call"]
                     tool_call_chunk = delta.get("function_call", None)
 
@@ -686,70 +783,86 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         )
                         curr["arguments"] += getattr(tool_call_chunk, "arguments", "")
 
-                elif (
+                if (
                     delta.get("tool_calls", None) is not None
                     and len(delta.get("tool_calls")) > 0
                 ):
                     curr = completion["tool_calls"]
-                    tool_call_chunk = getattr(
-                        delta.get("tool_calls", None)[0], "function", None
-                    )
 
                     if not curr:
-                        completion["tool_calls"] = [
-                            {
-                                "name": getattr(tool_call_chunk, "name", ""),
-                                "arguments": getattr(tool_call_chunk, "arguments", ""),
-                            }
-                        ]
+                        completion["tool_calls"] = []
+                        curr = completion["tool_calls"]
 
-                    elif getattr(tool_call_chunk, "name", None) is not None:
-                        curr.append(
-                            {
-                                "name": getattr(tool_call_chunk, "name", None),
-                                "arguments": getattr(
-                                    tool_call_chunk, "arguments", None
-                                ),
-                            }
+                    for raw_tool_call in delta.get("tool_calls", []):
+                        index = _get_attr_or_item(raw_tool_call, "index", None)
+
+                        if not isinstance(index, int):
+                            index = len(curr) - 1 if curr else 0
+
+                        while len(curr) <= index:
+                            curr.append({"function": {"name": "", "arguments": ""}})
+
+                        current_tool_call = curr[index]
+                        tool_call_id = _get_attr_or_item(raw_tool_call, "id", None)
+                        tool_call_type = _get_attr_or_item(raw_tool_call, "type", None)
+                        tool_call_chunk = _get_attr_or_item(
+                            raw_tool_call, "function", None
                         )
 
-                    else:
-                        curr[-1]["name"] = curr[-1]["name"] or getattr(
-                            tool_call_chunk, "name", None
+                        if tool_call_id is not None:
+                            current_tool_call["id"] = tool_call_id
+
+                        if tool_call_type is not None:
+                            current_tool_call["type"] = tool_call_type
+
+                        if tool_call_chunk is None:
+                            continue
+
+                        function_call = current_tool_call.setdefault("function", {})
+                        tool_name = _get_attr_or_item(tool_call_chunk, "name", None)
+                        tool_arguments = _get_attr_or_item(
+                            tool_call_chunk, "arguments", None
                         )
 
-                        if curr[-1]["arguments"] is None:
-                            curr[-1]["arguments"] = ""
+                        if tool_name is not None:
+                            function_call["name"] = (
+                                function_call.get("name") or tool_name
+                            )
 
-                        curr[-1]["arguments"] += getattr(
-                            tool_call_chunk, "arguments", ""
-                        )
+                        if tool_arguments is not None:
+                            function_call["arguments"] = (
+                                function_call.get("arguments") or ""
+                            ) + tool_arguments
 
             if resource.type == "completion":
                 completion += choice.get("text", "")
 
     def get_response_for_chat() -> Any:
-        return (
-            completion["content"]
-            or (
-                completion["function_call"]
-                and {
-                    "role": "assistant",
-                    "function_call": completion["function_call"],
-                }
-            )
-            or (
-                completion["tool_calls"]
-                and {
-                    "role": "assistant",
-                    # "tool_calls": [{"function": completion["tool_calls"]}],
-                    "tool_calls": [
-                        {"function": data} for data in completion["tool_calls"]
-                    ],
-                }
-            )
-            or None
-        )
+        content = completion["content"]
+
+        if completion["tool_calls"]:
+            response = {
+                "role": "assistant",
+                "tool_calls": completion["tool_calls"],
+            }
+
+            if content is not None:
+                response["content"] = content
+
+            return response
+
+        if completion["function_call"]:
+            response = {
+                "role": "assistant",
+                "function_call": completion["function_call"],
+            }
+
+            if content is not None:
+                response["content"] = content
+
+            return response
+
+        return content or None
 
     return (
         model,
@@ -777,14 +890,7 @@ def _get_langfuse_data_from_default_response(
             completion = choice.text if _is_openai_v1() else choice.get("text", None)
 
     elif resource.object == "Responses" or resource.object == "AsyncResponses":
-        output = response.get("output", {})
-
-        if not isinstance(output, list):
-            completion = output
-        elif len(output) > 1:
-            completion = output
-        elif len(output) == 1:
-            completion = output[0]
+        completion = _extract_response_api_completion(response.get("output", {}))
 
     elif resource.type == "chat":
         choices = response.get("choices", [])

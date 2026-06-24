@@ -3,6 +3,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
+from pydantic import BaseModel
 
 import langfuse.openai as lf_openai_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
@@ -159,6 +161,78 @@ def _make_chat_stream_chunks_with_trailing_content_filter_chunk():
     ]
 
 
+def _make_chat_stream_chunks_with_content_before_tool_call():
+    usage = SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+
+    return [
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role="assistant",
+                        content="\n\n",
+                        function_call=None,
+                        tool_calls=None,
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=None,
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role=None,
+                        content=None,
+                        function_call=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id="call_weather",
+                                type="function",
+                                function=SimpleNamespace(
+                                    name="get_weather",
+                                    arguments='{"city"',
+                                ),
+                            )
+                        ],
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=None,
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role=None,
+                        content=None,
+                        function_call=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id=None,
+                                type=None,
+                                function=SimpleNamespace(
+                                    name=None,
+                                    arguments=': "Berlin"}',
+                                ),
+                            )
+                        ],
+                    ),
+                    finish_reason="tool_calls",
+                )
+            ],
+            usage=usage,
+        ),
+    ]
+
+
 def _make_single_chunk_stream():
     return SimpleNamespace(
         model="gpt-4o-mini",
@@ -234,6 +308,79 @@ def test_chat_completion_exports_generation_span(
         "prompt_tokens": 3,
         "completion_tokens": 1,
         "total_tokens": 4,
+    }
+
+
+def test_streaming_chat_completion_preserves_tool_calls_after_content():
+    model, completion, usage, metadata = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            _make_chat_stream_chunks_with_content_before_tool_call(),
+        )
+    )
+
+    assert model == "gpt-4o-mini"
+    assert completion == {
+        "role": "assistant",
+        "content": "\n\n",
+        "tool_calls": [
+            {
+                "id": "call_weather",
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "arguments": '{"city": "Berlin"}',
+                },
+            }
+        ],
+    }
+    assert usage.prompt_tokens == 10
+    assert metadata == {"finish_reason": "tool_calls"}
+
+
+def test_response_api_output_serializes_openai_parsed_response_objects():
+    class ParsedOutput(BaseModel):
+        name: str
+
+    _, completion, _ = lf_openai_module._get_langfuse_data_from_default_response(
+        SimpleNamespace(type="chat", object="Responses"),
+        {
+            "model": "gpt-4.1-mini",
+            "output": [
+                ParsedResponseOutputMessage(
+                    id="msg_1",
+                    type="message",
+                    role="assistant",
+                    status="completed",
+                    content=[
+                        ParsedResponseOutputText(
+                            annotations=[],
+                            text='{"name":"dave"}',
+                            type="output_text",
+                            parsed=ParsedOutput(name="dave"),
+                        )
+                    ],
+                )
+            ],
+            "usage": None,
+        },
+    )
+
+    assert completion == {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "status": "completed",
+        "content": [
+            {
+                "annotations": [],
+                "text": '{"name":"dave"}',
+                "type": "output_text",
+                "logprobs": None,
+                "parsed": {"name": "dave"},
+            }
+        ],
+        "phase": None,
     }
 
 

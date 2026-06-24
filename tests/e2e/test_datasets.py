@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from langfuse import Langfuse
 from langfuse.api import DatasetStatus
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 from tests.support.utils import create_uuid, wait_for_result
 
 
@@ -67,6 +68,71 @@ def test_create_dataset_item():
     assert dataset.items[0].source_observation_id is None
     assert dataset.items[0].source_trace_id is None
     assert dataset.items[0].dataset_name == name
+
+
+def test_create_and_get_dataset_item_with_media():
+    langfuse = Langfuse(debug=False)
+    name = create_uuid()
+    langfuse.create_dataset(name=name)
+
+    def media(tag: str) -> LangfuseMedia:
+        # Distinct bytes -> distinct media id, so each path can be verified to
+        # resolve to its own media via fetch_bytes.
+        return LangfuseMedia(
+            content_bytes=f"media-{tag}".encode(), content_type="image/png"
+        )
+
+    image, gallery0, gallery1, matrix, reference, thumbnail = (
+        media("image"),
+        media("gallery0"),
+        media("gallery1"),
+        media("matrix"),
+        media("reference"),
+        media("thumbnail"),
+    )
+
+    # Cover the interesting jsonpath-plus path shapes in one item: a plain key,
+    # list indices, consecutive indices (nested list), plus expectedOutput and
+    # metadata fields.
+    created_item = langfuse.create_dataset_item(
+        dataset_name=name,
+        input={
+            "question": "compare the images",
+            "image": image,  # $['image']
+            "gallery": [gallery0, gallery1],  # $['gallery'][0], $['gallery'][1]
+            "matrix": [[matrix]],  # $['matrix'][0][0]
+        },
+        expected_output={"reference": reference},  # $['reference']
+        metadata={"thumbnail": thumbnail},  # $['thumbnail']
+    )
+
+    assert created_item.input["image"].startswith("@@@langfuseMedia:")
+    assert created_item.input["gallery"][0].startswith("@@@langfuseMedia:")
+
+    resolved_dataset = wait_for_result(
+        lambda: langfuse.get_dataset(name),
+        is_result_ready=lambda dataset: (
+            bool(dataset.items)
+            and isinstance(dataset.items[0].input["image"], LangfuseMediaReference)
+        ),
+    )
+    resolved_item = resolved_dataset.items[0]
+
+    resolved_by_path = {
+        "image": (resolved_item.input["image"], image),
+        "gallery[0]": (resolved_item.input["gallery"][0], gallery0),
+        "gallery[1]": (resolved_item.input["gallery"][1], gallery1),
+        "matrix[0][0]": (resolved_item.input["matrix"][0][0], matrix),
+        "reference": (resolved_item.expected_output["reference"], reference),
+        "thumbnail": (resolved_item.metadata["thumbnail"], thumbnail),
+    }
+    for path, (resolved, original) in resolved_by_path.items():
+        assert isinstance(resolved, LangfuseMediaReference), path
+        # The reference at each path resolves to that path's own media.
+        assert resolved.fetch_bytes() == original._content_bytes, path
+
+    # Non-media fields are left untouched.
+    assert resolved_item.input["question"] == "compare the images"
 
 
 def test_get_all_items():
