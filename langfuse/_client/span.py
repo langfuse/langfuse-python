@@ -51,6 +51,7 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
+from langfuse._client.utils import get_string_span_attribute
 from langfuse.api import MapValue, ScoreDataType
 from langfuse.logger import langfuse_logger
 from langfuse.types import SpanLevel
@@ -59,21 +60,6 @@ from langfuse.types import SpanLevel
 # Note: "event" is handled separately due to special instantiation logic
 # Populated after class definitions
 _OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
-
-
-def _get_string_span_attribute(
-    otel_span: otel_trace_api.Span, attribute_key: str
-) -> Optional[str]:
-    if not otel_span.is_recording():
-        return None
-
-    attributes = getattr(otel_span, "attributes", None)
-    if attributes is None or not hasattr(attributes, "get"):
-        return None
-
-    value = attributes.get(attribute_key)
-
-    return value if isinstance(value, str) else None
 
 
 class LangfuseObservationWrapper:
@@ -145,7 +131,7 @@ class LangfuseObservationWrapper:
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
         self.id = self._langfuse_client._get_otel_span_id(otel_span)
 
-        existing_environment = _get_string_span_attribute(
+        existing_environment = get_string_span_attribute(
             self._otel_span, LangfuseOtelSpanAttributes.ENVIRONMENT
         )
         self._environment = (
@@ -357,6 +343,9 @@ class LangfuseObservationWrapper:
 
         This method creates a score associated with this specific span (observation).
         Scores can represent any kind of evaluation, feedback, or quality metric.
+        The score uses this span wrapper's resolved environment. That means a
+        request-scoped environment propagated via ``propagate_attributes`` takes
+        precedence over the client-level environment when this score is created.
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
@@ -394,6 +383,7 @@ class LangfuseObservationWrapper:
             config_id=config_id,
             timestamp=timestamp,
             metadata=metadata,
+            environment=self._environment,
         )
 
     @overload
@@ -446,7 +436,9 @@ class LangfuseObservationWrapper:
 
         This method creates a score associated with the entire trace that this span
         belongs to, rather than the specific span. This is useful for overall
-        evaluations that apply to the complete trace.
+        evaluations that apply to the complete trace. The score uses this span
+        wrapper's resolved environment, including any request-scoped environment
+        propagated via ``propagate_attributes``.
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
@@ -483,6 +475,7 @@ class LangfuseObservationWrapper:
             config_id=config_id,
             timestamp=timestamp,
             metadata=metadata,
+            environment=self._environment,
         )
 
     def _set_processed_span_attributes(

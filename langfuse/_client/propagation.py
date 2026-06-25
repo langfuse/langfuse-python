@@ -540,7 +540,7 @@ def _validate_environment_value(*, value: Any) -> Optional[str]:
         )
         return None
 
-    if not _ENVIRONMENT_VALUE_PATTERN.match(value):
+    if not _ENVIRONMENT_VALUE_PATTERN.fullmatch(value):
         langfuse_logger.warning(
             "Propagated attribute 'environment' must be a lowercase alphanumeric "
             "string with optional hyphens or underscores and must not start with "

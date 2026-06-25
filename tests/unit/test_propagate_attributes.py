@@ -1853,6 +1853,23 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
 class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
     """Tests for first-class Langfuse environment propagation."""
 
+    def _capture_score_events(self, monkeypatch, langfuse_client):
+        """Capture score ingestion events before they reach the background queue."""
+
+        score_events = []
+        assert langfuse_client._resources is not None
+
+        def capture_score_event(event, *, force_sample=False):
+            score_events.append(event)
+
+        monkeypatch.setattr(
+            langfuse_client._resources,
+            "add_score_task",
+            capture_score_event,
+        )
+
+        return score_events
+
     def test_environment_propagates_to_child_spans(
         self, langfuse_client, memory_exporter
     ):
@@ -1942,6 +1959,54 @@ class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
             proxy_child, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
         )
 
+    def test_span_score_uses_propagated_environment(self, monkeypatch, langfuse_client):
+        """Score events created from a span use the span's resolved environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="dev"):
+            with langfuse_client.start_as_current_observation(
+                name="request-span"
+            ) as span:
+                span.score(name="quality", value=1.0, data_type="NUMERIC")
+
+        assert len(score_events) == 1
+        assert score_events[0]["body"].environment == "dev"
+
+    def test_span_score_trace_uses_propagated_environment(
+        self, monkeypatch, langfuse_client
+    ):
+        """Trace scores created from a span use the span's resolved environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="staging"):
+            with langfuse_client.start_as_current_observation(
+                name="request-span"
+            ) as span:
+                span.score_trace(name="overall-quality", value=0.95)
+
+        assert len(score_events) == 1
+        assert score_events[0]["body"].environment == "staging"
+
+    def test_current_score_helpers_use_propagated_environment(
+        self, monkeypatch, langfuse_client
+    ):
+        """Current-span and current-trace scores use the active span environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="qa"):
+            with langfuse_client.start_as_current_observation(name="request-span"):
+                langfuse_client.score_current_span(
+                    name="span-quality", value=0.9, data_type="NUMERIC"
+                )
+                langfuse_client.score_current_trace(
+                    name="trace-quality", value=0.8, data_type="NUMERIC"
+                )
+
+        assert [event["body"].environment for event in score_events] == ["qa", "qa"]
+
     def test_environment_exactly_40_chars_is_accepted(
         self, langfuse_client, memory_exporter
     ):
@@ -1960,7 +2025,16 @@ class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
 
     @pytest.mark.parametrize(
         "environment",
-        ["Production", "langfuse-prod", "prod.us", "", "p" * 41, 123],
+        [
+            "Production",
+            "langfuse-prod",
+            "prod.us",
+            "",
+            "p" * 41,
+            "prod\n",
+            "\nprod",
+            123,
+        ],
     )
     def test_invalid_environment_is_dropped(
         self, langfuse_client, memory_exporter, environment
