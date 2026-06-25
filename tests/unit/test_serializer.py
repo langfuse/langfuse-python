@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from langfuse._utils.serializer import (
     EventSerializer,
 )
+from langfuse.media import LangfuseMediaReference
 
 
 class TestEnum(Enum):
@@ -68,6 +69,30 @@ def test_pydantic_model():
     model = TestBaseModel(field="test")
     serializer = EventSerializer()
     assert json.loads(serializer.encode(model)) == {"field": "test"}
+
+
+def test_langfuse_media_reference_serializes_to_reference_string():
+    # Resolved references must round-trip back to their original reference string
+    # rather than falling through to asdict() and emitting an opaque dict.
+    reference_string = "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"
+    ref = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/png",
+        url="https://example.com/image.png",
+        reference_string=reference_string,
+    )
+    serializer = EventSerializer()
+    assert serializer.encode(ref) == f'"{reference_string}"'
+
+
+def test_langfuse_media_reference_without_reference_string_falls_back_to_dict():
+    ref = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/png",
+        url="https://example.com/image.png",
+    )
+    serializer = EventSerializer()
+    assert json.loads(serializer.encode(ref))["media_id"] == "media-id"
 
 
 def test_path():

@@ -2710,6 +2710,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             dataset_name="Test Dataset",
             created_at=datetime.now(),
             updated_at=datetime.now(),
+            media_references=[],
         )
 
         # Create dataset client with items

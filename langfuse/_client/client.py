@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import urllib.parse
+import uuid
 import warnings
 from datetime import datetime
 from hashlib import sha256
@@ -19,6 +20,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     Type,
     Union,
     cast,
@@ -31,7 +33,7 @@ from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter
-from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
@@ -84,7 +86,7 @@ from langfuse._client.span import (
     LangfuseTool,
 )
 from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
-from langfuse._utils import _get_timestamp
+from langfuse._utils import _get_timestamp, json_path
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
@@ -94,6 +96,7 @@ from langfuse.api import (
     CreateTextPromptRequest,
     Dataset,
     DatasetItem,
+    DatasetItemMediaReferenceField,
     DatasetRunWithItems,
     DatasetStatus,
     DeleteDatasetRunResponse,
@@ -126,7 +129,7 @@ from langfuse.experiment import (
     _run_task,
 )
 from langfuse.logger import langfuse_logger
-from langfuse.media import LangfuseMedia
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 from langfuse.model import (
     ChatMessageDict,
     ChatMessageWithPlaceholdersDict,
@@ -227,6 +230,7 @@ class Langfuse:
         should_export_span (Optional[Callable[[ReadableSpan], bool]]): Callback to decide whether to export a span. If omitted, Langfuse uses the default filter (Langfuse SDK spans, spans with `gen_ai.*` attributes, and known LLM instrumentation scopes).
         additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and in the default OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well. If `span_exporter` is provided, these headers are not wired into that exporter and must be configured on the exporter instance directly.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
+        id_generator (Optional[IdGenerator]): OpenTelemetry ID generator to use when Langfuse creates its own TracerProvider. If omitted, the OpenTelemetry SDK default is used. If `tracer_provider` is provided, or an OpenTelemetry TracerProvider is already registered globally, configure the ID generator on that provider instead.
         span_exporter (Optional[SpanExporter]): Custom OpenTelemetry span exporter for the Langfuse span processor. If omitted, Langfuse creates an OTLPSpanExporter pointed at the Langfuse OTLP endpoint. If provided, Langfuse does not wire `base_url`, exporter headers, exporter auth, or exporter timeout into it. Configure endpoint, headers, and timeout on the exporter instance directly. If you are sending spans to Langfuse v4 or using Langfuse Cloud Fast Preview, include `x-langfuse-ingestion-version=4` on the exporter to enable real time processing of exported spans.
 
     Example:
@@ -292,6 +296,7 @@ class Langfuse:
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ):
         self._base_url = (
@@ -390,6 +395,7 @@ class Langfuse:
             should_export_span=should_export_span,
             additional_headers=additional_headers,
             tracer_provider=tracer_provider,
+            id_generator=id_generator,
             span_exporter=span_exporter,
         )
         self._mask = self._resources.mask
@@ -2326,9 +2332,9 @@ class Langfuse:
         """Fetch a dataset by its name.
 
         Args:
-            name (str): The name of the dataset to fetch.
-            fetch_items_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
-            version (Optional[datetime]): Retrieve dataset items as they existed at this specific point in time (UTC).
+            name: The name of the dataset to fetch.
+            fetch_items_page_size: All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+            version: Retrieve dataset items as they existed at this specific point in time (UTC).
                 If provided, returns the state of items at the specified UTC timestamp.
                 If not provided, returns the latest version. Must be a timezone-aware datetime object in UTC.
 
@@ -2339,7 +2345,7 @@ class Langfuse:
             langfuse_logger.debug(f"Getting datasets {name}")
             dataset = self.api.datasets.get(dataset_name=self._url_encode(name))
 
-            dataset_items = []
+            dataset_items: List[DatasetItem] = []
             page = 1
 
             while True:
@@ -2349,7 +2355,10 @@ class Langfuse:
                     limit=fetch_items_page_size,
                     version=version,
                 )
-                dataset_items.extend(new_items.data)
+                dataset_items.extend(
+                    self._hydrate_dataset_item_media_references(item)
+                    for item in new_items.data
+                )
 
                 if new_items.meta.total_pages <= page:
                     break
@@ -3355,6 +3364,45 @@ class Langfuse:
         try:
             langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
 
+            # Media uploads must reference the (dataset, item) they belong to, and
+            # the item need not exist yet — so settle on the item id up front and
+            # reuse it for the create call below.
+            item_id = id if id is not None else str(uuid.uuid4())
+
+            # Single pass per field: swap each LangfuseMedia for its reference
+            # string (derived from content, not the upload) and collect the media
+            # still to upload, deduped by media id and tagged with its field.
+            pending_media: Dict[str, Tuple[LangfuseMedia, str]] = {}
+            input = self._process_dataset_item_media(
+                data=input,
+                pending_media=pending_media,
+                field=DatasetItemMediaReferenceField.INPUT.value,
+            )
+            expected_output = self._process_dataset_item_media(
+                data=expected_output,
+                pending_media=pending_media,
+                field=DatasetItemMediaReferenceField.EXPECTED_OUTPUT.value,
+            )
+            metadata = self._process_dataset_item_media(
+                data=metadata,
+                pending_media=pending_media,
+                field=DatasetItemMediaReferenceField.METADATA.value,
+            )
+
+            # The upload needs the dataset id, but the create API only takes the
+            # name. Resolve it once, and only when there is actually media to
+            # upload — a plain item pays no extra datasets.get round-trip.
+            if pending_media:
+                assert self._resources is not None
+                dataset_id = self.api.datasets.get(self._url_encode(dataset_name)).id
+                for media, field in pending_media.values():
+                    self._resources._media_manager._upload_media_sync(
+                        media=media,
+                        dataset_id=dataset_id,
+                        dataset_item_id=item_id,
+                        field=field,
+                    )
+
             result = self.api.dataset_items.create(
                 dataset_name=dataset_name,
                 input=input,
@@ -3363,13 +3411,137 @@ class Langfuse:
                 source_trace_id=source_trace_id,
                 source_observation_id=source_observation_id,
                 status=status,
-                id=id,
+                id=item_id,
             )
 
             return cast(DatasetItem, result)
         except Error as e:
             handle_fern_exception(e)
             raise e
+
+    def _process_dataset_item_media(
+        self,
+        *,
+        data: Any,
+        pending_media: Dict[str, Tuple[LangfuseMedia, str]],
+        field: str,
+    ) -> Any:
+        """Swap each ``LangfuseMedia`` for its reference string in ``data``.
+
+        Each replaced media is recorded in ``pending_media`` (keyed by media id,
+        so the same media across fields uploads once) for the caller to upload
+        after the dataset id has been resolved.
+        """
+        if self._resources is None:
+            return data
+
+        max_levels = 10
+
+        def _process_data_recursively(
+            data: Any, level: int, ancestor_container_ids: set[int]
+        ) -> Any:
+            if isinstance(data, LangfuseMedia):
+                reference_string = data._reference_string
+                media_id = data._media_id
+                if reference_string is None or media_id is None:
+                    raise ValueError(
+                        "Cannot create dataset item with invalid LangfuseMedia."
+                    )
+                # First field a media appears in wins; later duplicates dedupe.
+                pending_media.setdefault(media_id, (data, field))
+                return reference_string
+
+            if isinstance(data, LangfuseMediaReference):
+                return data.reference_string if data.reference_string else data
+
+            # Tuples are intentionally excluded: namedtuple subclasses can't be
+            # rebuilt from an iterable, so media inside them is left untouched.
+            if not isinstance(data, (list, set, frozenset, dict)):
+                return data
+
+            # Container ids only protect against recursive cycles.
+            data_id = id(data)
+            if data_id in ancestor_container_ids or level > max_levels:
+                return data
+
+            next_ancestor_container_ids = ancestor_container_ids | {data_id}
+
+            if isinstance(data, (list, set, frozenset)):
+                processed = (
+                    _process_data_recursively(
+                        item, level + 1, next_ancestor_container_ids
+                    )
+                    for item in data
+                )
+                return type(data)(processed)
+
+            return {
+                key: _process_data_recursively(
+                    value, level + 1, next_ancestor_container_ids
+                )
+                for key, value in data.items()
+            }
+
+        return _process_data_recursively(data, 1, set())
+
+    def _hydrate_dataset_item_media_references(self, item: DatasetItem) -> DatasetItem:
+        media_references = item.media_references or []
+        if not media_references:
+            return item
+
+        # Map the API enum member to the snake_case model attribute so this keeps
+        # working regardless of the enum's wire value (e.g. "expectedOutput").
+        attr_by_field = {
+            DatasetItemMediaReferenceField.INPUT: "input",
+            DatasetItemMediaReferenceField.EXPECTED_OUTPUT: "expected_output",
+            DatasetItemMediaReferenceField.METADATA: "metadata",
+        }
+        hydrated_fields = {
+            "input": item.input,
+            "expected_output": item.expected_output,
+            "metadata": item.metadata,
+        }
+
+        for media_reference in media_references:
+            media = media_reference.media
+            field = attr_by_field.get(media_reference.field)
+            if field is None:
+                continue
+
+            replacement = LangfuseMediaReference(
+                media_id=media.media_id,
+                content_type=media.content_type,
+                url=media.url,
+                url_expiry=media.url_expiry,
+                content_length=media.content_length,
+                reference_string=media_reference.reference_string,
+            )
+            hydrated_fields[field] = self._replace_json_path_value(
+                value=hydrated_fields[field],
+                path=media_reference.json_path,
+                replacement=replacement,
+            )
+
+        return item.model_copy(
+            update={
+                "input": hydrated_fields["input"],
+                "expected_output": hydrated_fields["expected_output"],
+                "metadata": hydrated_fields["metadata"],
+            }
+        )
+
+    def _replace_json_path_value(
+        self, *, value: Any, path: str, replacement: LangfuseMediaReference
+    ) -> Any:
+        try:
+            return json_path.set_value_at_path(value, path, replacement)
+        except Exception as e:
+            langfuse_logger.warning(
+                f"Failed to hydrate dataset media reference at JSONPath {path}",
+                exc_info=e,
+            )
+
+            return value
 
     def resolve_media_references(
         self,

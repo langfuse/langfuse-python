@@ -23,6 +23,8 @@ def _upload_job() -> dict:
         "content_sha256_hash": "sha256hash",
         "trace_id": "trace-id",
         "observation_id": None,
+        "dataset_id": None,
+        "dataset_item_id": None,
         "field": "input",
     }
 
@@ -140,6 +142,18 @@ def test_find_and_process_media_valid_base64_uri_is_processed():
 
     assert isinstance(result, LangfuseMedia)
     assert not queue.empty()
+
+
+def test_upload_media_sync_rejects_invalid_media():
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=Queue(),
+    )
+    media = LangfuseMedia()
+
+    with pytest.raises(ValueError, match="Cannot upload invalid LangfuseMedia"):
+        manager._upload_media_sync(media=media)
 
 
 def test_find_and_process_media_data_uri_without_comma_passes_through():
