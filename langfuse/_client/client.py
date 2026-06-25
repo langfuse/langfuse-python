@@ -85,7 +85,11 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
-from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
+from langfuse._client.utils import (
+    get_sha256_hash_hex,
+    get_string_span_attribute,
+    run_async_safely,
+)
 from langfuse._utils import _get_timestamp, json_path
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
@@ -1820,6 +1824,7 @@ class Langfuse:
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
         timestamp: Optional[datetime] = None,
+        environment: Optional[str] = None,
     ) -> None: ...
 
     @overload
@@ -1840,6 +1845,7 @@ class Langfuse:
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
         timestamp: Optional[datetime] = None,
+        environment: Optional[str] = None,
     ) -> None: ...
 
     def create_score(
@@ -1857,6 +1863,7 @@ class Langfuse:
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
         timestamp: Optional[datetime] = None,
+        environment: Optional[str] = None,
     ) -> None:
         """Create a score for a specific trace or observation.
 
@@ -1876,6 +1883,14 @@ class Langfuse:
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
             timestamp: Optional timestamp for the score (defaults to current UTC time)
+            environment: Optional environment override for this score. If omitted,
+                the score uses the client-level environment from
+                `Langfuse(environment=...)` or `LANGFUSE_TRACING_ENVIRONMENT`.
+                Langfuse observation wrapper methods pass their resolved span
+                environment here so scores created via `span.score()` or
+                `span.score_trace()` stay grouped with the scored observation or
+                trace, including request-scoped environments propagated with
+                `propagate_attributes(environment=...)`.
 
         Example:
             ```python
@@ -1915,7 +1930,7 @@ class Langfuse:
                 dataType=data_type,  # type: ignore
                 comment=comment,
                 configId=config_id,
-                environment=self._environment,
+                environment=environment or self._environment,
                 metadata=metadata,
             )
 
@@ -2018,6 +2033,9 @@ class Langfuse:
 
         This method scores the currently active span in the context. It's a convenient
         way to score the current operation without needing to know its trace and span IDs.
+        If the active span has a `langfuse.environment` attribute, including one
+        set by `propagate_attributes(environment=...)`, the score uses that
+        environment. Otherwise it uses the client-level environment.
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
@@ -2065,6 +2083,9 @@ class Langfuse:
                 comment=comment,
                 config_id=config_id,
                 metadata=metadata,
+                environment=get_string_span_attribute(
+                    current_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+                ),
             )
 
     @overload
@@ -2111,6 +2132,9 @@ class Langfuse:
         This method scores the trace of the currently active span. Unlike score_current_span,
         this method associates the score with the entire trace rather than a specific span.
         It's useful for scoring overall performance or quality of the entire operation.
+        If the active span has a `langfuse.environment` attribute, including one
+        set by `propagate_attributes(environment=...)`, the score uses that
+        environment. Otherwise it uses the client-level environment.
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
@@ -2156,6 +2180,9 @@ class Langfuse:
                 comment=comment,
                 config_id=config_id,
                 metadata=metadata,
+                environment=get_string_span_attribute(
+                    current_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+                ),
             )
 
     def flush(self) -> None:
