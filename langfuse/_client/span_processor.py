@@ -14,7 +14,7 @@ Key features:
 import base64
 import os
 import threading
-from typing import Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -35,7 +35,7 @@ from langfuse._client.propagation import (
 )
 from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
-from langfuse._client.utils import span_formatter
+from langfuse._client.utils import get_string_span_attribute, span_formatter
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
@@ -74,8 +74,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         span_exporter: Optional[SpanExporter] = None,
         media_manager: Optional[MediaManager] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
+        environment: Optional[str] = None,
     ):
         self.public_key = public_key
+        self._environment = environment
         self.blocked_instrumentation_scopes = (
             blocked_instrumentation_scopes
             if blocked_instrumentation_scopes is not None
@@ -143,6 +145,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
         context = parent_context or context_api.get_current()
         propagated_attributes = _get_propagated_attributes_from_context(context)
+        self._apply_default_environment(span=span, attributes=propagated_attributes)
 
         if propagated_attributes:
             span.set_attributes(propagated_attributes)
@@ -161,6 +164,33 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             )
 
         return super().on_start(span, parent_context)
+
+    def _apply_default_environment(
+        self, *, span: Span, attributes: Dict[str, Any]
+    ) -> None:
+        """Apply the processor environment to spans without an explicit environment.
+
+        Langfuse-created wrapper spans set ``langfuse.environment`` themselves, and
+        ``propagate_attributes(environment=...)`` adds it to the active context for
+        request-scoped overrides. Third-party OpenTelemetry spans only pass through
+        this processor, so they need the client-level environment applied here when
+        neither of those more specific sources is present.
+        """
+
+        if LangfuseOtelSpanAttributes.ENVIRONMENT in attributes:
+            return
+
+        environment = getattr(self, "_environment", None)
+        if environment is None:
+            return
+
+        if (
+            get_string_span_attribute(span, LangfuseOtelSpanAttributes.ENVIRONMENT)
+            is not None
+        ):
+            return
+
+        attributes[LangfuseOtelSpanAttributes.ENVIRONMENT] = environment
 
     def on_end(self, span: ReadableSpan) -> None:
         try:
