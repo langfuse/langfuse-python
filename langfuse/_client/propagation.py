@@ -141,7 +141,7 @@ def propagate_attributes(
             Use this to set a consistent trace name for all spans created within this context.
         environment: Langfuse environment to assign to spans created in this context.
             Must be a lowercase alphanumeric string with optional hyphens or underscores,
-            must be ≤200 characters, and must not start with "langfuse". This maps to
+            must be ≤40 characters, and must not start with "langfuse". This maps to
             the first-class `langfuse.environment` attribute, not to trace metadata.
             Use it for request-scoped environments, for example when one shared proxy
             handles calls from dev, staging, qa, and prod. A propagated environment
@@ -227,7 +227,7 @@ def propagate_attributes(
         - **Validation**: Attribute values (user_id, session_id, version, tags,
           trace_name) must be strings ≤200 characters. Environment must also match
           Langfuse's environment format: lowercase alphanumeric with optional
-          hyphens or underscores, and it must not start with "langfuse". Metadata
+          hyphens or underscores, must be ≤40 characters, and it must not start with "langfuse". Metadata
           values are coerced to strings before the 200 character limit is applied.
           Invalid values will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
@@ -534,9 +534,9 @@ def _validate_environment_value(*, value: Any) -> Optional[str]:
         )
         return None
 
-    if len(value) > 200:
+    if len(value) > 40:
         langfuse_logger.warning(
-            f"Propagated attribute '{key}' value is over 200 characters ({len(value)} chars). Dropping value."
+            f"Propagated attribute '{key}' value is over 40 characters ({len(value)} chars). Dropping value."
         )
         return None
 

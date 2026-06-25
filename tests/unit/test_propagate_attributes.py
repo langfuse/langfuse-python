@@ -1942,9 +1942,25 @@ class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
             proxy_child, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
         )
 
+    def test_environment_exactly_40_chars_is_accepted(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify environment accepts Langfuse's 40-character public limit."""
+        environment_40 = "e" * 40
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment=environment_40):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, environment_40
+        )
+
     @pytest.mark.parametrize(
         "environment",
-        ["Production", "langfuse-prod", "prod.us", "", "p" * 201, 123],
+        ["Production", "langfuse-prod", "prod.us", "", "p" * 41, 123],
     )
     def test_invalid_environment_is_dropped(
         self, langfuse_client, memory_exporter, environment
