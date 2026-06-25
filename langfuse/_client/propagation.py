@@ -1,10 +1,11 @@
 """Attribute propagation utilities for Langfuse OpenTelemetry integration.
 
 This module provides the `propagate_attributes` context manager for setting trace-level
-attributes (user_id, session_id, metadata) that automatically propagate to all child spans
-within the context.
+attributes (user_id, session_id, metadata, environment, etc.) that automatically
+propagate to all child spans within the context.
 """
 
+import re
 from typing import Any, Dict, Generator, List, Literal, Optional, TypedDict, Union, cast
 
 from opentelemetry import (
@@ -36,6 +37,7 @@ PropagatedKeys = Literal[
     "version",
     "tags",
     "trace_name",
+    "environment",
 ]
 
 InternalPropagatedKeys = Literal[
@@ -55,6 +57,7 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
     "version",
     "tags",
     "trace_name",
+    "environment",
     "experiment_id",
     "experiment_name",
     "experiment_metadata",
@@ -99,14 +102,16 @@ def propagate_attributes(
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
+    environment: Optional[str] = None,
     as_baggage: bool = False,
 ) -> _AgnosticContextManager[Any]:
     """Propagate trace-level attributes to all spans created within this context.
 
     This context manager sets attributes on the currently active span AND automatically
     propagates them to all new child spans created within the context. This is the
-    recommended way to set trace-level attributes like user_id, session_id, and metadata
-    dimensions that should be consistently applied across all observations in a trace.
+    recommended way to set trace-level attributes like user_id, session_id,
+    environment, and metadata dimensions that should be consistently applied across
+    all observations in a trace.
 
     **IMPORTANT**: Call this as early as possible within your trace/workflow. Only the
     currently active span and spans created after entering this context will have these
@@ -134,9 +139,19 @@ def propagate_attributes(
         tags: List of tags to categorize the group of observations
         trace_name: Name to assign to the trace. Must be US-ASCII string, ≤200 characters.
             Use this to set a consistent trace name for all spans created within this context.
+        environment: Langfuse environment to assign to spans created in this context.
+            Must be a lowercase alphanumeric string with optional hyphens or underscores,
+            must be ≤200 characters, and must not start with "langfuse". This maps to
+            the first-class `langfuse.environment` attribute, not to trace metadata.
+            Use it for request-scoped environments, for example when one shared proxy
+            handles calls from dev, staging, qa, and prod. A propagated environment
+            takes precedence over the local client default configured via
+            `Langfuse(environment=...)` or `LANGFUSE_TRACING_ENVIRONMENT` for spans
+            created while this propagation context is active.
         as_baggage: If True, propagates attributes using OpenTelemetry baggage for
             cross-process/service propagation. **Security warning**: When enabled,
             attribute values are added to HTTP headers on ALL outbound requests.
+            This includes `environment` as the `langfuse_environment` baggage entry.
             Only enable if values are safe to transmit via HTTP headers and you need
             cross-service tracing. Default: False.
 
@@ -156,11 +171,12 @@ def propagate_attributes(
             with langfuse.propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
-                metadata={"experiment": "variant_a", "environment": "production"}
+                environment="production",
+                metadata={"experiment": "variant_a"}
             ):
-                # All spans created here will have user_id, session_id, and metadata
+                # All spans created here will have user_id, session_id, environment, and metadata
                 with langfuse.start_observation(name="llm_call") as llm_span:
-                    # This span inherits: user_id, session_id, experiment, environment
+                    # This span inherits user_id, session_id, environment, and experiment metadata
                     ...
 
                 with langfuse.start_generation(name="completion") as gen:
@@ -193,22 +209,27 @@ def propagate_attributes(
             with langfuse.propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
+                environment="staging",
                 as_baggage=True  # Propagate via HTTP headers
             ):
                 # Make HTTP request to Service B
                 response = requests.get("https://service-b.example.com/api")
-                # user_id and session_id are now in HTTP headers
+                # user_id, session_id, and environment are now in HTTP headers
 
         # Service B - downstream service
         # OpenTelemetry will automatically extract baggage from HTTP headers
-        # and propagate to spans in Service B
+        # and propagate attributes to spans in Service B. If Service B has a local
+        # Langfuse environment configured, the propagated environment wins for
+        # spans created within this context.
         ```
 
     Note:
         - **Validation**: Attribute values (user_id, session_id, version, tags,
-          trace_name) must be strings ≤200 characters. Metadata values are
-          coerced to strings before the 200 character limit is applied. Invalid
-          values will be dropped with a warning logged.
+          trace_name) must be strings ≤200 characters. Environment must also match
+          Langfuse's environment format: lowercase alphanumeric with optional
+          hyphens or underscores, and it must not start with "langfuse". Metadata
+          values are coerced to strings before the 200 character limit is applied.
+          Invalid values will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
 
@@ -222,6 +243,7 @@ def propagate_attributes(
         version=version,
         tags=tags,
         trace_name=trace_name,
+        environment=environment,
         as_baggage=as_baggage,
     )
 
@@ -235,6 +257,7 @@ def _propagate_attributes(
     version: Optional[str] = None,
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
+    environment: Optional[str] = None,
     as_baggage: bool = False,
     experiment: Optional[PropagatedExperimentAttributes] = None,
 ) -> Generator[Any, Any, Any]:
@@ -247,6 +270,7 @@ def _propagate_attributes(
         "version": version,
         "tags": tags,
         "trace_name": trace_name,
+        "environment": environment,
     }
 
     propagated_metadata_attributes: Dict[str, Optional[Dict[str, Any]]] = {
@@ -327,6 +351,17 @@ def _get_propagated_attributes_from_context(
             span_key = _get_span_key_from_baggage_key(baggage_key)
 
             if span_key:
+                if span_key == LangfuseOtelSpanAttributes.ENVIRONMENT:
+                    validated_environment = _validate_environment_value(
+                        value=baggage_value
+                    )
+
+                    if validated_environment is None:
+                        continue
+
+                    propagated_attributes[span_key] = validated_environment
+                    continue
+
                 propagated_attributes[span_key] = (
                     baggage_value
                     if isinstance(baggage_value, (str, list))
@@ -339,6 +374,17 @@ def _get_propagated_attributes_from_context(
         value = otel_context_api.get_value(key=context_key, context=context)
 
         if value is None:
+            continue
+
+        if key == "environment":
+            validated_environment = _validate_environment_value(value=value)
+
+            if validated_environment is None:
+                continue
+
+            propagated_attributes[LangfuseOtelSpanAttributes.ENVIRONMENT] = (
+                validated_environment
+            )
             continue
 
         if isinstance(value, dict):
@@ -435,6 +481,9 @@ def _set_propagated_attribute(
 def _validate_propagated_value(
     *, value: Any, key: str
 ) -> Optional[Union[str, List[str]]]:
+    if key == "environment":
+        return _validate_environment_value(value=value)
+
     if isinstance(value, list):
         validated_values = [
             v for v in value if _validate_string_value(key=key, value=v)
@@ -471,6 +520,35 @@ def _validate_string_value(*, value: str, key: str) -> bool:
         return False
 
     return True
+
+
+_ENVIRONMENT_VALUE_PATTERN = re.compile(r"^(?!langfuse)[a-z0-9_-]+$")
+
+
+def _validate_environment_value(*, value: Any) -> Optional[str]:
+    key = "environment"
+
+    if not isinstance(value, str):
+        langfuse_logger.warning(  # type: ignore
+            f"Propagated attribute '{key}' value is not a string. Dropping value."
+        )
+        return None
+
+    if len(value) > 200:
+        langfuse_logger.warning(
+            f"Propagated attribute '{key}' value is over 200 characters ({len(value)} chars). Dropping value."
+        )
+        return None
+
+    if not _ENVIRONMENT_VALUE_PATTERN.match(value):
+        langfuse_logger.warning(
+            "Propagated attribute 'environment' must be a lowercase alphanumeric "
+            "string with optional hyphens or underscores and must not start with "
+            "'langfuse'. Dropping value."
+        )
+        return None
+
+    return value
 
 
 def _get_propagated_context_key(key: str) -> str:
@@ -542,6 +620,7 @@ def _get_propagated_span_key(key: str) -> str:
         "version": LangfuseOtelSpanAttributes.VERSION,
         "tags": LangfuseOtelSpanAttributes.TRACE_TAGS,
         "trace_name": LangfuseOtelSpanAttributes.TRACE_NAME,
+        "environment": LangfuseOtelSpanAttributes.ENVIRONMENT,
         "metadata": LangfuseOtelSpanAttributes.TRACE_METADATA,
         "experiment_id": LangfuseOtelSpanAttributes.EXPERIMENT_ID,
         "experiment_name": LangfuseOtelSpanAttributes.EXPERIMENT_NAME,

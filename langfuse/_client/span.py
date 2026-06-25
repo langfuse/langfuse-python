@@ -61,6 +61,21 @@ from langfuse.types import SpanLevel
 _OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
 
 
+def _get_string_span_attribute(
+    otel_span: otel_trace_api.Span, attribute_key: str
+) -> Optional[str]:
+    if not otel_span.is_recording():
+        return None
+
+    attributes = getattr(otel_span, "attributes", None)
+    if attributes is None or not hasattr(attributes, "get"):
+        return None
+
+    value = attributes.get(attribute_key)
+
+    return value if isinstance(value, str) else None
+
+
 class LangfuseObservationWrapper:
     """Abstract base class for all Langfuse span types.
 
@@ -105,7 +120,10 @@ class LangfuseObservationWrapper:
             input: Input data for the span (any JSON-serializable object)
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
-            environment: The tracing environment
+            environment: Local tracing environment fallback. If the underlying
+                OpenTelemetry span already has `langfuse.environment` from
+                propagated context or baggage, that propagated value takes
+                precedence over this fallback.
             release: Release identifier for the application
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
@@ -127,7 +145,12 @@ class LangfuseObservationWrapper:
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
         self.id = self._langfuse_client._get_otel_span_id(otel_span)
 
-        self._environment = environment or self._langfuse_client._environment
+        existing_environment = _get_string_span_attribute(
+            self._otel_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+        )
+        self._environment = (
+            existing_environment or environment or self._langfuse_client._environment
+        )
         if self._environment is not None:
             self._otel_span.set_attribute(
                 LangfuseOtelSpanAttributes.ENVIRONMENT, self._environment

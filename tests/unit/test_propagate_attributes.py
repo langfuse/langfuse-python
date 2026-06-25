@@ -1850,6 +1850,117 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         )
 
 
+class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
+    """Tests for first-class Langfuse environment propagation."""
+
+    def test_environment_propagates_to_child_spans(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify environment propagates as langfuse.environment, not metadata."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment="staging"):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "staging"
+        )
+        self.verify_missing_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.environment"
+        )
+
+    def test_environment_with_baggage(self, langfuse_client, memory_exporter):
+        """Verify environment is written to baggage and extracted onto spans."""
+        from opentelemetry import baggage
+        from opentelemetry import context as otel_context
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment="qa", as_baggage=True):
+                current_context = otel_context.get_current()
+                baggage_entries = baggage.get_all(context=current_context)
+
+                assert baggage_entries["langfuse_environment"] == "qa"
+
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "qa"
+        )
+
+    def test_environment_overrides_client_default_inside_context(
+        self, langfuse_client, memory_exporter
+    ):
+        """Propagated environment wins over the local client environment."""
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="staging"):
+            with langfuse_client.start_as_current_observation(name="request-span"):
+                pass
+
+        with langfuse_client.start_as_current_observation(name="local-span"):
+            pass
+
+        request_span = self.get_span_by_name(memory_exporter, "request-span")
+        self.verify_span_attribute(
+            request_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "staging"
+        )
+
+        local_span = self.get_span_by_name(memory_exporter, "local-span")
+        self.verify_span_attribute(
+            local_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "proxy-prod"
+        )
+
+    def test_environment_baggage_overrides_client_default_after_context_attach(
+        self, langfuse_client, memory_exporter
+    ):
+        """Simulate cross-process extraction where caller environment beats proxy default."""
+        from opentelemetry import context as otel_context
+
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="dev", as_baggage=True):
+            context_with_baggage = otel_context.get_current()
+
+        token = otel_context.attach(context_with_baggage)
+        try:
+            with langfuse_client.start_as_current_observation(name="proxy-request"):
+                child = langfuse_client.start_observation(name="proxy-child")
+                child.end()
+        finally:
+            otel_context.detach(token)
+
+        proxy_request = self.get_span_by_name(memory_exporter, "proxy-request")
+        self.verify_span_attribute(
+            proxy_request, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
+        )
+
+        proxy_child = self.get_span_by_name(memory_exporter, "proxy-child")
+        self.verify_span_attribute(
+            proxy_child, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
+        )
+
+    @pytest.mark.parametrize(
+        "environment",
+        ["Production", "langfuse-prod", "prod.us", "", "p" * 201, 123],
+    )
+    def test_invalid_environment_is_dropped(
+        self, langfuse_client, memory_exporter, environment
+    ):
+        """Invalid propagated environments do not set langfuse.environment."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment=environment):  # type: ignore[arg-type]
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+        )
+
+
 class TestPropagateAttributesVersion(TestPropagateAttributesBase):
     """Tests for version parameter propagation."""
 
