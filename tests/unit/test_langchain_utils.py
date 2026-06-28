@@ -1,9 +1,13 @@
 """Unit tests for langfuse.langchain.utils model-name extraction."""
 
+import pytest
+
 from langfuse.langchain.utils import _extract_model_name
 
+_MODEL_ID = "Qwen/Qwen2.5-Coder-32B-Instruct"
 
-def _chat_huggingface_serialized(model_id: str) -> dict:
+
+def _chat_huggingface_serialized(inner_repr: str) -> dict:
     """Mirror ``langchain_core.load.dumpd(ChatHuggingFace(...))``.
 
     ChatHuggingFace is not LangChain-serializable, so it serializes to a
@@ -19,15 +23,22 @@ def _chat_huggingface_serialized(model_id: str) -> dict:
             "huggingface",
             "ChatHuggingFace",
         ],
-        "repr": (
-            f"ChatHuggingFace(llm=HuggingFaceEndpoint(repo_id='{model_id}', "
-            f"model='{model_id}', task='text-generation'), model_id='{model_id}')"
-        ),
+        "repr": f"ChatHuggingFace(llm={inner_repr}, model_id='{_MODEL_ID}')",
         "name": "ChatHuggingFace",
     }
 
 
-def test_extract_model_name_chat_huggingface():
-    serialized = _chat_huggingface_serialized("Qwen/Qwen2.5-Coder-32B-Instruct")
+@pytest.mark.parametrize(
+    "inner_repr",
+    [
+        f"HuggingFaceEndpoint(repo_id='{_MODEL_ID}', model='{_MODEL_ID}', task='text-generation')",
+        f"HuggingFaceHub(repo_id='{_MODEL_ID}')",
+        # HuggingFacePipeline exposes its own model_id, so the repr carries two
+        # model_id='...' occurrences; re.search picks the first (inner) one.
+        f"HuggingFacePipeline(model_id='{_MODEL_ID}')",
+    ],
+)
+def test_extract_model_name_chat_huggingface(inner_repr: str):
+    serialized = _chat_huggingface_serialized(inner_repr)
 
-    assert _extract_model_name(serialized) == "Qwen/Qwen2.5-Coder-32B-Instruct"
+    assert _extract_model_name(serialized) == _MODEL_ID
