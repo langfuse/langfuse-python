@@ -97,6 +97,7 @@ def _extract_model_name(
         ("ChatCohere", "model", None),
         ("Cohere", "model", None),
         ("HuggingFaceHub", "model", None),
+        ("ChatHuggingFace", "model_id", None),
         ("ChatAnyscale", "model_name", None),
         ("TextGen", "model", "text-gen"),
         ("Ollama", "model", None),
