@@ -16,6 +16,7 @@ Key features:
 
 import atexit
 import os
+import sys
 import threading
 import weakref
 from queue import Full, Queue
@@ -343,7 +344,7 @@ class LangfuseResourceManager:
         self._ingestion_consumers.append(ingestion_consumer)
 
     def _at_fork_reinit(self) -> None:
-        """Mark that post-fork reinitialization is needed; do no heavy work here.
+        """Reinitialize consumer threads after fork in child process.
 
         Called automatically via os.register_at_fork() after fork().
         Necessary for Gunicorn --preload deployments where os.fork() is used:
@@ -356,111 +357,82 @@ class LangfuseResourceManager:
 
         Skipped if shutdown() was already called on this instance, to avoid
         restarting threads on an intentionally torn-down manager.
-
-        Heavy work (httpx.Client creation, thread spawning) is intentionally
-        deferred to _ensure_post_fork_initialized(), called on first use.
-        Doing that work here — inside the after_in_child handler — triggers
-        SSL/TLS and Objective-C runtime calls that are unsafe in the narrow
-        post-fork window and cause segfaults on macOS with gunicorn --preload.
         """
         if self._shutdown:
             return
+
+        if sys.platform == "darwin":
+            # urllib proxy discovery calls macOS SystemConfiguration APIs that
+            # are not safe to invoke after fork(). Setting no_proxy="*" makes
+            # httpx skip getproxies() entirely in this child process.
+            # See: https://docs.python.org/3/library/urllib.request.html
+            os.environ["no_proxy"] = "*"
+            os.environ["NO_PROXY"] = "*"
 
         # The class-level lock may have been held by a thread in the parent at fork time.
         # That thread does not exist in the child, so the lock can never be released and
         # any attempt to acquire it would deadlock. Replace it with a fresh lock first.
         LangfuseResourceManager._lock = threading.RLock()
 
-        # Replace queues with fresh empty ones so flush() (e.g. via atexit) does not
-        # block waiting for pre-fork items that no consumer will ever drain.
-        # Queue() is pure Python — safe to call here.
-        self._media_upload_queue = Queue(100_000)
-        self._score_ingestion_queue = Queue(100_000)
-        self._media_upload_consumers = []
-        self._ingestion_consumers = []
+        langfuse_logger.debug(
+            f"[PID {os.getpid()}] Fork detected: reinitializing Langfuse consumer threads."
+        )
 
-        # Signal that HTTP clients and consumer threads need to be recreated on first use.
-        self._needs_post_fork_reinit = True
-        # Fresh lock to guard the one-time lazy reinit below.
-        self._post_fork_reinit_lock = threading.Lock()
+        # Queues are intentionally recreated after fork. Items enqueued before fork
+        # belong to the preloaded parent process and must not be processed by every
+        # worker — otherwise uploads/scores would be duplicated across workers.
+        #
+        # Internally-managed httpx clients must also be recreated: fork() duplicates the
+        # parent's connection pool (TCP socket file descriptors) into the child. Both
+        # processes then share the same underlying sockets, causing data corruption and
+        # SSL/TLS state mismatch under concurrent use. Fresh clients start with an empty
+        # pool owned solely by this child process.
+        #
+        # Custom httpx clients provided by the caller are NOT recreated. The fork-inherited
+        # copy is reused as-is, giving the caller the opportunity to handle process-safety
+        # themselves (e.g. by registering their own os.register_at_fork handler).
+        try:
+            if self._custom_httpx_client is None:
+                client_headers = self.additional_headers if self.additional_headers else {}
+                self.httpx_client = httpx.Client(
+                    timeout=self.timeout, headers=client_headers
+                )
 
-    def _ensure_post_fork_initialized(self) -> None:
-        """Lazily recreate HTTP clients and consumer threads after fork.
-
-        Called at the start of add_score_task() / add_trace_task() so that
-        the first actual work in the child process triggers full reinitialization.
-        The deferred approach avoids doing SSL/thread-creation work inside the
-        after_in_child handler where it causes segfaults on macOS.
-        """
-        if not getattr(self, "_needs_post_fork_reinit", False):
-            return
-
-        with self._post_fork_reinit_lock:
-            if not self._needs_post_fork_reinit:
-                return
-
-            langfuse_logger.debug(
-                f"[PID {os.getpid()}] Fork detected: reinitializing Langfuse HTTP clients and consumer threads."
+            self.api = LangfuseAPI(
+                base_url=self.base_url,
+                username=self.public_key,
+                password=self.secret_key,
+                x_langfuse_sdk_name="python",
+                x_langfuse_sdk_version=langfuse_version,
+                x_langfuse_public_key=self.public_key,
+                httpx_client=self.httpx_client,
+                timeout=self.timeout,
+            )
+            self._score_ingestion_client = LangfuseClient(
+                public_key=self.public_key,
+                secret_key=self.secret_key,
+                base_url=self.base_url,
+                version=langfuse_version,
+                timeout=self.timeout or 20,
+                session=self.httpx_client,
+            )
+        except Exception as e:
+            langfuse_logger.error(
+                f"[PID {os.getpid()}] Failed to recreate HTTP clients after fork: {e}. "
+                f"Network requests may fail in this worker."
             )
 
-            # Queues are intentionally recreated here (not reused from _at_fork_reinit).
-            # Items enqueued before fork belong to the parent and must not be processed
-            # by every worker — that would duplicate uploads/scores across workers.
-            #
-            # Internally-managed httpx clients must also be recreated: fork() duplicates
-            # the parent's connection pool (TCP socket file descriptors) into the child.
-            # Both processes would then share the same underlying sockets, causing data
-            # corruption and SSL/TLS state mismatch under concurrent use.
-            #
-            # Custom httpx clients provided by the caller are NOT recreated. The
-            # fork-inherited copy is reused, giving the caller the opportunity to handle
-            # process-safety themselves (e.g. via their own os.register_at_fork handler).
-            try:
-                if self._custom_httpx_client is None:
-                    client_headers = (
-                        self.additional_headers if self.additional_headers else {}
-                    )
-                    self.httpx_client = httpx.Client(
-                        timeout=self.timeout, headers=client_headers
-                    )
-
-                self.api = LangfuseAPI(
-                    base_url=self.base_url,
-                    username=self.public_key,
-                    password=self.secret_key,
-                    x_langfuse_sdk_name="python",
-                    x_langfuse_sdk_version=langfuse_version,
-                    x_langfuse_public_key=self.public_key,
-                    httpx_client=self.httpx_client,
-                    timeout=self.timeout,
-                )
-                self._score_ingestion_client = LangfuseClient(
-                    public_key=self.public_key,
-                    secret_key=self.secret_key,
-                    base_url=self.base_url,
-                    version=langfuse_version,
-                    timeout=self.timeout or 20,
-                    session=self.httpx_client,
-                )
-            except Exception as e:
-                langfuse_logger.error(
-                    f"[PID {os.getpid()}] Failed to recreate HTTP clients after fork: {e}. "
-                    f"Network requests may fail in this worker."
-                )
-
-            try:
-                self._init_consumer_threads()
-            except Exception as e:
-                langfuse_logger.error(
-                    f"[PID {os.getpid()}] Failed to reinitialize consumer threads after fork: {e}. "
-                    f"Media upload and score ingestion will be unavailable in this worker."
-                )
-
-            self._needs_post_fork_reinit = False
-
-            langfuse_logger.debug(
-                f"[PID {os.getpid()}] Langfuse consumer threads reinitialized after fork"
+        try:
+            self._init_consumer_threads()
+        except Exception as e:
+            langfuse_logger.error(
+                f"[PID {os.getpid()}] Failed to reinitialize consumer threads after fork: {e}. "
+                f"Media upload and score ingestion will be unavailable in this worker."
             )
+
+        langfuse_logger.debug(
+            f"[PID {os.getpid()}] Langfuse consumer threads reinitialized after fork"
+        )
 
     @classmethod
     def reset(cls) -> None:
@@ -471,7 +443,6 @@ class LangfuseResourceManager:
             cls._instances.clear()
 
     def add_score_task(self, event: dict, *, force_sample: bool = False) -> None:
-        self._ensure_post_fork_initialized()
         try:
             # Sample scores with the same sampler that is used for tracing
             tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
@@ -520,7 +491,6 @@ class LangfuseResourceManager:
         self,
         event: dict,
     ) -> None:
-        self._ensure_post_fork_initialized()
         try:
             langfuse_logger.debug(
                 f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
