@@ -97,6 +97,150 @@ def test_chat_model_callback_exports_generation_span(
     }
 
 
+def test_chat_model_callback_adds_response_derived_generation_metadata(
+    langfuse_memory_client, get_span
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="bonjour",
+                    response_metadata={
+                        "headers": {
+                            "x-request-id": "req_123",
+                        },
+                    },
+                ),
+                text="bonjour",
+            )
+        ],
+        llm_output={"model_name": "gpt-4o-mini"},
+    )
+
+    def generation_metadata_extractor(
+        response, *, run_id, parent_run_id=None, **kwargs
+    ):
+        generation = response.generations[-1][-1]
+        headers = generation.message.response_metadata.get("headers", {})
+
+        return {
+            "provider_request_id": headers.get("x-request-id"),
+            "run_id": str(run_id),
+            "run_has_value": run_id is not None,
+        }
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler(
+            generation_metadata_extractor=generation_metadata_extractor
+        )
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            ChatOpenAI(api_key="test", temperature=0).invoke(
+                [HumanMessage(content="hello")],
+                config={
+                    "callbacks": [handler],
+                    "metadata": {"initial_metadata": "kept"},
+                },
+            )
+
+    langfuse_memory_client.flush()
+    generation_span = get_span("ChatOpenAI")
+
+    assert (
+        generation_span.attributes[
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.initial_metadata"
+        ]
+        == "kept"
+    )
+    assert (
+        generation_span.attributes[
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.provider_request_id"
+        ]
+        == "req_123"
+    )
+    assert (
+        generation_span.attributes[
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.run_has_value"
+        ]
+        is True
+    )
+
+
+def test_chat_model_callback_supports_generation_metadata_subclass_hook(
+    langfuse_memory_client, get_span
+):
+    class CustomCallbackHandler(CallbackHandler):
+        def get_generation_metadata(
+            self, response, *, run_id, parent_run_id=None, **kwargs
+        ):
+            return {"provider_request_id": "subclass_req_123"}
+
+    response = ChatResult(
+        generations=[
+            ChatGeneration(message=AIMessage(content="bonjour"), text="bonjour")
+        ],
+        llm_output={"model_name": "gpt-4o-mini"},
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CustomCallbackHandler()
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            ChatOpenAI(api_key="test", temperature=0).invoke(
+                [HumanMessage(content="hello")],
+                config={"callbacks": [handler]},
+            )
+
+    langfuse_memory_client.flush()
+    generation_span = get_span("ChatOpenAI")
+
+    assert (
+        generation_span.attributes[
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.provider_request_id"
+        ]
+        == "subclass_req_123"
+    )
+
+
+def test_chat_model_callback_ends_generation_when_metadata_hook_fails(
+    langfuse_memory_client, get_span, json_attr
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(message=AIMessage(content="bonjour"), text="bonjour")
+        ],
+        llm_output={"model_name": "gpt-4o-mini"},
+    )
+
+    def generation_metadata_extractor(response, *, run_id, parent_run_id=None, **kwargs):
+        raise RuntimeError("metadata unavailable")
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler(
+            generation_metadata_extractor=generation_metadata_extractor
+        )
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            ChatOpenAI(api_key="test", temperature=0).invoke(
+                [HumanMessage(content="hello")],
+                config={"callbacks": [handler]},
+            )
+
+    langfuse_memory_client.flush()
+    generation_span = get_span("ChatOpenAI")
+
+    assert (
+        generation_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
+        == "generation"
+    )
+    assert json_attr(
+        generation_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+    ) == {
+        "role": "assistant",
+        "content": "bonjour",
+    }
+
+
 def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
     response = LLMResult(
         generations=[[Generation(text="sockzilla")]],
