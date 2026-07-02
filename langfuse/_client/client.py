@@ -95,6 +95,7 @@ from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import (
+    AsyncLangfuseAPI,
     CreateChatPromptRequest,
     CreateChatPromptType,
     CreateTextPromptRequest,
@@ -105,6 +106,7 @@ from langfuse.api import (
     DatasetStatus,
     DeleteDatasetRunResponse,
     Error,
+    LangfuseAPI,
     MapValue,
     NotFoundError,
     PaginatedDatasetRuns,
@@ -416,8 +418,34 @@ class Langfuse:
             if self._tracing_enabled and self._resources.tracer is not None
             else otel_trace_api.NoOpTracer()
         )
-        self.api = self._resources.api
-        self.async_api = self._resources.async_api
+
+    @property
+    def api(self) -> LangfuseAPI:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        return self._resources.api
+
+    @api.setter
+    def api(self, value: LangfuseAPI) -> None:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        self._resources.api = value
+
+    @property
+    def async_api(self) -> AsyncLangfuseAPI:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        return self._resources.async_api
+
+    @async_api.setter
+    def async_api(self, value: AsyncLangfuseAPI) -> None:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        self._resources.async_api = value
 
     @overload
     def start_observation(

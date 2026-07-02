@@ -331,12 +331,18 @@ def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
     old_api = rm.api
     old_async_api = rm.async_api
     old_score_ingestion_client = rm._score_ingestion_client
+    assert client.api is old_api
+    assert client.async_api is old_async_api
 
     rm._at_fork_reinit()
 
     assert rm.httpx_client is not old_httpx_client
     assert rm.api is not old_api
     assert rm.async_api is not old_async_api
+    assert client.api is rm.api
+    assert client.api is not old_api
+    assert client.async_api is rm.async_api
+    assert client.async_api is not old_async_api
     assert rm._score_ingestion_client is not old_score_ingestion_client
 
     client.shutdown()
