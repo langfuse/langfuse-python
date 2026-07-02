@@ -1,3 +1,4 @@
+import sys
 import asyncio
 import contextvars
 import inspect
@@ -695,13 +696,16 @@ class _ContextPreservedAsyncGeneratorWrapper:
             return
 
         try:
-            try:
+            if sys.version_info >= (3, 11):
                 await asyncio.create_task(
                     self.generator.aclose(),
                     context=self.context,
                 )  # type: ignore
-            except TypeError:
-                await self.context.run(asyncio.create_task, self.generator.aclose())
+            else:
+                await self.context.run(
+                    asyncio.create_task,
+                    self.generator.aclose(),
+                )
         except (Exception, asyncio.CancelledError) as error:
             self._finalize_with_error(error)
             raise
@@ -717,14 +721,12 @@ class _ContextPreservedAsyncGeneratorWrapper:
     async def __anext__(self) -> Any:
         try:
             # Run the generator's __anext__ in the preserved context
-            try:
-                # Python 3.11+ approach with explicit task context
+            if sys.version_info >= (3, 11):
                 item = await asyncio.create_task(
                     self.generator.__anext__(),  # type: ignore
                     context=self.context,
                 )  # type: ignore
-            except TypeError:
-                # Python 3.10 fallback - create the task inside the preserved context.
+            else:
                 item = await self.context.run(
                     asyncio.create_task,
                     self.generator.__anext__(),  # type: ignore
