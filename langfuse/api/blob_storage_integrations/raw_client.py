@@ -201,7 +201,7 @@ class RawBlobStorageIntegrationsClient:
             Path prefix for exported files (must end with forward slash if provided)
 
         export_start_date : typing.Optional[dt.datetime]
-            Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+            Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE). Must not be in the future (27 h tolerance for timezone differences).
 
         compressed : typing.Optional[bool]
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
@@ -696,7 +696,7 @@ class AsyncRawBlobStorageIntegrationsClient:
             Path prefix for exported files (must end with forward slash if provided)
 
         export_start_date : typing.Optional[dt.datetime]
-            Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+            Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE). Must not be in the future (27 h tolerance for timezone differences).
 
         compressed : typing.Optional[bool]
             Enable gzip compression for exported files (.csv.gz, .json.gz, .jsonl.gz). Defaults to true.
