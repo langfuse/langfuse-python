@@ -223,11 +223,15 @@ def test_at_fork_reinit_skips_when_shutdown(monkeypatch):
     assert rm is not None
 
     old_score_queue = rm._score_ingestion_queue
+    old_lock = LangfuseResourceManager._lock
 
     rm._shutdown = True
     rm._at_fork_reinit()
 
     assert rm._score_ingestion_queue is old_score_queue  # queue must not be replaced
+    # The class-level lock is shared state the child still needs (e.g. to create
+    # a new client), so it must be replaced even when this instance is shut down.
+    assert LangfuseResourceManager._lock is not old_lock
 
     client.shutdown()
 
@@ -325,12 +329,14 @@ def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
 
     old_httpx_client = rm.httpx_client
     old_api = rm.api
+    old_async_api = rm.async_api
     old_score_ingestion_client = rm._score_ingestion_client
 
     rm._at_fork_reinit()
 
     assert rm.httpx_client is not old_httpx_client
     assert rm.api is not old_api
+    assert rm.async_api is not old_async_api
     assert rm._score_ingestion_client is not old_score_ingestion_client
 
     client.shutdown()
@@ -363,6 +369,7 @@ def test_at_fork_reinit_preserves_custom_httpx_client(monkeypatch):
     # Custom client must be preserved — caller owns process-safety for it.
     assert rm.httpx_client is custom_client
     assert rm.api is not None
+    assert rm.async_api is not None
     assert rm._score_ingestion_client is not None
 
     custom_client.close()

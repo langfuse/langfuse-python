@@ -18,6 +18,7 @@ import atexit
 import os
 import sys
 import threading
+import urllib.request
 import weakref
 from queue import Full, Queue
 from typing import Any, Callable, Dict, List, Optional, cast
@@ -81,6 +82,10 @@ class LangfuseResourceManager:
 
     _instances: Dict[str, "LangfuseResourceManager"] = {}
     _lock = threading.RLock()
+    _otel_tracer: Tracer
+    _media_manager: MediaManager
+    _media_upload_consumers: List[MediaUploadConsumer]
+    _ingestion_consumers: List[ScoreIngestionConsumer]
 
     @classmethod
     def get_singleton_httpx_client(cls) -> Optional[httpx.Client]:
@@ -219,49 +224,8 @@ class LangfuseResourceManager:
         self.span_exporter = span_exporter
         self.tracer_provider: Optional[TracerProvider] = None
 
-        # API Clients
-
-        ## API clients must be singletons because the underlying HTTPX clients
-        ## use connection pools with limited capacity. Creating multiple instances
-        ## could exhaust the OS's maximum number of available TCP sockets (file descriptors),
-        ## leading to connection errors.
         self._custom_httpx_client = httpx_client
-        if httpx_client is not None:
-            self.httpx_client = httpx_client
-        else:
-            # Create a new httpx client with additional_headers if provided
-            client_headers = additional_headers if additional_headers else {}
-            self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
-
-        self.api = LangfuseAPI(
-            base_url=base_url,
-            username=self.public_key,
-            password=secret_key,
-            x_langfuse_sdk_name="python",
-            x_langfuse_sdk_version=langfuse_version,
-            x_langfuse_public_key=self.public_key,
-            httpx_client=self.httpx_client,
-            timeout=timeout,
-        )
-        self.async_api = AsyncLangfuseAPI(
-            base_url=base_url,
-            username=self.public_key,
-            password=secret_key,
-            x_langfuse_sdk_name="python",
-            x_langfuse_sdk_version=langfuse_version,
-            x_langfuse_public_key=self.public_key,
-            timeout=timeout,
-        )
-
-        # Store as instance variable so _at_fork_reinit can reuse without recreation
-        self._score_ingestion_client = LangfuseClient(
-            public_key=self.public_key,
-            secret_key=secret_key,
-            base_url=base_url,
-            version=langfuse_version,
-            timeout=timeout or 20,
-            session=self.httpx_client,
-        )
+        self._init_api_clients()
 
         # Media
         self._media_upload_enabled = os.environ.get(
@@ -365,6 +329,49 @@ class LangfuseResourceManager:
 
         self._media_upload_consumers = []
 
+    def _init_api_clients(self) -> None:
+        """Initialize HTTP-backed API clients.
+
+        Internally-managed httpx clients are recreated when this method is
+        called after fork. Caller-provided clients are preserved because their
+        lifecycle belongs to the caller.
+        """
+        if self._custom_httpx_client is not None:
+            self.httpx_client = self._custom_httpx_client
+        else:
+            client_headers = self.additional_headers if self.additional_headers else {}
+            self.httpx_client = httpx.Client(
+                timeout=self.timeout, headers=client_headers
+            )
+
+        self.api = LangfuseAPI(
+            base_url=self.base_url,
+            username=self.public_key,
+            password=self.secret_key,
+            x_langfuse_sdk_name="python",
+            x_langfuse_sdk_version=langfuse_version,
+            x_langfuse_public_key=self.public_key,
+            httpx_client=self.httpx_client,
+            timeout=self.timeout,
+        )
+        self.async_api = AsyncLangfuseAPI(
+            base_url=self.base_url,
+            username=self.public_key,
+            password=self.secret_key,
+            x_langfuse_sdk_name="python",
+            x_langfuse_sdk_version=langfuse_version,
+            x_langfuse_public_key=self.public_key,
+            timeout=self.timeout,
+        )
+        self._score_ingestion_client = LangfuseClient(
+            public_key=self.public_key,
+            secret_key=self.secret_key,
+            base_url=self.base_url,
+            version=langfuse_version,
+            timeout=self.timeout or 20,
+            session=self.httpx_client,
+        )
+
     def _init_consumer_threads(self) -> None:
         """Initialize media upload and score ingestion consumer threads."""
         if self._media_upload_enabled:
@@ -407,21 +414,25 @@ class LangfuseResourceManager:
         Skipped if shutdown() was already called on this instance, to avoid
         restarting threads on an intentionally torn-down manager.
         """
+        # The class-level lock may have been held by a thread in the parent at fork time.
+        # That thread does not exist in the child, so the lock can never be released and
+        # any attempt to acquire it would deadlock. Replace it before the shutdown check:
+        # the lock is class-level state needed by the child (e.g. to create a new client)
+        # even if this particular instance was already shut down.
+        LangfuseResourceManager._lock = threading.RLock()
+
         if self._shutdown:
             return
 
-        if sys.platform == "darwin":
-            # urllib proxy discovery calls macOS SystemConfiguration APIs that
-            # are not safe to invoke after fork(). Setting no_proxy="*" makes
-            # httpx skip getproxies() entirely in this child process.
-            # See: https://docs.python.org/3/library/urllib.request.html
+        if sys.platform == "darwin" and not urllib.request.getproxies_environment():
+            # urllib proxy discovery falls back to macOS SystemConfiguration APIs that
+            # are not safe to invoke after fork(). Setting no_proxy="*" makes httpx and
+            # requests skip that lookup entirely in this child process. Skipped when
+            # proxies are configured via environment variables: urllib then never touches
+            # SystemConfiguration (no segfault risk), and overriding no_proxy would
+            # disable the user's proxy setup process-wide.
             os.environ["no_proxy"] = "*"
             os.environ["NO_PROXY"] = "*"
-
-        # The class-level lock may have been held by a thread in the parent at fork time.
-        # That thread does not exist in the child, so the lock can never be released and
-        # any attempt to acquire it would deadlock. Replace it with a fresh lock first.
-        LangfuseResourceManager._lock = threading.RLock()
 
         langfuse_logger.debug(
             f"[PID {os.getpid()}] Fork detected: reinitializing Langfuse consumer threads."
@@ -441,32 +452,7 @@ class LangfuseResourceManager:
         # copy is reused as-is, giving the caller the opportunity to handle process-safety
         # themselves (e.g. by registering their own os.register_at_fork handler).
         try:
-            if self._custom_httpx_client is None:
-                client_headers = (
-                    self.additional_headers if self.additional_headers else {}
-                )
-                self.httpx_client = httpx.Client(
-                    timeout=self.timeout, headers=client_headers
-                )
-
-            self.api = LangfuseAPI(
-                base_url=self.base_url,
-                username=self.public_key,
-                password=self.secret_key,
-                x_langfuse_sdk_name="python",
-                x_langfuse_sdk_version=langfuse_version,
-                x_langfuse_public_key=self.public_key,
-                httpx_client=self.httpx_client,
-                timeout=self.timeout,
-            )
-            self._score_ingestion_client = LangfuseClient(
-                public_key=self.public_key,
-                secret_key=self.secret_key,
-                base_url=self.base_url,
-                version=langfuse_version,
-                timeout=self.timeout or 20,
-                session=self.httpx_client,
-            )
+            self._init_api_clients()
         except Exception as e:
             langfuse_logger.error(
                 f"[PID {os.getpid()}] Failed to recreate HTTP clients after fork: {e}. "
@@ -476,7 +462,7 @@ class LangfuseResourceManager:
         try:
             self._init_media_manager()
             self._init_consumer_threads()
-            self.prompt_cache.reinitialize_after_fork()
+            self.prompt_cache = PromptCache()
         except Exception as e:
             langfuse_logger.error(
                 f"[PID {os.getpid()}] Failed to reinitialize consumer threads after fork: {e}. "
