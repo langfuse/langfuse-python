@@ -18,6 +18,11 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.33.1,<2",
 ]
 
+[project.optional-dependencies]
+temporal = [
+    "temporalio>=1.18.0,<2",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=7.4,<9.0",
@@ -104,7 +109,9 @@ module = [
     "wrapt.*",
     "packaging.*",
     "requests.*",
-    "opentelemetry.*"
+    "opentelemetry.*",
+    "temporalio.*",
+    "pydantic_ai.*"
 ]
 ignore_missing_imports = true
 
