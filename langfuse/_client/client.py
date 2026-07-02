@@ -95,6 +95,7 @@ from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import (
+    AsyncLangfuseAPI,
     CreateChatPromptRequest,
     CreateChatPromptType,
     CreateTextPromptRequest,
@@ -105,6 +106,7 @@ from langfuse.api import (
     DatasetStatus,
     DeleteDatasetRunResponse,
     Error,
+    LangfuseAPI,
     MapValue,
     NotFoundError,
     PaginatedDatasetRuns,
@@ -176,6 +178,13 @@ class Langfuse:
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
         httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
+            **Fork safety**: ``httpx.Client`` is thread-safe but not process-safe. When using
+            ``fork()``-based servers (e.g. Gunicorn with ``--preload``), the SDK automatically
+            recreates its internally-managed HTTP client in child processes after fork. A custom
+            ``httpx_client`` is intentionally left as-is (the fork-inherited copy is reused), so
+            you retain the opportunity to handle process-safety yourself — for example by
+            registering your own ``os.register_at_fork(after_in_child=...)`` handler to close and
+            reopen connections on the custom client.
         debug (bool): Enable debug logging. Defaults to False. Can also be set via LANGFUSE_DEBUG environment variable.
         tracing_enabled (Optional[bool]): Enable or disable tracing. Defaults to True. Can also be set via LANGFUSE_TRACING_ENABLED environment variable.
         flush_at (Optional[int]): Number of spans to batch before sending to the API. Defaults to 512. Can also be set via LANGFUSE_FLUSH_AT environment variable.
@@ -409,8 +418,34 @@ class Langfuse:
             if self._tracing_enabled and self._resources.tracer is not None
             else otel_trace_api.NoOpTracer()
         )
-        self.api = self._resources.api
-        self.async_api = self._resources.async_api
+
+    @property
+    def api(self) -> LangfuseAPI:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        return self._resources.api
+
+    @api.setter
+    def api(self, value: LangfuseAPI) -> None:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        self._resources.api = value
+
+    @property
+    def async_api(self) -> AsyncLangfuseAPI:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        return self._resources.async_api
+
+    @async_api.setter
+    def async_api(self, value: AsyncLangfuseAPI) -> None:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        self._resources.async_api = value
 
     @overload
     def start_observation(

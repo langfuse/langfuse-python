@@ -46,6 +46,17 @@ class MediaManager:
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
 
+    def reinitialize(
+        self,
+        *,
+        api_client: LangfuseAPI,
+        httpx_client: httpx.Client,
+        media_upload_queue: Queue,
+    ) -> None:
+        self._api_client = api_client
+        self._httpx_client = httpx_client
+        self._queue = media_upload_queue
+
     def process_next_media_upload(self) -> None:
         try:
             upload_job = self._queue.get(block=True, timeout=1)
@@ -295,7 +306,9 @@ class MediaManager:
         field: Optional[str] = None,
     ) -> None:
         if not self._enabled:
-            raise ValueError("Cannot upload LangfuseMedia while media upload is disabled.")
+            raise ValueError(
+                "Cannot upload LangfuseMedia while media upload is disabled."
+            )
 
         if (
             media._content_length is None
