@@ -27,6 +27,7 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from opentelemetry.trace import Tracer
 
@@ -47,7 +48,7 @@ from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseClient
 from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
-from langfuse.types import MaskFunction
+from langfuse.types import MaskFunction, MaskOtelSpansFunction
 
 from .._version import __version__ as langfuse_version
 
@@ -81,6 +82,29 @@ class LangfuseResourceManager:
     _instances: Dict[str, "LangfuseResourceManager"] = {}
     _lock = threading.RLock()
 
+    @classmethod
+    def get_singleton_httpx_client(cls) -> Optional[httpx.Client]:
+        with cls._lock:
+            instances = list(cls._instances.values())
+
+            if not instances:
+                return None
+
+            if len(instances) > 1:
+                # Mirror get_client's safety stance: with multiple clients we
+                # cannot tell which one produced a given reference, so fall back
+                # to a default httpx client rather than silently using an
+                # arbitrary instance's transport config (proxy / CA / mTLS).
+                langfuse_logger.warning(
+                    "Multiple Langfuse clients are instantiated; falling back to a "
+                    "default httpx client for LangfuseMediaReference fetches. Pass an "
+                    "explicit `client` to fetch_bytes/fetch_base64/fetch_data_uri to "
+                    "honor per-client transport settings."
+                )
+                return None
+
+            return instances[0].httpx_client
+
     def __new__(
         cls,
         *,
@@ -96,11 +120,13 @@ class LangfuseResourceManager:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: Optional[bool] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
@@ -130,6 +156,7 @@ class LangfuseResourceManager:
                     media_upload_thread_count=media_upload_thread_count,
                     sample_rate=sample_rate,
                     mask=mask,
+                    mask_otel_spans=mask_otel_spans,
                     tracing_enabled=tracing_enabled
                     if tracing_enabled is not None
                     else True,
@@ -137,6 +164,7 @@ class LangfuseResourceManager:
                     should_export_span=should_export_span,
                     additional_headers=additional_headers,
                     tracer_provider=tracer_provider,
+                    id_generator=id_generator,
                     span_exporter=span_exporter,
                 )
 
@@ -159,11 +187,13 @@ class LangfuseResourceManager:
         httpx_client: Optional[httpx.Client] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: bool = True,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ) -> None:
         self.public_key = public_key
@@ -171,6 +201,7 @@ class LangfuseResourceManager:
         self.tracing_enabled = tracing_enabled
         self.base_url = base_url
         self.mask = mask
+        self.mask_otel_spans = mask_otel_spans
         self.environment = environment
         self._shutdown = False
 
@@ -184,35 +215,9 @@ class LangfuseResourceManager:
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.should_export_span = should_export_span
         self.additional_headers = additional_headers
+        self.id_generator = id_generator
         self.span_exporter = span_exporter
         self.tracer_provider: Optional[TracerProvider] = None
-
-        # OTEL Tracer
-        if tracing_enabled:
-            tracer_provider = tracer_provider or _init_tracer_provider(
-                environment=environment, release=release, sample_rate=sample_rate
-            )
-            self.tracer_provider = tracer_provider
-
-            langfuse_processor = LangfuseSpanProcessor(
-                public_key=self.public_key,
-                secret_key=secret_key,
-                base_url=base_url,
-                timeout=timeout,
-                flush_at=flush_at,
-                flush_interval=flush_interval,
-                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
-                should_export_span=should_export_span,
-                additional_headers=additional_headers,
-                span_exporter=span_exporter,
-            )
-            tracer_provider.add_span_processor(langfuse_processor)
-
-            self._otel_tracer = tracer_provider.get_tracer(
-                LANGFUSE_TRACER_NAME,
-                langfuse_version,
-                attributes={"public_key": self.public_key},
-            )
 
         # API Clients
 
@@ -267,6 +272,40 @@ class LangfuseResourceManager:
             int(os.getenv(LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT, 1)), 1
         )
 
+        self._init_media_manager()
+
+        # OTEL Tracer
+        if tracing_enabled:
+            tracer_provider = tracer_provider or _init_tracer_provider(
+                environment=environment,
+                release=release,
+                sample_rate=sample_rate,
+                id_generator=id_generator,
+            )
+            self.tracer_provider = tracer_provider
+
+            langfuse_processor = LangfuseSpanProcessor(
+                public_key=self.public_key,
+                secret_key=secret_key,
+                base_url=base_url,
+                timeout=timeout,
+                flush_at=flush_at,
+                flush_interval=flush_interval,
+                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+                should_export_span=should_export_span,
+                additional_headers=additional_headers,
+                span_exporter=span_exporter,
+                media_manager=self._media_manager,
+                mask_otel_spans=mask_otel_spans,
+            )
+            tracer_provider.add_span_processor(langfuse_processor)
+
+            self._otel_tracer = tracer_provider.get_tracer(
+                LANGFUSE_TRACER_NAME,
+                langfuse_version,
+                attributes={"public_key": self.public_key},
+            )
+
         self._init_consumer_threads()
 
         # Prompt cache
@@ -307,17 +346,27 @@ class LangfuseResourceManager:
             f"media_threads={self._media_upload_thread_count}"
         )
 
-    def _init_consumer_threads(self) -> None:
-        """Initialize media upload and score ingestion consumer threads."""
+    def _init_media_manager(self) -> None:
+        """Initialize or reset media upload state while preserving manager references."""
         self._media_upload_queue: Queue[Any] = Queue(100_000)
-        self._media_manager = MediaManager(
-            api_client=self.api,
-            httpx_client=self.httpx_client,
-            media_upload_queue=self._media_upload_queue,
-            max_retries=3,
-        )
+        if hasattr(self, "_media_manager"):
+            self._media_manager.reinitialize(
+                api_client=self.api,
+                httpx_client=self.httpx_client,
+                media_upload_queue=self._media_upload_queue,
+            )
+        else:
+            self._media_manager = MediaManager(
+                api_client=self.api,
+                httpx_client=self.httpx_client,
+                media_upload_queue=self._media_upload_queue,
+                max_retries=3,
+            )
+
         self._media_upload_consumers = []
 
+    def _init_consumer_threads(self) -> None:
+        """Initialize media upload and score ingestion consumer threads."""
         if self._media_upload_enabled:
             for i in range(self._media_upload_thread_count):
                 media_upload_consumer = MediaUploadConsumer(
@@ -393,7 +442,9 @@ class LangfuseResourceManager:
         # themselves (e.g. by registering their own os.register_at_fork handler).
         try:
             if self._custom_httpx_client is None:
-                client_headers = self.additional_headers if self.additional_headers else {}
+                client_headers = (
+                    self.additional_headers if self.additional_headers else {}
+                )
                 self.httpx_client = httpx.Client(
                     timeout=self.timeout, headers=client_headers
                 )
@@ -423,15 +474,17 @@ class LangfuseResourceManager:
             )
 
         try:
+            self._init_media_manager()
             self._init_consumer_threads()
+            self.prompt_cache.reinitialize_after_fork()
         except Exception as e:
             langfuse_logger.error(
                 f"[PID {os.getpid()}] Failed to reinitialize consumer threads after fork: {e}. "
-                f"Media upload and score ingestion will be unavailable in this worker."
+                f"Media upload, score ingestion, and prompt cache refresh will be unavailable in this worker."
             )
 
         langfuse_logger.debug(
-            f"[PID {os.getpid()}] Langfuse consumer threads reinitialized after fork"
+            f"[PID {os.getpid()}] Langfuse consumer threads and prompt cache reinitialized after fork"
         )
 
     @classmethod
@@ -587,6 +640,7 @@ def _init_tracer_provider(
     environment: Optional[str] = None,
     release: Optional[str] = None,
     sample_rate: Optional[float] = None,
+    id_generator: Optional[IdGenerator] = None,
 ) -> TracerProvider:
     environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
     release = release or os.environ.get(LANGFUSE_RELEASE) or get_common_release_envs()
@@ -609,10 +663,17 @@ def _init_tracer_provider(
             sampler=TraceIdRatioBased(sample_rate)
             if sample_rate is not None and sample_rate < 1
             else None,
+            id_generator=id_generator,
         )
         otel_trace_api.set_tracer_provider(provider)
 
     else:
+        if id_generator is not None:
+            langfuse_logger.warning(
+                "Configuration: id_generator was ignored because an OpenTelemetry TracerProvider is already registered. "
+                "Pass a TracerProvider configured with the desired id_generator to Langfuse(tracer_provider=...) instead."
+            )
+
         provider = default_provider
 
     return provider

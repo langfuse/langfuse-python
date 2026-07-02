@@ -20,11 +20,11 @@ jobs:
   linting:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           version: "0.11.2"
           python-version: "3.13"
@@ -37,16 +37,16 @@ jobs:
   type-checking:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           version: "0.11.2"
           python-version: "3.13"
           enable-cache: true # zizmor: ignore[cache-poisoning] CI-only, no artifacts published
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # zizmor: ignore[cache-poisoning]
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # zizmor: ignore[cache-poisoning]
         name: Cache mypy cache
         with:
           path: ./.mypy_cache
@@ -78,11 +78,11 @@ jobs:
 
     name: Unit tests on Python ${{ matrix.python-version }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           version: "0.11.2"
           python-version: ${{ matrix.python-version }}
@@ -141,11 +141,11 @@ jobs:
 
     name: ${{ matrix.job_name }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           version: "0.11.2"
           python-version: "3.13"
@@ -219,7 +219,11 @@ jobs:
           uv run --frozen python --version
           mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
           set +e
-          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "not serial_e2e"
+          uv run --frozen pytest \
+            -n 4 --dist worksteal \
+            -s -v --log-cli-level=INFO \
+            --timeout=180 --timeout-method=thread --durations=20 \
+            "${e2e_files[@]}" -m "not serial_e2e"
           status=$?
           set -e
           if [ "$status" -eq 5 ]; then
@@ -233,7 +237,10 @@ jobs:
         run: |
           mapfile -t e2e_files < "$RUNNER_TEMP/e2e-shard-files.txt"
           set +e
-          uv run --frozen pytest -s -v --log-cli-level=INFO "${e2e_files[@]}" -m "serial_e2e"
+          uv run --frozen pytest \
+            -s -v --log-cli-level=INFO \
+            --timeout=180 --timeout-method=thread --durations=20 \
+            "${e2e_files[@]}" -m "serial_e2e"
           status=$?
           set -e
           if [ "$status" -eq 5 ]; then
@@ -246,7 +253,11 @@ jobs:
         if: ${{ matrix.suite == 'live_provider' }}
         run: |
           uv run --frozen python --version
-          uv run --frozen pytest -n 4 --dist worksteal -s -v --log-cli-level=INFO tests/live_provider -m "live_provider"
+          uv run --frozen pytest \
+            -n 4 --dist worksteal \
+            -s -v --log-cli-level=INFO \
+            --timeout=180 --timeout-method=thread --durations=20 \
+            tests/live_provider -m "live_provider"
 
   all-tests-passed:
     # This allows us to have a branch protection rule for tests and deploys with matrix

@@ -6,13 +6,33 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .create_evaluator_request import CreateEvaluatorRequest
-    from .evaluator import Evaluator
+    from .code_evaluator import CodeEvaluator
+    from .create_code_evaluator_request import CreateCodeEvaluatorRequest
+    from .create_evaluator_request import (
+        CreateEvaluatorRequest,
+        CreateEvaluatorRequest_Code,
+        CreateEvaluatorRequest_LlmAsJudge,
+    )
+    from .create_llm_as_judge_evaluator_request import CreateLlmAsJudgeEvaluatorRequest
+    from .delete_evaluator_response import DeleteEvaluatorResponse
+    from .evaluator import Evaluator, Evaluator_Code, Evaluator_LlmAsJudge
+    from .evaluator_base import EvaluatorBase
     from .evaluators import Evaluators
+    from .llm_as_judge_evaluator import LlmAsJudgeEvaluator
 _dynamic_imports: typing.Dict[str, str] = {
+    "CodeEvaluator": ".code_evaluator",
+    "CreateCodeEvaluatorRequest": ".create_code_evaluator_request",
     "CreateEvaluatorRequest": ".create_evaluator_request",
+    "CreateEvaluatorRequest_Code": ".create_evaluator_request",
+    "CreateEvaluatorRequest_LlmAsJudge": ".create_evaluator_request",
+    "CreateLlmAsJudgeEvaluatorRequest": ".create_llm_as_judge_evaluator_request",
+    "DeleteEvaluatorResponse": ".delete_evaluator_response",
     "Evaluator": ".evaluator",
+    "EvaluatorBase": ".evaluator_base",
+    "Evaluator_Code": ".evaluator",
+    "Evaluator_LlmAsJudge": ".evaluator",
     "Evaluators": ".evaluators",
+    "LlmAsJudgeEvaluator": ".llm_as_judge_evaluator",
 }
 
 
@@ -43,4 +63,18 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CreateEvaluatorRequest", "Evaluator", "Evaluators"]
+__all__ = [
+    "CodeEvaluator",
+    "CreateCodeEvaluatorRequest",
+    "CreateEvaluatorRequest",
+    "CreateEvaluatorRequest_Code",
+    "CreateEvaluatorRequest_LlmAsJudge",
+    "CreateLlmAsJudgeEvaluatorRequest",
+    "DeleteEvaluatorResponse",
+    "Evaluator",
+    "EvaluatorBase",
+    "Evaluator_Code",
+    "Evaluator_LlmAsJudge",
+    "Evaluators",
+    "LlmAsJudgeEvaluator",
+]

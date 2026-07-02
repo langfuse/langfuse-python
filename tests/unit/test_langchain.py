@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from langchain.messages import HumanMessage
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
 from langchain_core.prompts import ChatPromptTemplate
@@ -248,28 +248,32 @@ def test_root_chain_metadata_propagates_trace_name(
 def test_root_chain_exports_when_end_runs_in_copied_context(
     langfuse_memory_client, get_span
 ):
+    context_token = otel_context.attach(otel_context.Context())
     handler = CallbackHandler()
     run_id = uuid4()
 
-    handler.on_chain_start(
-        {"id": ["RunnableSequence"]},
-        {"topic": "otters"},
-        run_id=run_id,
-        metadata={"langfuse_trace_name": "async-root-trace"},
-    )
+    try:
+        handler.on_chain_start(
+            {"id": ["RunnableSequence"]},
+            {"topic": "otters"},
+            run_id=run_id,
+            metadata={"langfuse_trace_name": "async-root-trace"},
+        )
 
-    copy_context().run(
-        handler.on_chain_end,
-        {"output": "knock knock"},
-        run_id=run_id,
-    )
+        copy_context().run(
+            handler.on_chain_end,
+            {"output": "knock knock"},
+            run_id=run_id,
+        )
 
-    langfuse_memory_client.flush()
-    root_span = get_span("RunnableSequence")
+        langfuse_memory_client.flush()
+        root_span = get_span("RunnableSequence")
 
-    assert root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == (
-        "async-root-trace"
-    )
+        assert root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == (
+            "async-root-trace"
+        )
+    finally:
+        otel_context.detach(context_token)
 
 
 def test_control_flow_errors_use_default_level_and_keep_status_message(
@@ -785,6 +789,94 @@ def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
     assert _has_pending_resume_context(handler, "retriever-thread")
     assert _get_root_resume_key(handler, retriever_run_id) is None
     assert not _has_run_state(handler, retriever_run_id)
+
+
+def test_tool_start_prefers_structured_inputs_when_available(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    structured_inputs = {
+        "path": "/tmp/example.md",
+        "content": '# Title\n\nThis has "quotes" and JSON-like text: {"a": 1}',
+    }
+
+    handler.on_tool_start(
+        {"name": "write_document"},
+        str(structured_inputs),
+        run_id=run_id,
+        inputs=structured_inputs,
+    )
+    handler.on_tool_end("ok", run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("write_document")
+
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT)
+        == structured_inputs
+    )
+
+
+def test_tool_when_structured_inputs_only_store_in_inputs_attribute_not_metadata(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    structured_inputs = {
+        "path": "/tmp/example.md",
+        "content": "this should be in inputs, not metadata",
+    }
+
+    handler.on_tool_start(
+        {"name": "write_document"},
+        str(structured_inputs),
+        run_id=run_id,
+        metadata={"custom_key": "custom_value"},
+        inputs=structured_inputs,
+    )
+    handler.on_tool_end("ok", run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("write_document")
+
+    metadata_prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+
+    assert span.attributes[f"{metadata_prefix}.custom_key"] == "custom_value"
+    assert f"{metadata_prefix}.inputs" not in span.attributes
+
+
+def test_handled_tool_error_marks_observation_error(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    handler.on_tool_start(
+        {"name": "failing_tool"},
+        '{"query": "x"}',
+        run_id=run_id,
+    )
+    handler.on_tool_end(
+        ToolMessage(
+            content="handled failure",
+            tool_call_id="call_1",
+            status="error",
+        ),
+        run_id=run_id,
+    )
+
+    langfuse_memory_client.flush()
+    span = get_span("failing_tool")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+        == "handled failure"
+    )
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT)["status"] == (
+        "error"
+    )
 
 
 def test_pending_resume_contexts_are_capped(langfuse_memory_client, monkeypatch):

@@ -62,7 +62,7 @@ class LlmConnection(UniversalBaseModel):
 
     config: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Adapter-specific configuration. Required for Bedrock (`{"region":"us-east-1"}`), optional for VertexAI (`{"location":"us-central1"}`), not used by other adapters.
+    Adapter-specific configuration. Required for Bedrock (`{"region":"us-east-1"}`), optional for OpenAI (`{"useResponsesApi":true}`), optional for VertexAI (`{"location":"us-central1"}`), not used by other adapters.
     """
 
     created_at: typing_extensions.Annotated[

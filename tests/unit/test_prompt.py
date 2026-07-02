@@ -179,6 +179,43 @@ def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdo
     ]
 
 
+def test_prompt_cache_task_manager_reinitializes_after_fork():
+    manager = PromptCacheTaskManager(threads=0)
+    old_queue = manager._queue
+    old_lock = manager._lock
+
+    manager._processing_keys.add("prompt-label:production")
+    manager._threads = 1
+
+    manager.reinitialize_after_fork()
+
+    assert manager._queue is not old_queue
+    assert manager._lock is not old_lock
+    assert manager._processing_keys == set()
+    assert len(manager._consumers) == 1
+    assert manager._consumers[0].is_alive()
+
+    manager.shutdown()
+
+
+def test_prompt_cache_reinitializes_after_fork():
+    cache = PromptCache(max_prompt_refresh_workers=0)
+    old_lock = cache._lock
+    old_task_manager = cache._task_manager
+
+    cache._cache["prompt-label:production"] = object()
+    cache._task_manager._processing_keys.add("prompt-label:production")
+
+    cache.reinitialize_after_fork()
+
+    assert cache._cache == {}
+    assert cache._lock is not old_lock
+    assert cache._task_manager is old_task_manager
+    assert cache._task_manager._processing_keys == set()
+
+    cache._task_manager.shutdown()
+
+
 def test_get_fresh_prompt(langfuse):
     prompt_name = "test_get_fresh_prompt"
     prompt = Prompt_Text(

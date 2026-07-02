@@ -461,6 +461,35 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID
         )
 
+    def test_non_string_metadata_values_coerced(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        """Verify non-string metadata values are coerced instead of dropped."""
+
+        caplog.set_level("WARNING", logger="langfuse")
+        metadata = {
+            "langgraph_step": 1,
+            "langgraph_triggers": ["branch:agent"],
+            "langgraph_path": ("root", "agent"),
+            "max_search_results": 5,
+        }
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata=metadata):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+
+        for key, value in metadata.items():
+            self.verify_span_attribute(
+                child_span,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}",
+                str(value),
+            )
+
+        assert "value is not a string. Dropping value." not in caplog.text
+
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -1821,6 +1850,207 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         )
 
 
+class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
+    """Tests for first-class Langfuse environment propagation."""
+
+    def _capture_score_events(self, monkeypatch, langfuse_client):
+        """Capture score ingestion events before they reach the background queue."""
+
+        score_events = []
+        assert langfuse_client._resources is not None
+
+        def capture_score_event(event, *, force_sample=False):
+            score_events.append(event)
+
+        monkeypatch.setattr(
+            langfuse_client._resources,
+            "add_score_task",
+            capture_score_event,
+        )
+
+        return score_events
+
+    def test_environment_propagates_to_child_spans(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify environment propagates as langfuse.environment, not metadata."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment="staging"):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "staging"
+        )
+        self.verify_missing_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.environment"
+        )
+
+    def test_environment_with_baggage(self, langfuse_client, memory_exporter):
+        """Verify environment is written to baggage and extracted onto spans."""
+        from opentelemetry import baggage
+        from opentelemetry import context as otel_context
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment="qa", as_baggage=True):
+                current_context = otel_context.get_current()
+                baggage_entries = baggage.get_all(context=current_context)
+
+                assert baggage_entries["langfuse_environment"] == "qa"
+
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "qa"
+        )
+
+    def test_environment_overrides_client_default_inside_context(
+        self, langfuse_client, memory_exporter
+    ):
+        """Propagated environment wins over the local client environment."""
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="staging"):
+            with langfuse_client.start_as_current_observation(name="request-span"):
+                pass
+
+        with langfuse_client.start_as_current_observation(name="local-span"):
+            pass
+
+        request_span = self.get_span_by_name(memory_exporter, "request-span")
+        self.verify_span_attribute(
+            request_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "staging"
+        )
+
+        local_span = self.get_span_by_name(memory_exporter, "local-span")
+        self.verify_span_attribute(
+            local_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "proxy-prod"
+        )
+
+    def test_environment_baggage_overrides_client_default_after_context_attach(
+        self, langfuse_client, memory_exporter
+    ):
+        """Simulate cross-process extraction where caller environment beats proxy default."""
+        from opentelemetry import context as otel_context
+
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="dev", as_baggage=True):
+            context_with_baggage = otel_context.get_current()
+
+        token = otel_context.attach(context_with_baggage)
+        try:
+            with langfuse_client.start_as_current_observation(name="proxy-request"):
+                child = langfuse_client.start_observation(name="proxy-child")
+                child.end()
+        finally:
+            otel_context.detach(token)
+
+        proxy_request = self.get_span_by_name(memory_exporter, "proxy-request")
+        self.verify_span_attribute(
+            proxy_request, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
+        )
+
+        proxy_child = self.get_span_by_name(memory_exporter, "proxy-child")
+        self.verify_span_attribute(
+            proxy_child, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
+        )
+
+    def test_span_score_uses_propagated_environment(self, monkeypatch, langfuse_client):
+        """Score events created from a span use the span's resolved environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="dev"):
+            with langfuse_client.start_as_current_observation(
+                name="request-span"
+            ) as span:
+                span.score(name="quality", value=1.0, data_type="NUMERIC")
+
+        assert len(score_events) == 1
+        assert score_events[0]["body"].environment == "dev"
+
+    def test_span_score_trace_uses_propagated_environment(
+        self, monkeypatch, langfuse_client
+    ):
+        """Trace scores created from a span use the span's resolved environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="staging"):
+            with langfuse_client.start_as_current_observation(
+                name="request-span"
+            ) as span:
+                span.score_trace(name="overall-quality", value=0.95)
+
+        assert len(score_events) == 1
+        assert score_events[0]["body"].environment == "staging"
+
+    def test_current_score_helpers_use_propagated_environment(
+        self, monkeypatch, langfuse_client
+    ):
+        """Current-span and current-trace scores use the active span environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="qa"):
+            with langfuse_client.start_as_current_observation(name="request-span"):
+                langfuse_client.score_current_span(
+                    name="span-quality", value=0.9, data_type="NUMERIC"
+                )
+                langfuse_client.score_current_trace(
+                    name="trace-quality", value=0.8, data_type="NUMERIC"
+                )
+
+        assert [event["body"].environment for event in score_events] == ["qa", "qa"]
+
+    def test_environment_exactly_40_chars_is_accepted(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify environment accepts Langfuse's 40-character public limit."""
+        environment_40 = "e" * 40
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment=environment_40):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, environment_40
+        )
+
+    @pytest.mark.parametrize(
+        "environment",
+        [
+            "Production",
+            "langfuse-prod",
+            "prod.us",
+            "",
+            "p" * 41,
+            "prod\n",
+            "\nprod",
+            123,
+        ],
+    )
+    def test_invalid_environment_is_dropped(
+        self, langfuse_client, memory_exporter, environment
+    ):
+        """Invalid propagated environments do not set langfuse.environment."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment=environment):  # type: ignore[arg-type]
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+        )
+
+
 class TestPropagateAttributesVersion(TestPropagateAttributesBase):
     """Tests for version parameter propagation."""
 
@@ -2570,6 +2800,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             dataset_name="Test Dataset",
             created_at=datetime.now(),
             updated_at=datetime.now(),
+            media_references=[],
         )
 
         # Create dataset client with items

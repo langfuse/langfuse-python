@@ -21,6 +21,14 @@ P = ParamSpec("P")
 _SHUTDOWN_SENTINEL = object()
 
 
+def _is_langfuse_media_reference(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith("@@@langfuseMedia:")
+        and value.endswith("@@@")
+    )
+
+
 class MediaManager:
     def __init__(
         self,
@@ -37,6 +45,17 @@ class MediaManager:
         self._enabled = os.environ.get(
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
+
+    def reinitialize(
+        self,
+        *,
+        api_client: LangfuseAPI,
+        httpx_client: httpx.Client,
+        media_upload_queue: Queue,
+    ) -> None:
+        self._api_client = api_client
+        self._httpx_client = httpx_client
+        self._queue = media_upload_queue
 
     def process_next_media_upload(self) -> None:
         try:
@@ -127,6 +146,9 @@ class MediaManager:
                 and "media_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['media_type']};base64," + data["data"],
                 )
@@ -151,6 +173,9 @@ class MediaManager:
                 and "mime_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['mime_type']};base64," + data["data"],
                 )
@@ -166,6 +191,46 @@ class MediaManager:
                 copied["data"] = media
 
                 return copied
+
+            # Google Gemini / Vertex inline data
+            if isinstance(data, dict):
+                for inline_data_key in ("inline_data", "inlineData"):
+                    inline_data = data.get(inline_data_key)
+
+                    if not isinstance(inline_data, dict) or "data" not in inline_data:
+                        continue
+
+                    content_type = inline_data.get("mime_type") or inline_data.get(
+                        "mimeType"
+                    )
+
+                    if not content_type:
+                        continue
+
+                    if not isinstance(inline_data["data"], str):
+                        continue
+
+                    if _is_langfuse_media_reference(inline_data["data"]):
+                        return data
+
+                    media = LangfuseMedia(
+                        base64_data_uri=f"data:{content_type};base64,"
+                        + inline_data["data"],
+                    )
+
+                    self._process_media(
+                        media=media,
+                        trace_id=trace_id,
+                        observation_id=observation_id,
+                        field=field,
+                    )
+
+                    copied = data.copy()
+                    copied_inline_data = inline_data.copy()
+                    copied_inline_data["data"] = media
+                    copied[inline_data_key] = copied_inline_data
+
+                    return copied
 
             if isinstance(data, list):
                 return [_process_data_recursively(item, level + 1) for item in data]
@@ -209,6 +274,8 @@ class MediaManager:
                 content_sha256_hash=media._content_sha256_hash,
                 trace_id=trace_id,
                 observation_id=observation_id,
+                dataset_id=None,
+                dataset_item_id=None,
                 field=field,
             )
 
@@ -230,6 +297,45 @@ class MediaManager:
                 f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
             )
 
+    def _upload_media_sync(
+        self,
+        *,
+        media: LangfuseMedia,
+        dataset_id: Optional[str] = None,
+        dataset_item_id: Optional[str] = None,
+        field: Optional[str] = None,
+    ) -> None:
+        if not self._enabled:
+            raise ValueError(
+                "Cannot upload LangfuseMedia while media upload is disabled."
+            )
+
+        if (
+            media._content_length is None
+            or media._content_type is None
+            or media._content_sha256_hash is None
+            or media._content_bytes is None
+        ):
+            raise ValueError("Cannot upload invalid LangfuseMedia.")
+
+        if media._media_id is None:
+            raise ValueError("Cannot upload LangfuseMedia without media ID.")
+
+        upload_media_job = UploadMediaJob(
+            media_id=media._media_id,
+            content_bytes=media._content_bytes,
+            content_type=media._content_type,
+            content_length=media._content_length,
+            content_sha256_hash=media._content_sha256_hash,
+            trace_id=None,
+            observation_id=None,
+            dataset_id=dataset_id,
+            dataset_item_id=dataset_item_id,
+            field=field,
+        )
+
+        self._process_upload_media_job(data=upload_media_job)
+
     def _process_upload_media_job(
         self,
         *,
@@ -240,9 +346,11 @@ class MediaManager:
             content_length=data["content_length"],
             content_type=cast(MediaContentType, data["content_type"]),
             sha256hash=data["content_sha256_hash"],
-            field=data["field"],
             trace_id=data["trace_id"],
             observation_id=data["observation_id"],
+            dataset_id=data["dataset_id"],
+            dataset_item_id=data["dataset_item_id"],
+            field=data["field"],
         )
 
         upload_url = upload_url_response.upload_url

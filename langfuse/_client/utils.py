@@ -9,11 +9,35 @@ import contextvars
 import json
 import threading
 from hashlib import sha256
-from typing import Any, Coroutine
+from typing import Any, Coroutine, Optional
 
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk import util
 from opentelemetry.sdk.trace import ReadableSpan
+
+
+def get_string_span_attribute(
+    otel_span: otel_trace_api.Span, attribute_key: str
+) -> Optional[str]:
+    """Return a string-valued attribute from a recording OpenTelemetry span.
+
+    OpenTelemetry's public ``Span`` type does not guarantee an ``attributes``
+    mapping, but the SDK spans wrapped by Langfuse expose one while recording.
+    This helper intentionally returns ``None`` for non-recording spans, spans
+    without an attribute mapping, missing attributes, and non-string values.
+    Callers use that ``None`` to fall back to their existing local defaults.
+    """
+
+    if not otel_span.is_recording():
+        return None
+
+    attributes = getattr(otel_span, "attributes", None)
+    if attributes is None or not hasattr(attributes, "get"):
+        return None
+
+    value = attributes.get(attribute_key)
+
+    return value if isinstance(value, str) else None
 
 
 def span_formatter(span: ReadableSpan) -> str:

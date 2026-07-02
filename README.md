@@ -1,4 +1,4 @@
-![Langfuse GitHub Banner](https://langfuse.com/langfuse_logo_white.png)
+<img width="2400" height="600" alt="hero-b" src="https://github.com/user-attachments/assets/4005eb1b-539d-4d35-9683-3a61ec9d9301" />
 
 # Langfuse Python SDK
 

@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-05-22T18:06:12.465516488Z"
+exclude-newer = "2026-06-18T11:57:01.950996012Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -554,7 +554,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "4.7.1"
+version = "4.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "backoff" },
@@ -598,7 +598,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = ">=1.33.1,<2" },
     { name = "packaging", specifier = ">=23.2,<27.0" },
     { name = "pydantic", specifier = ">=2,<3" },
-    { name = "wrapt", specifier = ">=1.14,<2" },
+    { name = "wrapt", specifier = ">=1.14,<3" },
 ]
 
 [package.metadata.requires-dev]

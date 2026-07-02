@@ -23,6 +23,8 @@ def _upload_job() -> dict:
         "content_sha256_hash": "sha256hash",
         "trace_id": "trace-id",
         "observation_id": None,
+        "dataset_id": None,
+        "dataset_item_id": None,
         "field": "input",
     }
 
@@ -142,6 +144,18 @@ def test_find_and_process_media_valid_base64_uri_is_processed():
     assert not queue.empty()
 
 
+def test_upload_media_sync_rejects_invalid_media():
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=Queue(),
+    )
+    media = LangfuseMedia()
+
+    with pytest.raises(ValueError, match="Cannot upload invalid LangfuseMedia"):
+        manager._upload_media_sync(media=media)
+
+
 def test_find_and_process_media_data_uri_without_comma_passes_through():
     queue = Queue()
     manager = MediaManager(
@@ -190,6 +204,75 @@ def test_find_and_process_media_sse_in_nested_structure_passes_through():
     ]
     result = manager._find_and_process_media(
         data=data, trace_id="trace-id", observation_id=None, field="output"
+    )
+
+    assert result == data
+    assert queue.empty()
+
+
+def test_find_and_process_media_gemini_inline_data_is_processed():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = {
+        "inline_data": {
+            "mime_type": "image/jpeg",
+            "data": "/9j/4AAQSkZJRgABAQAAAQABAAD/4QBARXhpZgAA",
+        }
+    }
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert isinstance(result["inline_data"]["data"], LangfuseMedia)
+    assert not queue.empty()
+
+
+def test_find_and_process_media_gemini_inline_data_camel_case_is_processed():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = {
+        "inlineData": {
+            "mimeType": "image/png",
+            "data": "iVBORw0KGgo=",
+        }
+    }
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
+    )
+
+    assert isinstance(result["inlineData"]["data"], LangfuseMedia)
+    assert not queue.empty()
+
+
+@pytest.mark.parametrize("inline_data_value", [b"image-bytes", 123, {"raw": "data"}])
+def test_find_and_process_media_gemini_inline_data_non_string_data_passes_through(
+    inline_data_value,
+):
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    data = {
+        "inline_data": {
+            "mime_type": "image/jpeg",
+            "data": inline_data_value,
+        }
+    }
+    result = manager._find_and_process_media(
+        data=data, trace_id="trace-id", observation_id=None, field="input"
     )
 
     assert result == data

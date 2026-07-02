@@ -23,8 +23,6 @@ from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
-from ..commons.types.evaluator_model_config import EvaluatorModelConfig
-from ..commons.types.evaluator_output_definition import EvaluatorOutputDefinition
 from ..errors.errors.access_denied_error import (
     AccessDeniedError as unstable_errors_errors_access_denied_error_AccessDeniedError,
 )
@@ -43,6 +41,8 @@ from ..errors.errors.unauthorized_error import (
 )
 from ..errors.errors.unprocessable_content_error import UnprocessableContentError
 from ..errors.types.public_api_error import PublicApiError
+from .types.create_evaluator_request import CreateEvaluatorRequest
+from .types.delete_evaluator_response import DeleteEvaluatorResponse
 from .types.evaluator import Evaluator
 from .types.evaluators import Evaluators
 
@@ -57,16 +57,15 @@ class RawEvaluatorsClient:
     def create(
         self,
         *,
-        name: str,
-        prompt: str,
-        output_definition: EvaluatorOutputDefinition,
-        model_config: typing.Optional[EvaluatorModelConfig] = OMIT,
+        request: CreateEvaluatorRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Evaluator]:
         """
         Create an evaluator in the authenticated project.
 
-        Use evaluators to define **how** Langfuse should score data: the prompt, the expected structured output, and the optional model configuration.
+        Use evaluators to define **how** Langfuse should score data.
+        LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration.
+        Code evaluators define source code and a runtime language.
 
         Naming behavior:
         - If this is a new evaluator name in your project, Langfuse creates version `1`.
@@ -79,30 +78,22 @@ class RawEvaluatorsClient:
         3. Read the returned `outputDefinition.dataType` so the client knows whether future scores will be numeric, boolean, or categorical.
         4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `scope`.
 
+        Code evaluator validation:
+        - At creation, Langfuse only validates the request shape
+        - The `sourceCode` itself is not executed here. It is first run (preflight-tested against a sample observation) when you link the evaluator to an evaluation rule, so runtime errors in the code surface at evaluation-rule creation, not at evaluator creation.
+
         Recovery guidance:
         - `422` with `code=evaluator_preflight_failed`: the evaluator cannot run with the resolved model configuration. Add a valid explicit `modelConfig`, or configure the project's default evaluation model, then retry the same request.
         - `400` with `code=invalid_body`: the request shape is malformed. Use the structured `details.issues` array to fix the specific fields and retry.
-        - `400` with `code=invalid_body` on `outputDefinition`: send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - `400` with `code=invalid_body` on `outputDefinition`: for `type=llm_as_judge`, send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - If `type` is omitted, Langfuse treats the request as `type=llm_as_judge` for backwards compatibility. New clients should send `type` explicitly.
 
         Unstable API note:
         - This surface may evolve while the underlying evaluation data model is being redesigned.
 
         Parameters
         ----------
-        name : str
-            Evaluator name within the authenticated project.
-
-        prompt : str
-            Prompt template used by the evaluator.
-
-        output_definition : EvaluatorOutputDefinition
-            Structured output schema the evaluator must return.
-
-            Always send `dataType`.
-            Do not send `version`; it is an internal storage detail and not part of the public request contract.
-
-        model_config : typing.Optional[EvaluatorModelConfig]
-            Optional explicit model configuration. Omit or set to `null` to use the project default evaluation model.
+        request : CreateEvaluatorRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -114,20 +105,9 @@ class RawEvaluatorsClient:
         _response = self._client_wrapper.httpx_client.request(
             "api/public/unstable/evaluators",
             method="POST",
-            json={
-                "name": name,
-                "prompt": prompt,
-                "outputDefinition": convert_and_respect_annotation_metadata(
-                    object_=output_definition,
-                    annotation=EvaluatorOutputDefinition,
-                    direction="write",
-                ),
-                "modelConfig": convert_and_respect_annotation_metadata(
-                    object_=model_config,
-                    annotation=typing.Optional[EvaluatorModelConfig],
-                    direction="write",
-                ),
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateEvaluatorRequest, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -663,6 +643,204 @@ class RawEvaluatorsClient:
             body=_response_json,
         )
 
+    def delete(
+        self,
+        evaluator_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[DeleteEvaluatorResponse]:
+        """
+        Delete an evaluator.
+
+        Important behavior:
+        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
+        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
+        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - Scores already produced by the evaluator are not deleted.
+
+        Parameters
+        ----------
+        evaluator_id : str
+            Evaluator identifier returned by the evaluator endpoints.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DeleteEvaluatorResponse]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/evaluators/{jsonable_encoder(evaluator_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteEvaluatorResponse,
+                    parse_obj_as(
+                        type_=DeleteEvaluatorResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
 
 class AsyncRawEvaluatorsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -671,16 +849,15 @@ class AsyncRawEvaluatorsClient:
     async def create(
         self,
         *,
-        name: str,
-        prompt: str,
-        output_definition: EvaluatorOutputDefinition,
-        model_config: typing.Optional[EvaluatorModelConfig] = OMIT,
+        request: CreateEvaluatorRequest,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Evaluator]:
         """
         Create an evaluator in the authenticated project.
 
-        Use evaluators to define **how** Langfuse should score data: the prompt, the expected structured output, and the optional model configuration.
+        Use evaluators to define **how** Langfuse should score data.
+        LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration.
+        Code evaluators define source code and a runtime language.
 
         Naming behavior:
         - If this is a new evaluator name in your project, Langfuse creates version `1`.
@@ -693,30 +870,22 @@ class AsyncRawEvaluatorsClient:
         3. Read the returned `outputDefinition.dataType` so the client knows whether future scores will be numeric, boolean, or categorical.
         4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `scope`.
 
+        Code evaluator validation:
+        - At creation, Langfuse only validates the request shape
+        - The `sourceCode` itself is not executed here. It is first run (preflight-tested against a sample observation) when you link the evaluator to an evaluation rule, so runtime errors in the code surface at evaluation-rule creation, not at evaluator creation.
+
         Recovery guidance:
         - `422` with `code=evaluator_preflight_failed`: the evaluator cannot run with the resolved model configuration. Add a valid explicit `modelConfig`, or configure the project's default evaluation model, then retry the same request.
         - `400` with `code=invalid_body`: the request shape is malformed. Use the structured `details.issues` array to fix the specific fields and retry.
-        - `400` with `code=invalid_body` on `outputDefinition`: send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - `400` with `code=invalid_body` on `outputDefinition`: for `type=llm_as_judge`, send `dataType`, `reasoning.description`, and `score.description`. Do not send `version`; it is not part of the public request shape.
+        - If `type` is omitted, Langfuse treats the request as `type=llm_as_judge` for backwards compatibility. New clients should send `type` explicitly.
 
         Unstable API note:
         - This surface may evolve while the underlying evaluation data model is being redesigned.
 
         Parameters
         ----------
-        name : str
-            Evaluator name within the authenticated project.
-
-        prompt : str
-            Prompt template used by the evaluator.
-
-        output_definition : EvaluatorOutputDefinition
-            Structured output schema the evaluator must return.
-
-            Always send `dataType`.
-            Do not send `version`; it is an internal storage detail and not part of the public request contract.
-
-        model_config : typing.Optional[EvaluatorModelConfig]
-            Optional explicit model configuration. Omit or set to `null` to use the project default evaluation model.
+        request : CreateEvaluatorRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -728,20 +897,9 @@ class AsyncRawEvaluatorsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/unstable/evaluators",
             method="POST",
-            json={
-                "name": name,
-                "prompt": prompt,
-                "outputDefinition": convert_and_respect_annotation_metadata(
-                    object_=output_definition,
-                    annotation=EvaluatorOutputDefinition,
-                    direction="write",
-                ),
-                "modelConfig": convert_and_respect_annotation_metadata(
-                    object_=model_config,
-                    annotation=typing.Optional[EvaluatorModelConfig],
-                    direction="write",
-                ),
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateEvaluatorRequest, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
@@ -1178,6 +1336,204 @@ class AsyncRawEvaluatorsClient:
                 )
             if _response.status_code == 405:
                 raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def delete(
+        self,
+        evaluator_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[DeleteEvaluatorResponse]:
+        """
+        Delete an evaluator.
+
+        Important behavior:
+        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
+        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
+        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - Scores already produced by the evaluator are not deleted.
+
+        Parameters
+        ----------
+        evaluator_id : str
+            Evaluator identifier returned by the evaluator endpoints.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DeleteEvaluatorResponse]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/evaluators/{jsonable_encoder(evaluator_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteEvaluatorResponse,
+                    parse_obj_as(
+                        type_=DeleteEvaluatorResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         PublicApiError,

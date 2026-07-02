@@ -85,12 +85,22 @@ class PromptCacheTaskManager(object):
         self._processing_keys = set()
         self._lock = RLock()
 
+        self._start_consumers()
+
+        atexit.register(self.shutdown)
+
+    def _start_consumers(self) -> None:
         for i in range(self._threads):
             consumer = PromptCacheRefreshConsumer(self._queue, i)
             consumer.start()
             self._consumers.append(consumer)
 
-        atexit.register(self.shutdown)
+    def reinitialize_after_fork(self) -> None:
+        self._queue = Queue()
+        self._consumers = []
+        self._processing_keys = set()
+        self._lock = RLock()
+        self._start_consumers()
 
     def add_task(self, key: str, task: Callable[[], None]) -> None:
         with self._lock:
@@ -160,6 +170,11 @@ class PromptCache:
         self._lock = RLock()
         self._task_manager = PromptCacheTaskManager(threads=max_prompt_refresh_workers)
         logger.debug("Prompt cache initialized.")
+
+    def reinitialize_after_fork(self) -> None:
+        self._cache = {}
+        self._lock = RLock()
+        self._task_manager.reinitialize_after_fork()
 
     def get(self, key: str) -> Optional[PromptCacheItem]:
         with self._lock:

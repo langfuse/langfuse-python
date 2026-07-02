@@ -12,7 +12,7 @@ from opentelemetry.sdk.trace.export import (
     SpanExporter,
     SpanExportResult,
 )
-from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
@@ -44,6 +44,31 @@ class InMemorySpanExporter(SpanExporter):
 
     def clear(self):
         self._finished_spans.clear()
+
+
+class PredictableIdGenerator(IdGenerator):
+    """Deterministic generator for tests that need exact OTel IDs."""
+
+    def __init__(
+        self,
+        *,
+        trace_ids: Sequence[int] = (),
+        span_ids: Sequence[int] = (),
+    ) -> None:
+        self._trace_ids = list(trace_ids)
+        self._span_ids = list(span_ids)
+
+    def generate_trace_id(self) -> int:
+        if not self._trace_ids:
+            raise AssertionError("No trace IDs left in PredictableIdGenerator")
+
+        return self._trace_ids.pop(0)
+
+    def generate_span_id(self) -> int:
+        if not self._span_ids:
+            raise AssertionError("No span IDs left in PredictableIdGenerator")
+
+        return self._span_ids.pop(0)
 
 
 class TestOTelBase:
@@ -1971,12 +1996,15 @@ class TestMultiProjectSetup(TestOTelBase):
     """
 
     @pytest.fixture(scope="function")
-    def multi_project_setup(self, monkeypatch):
+    def multi_project_setup(self, monkeypatch, request):
         """Create two separate Langfuse clients with different projects."""
         # Reset any previous trace providers
+        from opentelemetry import context as otel_context
         from opentelemetry import trace as trace_api_reset
 
         original_provider = trace_api_reset.get_tracer_provider()
+        context_token = otel_context.attach(otel_context.Context())
+        request.addfinalizer(lambda: otel_context.detach(context_token))
 
         # Create exporters and tracers for two projects
         exporter_project1 = InMemorySpanExporter()
@@ -3422,6 +3450,48 @@ class TestOtelIdGeneration(TestOTelBase):
         observation_id = langfuse_client._create_observation_id()
         assert observation_id == "1234567890abcdef"
         assert len(observation_id) == 16  # 8 bytes hex-encoded = 16 characters
+
+    def test_langfuse_owned_provider_uses_otel_default_id_generator(
+        self, mock_processor_init
+    ):
+        """Langfuse-owned providers keep the OpenTelemetry default generator."""
+
+        client = Langfuse(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            base_url="http://test-host",
+            tracing_enabled=True,
+        )
+
+        assert client._resources is not None
+        assert client._resources.tracer_provider is not None
+        assert isinstance(
+            client._resources.tracer_provider.id_generator,
+            RandomIdGenerator,
+        )
+
+    def test_langfuse_owned_provider_accepts_custom_id_generator(
+        self, mock_processor_init
+    ):
+        """Custom ID generators are passed to the provider Langfuse creates."""
+
+        id_generator = PredictableIdGenerator(
+            trace_ids=[0x1234567890ABCDEF1234567890ABCDEF],
+            span_ids=[0x1234567890ABCDEF],
+        )
+        client = Langfuse(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            base_url="http://test-host",
+            tracing_enabled=True,
+            id_generator=id_generator,
+        )
+
+        span = client.start_observation(name="custom-id-span")
+        span.end()
+
+        assert span.trace_id == "1234567890abcdef1234567890abcdef"
+        assert span.id == "1234567890abcdef"
 
     def test_observation_id_with_seed(self, langfuse_client):
         """Test observation_id generation with seed (should be deterministic)."""
