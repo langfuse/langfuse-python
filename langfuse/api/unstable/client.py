@@ -8,6 +8,10 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .raw_client import AsyncRawUnstableClient, RawUnstableClient
 
 if typing.TYPE_CHECKING:
+    from .dashboard_widgets.client import (
+        AsyncDashboardWidgetsClient,
+        DashboardWidgetsClient,
+    )
     from .evaluation_rules.client import (
         AsyncEvaluationRulesClient,
         EvaluationRulesClient,
@@ -19,6 +23,7 @@ class UnstableClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawUnstableClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._dashboard_widgets: typing.Optional[DashboardWidgetsClient] = None
         self._evaluation_rules: typing.Optional[EvaluationRulesClient] = None
         self._evaluators: typing.Optional[EvaluatorsClient] = None
 
@@ -32,6 +37,16 @@ class UnstableClient:
         RawUnstableClient
         """
         return self._raw_client
+
+    @property
+    def dashboard_widgets(self):
+        if self._dashboard_widgets is None:
+            from .dashboard_widgets.client import DashboardWidgetsClient  # noqa: E402
+
+            self._dashboard_widgets = DashboardWidgetsClient(
+                client_wrapper=self._client_wrapper
+            )
+        return self._dashboard_widgets
 
     @property
     def evaluation_rules(self):
@@ -56,6 +71,7 @@ class AsyncUnstableClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawUnstableClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._dashboard_widgets: typing.Optional[AsyncDashboardWidgetsClient] = None
         self._evaluation_rules: typing.Optional[AsyncEvaluationRulesClient] = None
         self._evaluators: typing.Optional[AsyncEvaluatorsClient] = None
 
@@ -69,6 +85,16 @@ class AsyncUnstableClient:
         AsyncRawUnstableClient
         """
         return self._raw_client
+
+    @property
+    def dashboard_widgets(self):
+        if self._dashboard_widgets is None:
+            from .dashboard_widgets.client import AsyncDashboardWidgetsClient  # noqa: E402
+
+            self._dashboard_widgets = AsyncDashboardWidgetsClient(
+                client_wrapper=self._client_wrapper
+            )
+        return self._dashboard_widgets
 
     @property
     def evaluation_rules(self):
