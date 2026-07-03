@@ -85,7 +85,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
         typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
     ] = pydantic.Field(default=None)
     """
-    Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+    Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE). Must not be in the future (27 h tolerance for timezone differences).
     """
 
     compressed: typing.Optional[bool] = pydantic.Field(default=None)
