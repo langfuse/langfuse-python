@@ -1670,22 +1670,32 @@ class Langfuse:
     def _create_remote_parent_span(
         self, *, trace_id: str, parent_span_id: Optional[str]
     ) -> Any:
-        if not self._is_valid_trace_id(trace_id):
+        try:
+            int_trace_id = int(trace_id, 16)
+            if not self._is_valid_trace_id(trace_id):
+                langfuse_logger.warning(
+                    f"Passed trace ID '{trace_id}' is not a standard 32 lowercase hex char Langfuse trace ID. It will be normalized to a standard OpenTelemetry trace ID format."
+                )
+        except (ValueError, TypeError):
             langfuse_logger.warning(
-                f"Passed trace ID '{trace_id}' is not a valid 32 lowercase hex char Langfuse trace id. Ignoring trace ID."
+                f"Passed trace ID '{trace_id}' is not parseable as a hex trace ID. Ignoring it and generating a random trace ID instead."
             )
+            int_trace_id = RandomIdGenerator().generate_trace_id()
 
-        if parent_span_id and not self._is_valid_span_id(parent_span_id):
-            langfuse_logger.warning(
-                f"Passed span ID '{parent_span_id}' is not a valid 16 lowercase hex char Langfuse span id. Ignoring parent span ID."
-            )
-
-        int_trace_id = int(trace_id, 16)
-        int_parent_span_id = (
-            int(parent_span_id, 16)
-            if parent_span_id
-            else RandomIdGenerator().generate_span_id()
-        )
+        if parent_span_id:
+            try:
+                int_parent_span_id = int(parent_span_id, 16)
+                if not self._is_valid_span_id(parent_span_id):
+                    langfuse_logger.warning(
+                        f"Passed span ID '{parent_span_id}' is not a standard 16 lowercase hex char Langfuse span ID. It will be normalized."
+                    )
+            except (ValueError, TypeError):
+                langfuse_logger.warning(
+                    f"Passed span ID '{parent_span_id}' is not parseable as a hex span ID. Ignoring it and generating a random span ID instead."
+                )
+                int_parent_span_id = RandomIdGenerator().generate_span_id()
+        else:
+            int_parent_span_id = RandomIdGenerator().generate_span_id()
 
         span_context = otel_trace_api.SpanContext(
             trace_id=int_trace_id,
