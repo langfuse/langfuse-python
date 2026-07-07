@@ -1051,3 +1051,15 @@ def test_with_raw_response_streaming_passes_through_untraced(
         span.name != "OpenAI-generation"
         for span in memory_exporter.get_finished_spans()
     )
+
+
+def test_default_response_handles_null_choices():
+    for resource_type in ("chat", "completion"):
+        model, completion, usage = (
+            lf_openai_module._get_langfuse_data_from_default_response(
+                SimpleNamespace(type=resource_type, object="ChatCompletion"),
+                {"model": "gpt-4", "choices": None, "usage": None},
+            )
+        )
+        assert completion is None
+        assert model == "gpt-4"

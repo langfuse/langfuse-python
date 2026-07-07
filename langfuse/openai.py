@@ -898,7 +898,7 @@ def _get_langfuse_data_from_default_response(
     completion = None
 
     if resource.type == "completion":
-        choices = response.get("choices", [])
+        choices = response.get("choices") or []
         if len(choices) > 0:
             choice = choices[-1]
 
@@ -908,7 +908,7 @@ def _get_langfuse_data_from_default_response(
         completion = _extract_response_api_completion(response.get("output", {}))
 
     elif resource.type == "chat":
-        choices = response.get("choices", [])
+        choices = response.get("choices") or []
         if len(choices) > 0:
             # If multiple choices were generated, we'll show all of them in the UI as a list.
             if len(choices) > 1:
