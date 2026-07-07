@@ -811,7 +811,9 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         curr["name"] = curr["name"] or getattr(
                             tool_call_chunk, "name", None
                         )
-                        curr["arguments"] += getattr(tool_call_chunk, "arguments", "")
+                        curr["arguments"] = (curr.get("arguments") or "") + (
+                            getattr(tool_call_chunk, "arguments", None) or ""
+                        )
 
                 if (
                     delta.get("tool_calls", None) is not None

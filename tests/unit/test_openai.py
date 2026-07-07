@@ -401,6 +401,75 @@ def test_streaming_chat_completion_preserves_tool_calls_after_content():
     assert metadata == {"finish_reason": "tool_calls"}
 
 
+def _make_chat_stream_chunks_with_legacy_function_call_none_arguments():
+    """Mirrors a real OpenAI-compatible-proxy payload shape (see PR #1339,
+    which fixed the identical crash for the newer `tool_calls` array but
+    left this deprecated `function_call` merge branch unpatched): the first
+    streamed delta carries a `function_call` with `arguments=None`, and a
+    later delta appends string arguments to it.
+    """
+    return [
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role="assistant",
+                        content=None,
+                        function_call=SimpleNamespace(
+                            name="get_weather", arguments=None
+                        ),
+                        tool_calls=None,
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=None,
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role=None,
+                        content=None,
+                        function_call=SimpleNamespace(
+                            name=None, arguments='{"city": "Berlin"}'
+                        ),
+                        tool_calls=None,
+                    ),
+                    finish_reason="function_call",
+                )
+            ],
+            usage=None,
+        ),
+    ]
+
+
+def test_streaming_chat_completion_handles_legacy_function_call_none_arguments():
+    """Regression test: the deprecated `function_call` streaming-merge branch
+    must not crash when the first delta's `arguments` is None (a real
+    OpenAI-compatible-proxy behaviour, analogous to the `tool_calls` bug
+    fixed in PR #1339 but never patched for this legacy branch).
+    """
+    model, completion, usage, metadata = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            _make_chat_stream_chunks_with_legacy_function_call_none_arguments(),
+        )
+    )
+
+    assert model == "gpt-4o-mini"
+    assert completion == {
+        "role": "assistant",
+        "function_call": {
+            "name": "get_weather",
+            "arguments": '{"city": "Berlin"}',
+        },
+    }
+    assert metadata == {"finish_reason": "function_call"}
+
+
 def test_response_api_output_serializes_openai_parsed_response_objects():
     class ParsedOutput(BaseModel):
         name: str
