@@ -47,6 +47,7 @@ from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsum
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse._utils.request import LangfuseClient
+from langfuse._utils.skill_cache import SkillCache
 from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction, MaskOtelSpansFunction
@@ -275,6 +276,9 @@ class LangfuseResourceManager:
         # Prompt cache
         self.prompt_cache = PromptCache()
 
+        # Skill cache
+        self.skill_cache = SkillCache()
+
         # Register shutdown handler
         atexit.register(self.shutdown)
 
@@ -463,6 +467,7 @@ class LangfuseResourceManager:
             self._init_media_manager()
             self._init_consumer_threads()
             self.prompt_cache = PromptCache()
+            self.skill_cache = SkillCache()
         except Exception as e:
             langfuse_logger.error(
                 f"[PID {os.getpid()}] Failed to reinitialize consumer threads after fork: {e}. "

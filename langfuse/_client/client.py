@@ -94,10 +94,12 @@ from langfuse._utils import _get_timestamp, json_path
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
+from langfuse._utils.skill_cache import SkillCache
 from langfuse.api import (
     AsyncLangfuseAPI,
     CreateChatPromptRequest,
     CreateChatPromptType,
+    CreateSkillRequest,
     CreateTextPromptRequest,
     Dataset,
     DatasetItem,
@@ -113,6 +115,7 @@ from langfuse.api import (
     Prompt_Chat,
     Prompt_Text,
     ScoreBody,
+    Skill,
     TraceBody,
 )
 from langfuse.batch_evaluation import (
@@ -141,6 +144,7 @@ from langfuse.model import (
     ChatMessageWithPlaceholdersDict,
     ChatPromptClient,
     PromptClient,
+    SkillClient,
     TextPromptClient,
 )
 from langfuse.types import (
@@ -4055,3 +4059,304 @@ class Langfuse:
         """
         if self._resources is not None:
             self._resources.prompt_cache.clear()
+
+    def get_skill(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> SkillClient:
+        """Get a skill.
+
+        This method attempts to fetch the requested skill from the local cache. If the skill is not found
+        in the cache or if the cached skill has expired, it will try to fetch the skill from the server again
+        and update the cache. If fetching the new skill fails, and there is an expired skill in the cache, it will
+        return the expired skill as a fallback.
+
+        Args:
+            name (str): The name of the skill to retrieve.
+
+        Keyword Args:
+            version (Optional[int]): The version of the skill to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
+            label: Optional[str]: The label of the skill to retrieve. If no label and version is specified, the `production` label is returned. Specify either version or label, not both.
+            cache_ttl_seconds: Optional[int]: Time-to-live in seconds for caching the skill. Must be specified as a
+            keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
+            fallback: Optional[str]: The skill instructions to return if fetching the skill fails. Important on the first call where no cached skill is available. Follows Langfuse skill formatting with double curly braces for variables. Defaults to None.
+            max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
+            fetch_timeout_seconds: Optional[int]: The timeout in seconds for fetching the skill. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
+
+        Returns:
+            The skill object retrieved from the cache or directly fetched if not cached or expired, as a SkillClient.
+
+        Raises:
+            Exception: Propagates any exceptions raised during the fetching of a new skill, unless there is an
+            expired skill in the cache, in which case it logs a warning and returns the expired skill.
+        """
+        if self._resources is None:
+            raise Error(
+                "SDK is not correctly initialized. Check the init logs for more details."
+            )
+        if version is not None and label is not None:
+            raise ValueError("Cannot specify both version and label at the same time.")
+
+        if not name:
+            raise ValueError("Skill name cannot be empty.")
+
+        cache_key = SkillCache.generate_cache_key(name, version=version, label=label)
+        bounded_max_retries = self._get_bounded_max_retries(
+            max_retries, default_max_retries=2, max_retries_upper_bound=4
+        )
+
+        langfuse_logger.debug(f"Getting skill '{cache_key}'")
+        cached_skill = self._resources.skill_cache.get(cache_key)
+
+        if cached_skill is None or cache_ttl_seconds == 0:
+            langfuse_logger.debug(
+                f"Skill '{cache_key}' not found in cache or caching disabled."
+            )
+            try:
+                return self._fetch_skill_and_update_cache(
+                    name,
+                    version=version,
+                    label=label,
+                    ttl_seconds=cache_ttl_seconds,
+                    max_retries=bounded_max_retries,
+                    fetch_timeout_seconds=fetch_timeout_seconds,
+                )
+            except Exception as e:
+                if fallback:
+                    langfuse_logger.warning(
+                        f"Returning fallback skill for '{cache_key}' due to fetch error: {e}"
+                    )
+
+                    return SkillClient(
+                        skill=Skill(
+                            name=name,
+                            version=version or 0,
+                            description=None,
+                            instructions=fallback,
+                            metadata=None,
+                            allowed_tools=[],
+                            labels=[label] if label else [],
+                            tags=[],
+                            commit_message=None,
+                        ),
+                        is_fallback=True,
+                    )
+
+                raise e
+
+        if cached_skill.is_expired():
+            langfuse_logger.debug(f"Stale skill '{cache_key}' found in cache.")
+            try:
+                # refresh skill in background thread, refresh_skill deduplicates tasks
+                langfuse_logger.debug(f"Refreshing skill '{cache_key}' in background.")
+
+                def refresh_task() -> None:
+                    self._fetch_skill_and_update_cache(
+                        name,
+                        version=version,
+                        label=label,
+                        ttl_seconds=cache_ttl_seconds,
+                        max_retries=bounded_max_retries,
+                        fetch_timeout_seconds=fetch_timeout_seconds,
+                    )
+
+                self._resources.skill_cache.add_refresh_skill_task_if_current(
+                    cache_key,
+                    cached_skill,
+                    refresh_task,
+                )
+                langfuse_logger.debug(
+                    f"Returning stale skill '{cache_key}' from cache."
+                )
+                # return stale skill
+                return cached_skill.value
+
+            except Exception as e:
+                langfuse_logger.warning(
+                    f"Error when refreshing cached skill '{cache_key}', returning cached version. Error: {e}"
+                )
+                # creation of refresh skill task failed, return stale skill
+                return cached_skill.value
+
+        return cached_skill.value
+
+    def _fetch_skill_and_update_cache(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        max_retries: int,
+        fetch_timeout_seconds: Optional[int],
+    ) -> SkillClient:
+        cache_key = SkillCache.generate_cache_key(name, version=version, label=label)
+        langfuse_logger.debug(f"Fetching skill '{cache_key}' from server...")
+
+        try:
+
+            @backoff.on_exception(
+                backoff.constant, Exception, max_tries=max_retries + 1, logger=None
+            )
+            def fetch_skills() -> Any:
+                return self.api.skills.get(
+                    self._url_encode(name),
+                    version=version,
+                    label=label,
+                    request_options={
+                        "timeout_in_seconds": fetch_timeout_seconds,
+                    }
+                    if fetch_timeout_seconds is not None
+                    else None,
+                )
+
+            skill_response = fetch_skills()
+
+            skill = SkillClient(skill_response)
+
+            if self._resources is not None:
+                self._resources.skill_cache.set(cache_key, skill, ttl_seconds)
+
+            return skill
+
+        except NotFoundError as not_found_error:
+            langfuse_logger.warning(
+                f"Skill '{cache_key}' not found during refresh, evicting from cache."
+            )
+            if self._resources is not None:
+                self._resources.skill_cache.delete(cache_key)
+            raise not_found_error
+
+        except Exception as e:
+            langfuse_logger.error(f"Error while fetching skill '{cache_key}': {str(e)}")
+            raise e
+
+    def create_skill(
+        self,
+        *,
+        name: str,
+        instructions: str,
+        description: Optional[str] = None,
+        labels: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Any] = None,
+        allowed_tools: Optional[List[str]] = None,
+        commit_message: Optional[str] = None,
+    ) -> SkillClient:
+        """Create a new skill in Langfuse.
+
+        Keyword Args:
+            name : The name of the skill to be created.
+            instructions : The instructions content of the skill to be created. May contain {{variable}} placeholders.
+            description: Optional human-readable description of the skill. Defaults to None.
+            labels: The labels of the skill. Defaults to None. To create a default-served skill, add the 'production' label.
+            tags: The tags of the skill. Defaults to None. Will be applied to all versions of the skill.
+            metadata: Additional structured data to be saved with the skill. Defaults to None.
+            allowed_tools: The list of tool names the skill is allowed to use. Defaults to None.
+            commit_message: Optional string describing the change.
+
+        Returns:
+            SkillClient: The created skill.
+        """
+        labels = labels or []
+
+        try:
+            langfuse_logger.debug(f"Creating skill {name=}, {labels=}")
+
+            request = CreateSkillRequest(
+                name=name,
+                instructions=instructions,
+                description=description,
+                labels=labels,
+                tags=tags,
+                metadata=metadata,
+                allowed_tools=allowed_tools,
+                commit_message=commit_message,
+            )
+
+            server_skill = self.api.skills.create(request=request)
+
+            if self._resources is not None:
+                self._resources.skill_cache.invalidate(name)
+
+            return SkillClient(skill=cast(Skill, server_skill))
+
+        except Error as e:
+            handle_fern_exception(e)
+            raise e
+
+    def update_skill(
+        self,
+        *,
+        name: str,
+        version: int,
+        new_labels: Optional[List[str]] = None,
+    ) -> Any:
+        """Update an existing skill version in Langfuse. The Langfuse SDK skill cache is invalidated for all skills with the specified name.
+
+        Args:
+            name (str): The name of the skill to update.
+            version (int): The version number of the skill to update.
+            new_labels (List[str], optional): New labels to assign to the skill version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse. Defaults to [].
+
+        Returns:
+            Skill: The updated skill from the Langfuse API.
+
+        """
+        new_labels = new_labels or []
+
+        updated_skill = self.api.skill_version.update(
+            name=self._url_encode(name),
+            version=version,
+            new_labels=new_labels,
+        )
+
+        if self._resources is not None:
+            self._resources.skill_cache.invalidate(name)
+
+        return updated_skill
+
+    def delete_skill(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+    ) -> Any:
+        """Delete a skill in Langfuse. The Langfuse SDK skill cache is invalidated for all skills with the specified name.
+
+        Args:
+            name (str): The name of the skill to delete.
+
+        Keyword Args:
+            version (Optional[int]): The version of the skill to delete. If neither version nor label is specified, all versions are deleted.
+            label (Optional[str]): The label of the skill version to delete.
+
+        """
+        result = self.api.skills.delete(
+            self._url_encode(name),
+            version=version,
+            label=label,
+        )
+
+        if self._resources is not None:
+            self._resources.skill_cache.invalidate(name)
+
+        return result
+
+    def clear_skill_cache(self) -> None:
+        """Clear the entire skill cache, removing all cached skills.
+
+        This method is useful when you want to force a complete refresh of all
+        cached skills, for example after major updates or when you need to
+        ensure the latest versions are fetched from the server.
+        """
+        if self._resources is not None:
+            self._resources.skill_cache.clear()
