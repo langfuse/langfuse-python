@@ -14,10 +14,17 @@ Langfuse automatically tracks:
 
 The integration is fully interoperable with the `observe()` decorator and the low-level tracing SDK.
 
+Calls made via the OpenAI SDK's `.with_raw_response` API are traced as well, except for
+raw streaming calls which are passed through untraced. Set the environment variable
+`LANGFUSE_OPENAI_SKIP_RAW_RESPONSES=True` to exclude all raw-response calls from tracing,
+e.g. when another instrumented library (such as LiteLLM) calls the OpenAI SDK internally
+through the raw-response API and would otherwise produce duplicate observations.
+
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
 import json
+import os
 import types
 from collections import defaultdict
 from dataclasses import dataclass
@@ -31,6 +38,9 @@ from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
 from wrapt import wrap_function_wrapper
 
+from langfuse._client.environment_variables import (
+    LANGFUSE_OPENAI_SKIP_RAW_RESPONSES,
+)
 from langfuse._client.get_client import get_client
 from langfuse._client.span import LangfuseGeneration
 from langfuse._utils import _get_timestamp
@@ -44,6 +54,11 @@ except ImportError:
     raise ModuleNotFoundError(
         "Please install OpenAI to use this feature: 'pip install openai'"
     )
+
+try:
+    from openai._constants import RAW_RESPONSE_HEADER
+except ImportError:
+    RAW_RESPONSE_HEADER = "X-Stainless-Raw-Response"
 
 
 @dataclass
@@ -1128,11 +1143,73 @@ def _instrument_openai_async_stream(
     return response
 
 
+def _get_raw_response_mode(kwargs: Any) -> Optional[str]:
+    """Return the value of the OpenAI SDK's internal raw-response sentinel header.
+
+    The SDK's `.with_raw_response` wrapper sets it to "true" and
+    `.with_streaming_response` sets it to "stream" before invoking the same
+    resource method that Langfuse instruments. Returns None for regular calls.
+    """
+    extra_headers = kwargs.get("extra_headers", None)
+
+    if extra_headers is None or isinstance(extra_headers, NotGiven):
+        return None
+
+    try:
+        return cast(Optional[str], extra_headers.get(RAW_RESPONSE_HEADER, None))
+    except AttributeError:
+        return None
+
+
+def _should_skip_raw_response_instrumentation(kwargs: Any) -> bool:
+    raw_response_mode = _get_raw_response_mode(kwargs)
+
+    if raw_response_mode is None:
+        return False
+
+    if os.environ.get(LANGFUSE_OPENAI_SKIP_RAW_RESPONSES, "False").lower() in (
+        "true",
+        "1",
+    ):
+        return True
+
+    # Raw streaming responses cannot be instrumented without consuming the
+    # caller's stream or raw body, so they are always passed through untraced.
+    return raw_response_mode == "stream" or kwargs.get("stream", False) is True
+
+
+def _unwrap_raw_response(openai_response: Any) -> Any:
+    """Return the parsed model for raw API responses so data extraction works.
+
+    Libraries wrapping the OpenAI SDK (e.g. LiteLLM) call it via
+    `.with_raw_response`, in which case the instrumented method returns a raw
+    response object instead of the parsed model. `.parse()` caches its result
+    on the response, so callers parsing later are unaffected.
+    """
+    if openai_response is None:
+        return openai_response
+
+    try:
+        from openai._legacy_response import LegacyAPIResponse
+        from openai._response import APIResponse
+
+        if isinstance(openai_response, (LegacyAPIResponse, APIResponse)):
+            return openai_response.parse()
+    except Exception as e:
+        logger.debug(f"Failed to parse raw OpenAI response for tracing: {e}")
+
+    return openai_response
+
+
 @_langfuse_wrapper
 def _wrap(
     open_ai_resource: OpenAiDefinition, wrapped: Any, args: Any, kwargs: Any
 ) -> Any:
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+
+    if _should_skip_raw_response_instrumentation(kwargs):
+        return wrapped(**arg_extractor.get_openai_args())
+
     langfuse_args = arg_extractor.get_langfuse_args()
 
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
@@ -1175,19 +1252,20 @@ def _wrap(
             )
 
         else:
+            parsed_response = _unwrap_raw_response(openai_response)
             model, completion, usage = _get_langfuse_data_from_default_response(
                 open_ai_resource,
-                (openai_response and openai_response.__dict__)
+                (parsed_response and parsed_response.__dict__)
                 if _is_openai_v1()
-                else openai_response,
+                else parsed_response,
             )
 
             generation.update(
                 model=model,
                 output=completion,
                 usage_details=usage,
-                cost_details=_parse_cost(openai_response.usage)
-                if hasattr(openai_response, "usage")
+                cost_details=_parse_cost(parsed_response.usage)
+                if hasattr(parsed_response, "usage")
                 else None,
             ).end()
 
@@ -1210,6 +1288,10 @@ async def _wrap_async(
     open_ai_resource: OpenAiDefinition, wrapped: Any, args: Any, kwargs: Any
 ) -> Any:
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+
+    if _should_skip_raw_response_instrumentation(kwargs):
+        return await wrapped(**arg_extractor.get_openai_args())
+
     langfuse_args = arg_extractor.get_langfuse_args()
 
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
@@ -1252,19 +1334,20 @@ async def _wrap_async(
             )
 
         else:
+            parsed_response = _unwrap_raw_response(openai_response)
             model, completion, usage = _get_langfuse_data_from_default_response(
                 open_ai_resource,
-                (openai_response and openai_response.__dict__)
+                (parsed_response and parsed_response.__dict__)
                 if _is_openai_v1()
-                else openai_response,
+                else parsed_response,
             )
             generation.update(
                 model=model,
                 output=completion,
                 usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
-                cost_details=_parse_cost(openai_response.usage)
-                if hasattr(openai_response, "usage")
+                cost_details=_parse_cost(parsed_response.usage)
+                if hasattr(parsed_response, "usage")
                 else None,
             ).end()
 
