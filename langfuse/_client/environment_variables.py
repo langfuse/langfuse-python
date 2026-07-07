@@ -156,3 +156,13 @@ This setting determines how long prompt responses are cached before they expire.
 
 **Default value**: ``60``
 """
+
+LANGFUSE_SKILL_CACHE_DEFAULT_TTL_SECONDS = "LANGFUSE_SKILL_CACHE_DEFAULT_TTL_SECONDS"
+"""
+.. envvar: LANGFUSE_SKILL_CACHE_DEFAULT_TTL_SECONDS
+
+Controls the default time-to-live (TTL) in seconds for cached skills.
+This setting determines how long skill responses are cached before they expire.
+
+**Default value**: ``60``
+"""

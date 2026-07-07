@@ -16,6 +16,7 @@ from langfuse.api import (
     Prompt,
     Prompt_Chat,
     Prompt_Text,
+    Skill,
     TraceWithFullDetails,  # noqa
 )
 from langfuse.logger import langfuse_logger
@@ -475,3 +476,77 @@ class ChatPromptClient(BasePromptClient):
 
 
 PromptClient = Union[TextPromptClient, ChatPromptClient]
+
+
+class SkillClient:
+    """High-level wrapper around a Langfuse ``Skill``.
+
+    Unlike prompts, skills do not have a chat/text split. A skill wraps a single
+    set of ``instructions`` that may contain ``{{variable}}`` placeholders, which
+    can be substituted via :meth:`compile`.
+    """
+
+    name: str
+    version: int
+    description: Optional[str]
+    instructions: str
+    metadata: Optional[Any]
+    allowed_tools: List[str]
+    labels: List[str]
+    tags: List[str]
+    commit_message: Optional[str]
+
+    def __init__(self, skill: Skill, is_fallback: bool = False):
+        self.name = skill.name
+        self.version = skill.version
+        self.description = skill.description
+        self.instructions = skill.instructions
+        self.metadata = skill.metadata
+        self.allowed_tools = skill.allowed_tools or []
+        self.labels = skill.labels or []
+        self.tags = skill.tags or []
+        self.commit_message = skill.commit_message
+        self.is_fallback = is_fallback
+
+    def compile(self, **kwargs: Union[str, Any]) -> str:
+        """Compile the skill instructions, substituting any ``{{variable}}`` placeholders.
+
+        Args:
+            **kwargs: Values for the variables to substitute in the instructions.
+
+        Returns:
+            The compiled instructions string with all matching variables substituted.
+        """
+        return TemplateParser.compile_template(self.instructions, kwargs)
+
+    @property
+    def variables(self) -> List[str]:
+        """Return all the variable names in the skill instructions template."""
+        return TemplateParser.find_variable_names(self.instructions)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, self.__class__):
+            return (
+                self.name == other.name
+                and self.version == other.version
+                and self.instructions == other.instructions
+                and self.description == other.description
+                and self.metadata == other.metadata
+                and self.allowed_tools == other.allowed_tools
+            )
+
+        return False
+
+    def dict(self) -> Dict[str, Any]:
+        """Return a serializable dictionary representation of the skill."""
+        return {
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "instructions": self.instructions,
+            "metadata": self.metadata,
+            "allowed_tools": self.allowed_tools,
+            "labels": self.labels,
+            "tags": self.tags,
+            "commit_message": self.commit_message,
+        }
