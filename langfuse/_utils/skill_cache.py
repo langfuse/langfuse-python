@@ -178,9 +178,10 @@ class SkillCache:
 
     def invalidate(self, skill_name: str) -> None:
         """Invalidate all cached skills with the given skill name."""
+        prefix = skill_name + "-"
         with self._lock:
             for key in list(self._cache):
-                if key.startswith(skill_name):
+                if key.startswith(prefix):
                     del self._cache[key]
 
     def add_refresh_skill_task(self, key: str, fetch_func: Callable[[], None]) -> None:

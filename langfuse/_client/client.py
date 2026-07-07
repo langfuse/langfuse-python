@@ -4088,7 +4088,7 @@ class Langfuse:
             keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
             fallback: Optional[str]: The skill instructions to return if fetching the skill fails. Important on the first call where no cached skill is available. Follows Langfuse skill formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
-            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the skill. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
+            fetch_timeout_seconds: Optional[int]: The timeout in seconds for fetching the skill. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
 
         Returns:
             The skill object retrieved from the cache or directly fetched if not cached or expired, as a SkillClient.
@@ -4244,7 +4244,7 @@ class Langfuse:
         name: str,
         instructions: str,
         description: Optional[str] = None,
-        labels: List[str] = [],
+        labels: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         metadata: Optional[Any] = None,
         allowed_tools: Optional[List[str]] = None,
@@ -4265,6 +4265,8 @@ class Langfuse:
         Returns:
             SkillClient: The created skill.
         """
+        labels = labels or []
+
         try:
             langfuse_logger.debug(f"Creating skill {name=}, {labels=}")
 
@@ -4295,7 +4297,7 @@ class Langfuse:
         *,
         name: str,
         version: int,
-        new_labels: List[str] = [],
+        new_labels: Optional[List[str]] = None,
     ) -> Any:
         """Update an existing skill version in Langfuse. The Langfuse SDK skill cache is invalidated for all skills with the specified name.
 
@@ -4308,6 +4310,8 @@ class Langfuse:
             Skill: The updated skill from the Langfuse API.
 
         """
+        new_labels = new_labels or []
+
         updated_skill = self.api.skill_version.update(
             name=self._url_encode(name),
             version=version,
