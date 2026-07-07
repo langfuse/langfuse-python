@@ -156,3 +156,17 @@ This setting determines how long prompt responses are cached before they expire.
 
 **Default value**: ``60``
 """
+
+LANGFUSE_OPENAI_SKIP_RAW_RESPONSES = "LANGFUSE_OPENAI_SKIP_RAW_RESPONSES"
+"""
+.. envvar: LANGFUSE_OPENAI_SKIP_RAW_RESPONSES
+
+Controls whether the OpenAI integration skips instrumenting calls made via the
+OpenAI SDK's `.with_raw_response` and `.with_streaming_response` APIs.
+
+Set this to `True` when another instrumented library calls the OpenAI SDK
+internally through the raw-response API (e.g. LiteLLM with the `langfuse_otel`
+callback) to avoid duplicate observations for the same LLM call.
+
+**Default value**: ``False``
+"""

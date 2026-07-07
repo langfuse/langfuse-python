@@ -889,3 +889,165 @@ def test_embedding_exports_dimensions_and_count(
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "input": 2
     }
+
+
+def _chat_completion_payload():
+    return {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "created": 1700000000,
+        "model": "gpt-4o-mini-2024-07-18",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "2"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 1,
+            "total_tokens": 11,
+            "prompt_tokens_details": {"cached_tokens": 4, "audio_tokens": 0},
+        },
+    }
+
+
+def _chat_completion_chunk_sse_body():
+    return (
+        'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
+        '"created":1700000000,"model":"gpt-4o-mini-2024-07-18",'
+        '"choices":[{"index":0,"delta":{"role":"assistant","content":"2"},'
+        '"finish_reason":null}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+
+
+def _mock_transport_openai_client(async_client: bool = False):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if b'"stream": true' in request.content or b'"stream":true' in request.content:
+            return httpx.Response(
+                200,
+                content=_chat_completion_chunk_sse_body().encode(),
+                headers={"content-type": "text/event-stream"},
+            )
+
+        return httpx.Response(200, json=_chat_completion_payload())
+
+    if async_client:
+        return lf_openai.AsyncOpenAI(
+            api_key="test",
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+    return lf_openai.OpenAI(
+        api_key="test",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+
+def test_with_raw_response_chat_completion_captures_output_and_usage(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = _mock_transport_openai_client()
+
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = ?"}],
+    )
+
+    parsed = raw_response.parse()
+    assert parsed.choices[0].message.content == "2"
+
+    langfuse_memory_client.flush()
+    span = get_span("OpenAI-generation")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "generation"
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT) == {
+        "role": "assistant",
+        "content": "2",
+    }
+
+    usage = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS)
+    assert usage["prompt_tokens"] == 10
+    assert usage["completion_tokens"] == 1
+    assert usage["total_tokens"] == 11
+    assert usage["prompt_tokens_details"] == {"cached_tokens": 4, "audio_tokens": 0}
+
+
+@pytest.mark.asyncio
+async def test_async_with_raw_response_chat_completion_captures_output_and_usage(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = _mock_transport_openai_client(async_client=True)
+
+    raw_response = await openai_client.chat.completions.with_raw_response.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = ?"}],
+    )
+
+    parsed = raw_response.parse()
+    assert parsed.choices[0].message.content == "2"
+
+    langfuse_memory_client.flush()
+    span = get_span("OpenAI-generation")
+
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT) == {
+        "role": "assistant",
+        "content": "2",
+    }
+
+    usage = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS)
+    assert usage["prompt_tokens_details"] == {"cached_tokens": 4, "audio_tokens": 0}
+
+
+def test_with_raw_response_skip_flag_disables_instrumentation(
+    langfuse_memory_client, memory_exporter, get_span, monkeypatch
+):
+    monkeypatch.setenv("LANGFUSE_OPENAI_SKIP_RAW_RESPONSES", "True")
+    openai_client = _mock_transport_openai_client()
+
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = ?"}],
+    )
+    assert raw_response.parse().choices[0].message.content == "2"
+
+    langfuse_memory_client.flush()
+    assert all(
+        span.name != "OpenAI-generation"
+        for span in memory_exporter.get_finished_spans()
+    )
+
+    openai_client.chat.completions.create(
+        name="unit-openai-direct-with-skip-flag",
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = ?"}],
+    )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-direct-with-skip-flag")
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "generation"
+
+
+def test_with_raw_response_streaming_passes_through_untraced(
+    langfuse_memory_client, memory_exporter
+):
+    openai_client = _mock_transport_openai_client()
+
+    raw_response = openai_client.chat.completions.with_raw_response.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "1 + 1 = ?"}],
+        stream=True,
+    )
+
+    chunks = list(raw_response.parse())
+    assert chunks[0].choices[0].delta.content == "2"
+
+    langfuse_memory_client.flush()
+    assert all(
+        span.name != "OpenAI-generation"
+        for span in memory_exporter.get_finished_spans()
+    )
