@@ -311,6 +311,69 @@ def test_chat_completion_exports_generation_span(
     }
 
 
+def test_chat_completion_with_none_choices_does_not_crash(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = SimpleNamespace(
+        model="gpt-4o-mini",
+        choices=None,
+        usage=SimpleNamespace(prompt_tokens=3, completion_tokens=1, total_tokens=4),
+    )
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        result = openai_client.chat.completions.create(
+            name="unit-openai-chat-none-choices",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+        )
+
+    assert result is response
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-chat-none-choices")
+
+    assert LangfuseOtelSpanAttributes.OBSERVATION_LEVEL not in span.attributes
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o-mini"
+    )
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "prompt_tokens": 3,
+        "completion_tokens": 1,
+        "total_tokens": 4,
+    }
+
+
+def test_openai_stream_with_none_choices_chunk_does_not_crash(
+    langfuse_memory_client, get_span
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    chunks_with_none_choices = [
+        SimpleNamespace(model="gpt-4o-mini", choices=None, usage=None),
+        *_make_chat_stream_chunks(),
+    ]
+    raw_stream = DummyOpenAIStream(chunks_with_none_choices, DummySyncResponse())
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=raw_stream):
+        stream = openai_client.chat.completions.create(
+            name="unit-openai-stream-none-choices",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            stream=True,
+        )
+
+    chunks = list(stream)
+    stream.close()
+
+    assert len(chunks) == 3
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-stream-none-choices")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+
+
 def test_streaming_chat_completion_preserves_tool_calls_after_content():
     model, completion, usage, metadata = (
         lf_openai_module._extract_streamed_openai_response(
