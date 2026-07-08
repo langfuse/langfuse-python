@@ -1,6 +1,6 @@
 import importlib
 from contextvars import copy_context
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -274,6 +274,27 @@ def test_root_chain_exports_when_end_runs_in_copied_context(
         )
     finally:
         otel_context.detach(context_token)
+
+
+def test_root_chain_propagates_run_name_as_default_trace_name():
+    handler = CallbackHandler()
+    run_id = uuid4()
+    propagation_context_manager = MagicMock()
+
+    with patch.object(
+        callback_handler_module,
+        "propagate_attributes",
+        return_value=propagation_context_manager,
+    ) as mock_propagate:
+        handler.on_chain_start(
+            {"id": ["langgraph", "Pregel"]},
+            {"messages": ["hello"]},
+            run_id=run_id,
+            name="my-agent",
+        )
+
+    mock_propagate.assert_called_once()
+    assert mock_propagate.call_args.kwargs["trace_name"] == "my-agent"
 
 
 def test_control_flow_errors_use_default_level_and_keep_status_message(
