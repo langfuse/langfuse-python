@@ -78,6 +78,60 @@ def test_prompt_tokens_details_dict_empty():
     assert result["output"] == 100
 
 
+def test_anthropic_cache_creation_nested_dict():
+    """Anthropic extended prompt caching: cache_creation nested dict is flattened."""
+    usage = {
+        "input_tokens": 9454,
+        "output_tokens": 380,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 2048,
+        },
+    }
+    result = _parse_usage_model(usage)
+    assert result["input"] == 9454
+    assert result["output"] == 380
+    assert result["cache_creation_ephemeral_1h_input_tokens"] == 0
+    assert result["cache_creation_ephemeral_5m_input_tokens"] == 2048
+    assert result["cache_creation_input_tokens"] == 2048
+    # No nested dict may survive into the final usage model
+    assert all(isinstance(v, int) for v in result.values())
+
+
+def test_anthropic_cache_creation_keeps_existing_aggregate():
+    """API-provided cache_creation_input_tokens is not overwritten by the computed sum."""
+    usage = {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "cache_creation_input_tokens": 3000,
+        "cache_creation": {
+            "ephemeral_1h_input_tokens": 1000,
+            "ephemeral_5m_input_tokens": 2000,
+        },
+    }
+    result = _parse_usage_model(usage)
+    assert result["cache_creation_input_tokens"] == 3000
+    assert result["cache_creation_ephemeral_1h_input_tokens"] == 1000
+    assert result["cache_creation_ephemeral_5m_input_tokens"] == 2000
+
+
+def test_anthropic_cache_creation_all_zero():
+    """All-zero cache_creation tiers: flattened keys kept, no aggregate invented."""
+    usage = {
+        "input_tokens": 50,
+        "output_tokens": 5,
+        "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+        },
+    }
+    result = _parse_usage_model(usage)
+    assert result["cache_creation_ephemeral_1h_input_tokens"] == 0
+    assert result["cache_creation_ephemeral_5m_input_tokens"] == 0
+    assert "cache_creation_input_tokens" not in result
+
+
 def test_priority_tier_not_subtracted():
     """Priority tier: 'priority' and 'priority_*' keys must NOT be subtracted."""
     usage = {

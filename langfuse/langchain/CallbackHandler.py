@@ -1685,6 +1685,28 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                             0, usage_model[f"input_modality_{item['modality']}"] - value
                         )
 
+        # Anthropic extended prompt caching — cache_creation is a nested dict
+        # keyed by cache tier, e.g. {"ephemeral_5m_input_tokens": 2048, "ephemeral_1h_input_tokens": 0}
+        if "cache_creation" in usage_model and isinstance(
+            usage_model["cache_creation"], dict
+        ):
+            cache_creation = usage_model.pop("cache_creation")
+            total_cache_creation_tokens = 0
+
+            for key, value in cache_creation.items():
+                if not isinstance(value, int):
+                    continue
+
+                usage_model[f"cache_creation_{key}"] = value
+                total_cache_creation_tokens += value
+
+            # Aggregate mirrors Anthropic's legacy cache_creation_input_tokens field;
+            # keep the API-provided value if it is already present
+            if total_cache_creation_tokens > 0:
+                usage_model.setdefault(
+                    "cache_creation_input_tokens", total_cache_creation_tokens
+                )
+
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
