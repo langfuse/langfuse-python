@@ -6,7 +6,19 @@ propagate to all child spans within the context.
 """
 
 import re
-from typing import Any, Dict, Generator, List, Literal, Optional, TypedDict, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+    cast,
+)
 
 from opentelemetry import (
     baggage,
@@ -29,6 +41,7 @@ from opentelemetry.util._decorator import (
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from langfuse.logger import langfuse_logger
+from langfuse.model import PromptClient
 
 PropagatedKeys = Literal[
     "user_id",
@@ -38,6 +51,8 @@ PropagatedKeys = Literal[
     "tags",
     "trace_name",
     "environment",
+    "prompt_name",
+    "prompt_version",
 ]
 
 InternalPropagatedKeys = Literal[
@@ -58,6 +73,8 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
     "tags",
     "trace_name",
     "environment",
+    "prompt_name",
+    "prompt_version",
     "experiment_id",
     "experiment_name",
     "experiment_metadata",
@@ -103,6 +120,7 @@ def propagate_attributes(
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
     environment: Optional[str] = None,
+    prompt: Optional[Union[PromptClient, Mapping[str, Any]]] = None,
     as_baggage: bool = False,
 ) -> _AgnosticContextManager[Any]:
     """Propagate trace-level attributes to all spans created within this context.
@@ -139,6 +157,17 @@ def propagate_attributes(
         tags: List of tags to categorize the group of observations
         trace_name: Name to assign to the trace. Must be US-ASCII string, ≤200 characters.
             Use this to set a consistent trace name for all spans created within this context.
+        prompt: Langfuse prompt to link to generations created within this context.
+            Accepts a `PromptClient` returned by `langfuse.get_prompt(...)` or any
+            object/dict exposing `name` (string) and `version` (integer) — e.g.
+            `{"name": "my-prompt", "version": 3}`. This is the recommended way to
+            link prompts to generations emitted by auto-instrumentation libraries
+            (e.g. LiteLLM's `langfuse_otel`, OpenAI Agents SDK, OpenInference)
+            where you don't create the generation via the Langfuse SDK yourself.
+            The prompt link is only applied to generation-type observations by the
+            Langfuse backend. Fallback prompts are never linked. An explicit
+            `prompt` passed to `start_observation` / `update_current_generation`
+            takes precedence over the propagated one.
         environment: Langfuse environment to assign to spans created in this context.
             Must be a lowercase alphanumeric string with optional hyphens or underscores,
             must be ≤40 characters, and must not start with "langfuse". This maps to
@@ -182,6 +211,24 @@ def propagate_attributes(
                 with langfuse.start_generation(name="completion") as gen:
                     # This span also inherits all attributes
                     ...
+        ```
+
+        Prompt linking with auto-instrumented libraries:
+
+        ```python
+        from langfuse import Langfuse
+
+        langfuse = Langfuse()
+        prompt = langfuse.get_prompt("my-prompt")
+
+        with langfuse.propagate_attributes(prompt=prompt):
+            # Generations emitted by auto-instrumentation (LiteLLM langfuse_otel,
+            # OpenAI Agents SDK, OpenInference, ...) within this context are
+            # linked to the prompt version.
+            completion = litellm.completion(
+                model="gpt-4o",
+                messages=prompt.compile(topic="chickens"),
+            )
         ```
 
         Late propagation (anti-pattern):
@@ -244,6 +291,7 @@ def propagate_attributes(
         tags=tags,
         trace_name=trace_name,
         environment=environment,
+        prompt=prompt,
         as_baggage=as_baggage,
     )
 
@@ -258,6 +306,7 @@ def _propagate_attributes(
     tags: Optional[List[str]] = None,
     trace_name: Optional[str] = None,
     environment: Optional[str] = None,
+    prompt: Optional[Union[PromptClient, Mapping[str, Any]]] = None,
     as_baggage: bool = False,
     experiment: Optional[PropagatedExperimentAttributes] = None,
 ) -> Generator[Any, Any, Any]:
@@ -272,6 +321,25 @@ def _propagate_attributes(
         "trace_name": trace_name,
         "environment": environment,
     }
+
+    prompt_info = _extract_propagated_prompt(prompt) if prompt is not None else None
+    if prompt_info is not None:
+        prompt_name, prompt_version = prompt_info
+
+        context = _set_propagated_attribute(
+            key="prompt_name",
+            value=prompt_name,
+            context=context,
+            span=current_span,
+            as_baggage=as_baggage,
+        )
+        context = _set_propagated_attribute(
+            key="prompt_version",
+            value=prompt_version,
+            context=context,
+            span=current_span,
+            as_baggage=as_baggage,
+        )
 
     propagated_metadata_attributes: Dict[str, Optional[Dict[str, Any]]] = {
         "metadata": metadata,
@@ -336,10 +404,51 @@ def _propagate_attributes(
         _detach_context_token_safely(token)
 
 
+def _extract_propagated_prompt(
+    prompt: Union[PromptClient, Mapping[str, Any]],
+) -> Optional[Tuple[str, int]]:
+    """Extract and validate (name, version) from a prompt-like value.
+
+    Accepts a PromptClient or any mapping/object exposing `name` and `version`.
+    Returns None (with a warning) if the value is invalid or a fallback prompt.
+    """
+    if isinstance(prompt, Mapping):
+        name = prompt.get("name")
+        version = prompt.get("version")
+        is_fallback = bool(prompt.get("is_fallback", False))
+    else:
+        name = getattr(prompt, "name", None)
+        version = getattr(prompt, "version", None)
+        is_fallback = bool(getattr(prompt, "is_fallback", False))
+
+    if is_fallback:
+        langfuse_logger.debug(
+            "Propagated prompt is a fallback prompt. Skipping prompt linking."
+        )
+        return None
+
+    if not isinstance(name, str) or not name:
+        langfuse_logger.warning(
+            "Propagated 'prompt' has no valid 'name' (non-empty string required). Dropping prompt link."
+        )
+        return None
+
+    if isinstance(version, str) and version.isdigit():
+        version = int(version)
+
+    if not isinstance(version, int) or isinstance(version, bool):
+        langfuse_logger.warning(
+            "Propagated 'prompt' has no valid 'version' (integer required). Dropping prompt link."
+        )
+        return None
+
+    return name, version
+
+
 def _get_propagated_attributes_from_context(
     context: otel_context_api.Context,
-) -> Dict[str, Union[str, List[str]]]:
-    propagated_attributes: Dict[str, Union[str, List[str]]] = {}
+) -> Dict[str, Union[str, int, List[str]]]:
+    propagated_attributes: Dict[str, Union[str, int, List[str]]] = {}
 
     # Handle baggage
     baggage_entries = baggage.get_all(context=context)
@@ -360,6 +469,14 @@ def _get_propagated_attributes_from_context(
                         continue
 
                     propagated_attributes[span_key] = validated_environment
+                    continue
+
+                if (
+                    span_key == LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION
+                    and isinstance(baggage_value, str)
+                    and baggage_value.isdigit()
+                ):
+                    propagated_attributes[span_key] = int(baggage_value)
                     continue
 
                 propagated_attributes[span_key] = (
@@ -398,7 +515,7 @@ def _get_propagated_attributes_from_context(
             span_key = _get_propagated_span_key(key)
 
             propagated_attributes[span_key] = (
-                value if isinstance(value, (str, list)) else str(value)
+                value if isinstance(value, (str, int, list)) else str(value)
             )
 
     if (
@@ -415,7 +532,7 @@ def _get_propagated_attributes_from_context(
 def _set_propagated_attribute(
     *,
     key: str,
-    value: Union[str, List[str], Dict[str, str]],
+    value: Union[str, int, List[str], Dict[str, str]],
     context: otel_context_api.Context,
     span: otel_trace_api.Span,
     as_baggage: bool,
@@ -472,7 +589,9 @@ def _set_propagated_attribute(
                 )
         else:
             context = otel_baggage_api.set_baggage(
-                name=baggage_key, value=value, context=context
+                name=baggage_key,
+                value=str(value) if isinstance(value, int) else value,
+                context=context,
             )
 
     return context
@@ -622,6 +741,8 @@ def _get_propagated_span_key(key: str) -> str:
         "trace_name": LangfuseOtelSpanAttributes.TRACE_NAME,
         "environment": LangfuseOtelSpanAttributes.ENVIRONMENT,
         "metadata": LangfuseOtelSpanAttributes.TRACE_METADATA,
+        "prompt_name": LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+        "prompt_version": LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
         "experiment_id": LangfuseOtelSpanAttributes.EXPERIMENT_ID,
         "experiment_name": LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
         "experiment_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
