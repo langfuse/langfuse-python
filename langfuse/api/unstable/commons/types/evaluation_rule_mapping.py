@@ -55,8 +55,8 @@ class EvaluationRuleMapping(UniversalBaseModel):
     Source field that should populate the prompt variable.
     
     Quick reference:
-    - `target=observation`: `input`, `output`, `metadata`
-    - `target=experiment`: `input`, `output`, `metadata`, `expected_output`, `experiment_item_metadata`
+    - `target=observation`: `input`, `output`, `metadata`, `tool_calls`
+    - `target=experiment`: `input`, `output`, `metadata`, `tool_calls`, `expected_output`, `experiment_item_metadata`
     """
 
     json_path: typing_extensions.Annotated[
