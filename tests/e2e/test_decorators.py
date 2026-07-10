@@ -940,6 +940,7 @@ async def test_async_nested_openai_chat_stream():
     assert generation.end_time is not None
     assert generation.start_time < generation.end_time
     assert generation.model_parameters == {
+        "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
