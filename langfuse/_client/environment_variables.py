@@ -105,6 +105,17 @@ Max delay in seconds until a new ingestion batch is sent to the API.
 **Default value:** same as OTEL ``OTEL_BSP_SCHEDULE_DELAY``
 """
 
+LANGFUSE_MAX_QUEUE_SIZE = "LANGFUSE_MAX_QUEUE_SIZE"
+"""
+.. envvar:: LANGFUSE_MAX_QUEUE_SIZE
+
+Max number of spans buffered in memory before the exporter flushes them. When the
+buffer is full (for example under high concurrency), additional spans are dropped,
+which can result in incomplete traces. Increase this to reduce drops. Must be
+greater than or equal to ``LANGFUSE_FLUSH_AT``.
+**Default value:** same as OTEL ``OTEL_BSP_MAX_QUEUE_SIZE`` (``2048``)
+"""
+
 LANGFUSE_SAMPLE_RATE = "LANGFUSE_SAMPLE_RATE"
 """
 .. envvar: LANGFUSE_SAMPLE_RATE
