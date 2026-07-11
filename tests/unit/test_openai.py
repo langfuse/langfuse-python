@@ -452,7 +452,7 @@ def test_streaming_chat_completion_handles_legacy_function_call_none_arguments()
     OpenAI-compatible-proxy behaviour, analogous to the `tool_calls` bug
     fixed in PR #1339 but never patched for this legacy branch).
     """
-    model, completion, usage, metadata = (
+    model, completion, usage, metadata, _service_tier = (
         lf_openai_module._extract_streamed_openai_response(
             SimpleNamespace(type="chat"),
             _make_chat_stream_chunks_with_legacy_function_call_none_arguments(),
