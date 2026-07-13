@@ -13,7 +13,7 @@ class EvaluationRuleTarget(enum.StrEnum):
 
     Choose the target first, because it changes both the valid filter columns and the valid variable-mapping sources:
     - `observation` evaluates live-ingested observations such as generations, spans, and events.
-      It supports mapping from `input`, `output`, and `metadata`.
+      It supports mapping from `input`, `output`, `metadata`, and `tool_calls`.
     - `experiment` evaluates live experiment executions and can additionally map `expected_output` and `experiment_item_metadata`.
       It currently supports filtering by `datasetId`.
       Discover valid dataset IDs with `GET /api/public/v2/datasets`, then use the returned dataset `id` values in your filter.

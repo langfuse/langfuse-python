@@ -180,7 +180,7 @@ class TraceClient:
             ```json
             [
               {
-                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "booleanObject", "boolean", "null"
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
@@ -191,10 +191,11 @@ class TraceClient:
                                           // - number: "=", ">", "<", ">=", "<="
                                           // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
                                           // - numberObject: "=", ">", "<", ">=", "<="
+                                          // - booleanObject: "=", "<>"
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
                 "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
-                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+                "key": string             // Required only for stringObject, numberObject, booleanObject, and categoryOptions types when filtering on nested fields like metadata or score names
               }
             ]
             ```
@@ -237,6 +238,7 @@ class TraceClient:
             ### Scores (requires join with scores table)
             - `scores_avg` (number) - Average of numeric scores (alias: `scores`)
             - `score_categories` (categoryOptions) - Categorical score values
+            - `score_booleans` (booleanObject) - Boolean score values. Use `key` for the score name and a boolean `value`, e.g. `{"type": "booleanObject", "column": "score_booleans", "key": "is_correct", "operator": "=", "value": true}`. The `<>` operator also matches traces without a score of that name.
 
             ## Filter Examples
             ```json
@@ -546,7 +548,7 @@ class AsyncTraceClient:
             ```json
             [
               {
-                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "booleanObject", "boolean", "null"
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
@@ -557,10 +559,11 @@ class AsyncTraceClient:
                                           // - number: "=", ">", "<", ">=", "<="
                                           // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
                                           // - numberObject: "=", ">", "<", ">=", "<="
+                                          // - booleanObject: "=", "<>"
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
                 "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
-                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+                "key": string             // Required only for stringObject, numberObject, booleanObject, and categoryOptions types when filtering on nested fields like metadata or score names
               }
             ]
             ```
@@ -603,6 +606,7 @@ class AsyncTraceClient:
             ### Scores (requires join with scores table)
             - `scores_avg` (number) - Average of numeric scores (alias: `scores`)
             - `score_categories` (categoryOptions) - Categorical score values
+            - `score_booleans` (booleanObject) - Boolean score values. Use `key` for the score name and a boolean `value`, e.g. `{"type": "booleanObject", "column": "score_booleans", "key": "is_correct", "operator": "=", "value": true}`. The `<>` operator also matches traces without a score of that name.
 
             ## Filter Examples
             ```json
