@@ -32,7 +32,7 @@ from datetime import datetime
 from inspect import isawaitable, isclass
 from typing import Any, Optional, cast
 
-from openai._types import NotGiven
+from openai._types import NotGiven, Omit
 from packaging.version import Version
 from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
@@ -138,6 +138,24 @@ OPENAI_METHODS_V1 = [
         max_version="1.92.0",
     ),
     OpenAiDefinition(
+        module="openai.resources.beta.chat.completions",
+        object="Completions",
+        method="stream",
+        type="chat",
+        sync=True,
+        min_version="1.40.0",
+        max_version="1.92.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.beta.chat.completions",
+        object="AsyncCompletions",
+        method="stream",
+        type="chat",
+        sync=False,
+        min_version="1.40.0",
+        max_version="1.92.0",
+    ),
+    OpenAiDefinition(
         module="openai.resources.chat.completions",
         object="Completions",
         method="parse",
@@ -154,6 +172,22 @@ OPENAI_METHODS_V1 = [
         min_version="1.92.0",
     ),
     OpenAiDefinition(
+        module="openai.resources.chat.completions",
+        object="Completions",
+        method="stream",
+        type="chat",
+        sync=True,
+        min_version="1.92.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.chat.completions",
+        object="AsyncCompletions",
+        method="stream",
+        type="chat",
+        sync=False,
+        min_version="1.92.0",
+    ),
+    OpenAiDefinition(
         module="openai.resources.responses",
         object="Responses",
         method="create",
@@ -181,6 +215,22 @@ OPENAI_METHODS_V1 = [
         module="openai.resources.responses",
         object="AsyncResponses",
         method="parse",
+        type="chat",
+        sync=False,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="Responses",
+        method="stream",
+        type="chat",
+        sync=True,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="AsyncResponses",
+        method="stream",
         type="chat",
         sync=False,
         min_version="1.66.0",
@@ -204,10 +254,18 @@ OPENAI_METHODS_V1 = [
 
 _RESPONSES_PROMPT_FIELDS = ("tools", "tool_choice", "parallel_tool_calls")
 _STRUCTURED_OUTPUT_METADATA_FIELDS = ("response_format", "text_format")
+_LANGFUSE_STREAM_ARG_NAMES = (
+    "name",
+    "langfuse_prompt",
+    "langfuse_public_key",
+    "trace_id",
+    "parent_observation_id",
+)
+_LANGFUSE_OPENAI_STREAM_ARGS = object()
 
 
 def _is_not_given(value: Any) -> bool:
-    return isinstance(value, NotGiven)
+    return isinstance(value, (NotGiven, Omit))
 
 
 def _get_attr_or_item(value: Any, key: str, default: Any = None) -> Any:
@@ -321,6 +379,20 @@ class OpenAiArgsExtractor:
         self.args["trace_id"] = trace_id
         self.args["parent_observation_id"] = parent_observation_id
 
+        extra_body = kwargs.get("extra_body")
+        if isinstance(extra_body, dict) and _LANGFUSE_OPENAI_STREAM_ARGS in extra_body:
+            request_extra_body = extra_body.copy()
+            stream_args = dict(request_extra_body.pop(_LANGFUSE_OPENAI_STREAM_ARGS))
+            kwargs["extra_body"] = request_extra_body
+
+            if "metadata" in stream_args:
+                self.metadata = stream_args.pop("metadata")
+                self.args["metadata"] = _get_structured_output_metadata(
+                    self.metadata, kwargs
+                )
+
+            self.args.update(stream_args)
+
         self.kwargs = kwargs
 
     def get_langfuse_args(self) -> Any:
@@ -356,13 +428,13 @@ def _extract_responses_prompt(kwargs: Any) -> Any:
     for key in _RESPONSES_PROMPT_FIELDS:
         value = kwargs.get(key, None)
 
-        if value is not None and not isinstance(value, NotGiven):
+        if value is not None and not _is_not_given(value):
             prompt_fields[key] = _serialize_openai_value(value)
 
-    if isinstance(input_value, NotGiven):
+    if _is_not_given(input_value):
         input_value = None
 
-    if isinstance(instructions, NotGiven):
+    if _is_not_given(instructions):
         instructions = None
 
     if instructions is None:
@@ -395,13 +467,15 @@ def _extract_chat_prompt(kwargs: Any) -> Any:
     """Extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
     prompt = {}
 
-    if kwargs.get("functions") is not None:
+    if kwargs.get("functions") is not None and not _is_not_given(kwargs["functions"]):
         prompt.update({"functions": kwargs["functions"]})
 
-    if kwargs.get("function_call") is not None:
+    if kwargs.get("function_call") is not None and not _is_not_given(
+        kwargs["function_call"]
+    ):
         prompt.update({"function_call": kwargs["function_call"]})
 
-    if kwargs.get("tools") is not None:
+    if kwargs.get("tools") is not None and not _is_not_given(kwargs["tools"]):
         prompt.update({"tools": kwargs["tools"]})
 
     if prompt:
@@ -531,11 +605,9 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         raise ValueError("parent_observation_id requires trace_id to be set")
 
     metadata = kwargs.get("metadata", {})
-    if (
-        metadata is not None
-        and not isinstance(metadata, NotGiven)
-        and not isinstance(metadata, dict)
-    ):
+    if _is_not_given(metadata):
+        metadata = {}
+    elif metadata is not None and not isinstance(metadata, dict):
         if isinstance(metadata, BaseModel):
             metadata = _serialize_openai_value(metadata)
         else:
@@ -556,63 +628,61 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     parsed_temperature = (
         kwargs.get("temperature", 1)
-        if not isinstance(kwargs.get("temperature", 1), NotGiven)
+        if not _is_not_given(kwargs.get("temperature", 1))
         else 1
     )
 
     parsed_max_tokens = (
         kwargs.get("max_tokens", float("inf"))
-        if not isinstance(kwargs.get("max_tokens", float("inf")), NotGiven)
+        if not _is_not_given(kwargs.get("max_tokens", float("inf")))
         else float("inf")
     )
 
     parsed_max_completion_tokens = (
         kwargs.get("max_completion_tokens", None)
-        if not isinstance(kwargs.get("max_completion_tokens", float("inf")), NotGiven)
+        if not _is_not_given(kwargs.get("max_completion_tokens", float("inf")))
         else None
     )
 
     parsed_top_p = (
-        kwargs.get("top_p", 1)
-        if not isinstance(kwargs.get("top_p", 1), NotGiven)
-        else 1
+        kwargs.get("top_p", 1) if not _is_not_given(kwargs.get("top_p", 1)) else 1
     )
 
     parsed_frequency_penalty = (
         kwargs.get("frequency_penalty", 0)
-        if not isinstance(kwargs.get("frequency_penalty", 0), NotGiven)
+        if not _is_not_given(kwargs.get("frequency_penalty", 0))
         else 0
     )
 
     parsed_presence_penalty = (
         kwargs.get("presence_penalty", 0)
-        if not isinstance(kwargs.get("presence_penalty", 0), NotGiven)
+        if not _is_not_given(kwargs.get("presence_penalty", 0))
         else 0
     )
 
     parsed_seed = (
         kwargs.get("seed", None)
-        if not isinstance(kwargs.get("seed", None), NotGiven)
+        if not _is_not_given(kwargs.get("seed", None))
         else None
     )
 
-    parsed_n = kwargs.get("n", 1) if not isinstance(kwargs.get("n", 1), NotGiven) else 1
+    parsed_n = kwargs.get("n", 1) if not _is_not_given(kwargs.get("n", 1)) else 1
 
     parsed_service_tier = (
         kwargs.get("service_tier", None)
-        if not isinstance(kwargs.get("service_tier", None), NotGiven)
+        if not _is_not_given(kwargs.get("service_tier", None))
         else None
     )
 
     if resource.type == "embedding":
         parsed_dimensions = (
             kwargs.get("dimensions", None)
-            if not isinstance(kwargs.get("dimensions", None), NotGiven)
+            if not _is_not_given(kwargs.get("dimensions", None))
             else None
         )
         parsed_encoding_format = (
             kwargs.get("encoding_format", "float")
-            if not isinstance(kwargs.get("encoding_format", "float"), NotGiven)
+            if not _is_not_given(kwargs.get("encoding_format", "float"))
             else "float"
         )
 
@@ -1077,7 +1147,7 @@ def _instrument_openai_stream(
     raw_iterator = response._iterator
     completion_start_time: Optional[datetime] = None
     is_finalized = False
-    close = response.close
+    close = response.response.close
 
     def finalize_once() -> None:
         nonlocal is_finalized
@@ -1115,7 +1185,7 @@ def _instrument_openai_stream(
             finalize_once()
 
     response._iterator = traced_iterator()
-    response.close = traced_close
+    response.response.close = traced_close
 
     return response
 
@@ -1139,7 +1209,7 @@ def _instrument_openai_async_stream(
     raw_iterator = response._iterator
     completion_start_time: Optional[datetime] = None
     is_finalized = False
-    close = response.close
+    close = response.response.aclose
 
     async def finalize_once() -> None:
         nonlocal is_finalized
@@ -1180,7 +1250,7 @@ def _instrument_openai_async_stream(
         return await traced_close()
 
     response._iterator = traced_iterator()
-    response.close = traced_close
+    response.response.aclose = traced_close
     response.aclose = traced_aclose
 
     return response
@@ -1195,7 +1265,7 @@ def _get_raw_response_mode(kwargs: Any) -> Optional[str]:
     """
     extra_headers = kwargs.get("extra_headers", None)
 
-    if extra_headers is None or isinstance(extra_headers, NotGiven):
+    if extra_headers is None or _is_not_given(extra_headers):
         return None
 
     try:
@@ -1242,6 +1312,36 @@ def _unwrap_raw_response(openai_response: Any) -> Any:
         logger.debug(f"Failed to parse raw OpenAI response for tracing: {e}")
 
     return openai_response
+
+
+@_langfuse_wrapper
+def _wrap_stream(
+    open_ai_resource: OpenAiDefinition, wrapped: Any, args: Any, kwargs: Any
+) -> Any:
+    """Forward Langfuse arguments to the create call owned by the stream manager."""
+    arg_names: tuple[str, ...] = _LANGFUSE_STREAM_ARG_NAMES
+    if open_ai_resource.module == "openai.resources.beta.chat.completions":
+        arg_names += ("metadata",)
+
+    langfuse_args = {name: kwargs[name] for name in arg_names if name in kwargs}
+
+    if not langfuse_args:
+        return wrapped(**kwargs)
+
+    if open_ai_resource.module == "openai.resources.responses" and any(
+        name in kwargs and not _is_not_given(kwargs[name])
+        for name in ("response_id", "starting_after")
+    ):
+        return wrapped(**kwargs)
+
+    for name in langfuse_args:
+        kwargs.pop(name)
+
+    extra_body = dict(kwargs.get("extra_body") or {})
+    extra_body[_LANGFUSE_OPENAI_STREAM_ARGS] = langfuse_args
+    kwargs["extra_body"] = extra_body
+
+    return wrapped(**kwargs)
 
 
 @_langfuse_wrapper
@@ -1436,10 +1536,18 @@ def register_tracing() -> None:
         ):
             continue
 
+        wrapper = (
+            _wrap_stream(resource)
+            if resource.method == "stream"
+            else _wrap(resource)
+            if resource.sync
+            else _wrap_async(resource)
+        )
+
         wrap_function_wrapper(
             resource.module,
             f"{resource.object}.{resource.method}",
-            _wrap(resource) if resource.sync else _wrap_async(resource),
+            wrapper,
         )
 
 
