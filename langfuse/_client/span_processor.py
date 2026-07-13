@@ -144,6 +144,19 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         context = parent_context or context_api.get_current()
         propagated_attributes = _get_propagated_attributes_from_context(context)
 
+        # An explicit prompt set at span creation takes precedence over a propagated one
+        existing_attributes = span.attributes or {}
+        if LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME in existing_attributes:
+            propagated_attributes = {
+                key: value
+                for key, value in propagated_attributes.items()
+                if key
+                not in (
+                    LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+                    LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+                )
+            }
+
         if propagated_attributes:
             span.set_attributes(propagated_attributes)
 

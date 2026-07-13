@@ -375,7 +375,7 @@ def test_openai_stream_with_none_choices_chunk_does_not_crash(
 
 
 def test_streaming_chat_completion_preserves_tool_calls_after_content():
-    model, completion, usage, metadata = (
+    model, completion, usage, metadata, _service_tier = (
         lf_openai_module._extract_streamed_openai_response(
             SimpleNamespace(type="chat"),
             _make_chat_stream_chunks_with_content_before_tool_call(),
@@ -405,7 +405,7 @@ def test_response_api_output_serializes_openai_parsed_response_objects():
     class ParsedOutput(BaseModel):
         name: str
 
-    _, completion, _ = lf_openai_module._get_langfuse_data_from_default_response(
+    _, completion, _, _ = lf_openai_module._get_langfuse_data_from_default_response(
         SimpleNamespace(type="chat", object="Responses"),
         {
             "model": "gpt-4.1-mini",
@@ -952,6 +952,291 @@ def test_embedding_exports_dimensions_and_count(
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "input": 2
     }
+
+
+def _make_chat_response(**extra_response_fields):
+    return SimpleNamespace(
+        model="gpt-4o-mini",
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    role="assistant",
+                    content="2",
+                    function_call=None,
+                    tool_calls=None,
+                    audio=None,
+                )
+            )
+        ],
+        usage=SimpleNamespace(prompt_tokens=3, completion_tokens=1, total_tokens=4),
+        **extra_response_fields,
+    )
+
+
+def test_chat_completion_captures_request_service_tier(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response()
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-service-tier-request",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            service_tier="flex",
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-service-tier-request")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert model_parameters["service_tier"] == "flex"
+    assert model_parameters["temperature"] == 0
+
+
+def test_chat_completion_service_tier_not_given_is_absent(
+    langfuse_memory_client, get_span, json_attr
+):
+    from openai._types import NOT_GIVEN
+
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response()
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-service-tier-not-given",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            service_tier=NOT_GIVEN,
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-service-tier-not-given")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert "service_tier" not in model_parameters
+
+
+def test_chat_completion_service_tier_absent_by_default(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response()
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-service-tier-absent",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-service-tier-absent")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert "service_tier" not in model_parameters
+
+
+def test_chat_completion_response_service_tier_overrides_request(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response(service_tier="default")
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-service-tier-override",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            service_tier="auto",
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-service-tier-override")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    # Response value is authoritative: it reflects the tier actually used.
+    assert model_parameters["service_tier"] == "default"
+    # Request-side model parameters must be preserved (merge, not clobber).
+    assert model_parameters["temperature"] == 0
+    assert model_parameters["top_p"] == 1
+
+
+@pytest.mark.asyncio
+async def test_async_chat_completion_response_service_tier_overrides_request(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.AsyncOpenAI(api_key="test")
+    response = _make_chat_response(service_tier="priority")
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        await openai_client.chat.completions.create(
+            name="unit-openai-async-service-tier-override",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            service_tier="auto",
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-async-service-tier-override")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert model_parameters["service_tier"] == "priority"
+    assert model_parameters["temperature"] == 0
+
+
+def test_openai_stream_captures_service_tier_from_chunks(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    chunks = _make_chat_stream_chunks()
+    for chunk in chunks:
+        chunk.service_tier = "default"
+    raw_stream = DummyOpenAIStream(chunks, DummySyncResponse())
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=raw_stream):
+        stream = openai_client.chat.completions.create(
+            name="unit-openai-stream-service-tier",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            service_tier="auto",
+            stream=True,
+        )
+
+    list(stream)
+    stream.close()
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-stream-service-tier")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert model_parameters["service_tier"] == "default"
+    assert model_parameters["temperature"] == 0
+
+
+@pytest.mark.asyncio
+async def test_openai_async_stream_captures_service_tier_from_chunks(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.AsyncOpenAI(api_key="test")
+    chunks = _make_chat_stream_chunks()
+    for chunk in chunks:
+        chunk.service_tier = "flex"
+    raw_stream = DummyOpenAIAsyncStream(chunks, DummyAsyncResponse())
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=raw_stream):
+        stream = await openai_client.chat.completions.create(
+            name="unit-openai-async-stream-service-tier",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            temperature=0,
+            stream=True,
+        )
+
+    async for _ in stream:
+        pass
+
+    await stream.aclose()
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-async-stream-service-tier")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert model_parameters["service_tier"] == "flex"
+    assert model_parameters["temperature"] == 0
+
+
+def test_embedding_model_parameters_do_not_include_service_tier(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = SimpleNamespace(
+        model="text-embedding-3-small",
+        data=[SimpleNamespace(embedding=[0.1, 0.2, 0.3])],
+        usage=SimpleNamespace(prompt_tokens=2, total_tokens=2),
+    )
+
+    with patch.object(openai_client.embeddings, "_post", return_value=response):
+        openai_client.embeddings.create(
+            name="unit-openai-embedding-no-service-tier",
+            model="text-embedding-3-small",
+            input="hello world",
+            dimensions=3,
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-embedding-no-service-tier")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert model_parameters == {"dimensions": 3}
+
+
+def test_default_response_extraction_returns_service_tier():
+    (
+        model,
+        _completion,
+        _usage,
+        service_tier,
+    ) = lf_openai_module._get_langfuse_data_from_default_response(
+        SimpleNamespace(type="chat", object="Responses"),
+        {
+            "model": "gpt-4.1-mini",
+            "output": [],
+            "usage": None,
+            "service_tier": "flex",
+        },
+    )
+
+    assert model == "gpt-4.1-mini"
+    assert service_tier == "flex"
+
+
+def test_streamed_response_api_extraction_returns_service_tier():
+    final_response = SimpleNamespace(
+        model="gpt-4.1-mini",
+        output=[],
+        usage=SimpleNamespace(input_tokens=1, output_tokens=1, total_tokens=2),
+        service_tier="priority",
+        created_at=1700000000,
+        text=None,
+    )
+    chunks = [
+        SimpleNamespace(type="response.completed", response=final_response),
+    ]
+
+    (
+        model,
+        _completion,
+        _usage,
+        _metadata,
+        service_tier,
+    ) = lf_openai_module._extract_streamed_response_api_response(chunks)
+
+    assert model == "gpt-4.1-mini"
+    assert service_tier == "priority"
 
 
 def _chat_completion_payload():
