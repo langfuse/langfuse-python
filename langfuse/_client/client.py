@@ -461,13 +461,22 @@ class Langfuse:
           or prefer `api.observations.get_many(trace_id=...)` for row-level observation
           queries. The same list-view vs. get-detail pattern applies to other resources.
 
-        - **Scores are read with `api.scores.get_many(...)` (paginated, filterable) or
-          `api.scores.get_by_id(score_id)`.** There is no `api.scores.get`. Scores are
-          written via `langfuse.create_score(...)` / `span.score(...)`, which are queued
-          and flushed in the background — not via this API client.
+        - **Prefer the v2 data APIs — they are the defaults since SDK v4.**
+          `api.observations` and `api.metrics` map to the high-performance
+          `/api/public/v2/...` endpoints and are the recommended read path. Their v1
+          equivalents remain available under `api.legacy.observations_v1` /
+          `api.legacy.metrics_v1` but are less performant at scale, not recommended
+          for new workflows, and will be deprecated.
+
+        - **Score reads: use `api.scores_v3.get_many_v3(...)`** (cursor-paginated,
+          filterable; pass `id=...` to fetch a single score). The older
+          `api.scores.get_many(...)` / `api.scores.get_by_id(...)` (v2) are deprecated
+          and no longer available on Langfuse v4+ servers. There is no `api.scores.get`.
+          Scores are written via `langfuse.create_score(...)` / `span.score(...)`, which
+          are queued and flushed in the background — not via this API client.
 
         For large-scale aggregation (usage/cost by model, user, etc.), prefer the
-        Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
+        v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
 
         Example:
             ```python
