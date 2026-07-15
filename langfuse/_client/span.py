@@ -228,7 +228,8 @@ class LangfuseObservationWrapper:
 
     @deprecated(
         "Trace-level input/output is deprecated. "
-        "For trace attributes (user_id, session_id, tags, etc.), use propagate_attributes() instead. "
+        "For trace attributes (user_id, session_id, tags, etc.), use the top-level "
+        "`from langfuse import propagate_attributes` context manager instead. "
         "This method will be removed in a future major version."
     )
     def set_trace_io(
@@ -245,7 +246,7 @@ class LangfuseObservationWrapper:
             evaluators). It will be removed in a future major version.
 
             For setting other trace attributes (user_id, session_id, metadata, tags, version),
-            use :meth:`Langfuse.propagate_attributes` instead.
+            use :func:`langfuse.propagate_attributes` (top-level import) instead.
 
         Args:
             input: Input data to associate with the trace.

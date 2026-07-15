@@ -1,4 +1,44 @@
-""".. include:: ../README.md"""
+"""Langfuse Python SDK — observability, evaluation, and prompt management for LLM applications.
+
+Capabilities (all in this package, not just tracing):
+
+- **Tracing / observability**: `@observe` decorator, `Langfuse.start_observation` /
+  `start_as_current_observation` context managers, OpenTelemetry-based; integrations
+  for OpenAI (`langfuse.openai`) and LangChain (`langfuse.langchain.CallbackHandler`).
+- **Trace attributes**: `propagate_attributes` (top-level function) sets user_id,
+  session_id, tags, and metadata on all spans in a context.
+- **Datasets & experiments**: `Langfuse.get_dataset`, `Langfuse.run_experiment` for
+  offline evaluation and regression testing of prompt/model changes (CI support via
+  https://github.com/langfuse/experiment-action and `RegressionError`).
+- **Evaluation / LLM-as-a-judge**: `Evaluation` results from custom or model-based
+  evaluators; scores via `Langfuse.create_score` / `span.score`.
+- **Prompt management**: `Langfuse.get_prompt`, `Langfuse.create_prompt` with
+  client-side caching and version/label control.
+- **Full REST API**: `Langfuse.api` (sync) / `Langfuse.async_api` (async) clients.
+
+Quickstart:
+
+```python
+# env: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL
+from langfuse import get_client, observe
+
+@observe()
+def handle(query: str) -> str:
+    return "answer"
+
+handle("hello")
+get_client().flush()
+```
+
+Configuration is via constructor args or environment variables: `LANGFUSE_PUBLIC_KEY`,
+`LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (defaults to https://cloud.langfuse.com;
+the older `LANGFUSE_HOST` is deprecated). See `langfuse._client.environment_variables`
+for the full list.
+
+Docs: https://langfuse.com/docs — machine-readable index: https://langfuse.com/llms.txt
+
+.. include:: ../README.md
+"""
 
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,

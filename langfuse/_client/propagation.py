@@ -131,9 +131,13 @@ def propagate_attributes(
     environment, and metadata dimensions that should be consistently applied across
     all observations in a trace.
 
-    **IMPORTANT**: Call this as early as possible within your trace/workflow. Only the
-    currently active span and spans created after entering this context will have these
-    attributes. Pre-existing spans will NOT be retroactively updated.
+    This is a module-level function, not a method on the Langfuse client:
+    import it with `from langfuse import propagate_attributes`.
+
+    **IMPORTANT**: Call this as early as possible within your trace/workflow —
+    ideally wrapping the creation of your root span, or immediately inside it. Only
+    the currently active span and spans created after entering this context will have
+    these attributes. Pre-existing spans will NOT be retroactively updated.
 
     **Why this matters**: Langfuse aggregation queries (e.g., total cost by user_id,
     filtering by session_id) only include observations that have the attribute set.
@@ -188,16 +192,17 @@ def propagate_attributes(
         Context manager that propagates attributes to all child spans.
 
     Example:
-        Basic usage with user and session tracking:
+        Basic usage with user and session tracking (note: `propagate_attributes` is a
+        top-level import, not a client method):
 
         ```python
-        from langfuse import Langfuse
+        from langfuse import Langfuse, propagate_attributes
 
         langfuse = Langfuse()
 
-        # Set attributes early in the trace
+        # Set attributes early: wrap everything inside the root span
         with langfuse.start_as_current_observation(name="user_workflow") as span:
-            with langfuse.propagate_attributes(
+            with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 environment="production",
@@ -208,7 +213,9 @@ def propagate_attributes(
                     # This span inherits user_id, session_id, environment, and experiment metadata
                     ...
 
-                with langfuse.start_generation(name="completion") as gen:
+                with langfuse.start_observation(
+                    name="completion", as_type="generation"
+                ) as gen:
                     # This span also inherits all attributes
                     ...
         ```
@@ -216,12 +223,12 @@ def propagate_attributes(
         Prompt linking with auto-instrumented libraries:
 
         ```python
-        from langfuse import Langfuse
+        from langfuse import Langfuse, propagate_attributes
 
         langfuse = Langfuse()
         prompt = langfuse.get_prompt("my-prompt")
 
-        with langfuse.propagate_attributes(prompt=prompt):
+        with propagate_attributes(prompt=prompt):
             # Generations emitted by auto-instrumentation (LiteLLM langfuse_otel,
             # OpenAI Agents SDK, OpenInference, ...) within this context are
             # linked to the prompt version.
@@ -240,7 +247,7 @@ def propagate_attributes(
             early_span.end()
 
             # Set attributes in the middle
-            with langfuse.propagate_attributes(user_id="user_123"):
+            with propagate_attributes(user_id="user_123"):
                 # Only spans created AFTER this point will have user_id
                 late_span = langfuse.start_observation(name="late_work")
                 late_span.end()
@@ -253,7 +260,7 @@ def propagate_attributes(
         ```python
         # Service A - originating service
         with langfuse.start_as_current_observation(name="api_request"):
-            with langfuse.propagate_attributes(
+            with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 environment="staging",
@@ -282,6 +289,11 @@ def propagate_attributes(
 
     Raises:
         No exceptions are raised. Invalid values are logged as warnings and dropped.
+
+    See also:
+        `Langfuse.start_as_current_observation` (create the root span this wraps),
+        https://langfuse.com/docs/observability/features/sessions,
+        https://langfuse.com/docs/observability/features/users
     """
     return _propagate_attributes(
         user_id=user_id,
