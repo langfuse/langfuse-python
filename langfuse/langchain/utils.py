@@ -3,6 +3,8 @@
 import re
 from typing import Any, Dict, List, Literal, Optional, cast
 
+from langfuse.logger import langfuse_logger
+
 # NOTE ON DEPENDENCIES:
 # - since Jan 2024, there is https://pypi.org/project/langchain-openai/ which is a separate package and imports openai models.
 #   Decided to not make this a dependency of langfuse as few people will have this. Need to match these models manually
@@ -32,6 +34,10 @@ def _normalize_tool_definition(tool: Any) -> Any:
 
         return convert_to_openai_tool(tool)
     except Exception:
+        langfuse_logger.debug(
+            "Could not normalize tool definition to OpenAI format; keeping original.",
+            exc_info=True,
+        )
         return tool
 
 
