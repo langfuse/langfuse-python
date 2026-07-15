@@ -293,7 +293,8 @@ def propagate_attributes(
     See also:
         `Langfuse.start_as_current_observation` (create the root span this wraps),
         https://langfuse.com/docs/observability/features/sessions,
-        https://langfuse.com/docs/observability/features/users
+        https://langfuse.com/docs/observability/features/users,
+        https://langfuse.com/docs/observability/features/environments
     """
     return _propagate_attributes(
         user_id=user_id,

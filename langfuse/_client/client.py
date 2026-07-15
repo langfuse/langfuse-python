@@ -429,34 +429,45 @@ class Langfuse:
 
         Semantics that are easy to miss:
 
-        - **Ingestion is asynchronous.** Traces are exported in the background and
-          processed server-side. Even after `langfuse.flush()`, reads such as
-          `api.trace.get(trace_id)` may raise `langfuse.api.NotFoundError` for a few
-          seconds. The same applies to scores and dataset run reads. Retry with a bound:
+        - **Ingestion is asynchronous.** `langfuse.flush()` only guarantees delivery to
+          the API, not read visibility: reads such as `api.trace.get(trace_id)` may
+          raise `langfuse.api.NotFoundError` until processing completes (typically
+          within 15-30 seconds; longer under load). The same applies to scores and
+          dataset run reads. Instead of a fixed sleep, retry with a deadline:
 
           ```python
           import time
           from langfuse.api import NotFoundError
 
-          langfuse.flush()
-          for attempt in range(10):
+          langfuse.flush()  # ensure delivery before polling
+          deadline, delay = time.monotonic() + 60.0, 1.0
+          while True:
               try:
                   trace = langfuse.api.trace.get(trace_id)
                   break
               except NotFoundError:
-                  time.sleep(2 ** attempt * 0.5)  # 0.5s, 1s, 2s, ...
+                  if time.monotonic() >= deadline:
+                      raise
+                  time.sleep(delay)
+                  delay = min(delay * 2, 10.0)  # exponential backoff, capped
           ```
+
+          A successful `trace.get` means the trace record exists — its observations and
+          scores may still be arriving.
 
         - **List endpoints return lightweight views.** `api.trace.list(...)` returns
           `TraceWithDetails`, where `observations` and `scores` are lists of ID strings.
-          Fetch the full objects with `api.trace.get(trace_id)`
-          (`TraceWithFullDetails`, with full observation and score objects). The same
-          list-view vs. get-detail pattern applies to other resources.
+          Fetch the full objects with `api.trace.get(trace_id)` (`TraceWithFullDetails`),
+          or prefer `api.observations.get_many(trace_id=...)` for row-level observation
+          queries. The same list-view vs. get-detail pattern applies to other resources.
 
         - **Scores are read with `api.scores.get_many(...)` (paginated, filterable) or
           `api.scores.get_by_id(score_id)`.** There is no `api.scores.get`. Scores are
           written via `langfuse.create_score(...)` / `span.score(...)`, which are queued
           and flushed in the background — not via this API client.
+
+        For large-scale aggregation (usage/cost by model, user, etc.), prefer the
+        Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
 
         Example:
             ```python
@@ -467,8 +478,11 @@ class Langfuse:
             full = langfuse.api.trace.get(traces.data[0].id)  # full observations/scores
             ```
 
-        See also: `async_api`, https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
-        and https://langfuse.com/docs/api-and-data-platform/features/public-api
+        See also: `async_api`,
+        https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
+        (ingestion lag: #ingestion-lag, list vs. get: #traces-list-vs-get),
+        https://langfuse.com/docs/api-and-data-platform/features/observations-api,
+        https://langfuse.com/docs/metrics/features/metrics-api
         """
         if self._resources is None:
             raise AttributeError("Langfuse client is not initialized")
@@ -487,10 +501,10 @@ class Langfuse:
         """Asynchronous (asyncio) client for the full Langfuse REST API.
 
         Same resources and semantics as `api` — including asynchronous ingestion
-        (reads may raise `langfuse.api.NotFoundError` for a few seconds after
-        `flush()`) and lightweight list views (`list` endpoints return observation
-        and score IDs as strings; `get` endpoints return full objects). All methods
-        must be awaited.
+        (reads may raise `langfuse.api.NotFoundError` until processing completes,
+        typically within 15-30 seconds of `flush()`) and lightweight list views
+        (`list` endpoints return observation and score IDs as strings; `get`
+        endpoints return full objects). All methods must be awaited.
 
         Example:
             ```python
@@ -2307,10 +2321,12 @@ class Langfuse:
             ```
 
         Note:
-            `flush()` blocks until pending data is *sent*, but server-side ingestion
-            is asynchronous: flushed traces may not be queryable via `api.trace.get()`
-            for a few seconds (a `langfuse.api.NotFoundError` right after a successful
-            flush is expected). See the `api` property docs for a bounded retry pattern.
+            `flush()` guarantees data was *delivered* to the API, not that it is
+            *readable* yet: server-side ingestion is asynchronous, so flushed traces
+            may not be queryable via `api.trace.get()` for 15-30 seconds (a
+            `langfuse.api.NotFoundError` right after a successful flush is expected).
+            See the `api` property docs for a bounded retry pattern, or
+            https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
         if self._resources is not None:
             self._resources.flush()
@@ -2748,7 +2764,7 @@ class Langfuse:
             from langfuse import Evaluation
 
             def rag_task(*, item, **kwargs):
-                question = item["input"]
+                question = item.input  # DatasetItem attribute (dict items: item["input"])
                 context = retrieve(question)  # your retriever
                 answer = generate(question, context)  # your LLM call
                 return {"answer": answer, "context": context}

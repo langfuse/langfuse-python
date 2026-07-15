@@ -193,7 +193,8 @@ class LangfuseDecorator:
         See also:
             `langfuse.propagate_attributes` (set user_id/session_id on all spans),
             `Langfuse.start_as_current_observation` (imperative alternative),
-            https://langfuse.com/docs/observability/sdk/instrumentation
+            https://langfuse.com/docs/observability/sdk/instrumentation,
+            https://langfuse.com/docs/observability/features/observation-types (as_type values)
         """
         valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:

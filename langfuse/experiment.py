@@ -1179,8 +1179,8 @@ class RegressionError(Exception):
 
     Intended for use with the ``langfuse/experiment-action`` GitHub Action
     (https://github.com/langfuse/experiment-action). The action catches this
-    exception and, when ``should_fail_on_error`` is enabled, fails the
-    workflow run and renders a callout in the PR comment using
+    exception and, when ``should_fail_on_regression`` is enabled (default), fails
+    the workflow run and renders a callout in the PR comment using
     ``metric``/``value``/``threshold`` if supplied, otherwise ``str(exc)``.
 
     Callers choose one of three forms:
