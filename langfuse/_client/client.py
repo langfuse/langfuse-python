@@ -471,9 +471,10 @@ class Langfuse:
         - **Score reads: use `api.scores_v3.get_many_v3(...)`** (cursor-paginated,
           filterable; pass `id=...` to fetch a single score). The older
           `api.scores.get_many(...)` / `api.scores.get_by_id(...)` (v2) are deprecated
-          and no longer available on Langfuse v4+ servers. There is no `api.scores.get`.
-          Scores are written via `langfuse.create_score(...)` / `span.score(...)`, which
-          are queued and flushed in the background — not via this API client.
+          and will not be available on Langfuse v4+ servers. There is no
+          `api.scores.get`. Scores are written via `langfuse.create_score(...)` /
+          `span.score(...)`, which are queued and flushed in the background — not via
+          this API client.
 
         For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
