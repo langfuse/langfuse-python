@@ -6,11 +6,13 @@ from enum import Enum
 from pathlib import Path
 from uuid import UUID
 
+import pytest
 from pydantic import BaseModel
 
 from langfuse._utils.serializer import (
     EventSerializer,
 )
+from langfuse.media import LangfuseMediaReference
 
 
 class TestEnum(Enum):
@@ -67,6 +69,30 @@ def test_pydantic_model():
     model = TestBaseModel(field="test")
     serializer = EventSerializer()
     assert json.loads(serializer.encode(model)) == {"field": "test"}
+
+
+def test_langfuse_media_reference_serializes_to_reference_string():
+    # Resolved references must round-trip back to their original reference string
+    # rather than falling through to asdict() and emitting an opaque dict.
+    reference_string = "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"
+    ref = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/png",
+        url="https://example.com/image.png",
+        reference_string=reference_string,
+    )
+    serializer = EventSerializer()
+    assert serializer.encode(ref) == f'"{reference_string}"'
+
+
+def test_langfuse_media_reference_without_reference_string_falls_back_to_dict():
+    ref = LangfuseMediaReference(
+        media_id="media-id",
+        content_type="image/png",
+        url="https://example.com/image.png",
+    )
+    serializer = EventSerializer()
+    assert json.loads(serializer.encode(ref))["media_id"] == "media-id"
 
 
 def test_path():
@@ -164,6 +190,12 @@ def test_none():
     assert serializer.encode(None) == "null"
 
 
+def test_infinity_floats():
+    serializer = EventSerializer()
+    assert serializer.encode(float("inf")) == '"Infinity"'
+    assert serializer.encode(float("-inf")) == '"-Infinity"'
+
+
 def test_slots():
     class SlotClass:
         __slots__ = ["field"]
@@ -174,3 +206,126 @@ def test_slots():
     obj = SlotClass()
     serializer = EventSerializer()
     assert json.loads(serializer.encode(obj)) == {"field": "value"}
+
+
+def test_deeply_nested_object_does_not_hang():
+    class Inner:
+        def __init__(self):
+            self.lock = threading.Lock()
+            self.value = "deep"
+
+    class Connection:
+        def __init__(self):
+            self._inner = Inner()
+            self._pool = [Inner() for _ in range(3)]
+
+    class Client:
+        def __init__(self):
+            self._connection = Connection()
+            self._config = {"key": "value"}
+
+    class Platform:
+        def __init__(self):
+            self._client = Client()
+
+    obj = {"args": (Platform(),), "kwargs": {}}
+    serializer = EventSerializer()
+    result = serializer.encode(obj)
+
+    # Must complete without hanging and produce valid JSON
+    parsed = json.loads(result)
+    assert "args" in parsed
+
+
+def test_max_depth_returns_type_name():
+    class Level:
+        def __init__(self, child=None):
+            self.child = child
+
+    # Build a chain deeper than _MAX_DEPTH
+    obj = None
+    for _ in range(EventSerializer._MAX_DEPTH + 10):
+        obj = Level(child=obj)
+
+    serializer = EventSerializer()
+    result = json.loads(serializer.encode(obj))
+
+    # Walk down the chain — at some point it should be truncated to "Level"
+    node = result
+    found_truncation = False
+    while isinstance(node, dict) and "child" in node:
+        if node["child"] == "Level" or node["child"] == "<Level>":
+            found_truncation = True
+            break
+        node = node["child"]
+
+    assert found_truncation, "Expected depth limit to truncate deep nesting"
+
+
+def test_deeply_nested_slots_object_is_truncated():
+    class SlotLevel:
+        __slots__ = ["child"]
+
+        def __init__(self, child=None):
+            self.child = child
+
+    obj = None
+    for _ in range(EventSerializer._MAX_DEPTH + 10):
+        obj = SlotLevel(child=obj)
+
+    serializer = EventSerializer()
+    result = json.loads(serializer.encode(obj))
+
+    # Walk the nested structure and verify it terminates
+    node = result
+    depth = 0
+    while isinstance(node, dict):
+        depth += 1
+        if "child" in node:
+            node = node["child"]
+        else:
+            break
+
+    assert EventSerializer._MAX_DEPTH - 2 <= depth <= EventSerializer._MAX_DEPTH + 2, (
+        f"Nesting depth {depth} not near _MAX_DEPTH ({EventSerializer._MAX_DEPTH}) — "
+        "serializer truncated too early or too late"
+    )
+
+
+def test_deeply_nested_dict_preserves_keys_at_depth_boundary(monkeypatch):
+    monkeypatch.setattr(EventSerializer, "_MAX_DEPTH", 3)
+
+    input_obj = {"a": {"b": {"c": "leaf"}}}
+    expected = {"a": {"b": "<dict>"}}
+
+    serializer = EventSerializer()
+    result = json.loads(serializer.encode(input_obj))
+
+    assert result == expected
+
+
+class _Color(Enum):
+    RED = "red"
+    NUMERIC = 7
+
+
+@pytest.mark.parametrize(
+    "input_obj, expected",
+    [
+        (
+            {datetime(2024, 1, 1, tzinfo=timezone.utc): "v"},
+            {"2024-01-01T00:00:00Z": "v"},
+        ),
+        (
+            {UUID("12345678-1234-5678-1234-567812345678"): "v"},
+            {"12345678-1234-5678-1234-567812345678": "v"},
+        ),
+        ({_Color.RED: "v"}, {"red": "v"}),
+        ({_Color.NUMERIC: "v"}, {"7": "v"}),
+    ],
+    ids=["datetime", "uuid", "enum_str_value", "enum_int_value"],
+)
+def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
+    result = json.loads(EventSerializer().encode(input_obj))
+
+    assert result == expected

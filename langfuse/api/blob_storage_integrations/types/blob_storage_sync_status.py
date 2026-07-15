@@ -12,16 +12,18 @@ class BlobStorageSyncStatus(enum.StrEnum):
     Sync status of the blob storage integration:
     - `disabled` — integration is not enabled
     - `error` — last export failed (see `lastError` for details)
-    - `idle` — enabled but has never exported yet
+    - `running` — an export job is currently being processed
     - `queued` — next export is overdue (`nextSyncAt` is in the past) and waiting to be picked up by the worker
+    - `idle` — enabled but has never exported yet and no export is queued
     - `up_to_date` — all available data has been exported; next export is scheduled for the future
 
     **ETL usage**: poll this endpoint and check for `up_to_date` status. Compare `lastSyncAt` against your
-    ETL bookmark to determine if new data is available. Note that exports run with a 30-minute lag buffer,
-    so `lastSyncAt` will always be at least 30 minutes behind real-time.
+    ETL bookmark to determine if new data is available. Note that exports run with a 20-minute lag buffer,
+    so `lastSyncAt` will always be at least 20 minutes behind real-time.
     """
 
     IDLE = "idle"
+    RUNNING = "running"
     QUEUED = "queued"
     UP_TO_DATE = "up_to_date"
     DISABLED = "disabled"
@@ -30,6 +32,7 @@ class BlobStorageSyncStatus(enum.StrEnum):
     def visit(
         self,
         idle: typing.Callable[[], T_Result],
+        running: typing.Callable[[], T_Result],
         queued: typing.Callable[[], T_Result],
         up_to_date: typing.Callable[[], T_Result],
         disabled: typing.Callable[[], T_Result],
@@ -37,6 +40,8 @@ class BlobStorageSyncStatus(enum.StrEnum):
     ) -> T_Result:
         if self is BlobStorageSyncStatus.IDLE:
             return idle()
+        if self is BlobStorageSyncStatus.RUNNING:
+            return running()
         if self is BlobStorageSyncStatus.QUEUED:
             return queued()
         if self is BlobStorageSyncStatus.UP_TO_DATE:

@@ -14,9 +14,17 @@ Langfuse automatically tracks:
 
 The integration is fully interoperable with the `observe()` decorator and the low-level tracing SDK.
 
+Calls made via the OpenAI SDK's `.with_raw_response` API are traced as well, except for
+raw streaming calls which are passed through untraced. Set the environment variable
+`LANGFUSE_OPENAI_SKIP_RAW_RESPONSES=True` to exclude all raw-response calls from tracing,
+e.g. when another instrumented library (such as LiteLLM) calls the OpenAI SDK internally
+through the raw-response API and would otherwise produce duplicate observations.
+
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
+import json
+import os
 import types
 from collections import defaultdict
 from dataclasses import dataclass
@@ -27,8 +35,12 @@ from typing import Any, Optional, cast
 from openai._types import NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
+from pydantic_core import to_jsonable_python
 from wrapt import wrap_function_wrapper
 
+from langfuse._client.environment_variables import (
+    LANGFUSE_OPENAI_SKIP_RAW_RESPONSES,
+)
 from langfuse._client.get_client import get_client
 from langfuse._client.span import LangfuseGeneration
 from langfuse._utils import _get_timestamp
@@ -42,6 +54,11 @@ except ImportError:
     raise ModuleNotFoundError(
         "Please install OpenAI to use this feature: 'pip install openai'"
     )
+
+try:
+    from openai._constants import RAW_RESPONSE_HEADER
+except ImportError:
+    RAW_RESPONSE_HEADER = "X-Stainless-Raw-Response"
 
 
 @dataclass
@@ -185,6 +202,103 @@ OPENAI_METHODS_V1 = [
 ]
 
 
+_RESPONSES_PROMPT_FIELDS = ("tools", "tool_choice", "parallel_tool_calls")
+_STRUCTURED_OUTPUT_METADATA_FIELDS = ("response_format", "text_format")
+
+
+def _is_not_given(value: Any) -> bool:
+    return isinstance(value, NotGiven)
+
+
+def _get_attr_or_item(value: Any, key: str, default: Any = None) -> Any:
+    if isinstance(value, dict):
+        return value.get(key, default)
+
+    return getattr(value, key, default)
+
+
+def _serialize_openai_value(value: Any) -> Any:
+    """Convert OpenAI SDK request/response wrapper values into plain data."""
+
+    if _is_not_given(value):
+        return None
+
+    if isclass(value) and issubclass(value, BaseModel):
+        return value.model_json_schema()
+
+    if isinstance(value, BaseModel):
+        value.model_rebuild()
+
+        try:
+            return _serialize_openai_value(
+                value.model_dump(mode="json", warnings=False)
+            )
+        except Exception:
+            try:
+                return _serialize_openai_value(
+                    json.loads(value.model_dump_json(warnings=False))
+                )
+            except Exception:
+                return _serialize_openai_value(value.model_dump(warnings=False))
+
+    if isinstance(value, dict):
+        return {
+            key: _serialize_openai_value(val)
+            for key, val in value.items()
+            if not _is_not_given(val)
+        }
+
+    if isinstance(value, (list, tuple)):
+        return [_serialize_openai_value(item) for item in value]
+
+    try:
+        return to_jsonable_python(value)
+    except Exception:
+        return str(value)
+
+
+def _get_structured_output_metadata(metadata: Optional[Any], kwargs: Any) -> Any:
+    structured_output_metadata = {}
+
+    for key in _STRUCTURED_OUTPUT_METADATA_FIELDS:
+        value = kwargs.get(key, None)
+
+        if value is not None and not _is_not_given(value):
+            structured_output_metadata[key] = _serialize_openai_value(value)
+
+    if not structured_output_metadata:
+        return _serialize_openai_value(metadata)
+
+    metadata_dict = (
+        _serialize_openai_value(metadata)
+        if isinstance(metadata, BaseModel)
+        else metadata
+    )
+
+    if metadata_dict is None:
+        metadata_dict = {}
+
+    if not isinstance(metadata_dict, dict):
+        metadata_dict = {}
+
+    return {**metadata_dict, **structured_output_metadata}
+
+
+def _extract_response_api_completion(output: Any) -> Any:
+    output = _serialize_openai_value(output)
+
+    if not isinstance(output, list):
+        return output
+
+    if len(output) > 1:
+        return output
+
+    if len(output) == 1:
+        return output[0]
+
+    return None
+
+
 class OpenAiArgsExtractor:
     def __init__(
         self,
@@ -199,17 +313,8 @@ class OpenAiArgsExtractor:
         **kwargs: Any,
     ) -> None:
         self.args = {}
-        self.args["metadata"] = (
-            metadata
-            if "response_format" not in kwargs
-            else {
-                **(metadata or {}),
-                "response_format": kwargs["response_format"].model_json_schema()
-                if isclass(kwargs["response_format"])
-                and issubclass(kwargs["response_format"], BaseModel)
-                else kwargs["response_format"],
-            }
-        )
+        self.metadata = metadata
+        self.args["metadata"] = _get_structured_output_metadata(metadata, kwargs)
         self.args["name"] = name
         self.args["langfuse_public_key"] = langfuse_public_key
         self.args["langfuse_prompt"] = langfuse_prompt
@@ -222,18 +327,15 @@ class OpenAiArgsExtractor:
         return {**self.args, **self.kwargs}
 
     def get_openai_args(self) -> Any:
+        openai_args = self.kwargs.copy()
+
         # If OpenAI model distillation is enabled, we need to add the metadata to the kwargs
         # https://platform.openai.com/docs/guides/distillation
-        if self.kwargs.get("store", False):
-            self.kwargs["metadata"] = (
-                {} if self.args.get("metadata", None) is None else self.args["metadata"]
-            )
+        if openai_args.get("store", False):
+            metadata = _serialize_openai_value(self.metadata)
+            openai_args["metadata"] = metadata if isinstance(metadata, dict) else {}
 
-            # OpenAI does not support non-string type values in metadata when using
-            # model distillation feature
-            self.kwargs["metadata"].pop("response_format", None)
-
-        return self.kwargs
+        return openai_args
 
 
 def _langfuse_wrapper(func: Any) -> Any:
@@ -249,6 +351,13 @@ def _langfuse_wrapper(func: Any) -> Any:
 def _extract_responses_prompt(kwargs: Any) -> Any:
     input_value = kwargs.get("input", None)
     instructions = kwargs.get("instructions", None)
+    prompt_fields = {}
+
+    for key in _RESPONSES_PROMPT_FIELDS:
+        value = kwargs.get(key, None)
+
+        if value is not None and not isinstance(value, NotGiven):
+            prompt_fields[key] = _serialize_openai_value(value)
 
     if isinstance(input_value, NotGiven):
         input_value = None
@@ -257,21 +366,29 @@ def _extract_responses_prompt(kwargs: Any) -> Any:
         instructions = None
 
     if instructions is None:
-        return input_value
-
-    if input_value is None:
-        return {"instructions": instructions}
-
-    if isinstance(input_value, str):
-        return [
+        prompt = input_value
+    elif input_value is None:
+        prompt = {"instructions": instructions}
+    elif isinstance(input_value, str):
+        prompt = [
             {"role": "system", "content": instructions},
             {"role": "user", "content": input_value},
         ]
+    elif isinstance(input_value, list):
+        prompt = [{"role": "system", "content": instructions}, *input_value]
+    else:
+        prompt = {"instructions": instructions, "input": input_value}
 
-    if isinstance(input_value, list):
-        return [{"role": "system", "content": instructions}, *input_value]
+    if not prompt_fields:
+        return prompt
 
-    return {"instructions": instructions, "input": input_value}
+    if isinstance(prompt, dict) and set(prompt.keys()) <= {"instructions", "input"}:
+        return {**prompt, **prompt_fields}
+
+    if prompt is not None:
+        return {"input": prompt, **prompt_fields}
+
+    return prompt_fields
 
 
 def _extract_chat_prompt(kwargs: Any) -> Any:
@@ -420,7 +537,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         and not isinstance(metadata, dict)
     ):
         if isinstance(metadata, BaseModel):
-            metadata = metadata.model_dump()
+            metadata = _serialize_openai_value(metadata)
         else:
             metadata = {}
 
@@ -481,6 +598,12 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     parsed_n = kwargs.get("n", 1) if not isinstance(kwargs.get("n", 1), NotGiven) else 1
 
+    parsed_service_tier = (
+        kwargs.get("service_tier", None)
+        if not isinstance(kwargs.get("service_tier", None), NotGiven)
+        else None
+    )
+
     if resource.type == "embedding":
         parsed_dimensions = (
             kwargs.get("dimensions", None)
@@ -517,6 +640,9 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         if parsed_seed is not None:
             modelParameters["seed"] = parsed_seed
 
+        if parsed_service_tier is not None:
+            modelParameters["service_tier"] = parsed_service_tier
+
     langfuse_prompt = kwargs.get("langfuse_prompt", None)
 
     return {
@@ -540,6 +666,7 @@ def _create_langfuse_update(
     model: Optional[str] = None,
     usage: Optional[Any] = None,
     metadata: Optional[Any] = None,
+    model_parameters: Optional[Any] = None,
 ) -> Any:
     update = {
         "output": completion,
@@ -550,6 +677,9 @@ def _create_langfuse_update(
 
     if metadata is not None:
         update["metadata"] = metadata
+
+    if model_parameters is not None:
+        update["model_parameters"] = model_parameters
 
     if usage is not None:
         update["usage_details"] = _parse_usage(usage)
@@ -604,7 +734,7 @@ def _parse_cost(usage: Optional[Any] = None) -> Any:
 
 
 def _extract_streamed_response_api_response(chunks: Any) -> Any:
-    completion, model, usage = None, None, None
+    completion, model, usage, service_tier = None, None, None, None
     metadata = {}
 
     for raw_chunk in chunks:
@@ -614,45 +744,48 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
 
             response = raw_response.__dict__
             model = response.get("model")
+            service_tier = response.get("service_tier", None) or service_tier
 
             for key, val in response.items():
                 if key not in ["created_at", "model", "output", "usage", "text"]:
                     metadata[key] = val
 
                 if key == "output":
-                    output = val
-                    if not isinstance(output, list):
-                        completion = output
-                    elif len(output) > 1:
-                        completion = output
-                    elif len(output) == 1:
-                        completion = output[0]
+                    completion = _extract_response_api_completion(val)
 
-    return (model, completion, usage, metadata)
+    return (model, completion, usage, metadata, service_tier)
 
 
 def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
     completion: Any = defaultdict(lambda: None) if resource.type == "chat" else ""
-    model, usage, finish_reason = None, None, None
+    model, usage, finish_reason, service_tier = None, None, None, None
 
     for chunk in chunks:
         if _is_openai_v1():
             chunk = chunk.__dict__
 
         model = model or chunk.get("model", None) or None
-        usage = chunk.get("usage", None)
+        service_tier = service_tier or chunk.get("service_tier", None) or None
+        chunk_usage = chunk.get("usage", None)
+        if chunk_usage is not None:
+            usage = chunk_usage
 
-        choices = chunk.get("choices", [])
+        choices = chunk.get("choices") or []
 
         for choice in choices:
             if _is_openai_v1():
                 choice = choice.__dict__
             if resource.type == "chat":
                 delta = choice.get("delta", None)
-                finish_reason = choice.get("finish_reason", None)
+                choice_finish_reason = choice.get("finish_reason", None)
+                if choice_finish_reason is not None:
+                    finish_reason = choice_finish_reason
 
-                if _is_openai_v1():
+                if _is_openai_v1() and delta is not None:
                     delta = delta.__dict__
+
+                if delta is None:
+                    delta = {}
 
                 if delta.get("role", None) is not None:
                     completion["role"] = delta["role"]
@@ -663,7 +796,8 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         if completion["content"] is None
                         else completion["content"] + delta.get("content", None)
                     )
-                elif delta.get("function_call", None) is not None:
+
+                if delta.get("function_call", None) is not None:
                     curr = completion["function_call"]
                     tool_call_chunk = delta.get("function_call", None)
 
@@ -679,76 +813,93 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         )
                         curr["arguments"] += getattr(tool_call_chunk, "arguments", "")
 
-                elif (
+                if (
                     delta.get("tool_calls", None) is not None
                     and len(delta.get("tool_calls")) > 0
                 ):
                     curr = completion["tool_calls"]
-                    tool_call_chunk = getattr(
-                        delta.get("tool_calls", None)[0], "function", None
-                    )
 
                     if not curr:
-                        completion["tool_calls"] = [
-                            {
-                                "name": getattr(tool_call_chunk, "name", ""),
-                                "arguments": getattr(tool_call_chunk, "arguments", ""),
-                            }
-                        ]
+                        completion["tool_calls"] = []
+                        curr = completion["tool_calls"]
 
-                    elif getattr(tool_call_chunk, "name", None) is not None:
-                        curr.append(
-                            {
-                                "name": getattr(tool_call_chunk, "name", None),
-                                "arguments": getattr(
-                                    tool_call_chunk, "arguments", None
-                                ),
-                            }
+                    for raw_tool_call in delta.get("tool_calls", []):
+                        index = _get_attr_or_item(raw_tool_call, "index", None)
+
+                        if not isinstance(index, int):
+                            index = len(curr) - 1 if curr else 0
+
+                        while len(curr) <= index:
+                            curr.append({"function": {"name": "", "arguments": ""}})
+
+                        current_tool_call = curr[index]
+                        tool_call_id = _get_attr_or_item(raw_tool_call, "id", None)
+                        tool_call_type = _get_attr_or_item(raw_tool_call, "type", None)
+                        tool_call_chunk = _get_attr_or_item(
+                            raw_tool_call, "function", None
                         )
 
-                    else:
-                        curr[-1]["name"] = curr[-1]["name"] or getattr(
-                            tool_call_chunk, "name", None
+                        if tool_call_id is not None:
+                            current_tool_call["id"] = tool_call_id
+
+                        if tool_call_type is not None:
+                            current_tool_call["type"] = tool_call_type
+
+                        if tool_call_chunk is None:
+                            continue
+
+                        function_call = current_tool_call.setdefault("function", {})
+                        tool_name = _get_attr_or_item(tool_call_chunk, "name", None)
+                        tool_arguments = _get_attr_or_item(
+                            tool_call_chunk, "arguments", None
                         )
 
-                        if curr[-1]["arguments"] is None:
-                            curr[-1]["arguments"] = ""
+                        if tool_name is not None:
+                            function_call["name"] = (
+                                function_call.get("name") or tool_name
+                            )
 
-                        curr[-1]["arguments"] += getattr(
-                            tool_call_chunk, "arguments", ""
-                        )
+                        if tool_arguments is not None:
+                            function_call["arguments"] = (
+                                function_call.get("arguments") or ""
+                            ) + tool_arguments
 
             if resource.type == "completion":
                 completion += choice.get("text", "")
 
     def get_response_for_chat() -> Any:
-        return (
-            completion["content"]
-            or (
-                completion["function_call"]
-                and {
-                    "role": "assistant",
-                    "function_call": completion["function_call"],
-                }
-            )
-            or (
-                completion["tool_calls"]
-                and {
-                    "role": "assistant",
-                    # "tool_calls": [{"function": completion["tool_calls"]}],
-                    "tool_calls": [
-                        {"function": data} for data in completion["tool_calls"]
-                    ],
-                }
-            )
-            or None
-        )
+        content = completion["content"]
+
+        if completion["tool_calls"]:
+            response = {
+                "role": "assistant",
+                "tool_calls": completion["tool_calls"],
+            }
+
+            if content is not None:
+                response["content"] = content
+
+            return response
+
+        if completion["function_call"]:
+            response = {
+                "role": "assistant",
+                "function_call": completion["function_call"],
+            }
+
+            if content is not None:
+                response["content"] = content
+
+            return response
+
+        return content or None
 
     return (
         model,
         get_response_for_chat() if resource.type == "chat" else completion,
         usage,
         {"finish_reason": finish_reason} if finish_reason is not None else None,
+        service_tier,
     )
 
 
@@ -756,31 +907,25 @@ def _get_langfuse_data_from_default_response(
     resource: OpenAiDefinition, response: Any
 ) -> Any:
     if response is None:
-        return None, "<NoneType response returned from OpenAI>", None
+        return None, "<NoneType response returned from OpenAI>", None, None
 
     model = response.get("model", None) or None
+    service_tier = response.get("service_tier", None) or None
 
     completion = None
 
     if resource.type == "completion":
-        choices = response.get("choices", [])
+        choices = response.get("choices") or []
         if len(choices) > 0:
             choice = choices[-1]
 
             completion = choice.text if _is_openai_v1() else choice.get("text", None)
 
     elif resource.object == "Responses" or resource.object == "AsyncResponses":
-        output = response.get("output", {})
-
-        if not isinstance(output, list):
-            completion = output
-        elif len(output) > 1:
-            completion = output
-        elif len(output) == 1:
-            completion = output[0]
+        completion = _extract_response_api_completion(response.get("output", {}))
 
     elif resource.type == "chat":
-        choices = response.get("choices", [])
+        choices = response.get("choices") or []
         if len(choices) > 0:
             # If multiple choices were generated, we'll show all of them in the UI as a list.
             if len(choices) > 1:
@@ -799,7 +944,7 @@ def _get_langfuse_data_from_default_response(
                 )
 
     elif resource.type == "embedding":
-        data = response.get("data", [])
+        data = response.get("data") or []
         if len(data) > 0:
             first_embedding = data[0]
             embedding_vector = (
@@ -814,7 +959,23 @@ def _get_langfuse_data_from_default_response(
 
     usage = _parse_usage(response.get("usage", None))
 
-    return (model, completion, usage)
+    return (model, completion, usage, service_tier)
+
+
+def _merge_service_tier_into_model_parameters(
+    model_parameters: Optional[Any], service_tier: Optional[Any]
+) -> Optional[Any]:
+    """Merge the response-side service tier into the request-side model parameters.
+
+    The response value is authoritative because OpenAI returns the tier that
+    actually processed the request (e.g. when the request specified "auto").
+    Returns None when there is nothing to update so callers can skip the
+    update and keep the request-side model parameters untouched.
+    """
+    if service_tier is None:
+        return None
+
+    return {**(model_parameters or {}), "service_tier": service_tier}
 
 
 def _is_openai_v1() -> bool:
@@ -871,9 +1032,10 @@ def _finalize_stream_response(
     items: list[Any],
     generation: LangfuseGeneration,
     completion_start_time: Optional[datetime],
+    model_parameters: Optional[Any] = None,
 ) -> None:
     try:
-        model, completion, usage, metadata = (
+        model, completion, usage, metadata, service_tier = (
             _extract_streamed_response_api_response(items)
             if resource.object == "Responses" or resource.object == "AsyncResponses"
             else _extract_streamed_openai_response(resource, items)
@@ -886,6 +1048,9 @@ def _finalize_stream_response(
             model=model,
             usage=usage,
             metadata=metadata,
+            model_parameters=_merge_service_tier_into_model_parameters(
+                model_parameters, service_tier
+            ),
         )
     except Exception:
         pass
@@ -898,12 +1063,14 @@ def _instrument_openai_stream(
     resource: OpenAiDefinition,
     response: Any,
     generation: LangfuseGeneration,
+    model_parameters: Optional[Any] = None,
 ) -> Any:
     if not hasattr(response, "_iterator"):
         return LangfuseResponseGeneratorSync(
             resource=resource,
             response=response,
             generation=generation,
+            model_parameters=model_parameters,
         )
 
     items: list[Any] = []
@@ -923,6 +1090,7 @@ def _instrument_openai_stream(
             items=items,
             generation=generation,
             completion_start_time=completion_start_time,
+            model_parameters=model_parameters,
         )
 
     response._langfuse_finalize_once = finalize_once  # type: ignore[attr-defined]
@@ -957,12 +1125,14 @@ def _instrument_openai_async_stream(
     resource: OpenAiDefinition,
     response: Any,
     generation: LangfuseGeneration,
+    model_parameters: Optional[Any] = None,
 ) -> Any:
     if not hasattr(response, "_iterator"):
         return LangfuseResponseGeneratorAsync(
             resource=resource,
             response=response,
             generation=generation,
+            model_parameters=model_parameters,
         )
 
     items: list[Any] = []
@@ -982,6 +1152,7 @@ def _instrument_openai_async_stream(
             items=items,
             generation=generation,
             completion_start_time=completion_start_time,
+            model_parameters=model_parameters,
         )
 
     response._langfuse_finalize_once = finalize_once  # type: ignore[attr-defined]
@@ -1015,11 +1186,73 @@ def _instrument_openai_async_stream(
     return response
 
 
+def _get_raw_response_mode(kwargs: Any) -> Optional[str]:
+    """Return the value of the OpenAI SDK's internal raw-response sentinel header.
+
+    The SDK's `.with_raw_response` wrapper sets it to "true" and
+    `.with_streaming_response` sets it to "stream" before invoking the same
+    resource method that Langfuse instruments. Returns None for regular calls.
+    """
+    extra_headers = kwargs.get("extra_headers", None)
+
+    if extra_headers is None or isinstance(extra_headers, NotGiven):
+        return None
+
+    try:
+        return cast(Optional[str], extra_headers.get(RAW_RESPONSE_HEADER, None))
+    except AttributeError:
+        return None
+
+
+def _should_skip_raw_response_instrumentation(kwargs: Any) -> bool:
+    raw_response_mode = _get_raw_response_mode(kwargs)
+
+    if raw_response_mode is None:
+        return False
+
+    if os.environ.get(LANGFUSE_OPENAI_SKIP_RAW_RESPONSES, "False").lower() in (
+        "true",
+        "1",
+    ):
+        return True
+
+    # Raw streaming responses cannot be instrumented without consuming the
+    # caller's stream or raw body, so they are always passed through untraced.
+    return raw_response_mode == "stream" or kwargs.get("stream", False) is True
+
+
+def _unwrap_raw_response(openai_response: Any) -> Any:
+    """Return the parsed model for raw API responses so data extraction works.
+
+    Libraries wrapping the OpenAI SDK (e.g. LiteLLM) call it via
+    `.with_raw_response`, in which case the instrumented method returns a raw
+    response object instead of the parsed model. `.parse()` caches its result
+    on the response, so callers parsing later are unaffected.
+    """
+    if openai_response is None:
+        return openai_response
+
+    try:
+        from openai._legacy_response import LegacyAPIResponse
+        from openai._response import APIResponse
+
+        if isinstance(openai_response, (LegacyAPIResponse, APIResponse)):
+            return openai_response.parse()
+    except Exception as e:
+        logger.debug(f"Failed to parse raw OpenAI response for tracing: {e}")
+
+    return openai_response
+
+
 @_langfuse_wrapper
 def _wrap(
     open_ai_resource: OpenAiDefinition, wrapped: Any, args: Any, kwargs: Any
 ) -> Any:
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+
+    if _should_skip_raw_response_instrumentation(kwargs):
+        return wrapped(**arg_extractor.get_openai_args())
+
     langfuse_args = arg_extractor.get_langfuse_args()
 
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
@@ -1053,29 +1286,37 @@ def _wrap(
                 resource=open_ai_resource,
                 response=openai_response,
                 generation=generation,
+                model_parameters=langfuse_data.get("model_parameters", None),
             )
         elif _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorSync(
                 resource=open_ai_resource,
                 response=openai_response,
                 generation=generation,
+                model_parameters=langfuse_data.get("model_parameters", None),
             )
 
         else:
-            model, completion, usage = _get_langfuse_data_from_default_response(
-                open_ai_resource,
-                (openai_response and openai_response.__dict__)
-                if _is_openai_v1()
-                else openai_response,
+            parsed_response = _unwrap_raw_response(openai_response)
+            model, completion, usage, service_tier = (
+                _get_langfuse_data_from_default_response(
+                    open_ai_resource,
+                    (parsed_response and parsed_response.__dict__)
+                    if _is_openai_v1()
+                    else parsed_response,
+                )
             )
 
             generation.update(
                 model=model,
                 output=completion,
                 usage_details=usage,
-                cost_details=_parse_cost(openai_response.usage)
-                if hasattr(openai_response, "usage")
+                cost_details=_parse_cost(parsed_response.usage)
+                if hasattr(parsed_response, "usage")
                 else None,
+                model_parameters=_merge_service_tier_into_model_parameters(
+                    langfuse_data.get("model_parameters", None), service_tier
+                ),
             ).end()
 
         return openai_response
@@ -1097,6 +1338,10 @@ async def _wrap_async(
     open_ai_resource: OpenAiDefinition, wrapped: Any, args: Any, kwargs: Any
 ) -> Any:
     arg_extractor = OpenAiArgsExtractor(*args, **kwargs)
+
+    if _should_skip_raw_response_instrumentation(kwargs):
+        return await wrapped(**arg_extractor.get_openai_args())
+
     langfuse_args = arg_extractor.get_langfuse_args()
 
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
@@ -1130,29 +1375,37 @@ async def _wrap_async(
                 resource=open_ai_resource,
                 response=openai_response,
                 generation=generation,
+                model_parameters=langfuse_data.get("model_parameters", None),
             )
         elif _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorAsync(
                 resource=open_ai_resource,
                 response=openai_response,
                 generation=generation,
+                model_parameters=langfuse_data.get("model_parameters", None),
             )
 
         else:
-            model, completion, usage = _get_langfuse_data_from_default_response(
-                open_ai_resource,
-                (openai_response and openai_response.__dict__)
-                if _is_openai_v1()
-                else openai_response,
+            parsed_response = _unwrap_raw_response(openai_response)
+            model, completion, usage, service_tier = (
+                _get_langfuse_data_from_default_response(
+                    open_ai_resource,
+                    (parsed_response and parsed_response.__dict__)
+                    if _is_openai_v1()
+                    else parsed_response,
+                )
             )
             generation.update(
                 model=model,
                 output=completion,
                 usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
-                cost_details=_parse_cost(openai_response.usage)
-                if hasattr(openai_response, "usage")
+                cost_details=_parse_cost(parsed_response.usage)
+                if hasattr(parsed_response, "usage")
                 else None,
+                model_parameters=_merge_service_tier_into_model_parameters(
+                    langfuse_data.get("model_parameters", None), service_tier
+                ),
             ).end()
 
         return openai_response
@@ -1201,12 +1454,14 @@ class LangfuseResponseGeneratorSync:
         resource: Any,
         response: Any,
         generation: Any,
+        model_parameters: Optional[Any] = None,
     ) -> None:
         self.items: list[Any] = []
 
         self.resource = resource
         self.response = response
         self.generation = generation
+        self.model_parameters = model_parameters
         self.completion_start_time: Optional[datetime] = None
         self._is_finalized = False
 
@@ -1262,6 +1517,7 @@ class LangfuseResponseGeneratorSync:
             items=self.items,
             generation=self.generation,
             completion_start_time=self.completion_start_time,
+            model_parameters=self.model_parameters,
         )
 
 
@@ -1272,12 +1528,14 @@ class LangfuseResponseGeneratorAsync:
         resource: Any,
         response: Any,
         generation: Any,
+        model_parameters: Optional[Any] = None,
     ) -> None:
         self.items: list[Any] = []
 
         self.resource = resource
         self.response = response
         self.generation = generation
+        self.model_parameters = model_parameters
         self.completion_start_time: Optional[datetime] = None
         self._is_finalized = False
 
@@ -1324,6 +1582,7 @@ class LangfuseResponseGeneratorAsync:
             items=self.items,
             generation=self.generation,
             completion_start_time=self.completion_start_time,
+            model_parameters=self.model_parameters,
         )
 
     async def close(self) -> None:

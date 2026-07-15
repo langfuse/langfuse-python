@@ -461,6 +461,35 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID
         )
 
+    def test_non_string_metadata_values_coerced(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        """Verify non-string metadata values are coerced instead of dropped."""
+
+        caplog.set_level("WARNING", logger="langfuse")
+        metadata = {
+            "langgraph_step": 1,
+            "langgraph_triggers": ["branch:agent"],
+            "langgraph_path": ("root", "agent"),
+            "max_search_results": 5,
+        }
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata=metadata):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+
+        for key, value in metadata.items():
+            self.verify_span_attribute(
+                child_span,
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}",
+                str(value),
+            )
+
+        assert "value is not a string. Dropping value." not in caplog.text
+
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -1638,6 +1667,8 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         from opentelemetry import baggage
         from opentelemetry import context as otel_context
 
+        from langfuse._client.propagation import LANGFUSE_TRACE_ID_BAGGAGE_KEY
+
         with langfuse_client.start_as_current_observation(name="parent"):
             with propagate_attributes(
                 user_id="user_123",
@@ -1646,7 +1677,13 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
                 # Get current context and inspect baggage
                 current_context = otel_context.get_current()
                 baggage_entries = baggage.get_all(context=current_context)
-                assert len(baggage_entries) == 0
+                user_baggage_entries = {
+                    key: value
+                    for key, value in baggage_entries.items()
+                    if key != LANGFUSE_TRACE_ID_BAGGAGE_KEY
+                }
+
+                assert user_baggage_entries == {}
 
     def test_metadata_key_with_user_id_substring_doesnt_collide(
         self, langfuse_client, memory_exporter
@@ -1810,6 +1847,207 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
             remote_child,
             LangfuseOtelSpanAttributes.TRACE_SESSION_ID,
             "cross_process_session",
+        )
+
+
+class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
+    """Tests for first-class Langfuse environment propagation."""
+
+    def _capture_score_events(self, monkeypatch, langfuse_client):
+        """Capture score ingestion events before they reach the background queue."""
+
+        score_events = []
+        assert langfuse_client._resources is not None
+
+        def capture_score_event(event, *, force_sample=False):
+            score_events.append(event)
+
+        monkeypatch.setattr(
+            langfuse_client._resources,
+            "add_score_task",
+            capture_score_event,
+        )
+
+        return score_events
+
+    def test_environment_propagates_to_child_spans(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify environment propagates as langfuse.environment, not metadata."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment="staging"):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "staging"
+        )
+        self.verify_missing_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.environment"
+        )
+
+    def test_environment_with_baggage(self, langfuse_client, memory_exporter):
+        """Verify environment is written to baggage and extracted onto spans."""
+        from opentelemetry import baggage
+        from opentelemetry import context as otel_context
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment="qa", as_baggage=True):
+                current_context = otel_context.get_current()
+                baggage_entries = baggage.get_all(context=current_context)
+
+                assert baggage_entries["langfuse_environment"] == "qa"
+
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "qa"
+        )
+
+    def test_environment_overrides_client_default_inside_context(
+        self, langfuse_client, memory_exporter
+    ):
+        """Propagated environment wins over the local client environment."""
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="staging"):
+            with langfuse_client.start_as_current_observation(name="request-span"):
+                pass
+
+        with langfuse_client.start_as_current_observation(name="local-span"):
+            pass
+
+        request_span = self.get_span_by_name(memory_exporter, "request-span")
+        self.verify_span_attribute(
+            request_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "staging"
+        )
+
+        local_span = self.get_span_by_name(memory_exporter, "local-span")
+        self.verify_span_attribute(
+            local_span, LangfuseOtelSpanAttributes.ENVIRONMENT, "proxy-prod"
+        )
+
+    def test_environment_baggage_overrides_client_default_after_context_attach(
+        self, langfuse_client, memory_exporter
+    ):
+        """Simulate cross-process extraction where caller environment beats proxy default."""
+        from opentelemetry import context as otel_context
+
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="dev", as_baggage=True):
+            context_with_baggage = otel_context.get_current()
+
+        token = otel_context.attach(context_with_baggage)
+        try:
+            with langfuse_client.start_as_current_observation(name="proxy-request"):
+                child = langfuse_client.start_observation(name="proxy-child")
+                child.end()
+        finally:
+            otel_context.detach(token)
+
+        proxy_request = self.get_span_by_name(memory_exporter, "proxy-request")
+        self.verify_span_attribute(
+            proxy_request, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
+        )
+
+        proxy_child = self.get_span_by_name(memory_exporter, "proxy-child")
+        self.verify_span_attribute(
+            proxy_child, LangfuseOtelSpanAttributes.ENVIRONMENT, "dev"
+        )
+
+    def test_span_score_uses_propagated_environment(self, monkeypatch, langfuse_client):
+        """Score events created from a span use the span's resolved environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="dev"):
+            with langfuse_client.start_as_current_observation(
+                name="request-span"
+            ) as span:
+                span.score(name="quality", value=1.0, data_type="NUMERIC")
+
+        assert len(score_events) == 1
+        assert score_events[0]["body"].environment == "dev"
+
+    def test_span_score_trace_uses_propagated_environment(
+        self, monkeypatch, langfuse_client
+    ):
+        """Trace scores created from a span use the span's resolved environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="staging"):
+            with langfuse_client.start_as_current_observation(
+                name="request-span"
+            ) as span:
+                span.score_trace(name="overall-quality", value=0.95)
+
+        assert len(score_events) == 1
+        assert score_events[0]["body"].environment == "staging"
+
+    def test_current_score_helpers_use_propagated_environment(
+        self, monkeypatch, langfuse_client
+    ):
+        """Current-span and current-trace scores use the active span environment."""
+        score_events = self._capture_score_events(monkeypatch, langfuse_client)
+        langfuse_client._environment = "proxy-prod"
+
+        with propagate_attributes(environment="qa"):
+            with langfuse_client.start_as_current_observation(name="request-span"):
+                langfuse_client.score_current_span(
+                    name="span-quality", value=0.9, data_type="NUMERIC"
+                )
+                langfuse_client.score_current_trace(
+                    name="trace-quality", value=0.8, data_type="NUMERIC"
+                )
+
+        assert [event["body"].environment for event in score_events] == ["qa", "qa"]
+
+    def test_environment_exactly_40_chars_is_accepted(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify environment accepts Langfuse's 40-character public limit."""
+        environment_40 = "e" * 40
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment=environment_40):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT, environment_40
+        )
+
+    @pytest.mark.parametrize(
+        "environment",
+        [
+            "Production",
+            "langfuse-prod",
+            "prod.us",
+            "",
+            "p" * 41,
+            "prod\n",
+            "\nprod",
+            123,
+        ],
+    )
+    def test_invalid_environment_is_dropped(
+        self, langfuse_client, memory_exporter, environment
+    ):
+        """Invalid propagated environments do not set langfuse.environment."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(environment=environment):  # type: ignore[arg-type]
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.ENVIRONMENT
         )
 
 
@@ -2562,6 +2800,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
             dataset_name="Test Dataset",
             created_at=datetime.now(),
             updated_at=datetime.now(),
+            media_references=[],
         )
 
         # Create dataset client with items
@@ -3128,4 +3367,284 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
         )
         self.verify_span_attribute(
             child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
+
+
+class TestPropagateAttributesPrompt(TestPropagateAttributesBase):
+    """Tests for prompt linking via propagate_attributes."""
+
+    def _make_prompt_client(self, name="test-prompt", version=3, is_fallback=False):
+        from langfuse.api import Prompt_Text
+        from langfuse.model import TextPromptClient
+
+        prompt = Prompt_Text(
+            name=name,
+            version=version,
+            prompt="Make me laugh",
+            type="text",
+            labels=[],
+            config={},
+            tags=[],
+        )
+
+        return TextPromptClient(prompt, is_fallback=is_fallback)
+
+    def test_prompt_client_propagates_to_child_spans(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify a PromptClient propagates name and version to all child spans."""
+        prompt = self._make_prompt_client(name="test-prompt", version=3)
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(prompt=prompt):
+                child1 = langfuse_client.start_observation(name="child-span-1")
+                child1.end()
+
+                child2 = langfuse_client.start_observation(
+                    name="child-span-2", as_type="generation"
+                )
+                child2.end()
+
+        for name in ("child-span-1", "child-span-2"):
+            child_span = self.get_span_by_name(memory_exporter, name)
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+                "test-prompt",
+            )
+            self.verify_span_attribute(
+                child_span,
+                LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+                3,
+            )
+
+    def test_prompt_dict_propagates_to_child_spans(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify a plain dict with name and version keys is supported."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(prompt={"name": "dict-prompt", "version": 7}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "dict-prompt",
+        )
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+            7,
+        )
+
+    def test_prompt_duck_typed_object_supported(self, langfuse_client, memory_exporter):
+        """Verify any object exposing name and version attributes is supported."""
+
+        class MyPrompt:
+            name = "duck-prompt"
+            version = 2
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(prompt=MyPrompt()):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "duck-prompt",
+        )
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+            2,
+        )
+
+    def test_prompt_version_digit_string_coerced_to_int(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify a numeric string version is coerced to an integer."""
+        with propagate_attributes(prompt={"name": "prompt", "version": "5"}):
+            child = langfuse_client.start_observation(name="child-span")
+            child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+            5,
+        )
+
+    def test_fallback_prompt_not_linked(self, langfuse_client, memory_exporter):
+        """Verify fallback prompts are never linked."""
+        prompt = self._make_prompt_client(is_fallback=True)
+
+        with propagate_attributes(prompt=prompt):
+            child = langfuse_client.start_observation(name="child-span")
+            child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME
+        )
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION
+        )
+
+    def test_prompt_without_name_dropped(self, langfuse_client, memory_exporter):
+        """Verify a prompt without a valid name is dropped entirely."""
+        with propagate_attributes(prompt={"version": 3}):
+            child = langfuse_client.start_observation(name="child-span")
+            child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME
+        )
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION
+        )
+
+    def test_prompt_without_valid_version_dropped(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify a prompt without an integer version is dropped entirely."""
+        with propagate_attributes(prompt={"name": "prompt", "version": "latest"}):
+            child = langfuse_client.start_observation(name="child-span")
+            child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME
+        )
+        self.verify_missing_attribute(
+            child_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION
+        )
+
+    def test_explicit_prompt_takes_precedence_over_propagated(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify an explicit prompt on an observation wins over the propagated one."""
+        propagated = self._make_prompt_client(name="propagated-prompt", version=1)
+        explicit = self._make_prompt_client(name="explicit-prompt", version=9)
+
+        with propagate_attributes(prompt=propagated):
+            child = langfuse_client.start_observation(
+                name="explicit-child", as_type="generation", prompt=explicit
+            )
+            child.end()
+
+            other = langfuse_client.start_observation(name="propagated-child")
+            other.end()
+
+        explicit_span = self.get_span_by_name(memory_exporter, "explicit-child")
+        self.verify_span_attribute(
+            explicit_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "explicit-prompt",
+        )
+        self.verify_span_attribute(
+            explicit_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+            9,
+        )
+
+        propagated_span = self.get_span_by_name(memory_exporter, "propagated-child")
+        self.verify_span_attribute(
+            propagated_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "propagated-prompt",
+        )
+
+    def test_nested_prompt_inner_overwrites(self, langfuse_client, memory_exporter):
+        """Verify a nested propagated prompt shadows the outer one within its scope."""
+        with propagate_attributes(prompt={"name": "outer-prompt", "version": 1}):
+            with propagate_attributes(prompt={"name": "inner-prompt", "version": 2}):
+                inner = langfuse_client.start_observation(name="inner-span")
+                inner.end()
+
+            outer = langfuse_client.start_observation(name="outer-span")
+            outer.end()
+
+        inner_span = self.get_span_by_name(memory_exporter, "inner-span")
+        self.verify_span_attribute(
+            inner_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "inner-prompt",
+        )
+        self.verify_span_attribute(
+            inner_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+            2,
+        )
+
+        outer_span = self.get_span_by_name(memory_exporter, "outer-span")
+        self.verify_span_attribute(
+            outer_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "outer-prompt",
+        )
+
+    def test_prompt_propagates_via_baggage(self, langfuse_client, memory_exporter):
+        """Verify prompt propagates through baggage with version restored as int."""
+        with propagate_attributes(
+            prompt={"name": "baggage-prompt", "version": 4},
+            as_baggage=True,
+        ):
+            child = langfuse_client.start_observation(name="child-span")
+            child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "baggage-prompt",
+        )
+        self.verify_span_attribute(
+            child_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+            4,
+        )
+
+    def test_prompt_composes_with_outer_propagated_attributes(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify a nested prompt-only context preserves outer attributes."""
+        with propagate_attributes(session_id="session_abc", user_id="user_123"):
+            with propagate_attributes(prompt={"name": "my-prompt", "version": 3}):
+                inner = langfuse_client.start_observation(name="inner-span")
+                inner.end()
+
+            after = langfuse_client.start_observation(name="after-span")
+            after.end()
+
+        # Inner span has outer session/user attributes AND the prompt
+        inner_span = self.get_span_by_name(memory_exporter, "inner-span")
+        self.verify_span_attribute(
+            inner_span, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session_abc"
+        )
+        self.verify_span_attribute(
+            inner_span, LangfuseOtelSpanAttributes.TRACE_USER_ID, "user_123"
+        )
+        self.verify_span_attribute(
+            inner_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+            "my-prompt",
+        )
+        self.verify_span_attribute(
+            inner_span,
+            LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+            3,
+        )
+
+        # After the inner context exits, the prompt is gone but outer attributes remain
+        after_span = self.get_span_by_name(memory_exporter, "after-span")
+        self.verify_span_attribute(
+            after_span, LangfuseOtelSpanAttributes.TRACE_SESSION_ID, "session_abc"
+        )
+        self.verify_missing_attribute(
+            after_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME
         )

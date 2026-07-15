@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import gc
+import json
 import sys
 from typing import Any, AsyncGenerator, Generator, cast
 
@@ -30,6 +31,28 @@ class SpanRecorder:
 
 def _finished_spans_by_name(memory_exporter: Any, name: str) -> list[Any]:
     return [span for span in memory_exporter.get_finished_spans() if span.name == name]
+
+
+@pytest.mark.asyncio
+async def test_capture_output_false_preserves_type_when_current_span_is_updated(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="guardrail_check", as_type="guardrail", capture_output=False)
+    async def guardrail_check() -> bool:
+        langfuse_memory_client.update_current_span(output={"verdict": "manually set"})
+        return True
+
+    assert await guardrail_check() is True
+
+    langfuse_memory_client.flush()
+
+    guardrail_span = _finished_spans_by_name(memory_exporter, "guardrail_check")[0]
+    attributes = guardrail_span.attributes
+
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "guardrail"
+    assert json.loads(attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]) == {
+        "verdict": "manually set"
+    }
 
 
 def test_sync_generator_preserves_context_without_output_capture(

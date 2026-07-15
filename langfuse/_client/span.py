@@ -51,6 +51,7 @@ from langfuse._client.constants import (
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
+from langfuse._client.utils import get_string_span_attribute
 from langfuse.api import MapValue, ScoreDataType
 from langfuse.logger import langfuse_logger
 from langfuse.types import SpanLevel
@@ -105,7 +106,10 @@ class LangfuseObservationWrapper:
             input: Input data for the span (any JSON-serializable object)
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
-            environment: The tracing environment
+            environment: Local tracing environment fallback. If the underlying
+                OpenTelemetry span already has `langfuse.environment` from
+                propagated context or baggage, that propagated value takes
+                precedence over this fallback.
             release: Release identifier for the application
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
@@ -127,7 +131,12 @@ class LangfuseObservationWrapper:
         self.trace_id = self._langfuse_client._get_otel_trace_id(otel_span)
         self.id = self._langfuse_client._get_otel_span_id(otel_span)
 
-        self._environment = environment or self._langfuse_client._environment
+        existing_environment = get_string_span_attribute(
+            self._otel_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+        )
+        self._environment = (
+            existing_environment or environment or self._langfuse_client._environment
+        )
         if self._environment is not None:
             self._otel_span.set_attribute(
                 LangfuseOtelSpanAttributes.ENVIRONMENT, self._environment
@@ -308,7 +317,9 @@ class LangfuseObservationWrapper:
         value: str,
         score_id: Optional[str] = None,
         data_type: Optional[
-            Literal[ScoreDataType.CATEGORICAL, ScoreDataType.TEXT]
+            Literal[
+                ScoreDataType.CATEGORICAL, ScoreDataType.TEXT, ScoreDataType.CORRECTION
+            ]
         ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
@@ -332,12 +343,15 @@ class LangfuseObservationWrapper:
 
         This method creates a score associated with this specific span (observation).
         Scores can represent any kind of evaluation, feedback, or quality metric.
+        The score uses this span wrapper's resolved environment. That means a
+        request-scoped environment propagated via ``propagate_attributes`` takes
+        precedence over the client-level environment when this score is created.
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT)
+            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT/CORRECTION)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)
@@ -364,11 +378,12 @@ class LangfuseObservationWrapper:
             trace_id=self.trace_id,
             observation_id=self.id,
             score_id=score_id,
-            data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
+            data_type=cast(Literal["CATEGORICAL", "TEXT", "CORRECTION"], data_type),
             comment=comment,
             config_id=config_id,
             timestamp=timestamp,
             metadata=metadata,
+            environment=self._environment,
         )
 
     @overload
@@ -395,7 +410,9 @@ class LangfuseObservationWrapper:
         value: str,
         score_id: Optional[str] = None,
         data_type: Optional[
-            Literal[ScoreDataType.CATEGORICAL, ScoreDataType.TEXT]
+            Literal[
+                ScoreDataType.CATEGORICAL, ScoreDataType.TEXT, ScoreDataType.CORRECTION
+            ]
         ] = ScoreDataType.CATEGORICAL,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
@@ -419,13 +436,15 @@ class LangfuseObservationWrapper:
 
         This method creates a score associated with the entire trace that this span
         belongs to, rather than the specific span. This is useful for overall
-        evaluations that apply to the complete trace.
+        evaluations that apply to the complete trace. The score uses this span
+        wrapper's resolved environment, including any request-scoped environment
+        propagated via ``propagate_attributes``.
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
-            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT)
+            value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT/CORRECTION)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             timestamp: Optional timestamp for the score (defaults to current UTC time)
@@ -451,11 +470,12 @@ class LangfuseObservationWrapper:
             value=cast(str, value),
             trace_id=self.trace_id,
             score_id=score_id,
-            data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
+            data_type=cast(Literal["CATEGORICAL", "TEXT", "CORRECTION"], data_type),
             comment=comment,
             config_id=config_id,
             timestamp=timestamp,
             metadata=metadata,
+            environment=self._environment,
         )
 
     def _set_processed_span_attributes(

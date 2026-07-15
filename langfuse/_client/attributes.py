@@ -59,6 +59,7 @@ class LangfuseOtelSpanAttributes:
 
     # Internal
     AS_ROOT = "langfuse.internal.as_root"
+    IS_APP_ROOT = "langfuse.internal.is_app_root"
 
     # Experiments
     EXPERIMENT_ID = "langfuse.experiment.id"

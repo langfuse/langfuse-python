@@ -29,6 +29,7 @@ from ._client.span import (
     LangfuseTool,
 )
 from ._version import __version__
+from .media import LangfuseMedia, LangfuseMediaReference
 from .span_filter import (
     KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES,
     is_default_export_span,
@@ -36,11 +37,21 @@ from .span_filter import (
     is_known_llm_instrumentor,
     is_langfuse_span,
 )
+from .types import (
+    MaskOtelSpansFunction,
+    MaskOtelSpansParams,
+    MaskOtelSpansResult,
+    OtelSpanData,
+    OtelSpanIdentifier,
+    OtelSpanPatch,
+)
 
 Langfuse = _client_module.Langfuse
 
 __all__ = [
     "Langfuse",
+    "LangfuseMedia",
+    "LangfuseMediaReference",
     "get_client",
     "observe",
     "propagate_attributes",
@@ -71,6 +82,12 @@ __all__ = [
     "is_genai_span",
     "is_known_llm_instrumentor",
     "KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES",
+    "MaskOtelSpansFunction",
+    "MaskOtelSpansParams",
+    "MaskOtelSpansResult",
+    "OtelSpanData",
+    "OtelSpanIdentifier",
+    "OtelSpanPatch",
     "experiment",
     "api",
 ]

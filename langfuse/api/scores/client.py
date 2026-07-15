@@ -54,6 +54,9 @@ class ScoresClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScoresResponse:
         """
+        **Deprecated.** Use `GET /api/public/v3/scores` instead. This endpoint
+        is no longer available on Langfuse v4 and later.
+
         Get a list of scores (supports both trace and session scores)
 
         Parameters
@@ -62,7 +65,7 @@ class ScoresClient:
             Page number, starts at 1.
 
         limit : typing.Optional[int]
-            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
         user_id : typing.Optional[str]
             Retrieve only scores with this userId associated to the trace.
@@ -172,6 +175,9 @@ class ScoresClient:
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
         """
+        **Deprecated.** Use `GET /api/public/v3/scores` with the `id` filter
+        instead. This endpoint is no longer available on Langfuse v4 and later.
+
         Get a score (supports both trace and session scores)
 
         Parameters
@@ -250,6 +256,9 @@ class AsyncScoresClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetScoresResponse:
         """
+        **Deprecated.** Use `GET /api/public/v3/scores` instead. This endpoint
+        is no longer available on Langfuse v4 and later.
+
         Get a list of scores (supports both trace and session scores)
 
         Parameters
@@ -258,7 +267,7 @@ class AsyncScoresClient:
             Page number, starts at 1.
 
         limit : typing.Optional[int]
-            Limit of items per page. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
 
         user_id : typing.Optional[str]
             Retrieve only scores with this userId associated to the trace.
@@ -376,6 +385,9 @@ class AsyncScoresClient:
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
         """
+        **Deprecated.** Use `GET /api/public/v3/scores` with the `id` filter
+        instead. This endpoint is no longer available on Langfuse v4 and later.
+
         Get a score (supports both trace and session scores)
 
         Parameters

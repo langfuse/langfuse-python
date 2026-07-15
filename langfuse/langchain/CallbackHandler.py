@@ -962,6 +962,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
             )
 
+            structured_input = kwargs.get("inputs")
+            tool_input = structured_input if structured_input is not None else input_str
+
             meta = self._get_langchain_observation_metadata(
                 parent_run_id=parent_run_id,
                 tags=tags,
@@ -972,7 +975,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 meta = {}
 
             meta.update(
-                {key: value for key, value in kwargs.items() if value is not None}
+                {
+                    key: value
+                    for key, value in kwargs.items()
+                    if value is not None and key != "inputs"
+                }
             )
 
             observation_type = self._get_observation_type_from_serialized(
@@ -985,7 +992,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     trace_context=self._trace_context,
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     as_type=observation_type,
-                    input=input_str,
+                    input=tool_input,
                     metadata=meta,
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
@@ -993,7 +1000,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 span = parent_observation.start_observation(
                     name=self.get_langchain_run_name(serialized, **kwargs),
                     as_type=observation_type,
-                    input=input_str,
+                    input=tool_input,
                     metadata=meta,
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
@@ -1091,7 +1098,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
     def on_tool_end(
         self,
-        output: str,
+        output: Any,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -1105,10 +1112,24 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if observation is not None:
                 if parent_run_id is None:
                     self._clear_root_run_resume_key(run_id)
-                observation.update(
-                    output=output,
-                    input=kwargs.get("inputs"),
-                ).end()
+
+                update_kwargs: Dict[str, Any] = {
+                    "output": output,
+                    "input": kwargs.get("inputs"),
+                }
+
+                if (
+                    isinstance(output, ToolMessage)
+                    and getattr(output, "status", None) == "error"
+                ):
+                    update_kwargs["level"] = "ERROR"
+                    update_kwargs["status_message"] = (
+                        output.content
+                        if isinstance(output.content, str)
+                        else str(output.content)
+                    )
+
+                observation.update(**update_kwargs).end()
 
         except Exception as e:
             langfuse_logger.exception(e)
@@ -1588,8 +1609,25 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                 if "output" in usage_model:
                     usage_model["output"] = max(0, usage_model["output"] - value)
 
-        # Vertex AI
+        # OpenAI / LiteLLM — prompt_tokens_details as dict
+        # e.g. {"cached_tokens": 12000}
         if "prompt_tokens_details" in usage_model and isinstance(
+            usage_model["prompt_tokens_details"], dict
+        ):
+            prompt_tokens_details = usage_model.pop("prompt_tokens_details")
+
+            for key, value in prompt_tokens_details.items():
+                if not isinstance(value, int):
+                    continue
+
+                usage_model[f"input_{key}"] = value
+
+                if "input" in usage_model:
+                    usage_model["input"] = max(0, usage_model["input"] - value)
+
+        # Vertex AI — prompt_tokens_details as list
+        # e.g. [{"modality": "text", "token_count": N}]
+        elif "prompt_tokens_details" in usage_model and isinstance(
             usage_model["prompt_tokens_details"], list
         ):
             prompt_tokens_details = usage_model.pop("prompt_tokens_details")
@@ -1646,6 +1684,28 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                         usage_model[f"input_modality_{item['modality']}"] = max(
                             0, usage_model[f"input_modality_{item['modality']}"] - value
                         )
+
+        # Anthropic extended prompt caching — cache_creation is a nested dict
+        # keyed by cache tier, e.g. {"ephemeral_5m_input_tokens": 2048, "ephemeral_1h_input_tokens": 0}
+        if "cache_creation" in usage_model and isinstance(
+            usage_model["cache_creation"], dict
+        ):
+            cache_creation = usage_model.pop("cache_creation")
+            total_cache_creation_tokens = 0
+
+            for key, value in cache_creation.items():
+                if not isinstance(value, int):
+                    continue
+
+                usage_model[f"cache_creation_{key}"] = value
+                total_cache_creation_tokens += value
+
+            # Aggregate mirrors Anthropic's legacy cache_creation_input_tokens field;
+            # keep the API-provided value if it is already present
+            if total_cache_creation_tokens > 0:
+                usage_model.setdefault(
+                    "cache_creation_input_tokens", total_cache_creation_tokens
+                )
 
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 

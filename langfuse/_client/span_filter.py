@@ -12,12 +12,37 @@ KNOWN_LLM_INSTRUMENTATION_SCOPE_PREFIXES = frozenset(
     {
         LANGFUSE_TRACER_NAME,
         "agent_framework",
+        "autogen-core",
         "ai",
         "haystack",
         "langsmith",
         "litellm",
         "openinference",
+        "opentelemetry.instrumentation.agno",
+        "opentelemetry.instrumentation.alephalpha",
         "opentelemetry.instrumentation.anthropic",
+        "opentelemetry.instrumentation.bedrock",
+        "opentelemetry.instrumentation.cohere",
+        "opentelemetry.instrumentation.crewai",
+        "opentelemetry.instrumentation.google_generativeai",
+        "opentelemetry.instrumentation.groq",
+        "opentelemetry.instrumentation.haystack",
+        "opentelemetry.instrumentation.langchain",
+        "opentelemetry.instrumentation.llamaindex",
+        "opentelemetry.instrumentation.mistralai",
+        "opentelemetry.instrumentation.ollama",
+        "opentelemetry.instrumentation.openai",
+        "opentelemetry.instrumentation.openai_agents",
+        "opentelemetry.instrumentation.openai_v2",
+        "opentelemetry.instrumentation.replicate",
+        "opentelemetry.instrumentation.sagemaker",
+        "opentelemetry.instrumentation.together",
+        "opentelemetry.instrumentation.transformers",
+        "opentelemetry.instrumentation.vertexai",
+        "opentelemetry.instrumentation.voyageai",
+        "opentelemetry.instrumentation.watsonx",
+        "opentelemetry.instrumentation.writer",
+        "pydantic-ai",
         "strands-agents",
         "vllm",
     }
@@ -28,7 +53,7 @@ Prefix matching is boundary-aware:
 - exact match (``scope == prefix``)
 - direct descendant scopes (``scope.startswith(prefix + ".")``)
 
-Please create a Github issue in https://github.com/langfuse/langfuse if you'd like to expand this default allow list. 
+Please create a GitHub issue in https://github.com/langfuse/langfuse if you'd like to expand this default allow list.
 """
 
 

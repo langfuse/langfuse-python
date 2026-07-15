@@ -45,13 +45,39 @@ jobs:
     runs-on: ubuntu-latest
     environment: protected branches
     steps:
-      - name: Verify branch
+      - name: Verify release ref
         run: |
-          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-            echo "❌ Error: Releases can only be triggered from main branch"
+          if [ "${GITHUB_REF_TYPE}" != "branch" ]; then
+            echo "❌ Error: Releases can only be triggered from branches"
             echo "Current ref: ${GITHUB_REF}"
             exit 1
           fi
+
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "✅ Official and pre-release releases are allowed from main"
+            exit 0
+          fi
+
+          case "${INPUTS_VERSION}" in
+            prepatch|preminor|premajor)
+              ;;
+            *)
+              echo "❌ Error: Official releases can only be triggered from main branch"
+              echo "Current branch: ${GITHUB_REF_NAME}"
+              echo "Requested version bump: ${INPUTS_VERSION}"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "${INPUTS_PRERELEASE_TYPE}" ]; then
+            echo "❌ Error: Branch releases must specify prerelease_type as alpha, beta, or rc"
+            exit 1
+          fi
+
+          echo "✅ Pre-release branch release allowed from ${GITHUB_REF_NAME}"
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_PRERELEASE_TYPE: ${{ inputs.prerelease_type }}
 
       - name: Confirm major release
         if: ${{ inputs.version == 'major' || inputs.version == 'premajor' }}
@@ -64,14 +90,14 @@ jobs:
           INPUTS_CONFIRM_MAJOR: ${{ inputs.confirm_major }}
 
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_ACCESS_TOKEN }}
           persist-credentials: false
 
       - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.2"
           python-version: "3.12"
@@ -294,7 +320,7 @@ jobs:
         id: push-tag
         run: |
           git tag "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
-          git push origin main
+          git push origin "HEAD:${GITHUB_REF_NAME}"
           git push origin "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
         env:
           STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
@@ -321,7 +347,7 @@ jobs:
 
       - name: Notify Slack on success
         if: success()
-        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
           webhook-type: incoming-webhook
@@ -405,7 +431,7 @@ jobs:
 
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGINEERING }}
           webhook-type: incoming-webhook
