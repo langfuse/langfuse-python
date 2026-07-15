@@ -209,11 +209,11 @@ def propagate_attributes(
                 metadata={"experiment": "variant_a"}
             ):
                 # All spans created here will have user_id, session_id, environment, and metadata
-                with langfuse.start_observation(name="llm_call") as llm_span:
+                with langfuse.start_as_current_observation(name="llm_call") as llm_span:
                     # This span inherits user_id, session_id, environment, and experiment metadata
                     ...
 
-                with langfuse.start_observation(
+                with langfuse.start_as_current_observation(
                     name="completion", as_type="generation"
                 ) as gen:
                     # This span also inherits all attributes

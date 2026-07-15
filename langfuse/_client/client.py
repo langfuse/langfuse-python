@@ -483,8 +483,17 @@ class Langfuse:
             from langfuse import get_client
 
             langfuse = get_client()
-            traces = langfuse.api.trace.list(limit=10)  # lightweight views
-            full = langfuse.api.trace.get(traces.data[0].id)  # full observations/scores
+
+            # Row-level reads: prefer the v2 observations endpoint
+            observations = langfuse.api.observations.get_many(
+                trace_id="abcdef1234",
+                type="GENERATION",
+                limit=100,
+                fields="core,basic,usage",
+            )
+
+            # Full single-trace tree (observations/scores as full objects)
+            full_trace = langfuse.api.trace.get("abcdef1234")
             ```
 
         See also: `async_api`,
@@ -517,8 +526,13 @@ class Langfuse:
 
         Example:
             ```python
-            async def recent_traces():
-                return await langfuse.async_api.trace.list(limit=10)
+            async def trace_generations(trace_id: str):
+                # Row-level reads: prefer the v2 observations endpoint
+                return await langfuse.async_api.observations.get_many(
+                    trace_id=trace_id,
+                    type="GENERATION",
+                    fields="core,basic,usage",
+                )
             ```
 
         See also: `api`, https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
@@ -2331,10 +2345,12 @@ class Langfuse:
 
         Note:
             `flush()` guarantees data was *delivered* to the API, not that it is
-            *readable* yet: server-side ingestion is asynchronous, so flushed traces
-            may not be queryable via `api.trace.get()` for 15-30 seconds (a
-            `langfuse.api.NotFoundError` right after a successful flush is expected).
-            See the `api` property docs for a bounded retry pattern, or
+            *readable* yet: server-side ingestion is asynchronous, so flushed data
+            may not be queryable for 15-30 seconds —
+            `api.observations.get_many(trace_id=...)` may return empty results and
+            `api.trace.get()` may raise `langfuse.api.NotFoundError` right after a
+            successful flush. See the `api` property docs for a bounded retry
+            pattern, or
             https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
         if self._resources is not None:
