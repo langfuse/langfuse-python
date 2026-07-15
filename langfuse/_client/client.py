@@ -312,20 +312,6 @@ class Langfuse:
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ):
-        if base_url is None and os.environ.get(LANGFUSE_BASE_URL) is None:
-            if host is not None:
-                warnings.warn(
-                    "The 'host' parameter is deprecated. Use 'base_url' (or the LANGFUSE_BASE_URL environment variable) instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-            elif os.environ.get(LANGFUSE_HOST) is not None:
-                warnings.warn(
-                    "The LANGFUSE_HOST environment variable is deprecated. Use LANGFUSE_BASE_URL instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-
         self._base_url = (
             base_url
             or os.environ.get(LANGFUSE_BASE_URL)
