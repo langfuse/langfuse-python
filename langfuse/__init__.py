@@ -1,6 +1,6 @@
 """Langfuse Python SDK — observability, evaluation, and prompt management for LLM applications.
 
-Capabilities (all in this package, not just tracing):
+Capabilities:
 
 - **Tracing / observability**: `@observe` decorator, `Langfuse.start_observation` /
   `start_as_current_observation` context managers, OpenTelemetry-based; integrations
@@ -20,19 +20,28 @@ Quickstart:
 
 ```python
 # env: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL
-from langfuse import get_client, observe
+from langfuse import get_client
 
-@observe()
-def handle(query: str) -> str:
-    return "answer"
+langfuse = get_client()
 
-handle("hello")
-get_client().flush()
+# Create a span using a context manager
+with langfuse.start_as_current_observation(as_type="span", name="process-request") as span:
+    # Your processing logic here
+    span.update(output="Processing complete")
+
+    # Create a nested generation for an LLM call
+    with langfuse.start_as_current_observation(as_type="generation", name="llm-response", model="gpt-3.5-turbo") as generation:
+        # Your LLM call logic here
+        generation.update(output="Generated response")
+
+# All spans are automatically closed when exiting their context blocks
+
+# Flush events in short-lived applications
+langfuse.flush()
 ```
 
 Configuration is via constructor args or environment variables: `LANGFUSE_PUBLIC_KEY`,
-`LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (defaults to https://cloud.langfuse.com;
-the older `LANGFUSE_HOST` is deprecated). See `langfuse._client.environment_variables`
+`LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (defaults to https://cloud.langfuse.com). See `langfuse._client.environment_variables`
 for the full list.
 
 Docs: https://langfuse.com/docs — machine-readable index: https://langfuse.com/llms.txt

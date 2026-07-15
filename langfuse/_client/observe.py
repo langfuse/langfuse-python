@@ -145,13 +145,6 @@ class LangfuseDecorator:
                     model="gpt-4",
                     messages=[{"role": "user", "content": query}]
                 )
-                get_client().update_current_generation(
-                    model="gpt-4",
-                    usage_details={
-                        "input": response.usage.prompt_tokens,
-                        "output": response.usage.completion_tokens,
-                    },
-                )
                 return response.choices[0].message.content
             ```
 
@@ -187,14 +180,6 @@ class LangfuseDecorator:
               - langfuse_public_key: Use a specific Langfuse project (when multiple clients exist)
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
-            - For generator functions, the observation stays open until the generator is
-              exhausted; yielded chunks are captured as output (see transform_to_string).
-
-        See also:
-            `langfuse.propagate_attributes` (set user_id/session_id on all spans),
-            `Langfuse.start_as_current_observation` (imperative alternative),
-            https://langfuse.com/docs/observability/sdk/instrumentation,
-            https://langfuse.com/docs/observability/features/observation-types (as_type values)
         """
         valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:

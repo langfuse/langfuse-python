@@ -435,26 +435,6 @@ class Langfuse:
           within 15-30 seconds; longer under load). The same applies to scores and
           dataset run reads. Instead of a fixed sleep, retry with a deadline:
 
-          ```python
-          import time
-          from langfuse.api import NotFoundError
-
-          langfuse.flush()  # ensure delivery before polling
-          deadline, delay = time.monotonic() + 60.0, 1.0
-          while True:
-              try:
-                  trace = langfuse.api.trace.get(trace_id)
-                  break
-              except NotFoundError:
-                  if time.monotonic() >= deadline:
-                      raise
-                  time.sleep(delay)
-                  delay = min(delay * 2, 10.0)  # exponential backoff, capped
-          ```
-
-          A successful `trace.get` means the trace record exists — its observations and
-          scores may still be arriving.
-
         - **List endpoints return lightweight views.** `api.trace.list(...)` returns
           `TraceWithDetails`, where `observations` and `scores` are lists of ID strings.
           Fetch the full objects with `api.trace.get(trace_id)` (`TraceWithFullDetails`),
@@ -468,34 +448,9 @@ class Langfuse:
           `api.legacy.metrics_v1` but are less performant at scale, not recommended
           for new workflows, and will be deprecated.
 
-        - **Score reads: use `api.scores_v3.get_many_v3(...)`** (cursor-paginated,
-          filterable; pass `id=...` to fetch a single score). The older
-          `api.scores.get_many(...)` / `api.scores.get_by_id(...)` (v2) are deprecated
-          and will not be available on Langfuse v4+ servers. There is no
-          `api.scores.get`. Scores are written via `langfuse.create_score(...)` /
-          `span.score(...)`, which are queued and flushed in the background — not via
-          this API client.
-
-        For large-scale aggregation (usage/cost by model, user, etc.), prefer the
+        - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
 
-        Example:
-            ```python
-            from langfuse import get_client
-
-            langfuse = get_client()
-
-            # Row-level reads: prefer the v2 observations endpoint
-            observations = langfuse.api.observations.get_many(
-                trace_id="abcdef1234",
-                type="GENERATION",
-                limit=100,
-                fields="core,basic,usage",
-            )
-
-            # Full single-trace tree (observations/scores as full objects)
-            full_trace = langfuse.api.trace.get("abcdef1234")
-            ```
 
         See also: `async_api`,
         https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
@@ -517,27 +472,6 @@ class Langfuse:
 
     @property
     def async_api(self) -> AsyncLangfuseAPI:
-        """Asynchronous (asyncio) client for the full Langfuse REST API.
-
-        Same resources and semantics as `api` — including asynchronous ingestion
-        (reads may raise `langfuse.api.NotFoundError` until processing completes,
-        typically within 15-30 seconds of `flush()`) and lightweight list views
-        (`list` endpoints return observation and score IDs as strings; `get`
-        endpoints return full objects). All methods must be awaited.
-
-        Example:
-            ```python
-            async def trace_generations(trace_id: str):
-                # Row-level reads: prefer the v2 observations endpoint
-                return await langfuse.async_api.observations.get_many(
-                    trace_id=trace_id,
-                    type="GENERATION",
-                    fields="core,basic,usage",
-                )
-            ```
-
-        See also: `api`, https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
-        """
         if self._resources is None:
             raise AttributeError("Langfuse client is not initialized")
 
@@ -2785,49 +2719,6 @@ class Langfuse:
             )
             ```
 
-            LLM-as-a-judge evaluation of a RAG pipeline (faithfulness and answer relevance):
-            ```python
-            from langfuse import Evaluation
-
-            def rag_task(*, item, **kwargs):
-                question = item.input  # DatasetItem attribute (dict items: item["input"])
-                context = retrieve(question)  # your retriever
-                answer = generate(question, context)  # your LLM call
-                return {"answer": answer, "context": context}
-
-            def llm_judge(*, prompt):
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                return float(response.choices[0].message.content.strip())
-
-            def faithfulness_evaluator(*, input, output, **kwargs):
-                # Is the answer grounded in the retrieved context, without hallucination?
-                score = llm_judge(
-                    prompt=f"Rate 0-1 how faithful the answer is to the context.\\n"
-                    f"Context: {output['context']}\\nAnswer: {output['answer']}\\n"
-                    f"Respond with only the number."
-                )
-                return Evaluation(name="faithfulness", value=score)
-
-            def answer_relevance_evaluator(*, input, output, **kwargs):
-                # Does the answer address the question that was asked?
-                score = llm_judge(
-                    prompt=f"Rate 0-1 how relevant the answer is to the question.\\n"
-                    f"Question: {input}\\nAnswer: {output['answer']}\\n"
-                    f"Respond with only the number."
-                )
-                return Evaluation(name="answer_relevance", value=score)
-
-            result = langfuse.run_experiment(
-                name="RAG quality",
-                data=langfuse.get_dataset("rag-eval-set").items,
-                task=rag_task,
-                evaluators=[faithfulness_evaluator, answer_relevance_evaluator],
-            )
-            ```
-
             Using with Langfuse datasets:
             ```python
             # Get dataset from Langfuse
@@ -2851,18 +2742,6 @@ class Langfuse:
             - When using Langfuse datasets, results are automatically linked for easy comparison
             - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
             - Async execution is handled automatically with smart event loop detection
-            - **Regression testing in CI**: run experiments to compare prompt or model
-              versions before shipping them. The ``langfuse/experiment-action`` GitHub
-              Action (https://github.com/langfuse/experiment-action) runs experiments in
-              CI, comments results on PRs, and can fail the workflow via
-              `langfuse.RegressionError` when a metric drops below a threshold.
-
-        See also:
-            `Evaluation` (return type for evaluators), `langfuse.RegressionError` (CI gating),
-            `DatasetClient.run_experiment` (dataset-linked variant),
-            https://langfuse.com/docs/evaluation/experiments/experiments-via-sdk,
-            https://langfuse.com/docs/evaluation/experiments/experiments-ci-cd,
-            https://langfuse.com/docs/evaluation/evaluation-methods/llm-as-a-judge
         """
         return cast(
             ExperimentResult,

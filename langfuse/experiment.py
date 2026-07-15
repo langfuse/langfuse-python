@@ -183,16 +183,6 @@ class Evaluation:
     Note:
         All arguments must be passed as keywords. Positional arguments are not allowed
         to ensure code clarity and prevent errors from argument reordering.
-
-        Evaluators commonly wrap an LLM-as-a-judge call — e.g. scoring RAG
-        faithfulness or answer relevance with a grading prompt — and return the
-        judge's verdict as an ``Evaluation`` (see :meth:`Langfuse.run_experiment`
-        for a complete RAG example).
-
-    See also:
-        `Langfuse.run_experiment` and `RegressionError` (regression-gate prompt/model
-        changes in CI via https://github.com/langfuse/experiment-action),
-        https://langfuse.com/docs/evaluation/evaluation-methods/llm-as-a-judge
     """
 
     def __init__(
@@ -1132,17 +1122,6 @@ class RunnerContext:
         metadata: Optional[Dict[str, str]] = None,
         _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
-        """Run an experiment, filling in CI-injected defaults for omitted arguments.
-
-        Same signature and semantics as :meth:`Langfuse.run_experiment`, except
-        `data` and `metadata` fall back to the defaults injected by the
-        ``langfuse/experiment-action`` GitHub Action (explicit arguments win;
-        metadata dicts are merged with user keys taking precedence). Raise
-        :class:`RegressionError` from your experiment function to fail the CI
-        gate when a metric regresses.
-
-        See also: https://langfuse.com/docs/evaluation/experiments/experiments-ci-cd
-        """
         resolved_data = data if data is not None else self.data
         if resolved_data is None:
             raise ValueError(
@@ -1179,8 +1158,8 @@ class RegressionError(Exception):
 
     Intended for use with the ``langfuse/experiment-action`` GitHub Action
     (https://github.com/langfuse/experiment-action). The action catches this
-    exception and, when ``should_fail_on_regression`` is enabled (default), fails
-    the workflow run and renders a callout in the PR comment using
+    exception and, when ``should_fail_on_error`` is enabled, fails the
+    workflow run and renders a callout in the PR comment using
     ``metric``/``value``/``threshold`` if supplied, otherwise ``str(exc)``.
 
     Callers choose one of three forms:
