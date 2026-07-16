@@ -39,6 +39,17 @@ class TraceClient:
         """
         Get a specific trace
 
+        Returns the trace with full details (``TraceWithFullDetails``), including
+        complete observation objects with usage and cost details.
+
+        Note: Langfuse ingests data asynchronously. Immediately after recording a
+        trace — even after ``langfuse.flush()`` returns successfully — this endpoint
+        may raise a 404 ``NotFoundError`` until ingestion completes (typically
+        within ~15-30 seconds, potentially longer under load; there is no fixed
+        SLA). ``flush()`` only guarantees delivery to the API, not read-after-write
+        visibility. For get-after-write workflows, retry on
+        ``langfuse.api.NotFoundError`` with bounded backoff.
+
         Parameters
         ----------
         trace_id : str
@@ -133,6 +144,13 @@ class TraceClient:
     ) -> Traces:
         """
         Get list of traces
+
+        Returns lightweight trace views (``TraceWithDetails``): the ``observations``
+        and ``scores`` fields contain only IDs (lists of strings), not full objects.
+        Trace-level aggregates (``totalCost``, ``latency``) are included, but
+        per-observation usage and cost details are not. To get full observation
+        objects, call ``trace.get(trace_id)`` for each trace or use
+        ``observations.get_many(trace_id=...)``.
 
         Parameters
         ----------
@@ -389,6 +407,17 @@ class AsyncTraceClient:
         """
         Get a specific trace
 
+        Returns the trace with full details (``TraceWithFullDetails``), including
+        complete observation objects with usage and cost details.
+
+        Note: Langfuse ingests data asynchronously. Immediately after recording a
+        trace — even after ``langfuse.flush()`` returns successfully — this endpoint
+        may raise a 404 ``NotFoundError`` until ingestion completes (typically
+        within ~15-30 seconds, potentially longer under load; there is no fixed
+        SLA). ``flush()`` only guarantees delivery to the API, not read-after-write
+        visibility. For get-after-write workflows, retry on
+        ``langfuse.api.NotFoundError`` with bounded backoff.
+
         Parameters
         ----------
         trace_id : str
@@ -501,6 +530,13 @@ class AsyncTraceClient:
     ) -> Traces:
         """
         Get list of traces
+
+        Returns lightweight trace views (``TraceWithDetails``): the ``observations``
+        and ``scores`` fields contain only IDs (lists of strings), not full objects.
+        Trace-level aggregates (``totalCost``, ``latency``) are included, but
+        per-observation usage and cost details are not. To get full observation
+        objects, call ``trace.get(trace_id)`` for each trace or use
+        ``observations.get_many(trace_id=...)``.
 
         Parameters
         ----------

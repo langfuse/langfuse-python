@@ -245,7 +245,7 @@ class LangfuseObservationWrapper:
             evaluators). It will be removed in a future major version.
 
             For setting other trace attributes (user_id, session_id, metadata, tags, version),
-            use :meth:`Langfuse.propagate_attributes` instead.
+            use :func:`langfuse.propagate_attributes` instead.
 
         Args:
             input: Input data to associate with the trace.

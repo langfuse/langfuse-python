@@ -135,10 +135,33 @@ def propagate_attributes(
     currently active span and spans created after entering this context will have these
     attributes. Pre-existing spans will NOT be retroactively updated.
 
-    **Why this matters**: Langfuse aggregation queries (e.g., total cost by user_id,
-    filtering by session_id) only include observations that have the attribute set.
-    If you call `propagate_attributes` late in your workflow, earlier spans won't be
-    included in aggregations for that attribute.
+    **Scope — exactly which spans receive the attributes**:
+
+    1. The span that is *currently active* in the OpenTelemetry context when the
+       context manager is entered (e.g., a span started with
+       `start_as_current_observation` or via `@observe`).
+    2. Every span started *while the context is active* — at any nesting depth and
+       of any observation type (span, generation, event, ...).
+    3. NOT covered: spans started before entering the context that are not the
+       currently active span. In particular, a span created with
+       `start_observation(...)` is detached (it is never made the active span), so
+       entering `propagate_attributes` after it started leaves it unstamped — start
+       such a root *inside* the context instead, or use
+       `start_as_current_observation` for the root and enter the context within it.
+
+    **Where the attributes land**: Each covered span carries the values as
+    OpenTelemetry span attributes in the exported data (`user.id`, `session.id`,
+    `langfuse.trace.name`, `langfuse.trace.tags`, `langfuse.trace.metadata.*`,
+    `langfuse.version`, `langfuse.environment`). After ingestion, `session_id` and
+    `user_id` surface as **trace-level fields** in Langfuse: read them from the trace
+    object (`langfuse.api.trace.get(trace_id).session_id`). `Observation` objects
+    returned by the public API do **not** expose `session_id`/`user_id` fields — do
+    not assert on them on fetched child observations; verify on the trace instead.
+
+    **Why coverage matters**: Langfuse aggregation queries (e.g., total cost by
+    user_id, filtering by session_id) only include observations that have the
+    attribute set. If you call `propagate_attributes` late in your workflow, earlier
+    spans won't be included in aggregations for that attribute.
 
     Args:
         user_id: User identifier to associate with all spans in this context.
@@ -191,13 +214,13 @@ def propagate_attributes(
         Basic usage with user and session tracking:
 
         ```python
-        from langfuse import Langfuse
+        from langfuse import Langfuse, propagate_attributes
 
         langfuse = Langfuse()
 
         # Set attributes early in the trace
         with langfuse.start_as_current_observation(name="user_workflow") as span:
-            with langfuse.propagate_attributes(
+            with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 environment="production",
@@ -213,15 +236,55 @@ def propagate_attributes(
                     ...
         ```
 
+        Where the attributes land in the exported spans:
+
+        ```python
+        with langfuse.start_as_current_observation(name="root") as root:
+            with propagate_attributes(user_id="u1", session_id="s1"):
+                with langfuse.start_observation(name="child") as child:
+                    ...
+
+        # Exported OTel spans:
+        #   root  -> {"user.id": "u1", "session.id": "s1", ...}  (active at context entry)
+        #   child -> {"user.id": "u1", "session.id": "s1", ...}  (started inside the context)
+        #
+        # Via the public API after ingestion:
+        #   trace = langfuse.api.trace.get(root.trace_id)
+        #   trace.user_id == "u1" and trace.session_id == "s1"  # trace-level fields
+        #   # Observation objects have NO session_id/user_id fields — don't assert there.
+        ```
+
+        Detached root span (anti-pattern):
+
+        ```python
+        # WRONG ORDER: start_observation() does not activate the span, so entering
+        # propagate_attributes afterwards leaves the root unstamped.
+        root = langfuse.start_observation(name="root")
+        with propagate_attributes(session_id="s1"):
+            child = langfuse.start_observation(name="child")  # gets session_id
+            child.end()
+        root.end()  # root has NO session_id -> excluded from session "s1" metrics
+
+        # CORRECT: start the root inside the context...
+        with propagate_attributes(session_id="s1"):
+            root = langfuse.start_observation(name="root")  # gets session_id
+            ...
+
+        # ...or make the root the active span and propagate within it:
+        with langfuse.start_as_current_observation(name="root"):
+            with propagate_attributes(session_id="s1"):
+                ...
+        ```
+
         Prompt linking with auto-instrumented libraries:
 
         ```python
-        from langfuse import Langfuse
+        from langfuse import Langfuse, propagate_attributes
 
         langfuse = Langfuse()
         prompt = langfuse.get_prompt("my-prompt")
 
-        with langfuse.propagate_attributes(prompt=prompt):
+        with propagate_attributes(prompt=prompt):
             # Generations emitted by auto-instrumentation (LiteLLM langfuse_otel,
             # OpenAI Agents SDK, OpenInference, ...) within this context are
             # linked to the prompt version.
@@ -240,7 +303,7 @@ def propagate_attributes(
             early_span.end()
 
             # Set attributes in the middle
-            with langfuse.propagate_attributes(user_id="user_123"):
+            with propagate_attributes(user_id="user_123"):
                 # Only spans created AFTER this point will have user_id
                 late_span = langfuse.start_observation(name="late_work")
                 late_span.end()
@@ -253,7 +316,7 @@ def propagate_attributes(
         ```python
         # Service A - originating service
         with langfuse.start_as_current_observation(name="api_request"):
-            with langfuse.propagate_attributes(
+            with propagate_attributes(
                 user_id="user_123",
                 session_id="session_abc",
                 environment="staging",

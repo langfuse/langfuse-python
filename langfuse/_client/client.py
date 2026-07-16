@@ -1519,7 +1519,7 @@ class Langfuse:
             evaluators). It will be removed in a future major version.
 
             For setting other trace attributes (user_id, session_id, metadata, tags, version),
-            use :meth:`propagate_attributes` instead.
+            use :func:`langfuse.propagate_attributes` instead.
 
         Args:
             input: Input data to associate with the trace.
@@ -1905,6 +1905,11 @@ class Langfuse:
         This method creates a score for evaluating a Langfuse trace or observation. Scores can be
         used to track quality metrics, user feedback, or automated evaluations.
 
+        Scores are queued and ingested asynchronously (sent on the next flush and
+        processed server-side), so a newly created score is typically visible via
+        the API/UI within ~15-30 seconds, potentially longer under load. Retry
+        reads with bounded backoff if you fetch a score right after creating it.
+
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
             value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT/CORRECTION)
@@ -2227,6 +2232,15 @@ class Langfuse:
         Langfuse API. It's useful in scenarios where you want to ensure all data is sent
         before proceeding, without waiting for the automatic flush interval.
 
+        Note:
+            Flushing guarantees *delivery* to the Langfuse API, not *read
+            visibility*. Ingestion is asynchronous: data flushed successfully is
+            typically queryable via the API/UI within ~15-30 seconds, potentially
+            longer under load (there is no fixed SLA). Reading a trace immediately
+            after `flush()` (e.g. `langfuse.api.trace.get(trace_id)`) may raise a
+            404 `langfuse.api.NotFoundError` until ingestion completes — retry with
+            bounded backoff for get-after-write workflows.
+
         Example:
             ```python
             # Record some spans and scores
@@ -2442,6 +2456,13 @@ class Langfuse:
         self, *, dataset_name: str, run_name: str
     ) -> DatasetRunWithItems:
         """Fetch a dataset run by dataset name and run name.
+
+        Note:
+            Dataset run items are ingested asynchronously. Fetching a run right
+            after creating run items (e.g. via `run_experiment`) may return an
+            incomplete item list or raise a 404 `langfuse.api.NotFoundError` until
+            ingestion completes — typically within ~15-30 seconds, potentially
+            longer under load. Retry with bounded backoff.
 
         Args:
             dataset_name (str): The name of the dataset.
