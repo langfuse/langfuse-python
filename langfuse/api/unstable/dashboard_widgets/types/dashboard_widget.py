@@ -35,7 +35,6 @@ class DashboardWidget(UniversalBaseModel):
     chart_config: typing_extensions.Annotated[
         DashboardWidgetChartConfig, FieldMetadata(alias="chartConfig")
     ]
-    min_version: typing_extensions.Annotated[int, FieldMetadata(alias="minVersion")]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

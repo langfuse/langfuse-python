@@ -8,10 +8,22 @@ from ....core.pydantic_utilities import UniversalBaseModel
 
 class DashboardWidgetFilter(UniversalBaseModel):
     """
-    A dashboard widget filter in Langfuse filter-state shape.
+    A filter in Langfuse filter-state shape. The `value` shape and the
+    allowed operators depend on `type`:
 
-    Filter shapes depend on `type`, for example string filters use a string `value`,
-    option filters use a list of strings, and object filters include `key`.
+    | `type` | `value` | operators |
+    |---|---|---|
+    | `string` | string | `=`, `contains`, `does not contain`, `starts with`, `ends with` |
+    | `number` | number | `=`, `>`, `<`, `>=`, `<=` |
+    | `datetime` | ISO datetime string | `>`, `<`, `>=`, `<=` |
+    | `boolean` | boolean | `=`, `<>` |
+    | `null` | `""` | `is null`, `is not null` |
+    | `stringOptions` | list of strings | `any of`, `none of` |
+    | `arrayOptions` | list of strings | `any of`, `none of`, `all of` |
+    | `categoryOptions` | list of strings (requires `key`) | `any of`, `none of` |
+    | `stringObject` | string (requires `key`, e.g. a metadata key) | same as `string` |
+    | `numberObject` | number (requires `key`, e.g. a score name) | same as `number` |
+    | `booleanObject` | boolean (requires `key`) | `=`, `<>` |
     """
 
     column: str

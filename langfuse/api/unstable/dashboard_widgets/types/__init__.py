@@ -9,26 +9,34 @@ if typing.TYPE_CHECKING:
     from .create_dashboard_widget_request import CreateDashboardWidgetRequest
     from .dashboard_widget import DashboardWidget
     from .dashboard_widget_chart_config import DashboardWidgetChartConfig
+    from .dashboard_widget_chart_config_input import DashboardWidgetChartConfigInput
     from .dashboard_widget_chart_type import DashboardWidgetChartType
     from .dashboard_widget_default_sort import DashboardWidgetDefaultSort
     from .dashboard_widget_dimension import DashboardWidgetDimension
     from .dashboard_widget_filter import DashboardWidgetFilter
+    from .dashboard_widget_list import DashboardWidgetList
     from .dashboard_widget_metric import DashboardWidgetMetric
     from .dashboard_widget_metric_aggregation import DashboardWidgetMetricAggregation
     from .dashboard_widget_sort_order import DashboardWidgetSortOrder
     from .dashboard_widget_view import DashboardWidgetView
+    from .delete_dashboard_widget_response import DeleteDashboardWidgetResponse
+    from .update_dashboard_widget_request import UpdateDashboardWidgetRequest
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateDashboardWidgetRequest": ".create_dashboard_widget_request",
     "DashboardWidget": ".dashboard_widget",
     "DashboardWidgetChartConfig": ".dashboard_widget_chart_config",
+    "DashboardWidgetChartConfigInput": ".dashboard_widget_chart_config_input",
     "DashboardWidgetChartType": ".dashboard_widget_chart_type",
     "DashboardWidgetDefaultSort": ".dashboard_widget_default_sort",
     "DashboardWidgetDimension": ".dashboard_widget_dimension",
     "DashboardWidgetFilter": ".dashboard_widget_filter",
+    "DashboardWidgetList": ".dashboard_widget_list",
     "DashboardWidgetMetric": ".dashboard_widget_metric",
     "DashboardWidgetMetricAggregation": ".dashboard_widget_metric_aggregation",
     "DashboardWidgetSortOrder": ".dashboard_widget_sort_order",
     "DashboardWidgetView": ".dashboard_widget_view",
+    "DeleteDashboardWidgetResponse": ".delete_dashboard_widget_response",
+    "UpdateDashboardWidgetRequest": ".update_dashboard_widget_request",
 }
 
 
@@ -63,12 +71,16 @@ __all__ = [
     "CreateDashboardWidgetRequest",
     "DashboardWidget",
     "DashboardWidgetChartConfig",
+    "DashboardWidgetChartConfigInput",
     "DashboardWidgetChartType",
     "DashboardWidgetDefaultSort",
     "DashboardWidgetDimension",
     "DashboardWidgetFilter",
+    "DashboardWidgetList",
     "DashboardWidgetMetric",
     "DashboardWidgetMetricAggregation",
     "DashboardWidgetSortOrder",
     "DashboardWidgetView",
+    "DeleteDashboardWidgetResponse",
+    "UpdateDashboardWidgetRequest",
 ]
