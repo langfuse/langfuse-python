@@ -56,6 +56,13 @@ Prefix matching is boundary-aware:
 Please create a GitHub issue in https://github.com/langfuse/langfuse if you'd like to expand this default allow list.
 """
 
+APP_ROOT_INELIGIBLE_SPANS = frozenset(
+    {
+        ("litellm", "raw_gen_ai_request"),
+    }
+)
+"""Instrumentor spans that should not become app roots when they have a parent."""
+
 
 def is_langfuse_span(span: ReadableSpan) -> bool:
     """Return whether the span was created by the Langfuse SDK tracer."""
@@ -99,3 +106,14 @@ def is_default_export_span(span: ReadableSpan) -> bool:
     return (
         is_langfuse_span(span) or is_genai_span(span) or is_known_llm_instrumentor(span)
     )
+
+
+def is_app_root_eligible(span: ReadableSpan) -> bool:
+    """Return whether an exported span may be marked as an application root."""
+    if span.parent is None or span.instrumentation_scope is None:
+        return True
+
+    return (
+        span.instrumentation_scope.name,
+        span.name,
+    ) not in APP_ROOT_INELIGIBLE_SPANS

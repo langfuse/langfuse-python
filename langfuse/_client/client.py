@@ -270,13 +270,13 @@ class Langfuse:
 
     Example:
         ```python
-        from langfuse.otel import Langfuse
+        from langfuse import Langfuse
 
         # Initialize the client (reads from env vars if not provided)
         langfuse = Langfuse(
             public_key="your-public-key",
             secret_key="your-secret-key",
-            host="https://cloud.langfuse.com",  # Optional, default shown
+            base_url="https://cloud.langfuse.com",  # Optional, default shown
         )
 
         # Create a trace span
@@ -443,6 +443,43 @@ class Langfuse:
 
     @property
     def api(self) -> LangfuseAPI:
+        """Synchronous client for the full Langfuse REST API (traces, observations, scores, datasets, prompts, ...).
+
+        Use this to read or manage data on the Langfuse server; use the tracing methods
+        (`start_observation`, `@observe`) to create traces. Use `async_api` for the
+        asyncio variant.
+
+        Semantics that are easy to miss:
+
+        - **Ingestion is asynchronous.** `langfuse.flush()` only guarantees delivery to
+          the API, not read visibility: reads such as `api.trace.get(trace_id)` may
+          raise `langfuse.api.NotFoundError` until processing completes (typically
+          within 15-30 seconds; longer under load). The same applies to scores and
+          dataset run reads. Instead of a fixed sleep, retry with a deadline:
+
+        - **List endpoints return lightweight views.** `api.trace.list(...)` returns
+          `TraceWithDetails`, where `observations` and `scores` are lists of ID strings.
+          Fetch the full objects with `api.trace.get(trace_id)` (`TraceWithFullDetails`),
+          or prefer `api.observations.get_many(trace_id=...)` for row-level observation
+          queries. The same list-view vs. get-detail pattern applies to other resources.
+
+        - **Prefer the v2 data APIs — they are the defaults since SDK v4.**
+          `api.observations` and `api.metrics` map to the high-performance
+          `/api/public/v2/...` endpoints and are the recommended read path. Their v1
+          equivalents remain available under `api.legacy.observations_v1` /
+          `api.legacy.metrics_v1` but are less performant at scale, not recommended
+          for new workflows, and will be deprecated.
+
+        - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
+        v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
+
+
+        See also: `async_api`,
+        https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
+        (ingestion lag: #ingestion-lag, list vs. get: #traces-list-vs-get),
+        https://langfuse.com/docs/api-and-data-platform/features/observations-api,
+        https://langfuse.com/docs/metrics/features/metrics-api
+        """
         if self._resources is None:
             raise AttributeError("Langfuse client is not initialized")
 
@@ -1541,7 +1578,7 @@ class Langfuse:
             evaluators). It will be removed in a future major version.
 
             For setting other trace attributes (user_id, session_id, metadata, tags, version),
-            use :meth:`propagate_attributes` instead.
+            use :func:`langfuse.propagate_attributes` (top-level import) instead.
 
         Args:
             input: Input data to associate with the trace.
@@ -2261,6 +2298,16 @@ class Langfuse:
 
             # Continue with other work
             ```
+
+        Note:
+            `flush()` guarantees data was *delivered* to the API, not that it is
+            *readable* yet: server-side ingestion is asynchronous, so flushed data
+            may not be queryable for 15-30 seconds —
+            `api.observations.get_many(trace_id=...)` may return empty results and
+            `api.trace.get()` may raise `langfuse.api.NotFoundError` right after a
+            successful flush. See the `api` property docs for a bounded retry
+            pattern, or
+            https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
         if self._resources is not None:
             self._resources.flush()
