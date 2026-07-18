@@ -69,6 +69,7 @@ from langfuse._client.environment_variables import (
 from langfuse._client.propagation import (
     PropagatedExperimentAttributes,
     _detach_context_token_safely,
+    _get_propagated_attributes_from_context,
     _propagate_attributes,
     _set_langfuse_trace_id_in_baggage,
 )
@@ -3032,6 +3033,11 @@ class Langfuse:
                     with _propagate_attributes(
                         experiment=propagated_experiment_attributes
                     ):
+                        span._otel_span.set_attributes(
+                            _get_propagated_attributes_from_context(
+                                otel_context_api.get_current()
+                            )
+                        )
                         output = await _run_task(task, item)
 
                     task_span.update(output=output)

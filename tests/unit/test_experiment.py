@@ -245,6 +245,51 @@ class TestSignatureDriftGuard:
 
 
 class TestExperimentObservationTree:
+    def test_failed_task_preserves_experiment_attributes_on_item_run(
+        self,
+        langfuse_memory_client,
+        get_span,
+    ):
+        def failing_task(**kwargs):
+            raise RuntimeError("task failed")
+
+        result = langfuse_memory_client.run_experiment(
+            name="task-error",
+            data=[{"input": "question", "metadata": {"item": "metadata"}}],
+            task=failing_task,
+            metadata={"run": "metadata"},
+            max_concurrency=1,
+        )
+
+        item_run = get_span("experiment-item-run")
+        task_span = get_span("experiment-item-task")
+        task_span_id = otel_trace_api.format_span_id(task_span.context.span_id)
+
+        assert (
+            item_run.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+            == result.experiment_id
+        )
+        assert (
+            item_run.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_NAME]
+            == result.run_name
+        )
+        assert (
+            item_run.attributes[f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.run"]
+            == "metadata"
+        )
+        assert (
+            item_run.attributes[
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.item"
+            ]
+            == "metadata"
+        )
+        assert (
+            item_run.attributes[
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID
+            ]
+            == task_span_id
+        )
+
     def test_task_is_metric_root_and_evaluators_are_wrapped(
         self,
         langfuse_memory_client,
