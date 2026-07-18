@@ -274,4 +274,4 @@ def test_init_with_urlsafe_base64_data_uri():
     assert media._source == "base64_data_uri"
     assert media._content_type == "application/octet-stream"
     assert media._content_bytes == original_bytes
-    
+
