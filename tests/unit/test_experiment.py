@@ -289,6 +289,18 @@ class TestExperimentObservationTree:
             ]
             == task_span_id
         )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]
+            == "ERROR"
+        )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == "task failed"
+        )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+            == "Error: task failed"
+        )
 
     def test_task_is_metric_root_and_evaluators_are_wrapped(
         self,

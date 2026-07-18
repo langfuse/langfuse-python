@@ -3038,7 +3038,15 @@ class Langfuse:
                                 otel_context_api.get_current()
                             )
                         )
-                        output = await _run_task(task, item)
+                        try:
+                            output = await _run_task(task, item)
+                        except Exception as e:
+                            task_span.update(
+                                output=f"Error: {str(e)}",
+                                level="ERROR",
+                                status_message=str(e),
+                            )
+                            raise
 
                     task_span.update(output=output)
 
