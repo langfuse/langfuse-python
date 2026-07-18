@@ -291,7 +291,10 @@ class LangfuseMedia:
             if not content_type:
                 raise ValueError("Content type is empty")
 
-            return base64.b64decode(actual_data), cast(MediaContentType, content_type)
+            translation_table = str.maketrans("-_", "+/")
+            decoded_data = base64.b64decode(actual_data.translate(translation_table))
+
+            return decoded_data, cast(MediaContentType, content_type)
 
         except Exception as e:
             logger.error("Error parsing base64 data URI", exc_info=e)
