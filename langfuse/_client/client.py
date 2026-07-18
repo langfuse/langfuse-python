@@ -131,6 +131,7 @@ from langfuse.experiment import (
     ExperimentResult,
     RunEvaluatorFunction,
     TaskFunction,
+    _normalize_evaluator_result,
     _run_evaluator,
     _run_task,
 )
@@ -3145,11 +3146,7 @@ class Langfuse:
                                 if asyncio.iscoroutine(result):
                                     result = await result
 
-                                composite_evals: List[Evaluation] = []
-                                if isinstance(result, (dict, Evaluation)):
-                                    composite_evals = [result]  # type: ignore
-                                elif isinstance(result, list):
-                                    composite_evals = result  # type: ignore
+                                composite_evals = _normalize_evaluator_result(result)
 
                                 composite_evaluator_span.update(
                                     output=_serialize_evaluations(composite_evals)
@@ -3187,9 +3184,12 @@ class Langfuse:
                     evaluation_span.update(
                         output={
                             "evaluator_count": len(evaluators)
-                            + (1 if composite_evaluator and evaluations else 0),
+                            + (1 if composite_evaluator else 0),
                             "evaluation_count": len(evaluations),
                             "failed_evaluator_count": failed_evaluator_count,
+                            "skipped_evaluator_count": (
+                                1 if composite_evaluator and not evaluations else 0
+                            ),
                         }
                     )
 

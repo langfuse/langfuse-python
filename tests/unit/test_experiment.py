@@ -267,13 +267,13 @@ class TestExperimentObservationTree:
                 assert output == "answer:question"
                 assert expected_output == "answer:question"
                 assert metadata == {"item": "metadata"}
-                return Evaluation(name="quality", value=1.0)
+                return {"name": "quality", "value": 1.0}
 
         def aggregate_evaluator(
             *, input, output, expected_output, metadata, evaluations
         ):
             assert len(evaluations) == 1
-            return Evaluation(name="aggregate", value=1.0)
+            return {"name": "aggregate", "value": 1.0}
 
         langfuse_memory_client.run_experiment(
             name="observation-tree",
@@ -371,6 +371,7 @@ class TestExperimentObservationTree:
             "evaluator_count": 2,
             "evaluation_count": 2,
             "failed_evaluator_count": 0,
+            "skipped_evaluator_count": 0,
         }
 
         assert create_score.call_count == 2
@@ -429,5 +430,40 @@ class TestExperimentObservationTree:
             "evaluator_count": 2,
             "evaluation_count": 1,
             "failed_evaluator_count": 1,
+            "skipped_evaluator_count": 0,
         }
         create_score.assert_called_once()
+
+    def test_configured_composite_evaluator_is_counted_when_skipped(
+        self,
+        langfuse_memory_client,
+        get_span,
+        json_attr,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+        composite_evaluator = MagicMock()
+
+        def failing_evaluator(**kwargs):
+            raise RuntimeError("evaluation unavailable")
+
+        langfuse_memory_client.run_experiment(
+            name="skipped-composite-evaluator",
+            data=[{"input": "question"}],
+            task=lambda *, item: item["input"],
+            evaluators=[failing_evaluator],
+            composite_evaluator=composite_evaluator,
+            max_concurrency=1,
+        )
+
+        evaluation_span = get_span("experiment-item-evaluation")
+
+        composite_evaluator.assert_not_called()
+        assert json_attr(
+            evaluation_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+        ) == {
+            "evaluator_count": 2,
+            "evaluation_count": 0,
+            "failed_evaluator_count": 1,
+            "skipped_evaluator_count": 1,
+        }
