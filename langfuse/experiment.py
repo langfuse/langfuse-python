@@ -986,7 +986,10 @@ def _format_value(value: Any) -> str:
 
 
 async def _run_evaluator(
-    evaluator: Union[EvaluatorFunction, RunEvaluatorFunction], **kwargs: Any
+    evaluator: Union[EvaluatorFunction, RunEvaluatorFunction],
+    *,
+    _raise_on_error: bool = False,
+    **kwargs: Any,
 ) -> List[Evaluation]:
     """Run an evaluator function and normalize the result."""
     try:
@@ -1007,6 +1010,9 @@ async def _run_evaluator(
             return []
 
     except Exception as e:
+        if _raise_on_error:
+            raise
+
         evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
         logger.error(f"Evaluator {evaluator_name} failed: {e}")
         return []
