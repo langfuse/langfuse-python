@@ -2956,27 +2956,6 @@ class Langfuse:
                 dataset_item_id = None
                 dataset_run_id = None
 
-                # Link to dataset run if this is a dataset item
-                if hasattr(item, "id") and hasattr(item, "dataset_id"):
-                    try:
-                        # Use sync API to avoid event loop issues when run_async_safely
-                        # creates multiple event loops across different threads
-                        dataset_run_item = await asyncio.to_thread(
-                            self.api.dataset_run_items.create,
-                            run_name=experiment_run_name,
-                            run_description=experiment_description,
-                            metadata=experiment_metadata,
-                            dataset_item_id=item.id,  # type: ignore
-                            trace_id=trace_id,
-                            observation_id=span.id,
-                            dataset_version=dataset_version,
-                        )
-
-                        dataset_run_id = dataset_run_item.dataset_run_id
-
-                    except Exception as e:
-                        langfuse_logger.error(f"Failed to create dataset run item: {e}")
-
                 if (
                     not isinstance(item, dict)
                     and hasattr(item, "dataset_id")
@@ -2992,7 +2971,6 @@ class Langfuse:
                 if isinstance(item_metadata, dict):
                     final_observation_metadata.update(item_metadata)
 
-                experiment_id = dataset_run_id or fallback_experiment_id
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
                 )
@@ -3016,6 +2994,33 @@ class Langfuse:
                     metadata=final_observation_metadata,
                 ) as task_span:
                     task_span._otel_span.set_attributes(experiment_span_attributes)
+
+                    # Link dataset runs to the canonical task observation so their
+                    # latency excludes the subsequent evaluator subtree.
+                    if hasattr(item, "id") and hasattr(item, "dataset_id"):
+                        try:
+                            # Use sync API to avoid event loop issues when
+                            # run_async_safely creates multiple event loops across
+                            # different threads.
+                            dataset_run_item = await asyncio.to_thread(
+                                self.api.dataset_run_items.create,
+                                run_name=experiment_run_name,
+                                run_description=experiment_description,
+                                metadata=experiment_metadata,
+                                dataset_item_id=item.id,  # type: ignore
+                                trace_id=trace_id,
+                                observation_id=task_span.id,
+                                dataset_version=dataset_version,
+                            )
+
+                            dataset_run_id = dataset_run_item.dataset_run_id
+
+                        except Exception as e:
+                            langfuse_logger.error(
+                                f"Failed to create dataset run item: {e}"
+                            )
+
+                    experiment_id = dataset_run_id or fallback_experiment_id
                     propagated_experiment_attributes = PropagatedExperimentAttributes(
                         experiment_id=experiment_id,
                         experiment_name=experiment_run_name,
