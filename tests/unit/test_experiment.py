@@ -7,8 +7,10 @@ from typing import get_type_hints
 from unittest.mock import MagicMock
 
 import pytest
+from opentelemetry import trace as otel_trace_api
 
-from langfuse import RegressionError, RunnerContext
+from langfuse import Evaluation, RegressionError, RunnerContext
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
 
@@ -206,9 +208,7 @@ class TestSignatureDriftGuard:
         )
 
         client_hints = get_type_hints(Langfuse.run_experiment)
-        ctx_hints = get_type_hints(
-            RunnerContext.run_experiment, localns=self.LOCALNS
-        )
+        ctx_hints = get_type_hints(RunnerContext.run_experiment, localns=self.LOCALNS)
 
         for name in client_param_names:
             client_ann = client_hints.get(name, inspect.Parameter.empty)
@@ -235,14 +235,292 @@ class TestSignatureDriftGuard:
 
     @staticmethod
     def _param_names(func) -> set:
-        return {
-            name
-            for name in inspect.signature(func).parameters
-            if name != "self"
-        }
+        return {name for name in inspect.signature(func).parameters if name != "self"}
 
     @staticmethod
     def _is_optional(annotation) -> bool:
         origin = typing.get_origin(annotation)
         args = typing.get_args(annotation)
         return origin is typing.Union and type(None) in args
+
+
+class TestExperimentObservationTree:
+    def test_failed_task_preserves_experiment_attributes_on_item_run(
+        self,
+        langfuse_memory_client,
+        get_span,
+    ):
+        def failing_task(**kwargs):
+            raise RuntimeError("task failed")
+
+        result = langfuse_memory_client.run_experiment(
+            name="task-error",
+            data=[{"input": "question", "metadata": {"item": "metadata"}}],
+            task=failing_task,
+            metadata={"run": "metadata"},
+            max_concurrency=1,
+        )
+
+        item_run = get_span("experiment-item-run")
+        task_span = get_span("experiment-item-task")
+        task_span_id = otel_trace_api.format_span_id(task_span.context.span_id)
+
+        assert (
+            item_run.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+            == result.experiment_id
+        )
+        assert (
+            item_run.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_NAME]
+            == result.run_name
+        )
+        assert (
+            item_run.attributes[f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.run"]
+            == "metadata"
+        )
+        assert (
+            item_run.attributes[
+                f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.item"
+            ]
+            == "metadata"
+        )
+        assert (
+            item_run.attributes[
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID
+            ]
+            == task_span_id
+        )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]
+            == "ERROR"
+        )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == "task failed"
+        )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+            == "Error: task failed"
+        )
+
+    def test_task_is_metric_root_and_evaluators_are_wrapped(
+        self,
+        langfuse_memory_client,
+        get_span,
+        json_attr,
+        monkeypatch,
+    ):
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+
+        def task(*, item):
+            with langfuse_memory_client.start_as_current_observation(name="task-child"):
+                return f"answer:{item['input']}"
+
+        def quality_evaluator(*, input, output, expected_output, metadata):
+            with langfuse_memory_client.start_as_current_observation(
+                name="evaluator-child"
+            ):
+                assert input == "question"
+                assert output == "answer:question"
+                assert expected_output == "answer:question"
+                assert metadata == {"item": "metadata"}
+                return {"name": "quality", "value": 1.0}
+
+        def aggregate_evaluator(
+            *, input, output, expected_output, metadata, evaluations
+        ):
+            assert len(evaluations) == 1
+            return {"name": "aggregate", "value": 1.0}
+
+        langfuse_memory_client.run_experiment(
+            name="observation-tree",
+            data=[
+                {
+                    "input": "question",
+                    "expected_output": "answer:question",
+                    "metadata": {"item": "metadata"},
+                }
+            ],
+            task=task,
+            evaluators=[quality_evaluator],
+            composite_evaluator=aggregate_evaluator,
+            max_concurrency=1,
+        )
+
+        item_run = get_span("experiment-item-run")
+        task_span = get_span("experiment-item-task")
+        task_child = get_span("task-child")
+        evaluation_span = get_span("experiment-item-evaluation")
+        evaluator_span = get_span("quality_evaluator")
+        evaluator_child = get_span("evaluator-child")
+        composite_span = get_span("aggregate_evaluator")
+        task_span_id = otel_trace_api.format_span_id(task_span.context.span_id)
+
+        assert task_span.parent.span_id == item_run.context.span_id
+        assert task_child.parent.span_id == task_span.context.span_id
+        assert evaluation_span.parent.span_id == item_run.context.span_id
+        assert evaluator_span.parent.span_id == evaluation_span.context.span_id
+        assert evaluator_child.parent.span_id == evaluator_span.context.span_id
+        assert composite_span.parent.span_id == evaluation_span.context.span_id
+
+        for span in (
+            item_run,
+            task_span,
+            task_child,
+            evaluation_span,
+            evaluator_span,
+            evaluator_child,
+            composite_span,
+        ):
+            assert (
+                span.attributes[
+                    LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID
+                ]
+                == task_span_id
+            )
+
+        assert (
+            item_run.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+            == "question"
+        )
+        assert (
+            item_run.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+            == "answer:question"
+        )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+            == "question"
+        )
+        assert (
+            task_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+            == "answer:question"
+        )
+        assert (
+            task_span.attributes[
+                LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT
+            ]
+            == "answer:question"
+        )
+        assert task_span.end_time <= evaluation_span.start_time
+        assert evaluation_span.end_time <= item_run.end_time
+
+        assert (
+            evaluator_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
+            == "evaluator"
+        )
+        assert json_attr(
+            evaluator_span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT
+        ) == {
+            "input": "question",
+            "output": "answer:question",
+            "expected_output": "answer:question",
+            "metadata": {"item": "metadata"},
+        }
+        assert json_attr(
+            evaluator_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+        ) == [{"name": "quality", "value": 1.0}]
+        assert json_attr(
+            composite_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+        ) == [{"name": "aggregate", "value": 1.0}]
+        assert json_attr(
+            evaluation_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+        ) == {
+            "evaluator_count": 2,
+            "evaluation_count": 2,
+            "failed_evaluator_count": 0,
+            "skipped_evaluator_count": 0,
+        }
+
+        assert create_score.call_count == 2
+        for score_call in create_score.call_args_list:
+            assert score_call.kwargs["trace_id"] == otel_trace_api.format_trace_id(
+                item_run.context.trace_id
+            )
+            assert score_call.kwargs["observation_id"] == task_span_id
+
+    def test_failed_evaluator_wrapper_is_marked_error(
+        self,
+        langfuse_memory_client,
+        get_span,
+        json_attr,
+        monkeypatch,
+    ):
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+
+        def task(*, item):
+            return item["input"]
+
+        def failing_evaluator(**kwargs):
+            raise RuntimeError("evaluation unavailable")
+
+        def passing_evaluator(**kwargs):
+            return Evaluation(name="passing", value=1.0)
+
+        langfuse_memory_client.run_experiment(
+            name="evaluator-error",
+            data=[{"input": "question"}],
+            task=task,
+            evaluators=[failing_evaluator, passing_evaluator],
+            max_concurrency=1,
+        )
+
+        failing_span = get_span("failing_evaluator")
+        evaluation_span = get_span("experiment-item-evaluation")
+
+        assert (
+            failing_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]
+            == "ERROR"
+        )
+        assert (
+            failing_span.attributes[
+                LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE
+            ]
+            == "evaluation unavailable"
+        )
+        assert json_attr(
+            failing_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+        ) == {"error": "evaluation unavailable"}
+        assert json_attr(
+            evaluation_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+        ) == {
+            "evaluator_count": 2,
+            "evaluation_count": 1,
+            "failed_evaluator_count": 1,
+            "skipped_evaluator_count": 0,
+        }
+        create_score.assert_called_once()
+
+    def test_configured_composite_evaluator_is_counted_when_skipped(
+        self,
+        langfuse_memory_client,
+        get_span,
+        json_attr,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+        composite_evaluator = MagicMock()
+
+        def failing_evaluator(**kwargs):
+            raise RuntimeError("evaluation unavailable")
+
+        langfuse_memory_client.run_experiment(
+            name="skipped-composite-evaluator",
+            data=[{"input": "question"}],
+            task=lambda *, item: item["input"],
+            evaluators=[failing_evaluator],
+            composite_evaluator=composite_evaluator,
+            max_concurrency=1,
+        )
+
+        evaluation_span = get_span("experiment-item-evaluation")
+
+        composite_evaluator.assert_not_called()
+        assert json_attr(
+            evaluation_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+        ) == {
+            "evaluator_count": 2,
+            "evaluation_count": 0,
+            "failed_evaluator_count": 1,
+            "skipped_evaluator_count": 1,
+        }

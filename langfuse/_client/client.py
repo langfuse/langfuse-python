@@ -69,6 +69,7 @@ from langfuse._client.environment_variables import (
 from langfuse._client.propagation import (
     PropagatedExperimentAttributes,
     _detach_context_token_safely,
+    _get_propagated_attributes_from_context,
     _propagate_attributes,
     _set_langfuse_trace_id_in_baggage,
 )
@@ -131,6 +132,7 @@ from langfuse.experiment import (
     ExperimentResult,
     RunEvaluatorFunction,
     TaskFunction,
+    _normalize_evaluator_result,
     _run_evaluator,
     _run_task,
 )
@@ -150,6 +152,28 @@ from langfuse.types import (
     SpanLevel,
     TraceContext,
 )
+
+
+def _get_evaluator_name(evaluator: Callable[..., Any]) -> str:
+    return getattr(evaluator, "__name__", evaluator.__class__.__name__)
+
+
+def _serialize_evaluations(evaluations: List[Evaluation]) -> List[Dict[str, Any]]:
+    return [
+        {
+            key: value
+            for key, value in {
+                "name": evaluation.name,
+                "value": evaluation.value,
+                "comment": evaluation.comment,
+                "metadata": evaluation.metadata,
+                "data_type": evaluation.data_type,
+                "config_id": evaluation.config_id,
+            }.items()
+            if value is not None
+        }
+        for evaluation in evaluations
+    ]
 
 
 class Langfuse:
@@ -2898,9 +2922,7 @@ class Langfuse:
         experiment_metadata: Optional[Dict[str, Any]] = None,
         dataset_version: Optional[datetime] = None,
     ) -> ExperimentItemResult:
-        span_name = "experiment-item-run"
-
-        with self.start_as_current_observation(name=span_name) as span:
+        with self.start_as_current_observation(name="experiment-item-run") as span:
             try:
                 input_data = (
                     item.get("input")
@@ -2934,27 +2956,6 @@ class Langfuse:
                 dataset_item_id = None
                 dataset_run_id = None
 
-                # Link to dataset run if this is a dataset item
-                if hasattr(item, "id") and hasattr(item, "dataset_id"):
-                    try:
-                        # Use sync API to avoid event loop issues when run_async_safely
-                        # creates multiple event loops across different threads
-                        dataset_run_item = await asyncio.to_thread(
-                            self.api.dataset_run_items.create,
-                            run_name=experiment_run_name,
-                            run_description=experiment_description,
-                            metadata=experiment_metadata,
-                            dataset_item_id=item.id,  # type: ignore
-                            trace_id=trace_id,
-                            observation_id=span.id,
-                            dataset_version=dataset_version,
-                        )
-
-                        dataset_run_id = dataset_run_item.dataset_run_id
-
-                    except Exception as e:
-                        langfuse_logger.error(f"Failed to create dataset run item: {e}")
-
                 if (
                     not isinstance(item, dict)
                     and hasattr(item, "dataset_id")
@@ -2970,40 +2971,91 @@ class Langfuse:
                 if isinstance(item_metadata, dict):
                     final_observation_metadata.update(item_metadata)
 
-                experiment_id = dataset_run_id or fallback_experiment_id
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
                 )
-                span._otel_span.set_attributes(
-                    {
-                        k: v
-                        for k, v in {
-                            LangfuseOtelSpanAttributes.ENVIRONMENT: LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
-                            LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION: experiment_description,
-                            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT: _serialize(
-                                expected_output
-                            ),
-                        }.items()
-                        if v is not None
-                    }
-                )
+                experiment_span_attributes = {
+                    k: v
+                    for k, v in {
+                        LangfuseOtelSpanAttributes.ENVIRONMENT: LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+                        LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION: experiment_description,
+                        LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT: _serialize(
+                            expected_output
+                        ),
+                    }.items()
+                    if v is not None
+                }
+                span._otel_span.set_attributes(experiment_span_attributes)
 
-                propagated_experiment_attributes = PropagatedExperimentAttributes(
-                    experiment_id=experiment_id,
-                    experiment_name=experiment_run_name,
-                    experiment_metadata=_flatten_and_serialize_metadata_values(
-                        experiment_metadata
-                    ),
-                    experiment_dataset_id=dataset_id,
-                    experiment_item_id=experiment_item_id,
-                    experiment_item_metadata=_flatten_and_serialize_metadata_values(
-                        item_metadata if isinstance(item_metadata, dict) else None
-                    ),
-                    experiment_item_root_observation_id=span.id,
-                )
+                with span.start_as_current_observation(
+                    name="experiment-item-task",
+                    as_type="span",
+                    input=input_data,
+                    metadata=final_observation_metadata,
+                ) as task_span:
+                    task_span._otel_span.set_attributes(experiment_span_attributes)
 
-                with _propagate_attributes(experiment=propagated_experiment_attributes):
-                    output = await _run_task(task, item)
+                    # Link dataset runs to the canonical task observation so their
+                    # latency excludes the subsequent evaluator subtree.
+                    if hasattr(item, "id") and hasattr(item, "dataset_id"):
+                        try:
+                            # Use sync API to avoid event loop issues when
+                            # run_async_safely creates multiple event loops across
+                            # different threads.
+                            dataset_run_item = await asyncio.to_thread(
+                                self.api.dataset_run_items.create,
+                                run_name=experiment_run_name,
+                                run_description=experiment_description,
+                                metadata=experiment_metadata,
+                                dataset_item_id=item.id,  # type: ignore
+                                trace_id=trace_id,
+                                observation_id=task_span.id,
+                                dataset_version=dataset_version,
+                            )
+
+                            dataset_run_id = dataset_run_item.dataset_run_id
+
+                        except Exception as e:
+                            langfuse_logger.error(
+                                f"Failed to create dataset run item: {e}"
+                            )
+
+                    experiment_id = dataset_run_id or fallback_experiment_id
+                    propagated_experiment_attributes = PropagatedExperimentAttributes(
+                        experiment_id=experiment_id,
+                        experiment_name=experiment_run_name,
+                        experiment_metadata=_flatten_and_serialize_metadata_values(
+                            experiment_metadata
+                        ),
+                        experiment_dataset_id=dataset_id,
+                        experiment_item_id=experiment_item_id,
+                        experiment_item_metadata=_flatten_and_serialize_metadata_values(
+                            item_metadata if isinstance(item_metadata, dict) else None
+                        ),
+                        experiment_item_root_observation_id=task_span.id,
+                    )
+
+                    with _propagate_attributes(
+                        experiment=propagated_experiment_attributes
+                    ):
+                        # _propagate_attributes updates the current task span and future children.
+                        # Explicitly backfill the parent item-run span to preserve experiment association.
+                        span._otel_span.set_attributes(
+                            _get_propagated_attributes_from_context(
+                                otel_context_api.get_current()
+                            )
+                        )
+                        try:
+                            output = await _run_task(task, item)
+                        except Exception as e:
+                            task_span.update(
+                                output=f"Error: {str(e)}",
+                                level="ERROR",
+                                status_message=str(e),
+                            )
+                            raise
+
+                    task_span.update(output=output)
 
                 span.update(
                     input=input_data,
@@ -3017,93 +3069,153 @@ class Langfuse:
                 )
                 raise e
 
-            # Run evaluators
-            evaluations = []
+            evaluations: List[Evaluation] = []
+            failed_evaluator_count = 0
+            eval_metadata = (
+                item.get("metadata")
+                if isinstance(item, dict)
+                else getattr(item, "metadata", None)
+            )
 
-            for evaluator in evaluators:
-                try:
-                    eval_metadata: Optional[Dict[str, Any]] = None
+            if len(evaluators) > 0:
+                with _propagate_attributes(experiment=propagated_experiment_attributes):
+                    with span.start_as_current_observation(
+                        name="experiment-item-evaluation", as_type="span"
+                    ) as evaluation_span:
+                        for evaluator_index, evaluator in enumerate(evaluators):
+                            evaluator_name = _get_evaluator_name(evaluator)
+                            evaluator_input = {
+                                "input": input_data,
+                                "output": output,
+                                "expected_output": expected_output,
+                                "metadata": eval_metadata,
+                            }
 
-                    if isinstance(item, dict):
-                        eval_metadata = item.get("metadata")
-                    elif hasattr(item, "metadata"):
-                        eval_metadata = item.metadata
+                            with evaluation_span.start_as_current_observation(
+                                name=evaluator_name,
+                                as_type="evaluator",
+                                input=evaluator_input,
+                                metadata={
+                                    "evaluator_kind": "item",
+                                    "evaluator_index": evaluator_index,
+                                },
+                            ) as evaluator_span:
+                                try:
+                                    eval_results = await _run_evaluator(
+                                        evaluator,
+                                        _raise_on_error=True,
+                                        **evaluator_input,
+                                    )
+                                    evaluator_span.update(
+                                        output=_serialize_evaluations(eval_results)
+                                    )
+                                except Exception as e:
+                                    failed_evaluator_count += 1
+                                    evaluator_span.update(
+                                        output={"error": str(e)},
+                                        level="ERROR",
+                                        status_message=str(e),
+                                    )
+                                    langfuse_logger.error(f"Evaluator failed: {e}")
+                                    continue
 
-                    with _propagate_attributes(
-                        experiment=propagated_experiment_attributes
-                    ):
-                        eval_results = await _run_evaluator(
-                            evaluator,
-                            input=input_data,
-                            output=output,
-                            expected_output=expected_output,
-                            metadata=eval_metadata,
-                        )
-                        evaluations.extend(eval_results)
+                            evaluations.extend(eval_results)
 
-                        # Store evaluations as scores
-                        for evaluation in eval_results:
-                            self.create_score(
-                                trace_id=trace_id,
-                                observation_id=span.id,
-                                name=evaluation.name,
-                                value=evaluation.value,  # type: ignore
-                                comment=evaluation.comment,
-                                metadata=evaluation.metadata,
-                                config_id=evaluation.config_id,
-                                data_type=evaluation.data_type,  # type: ignore
+                            for evaluation in eval_results:
+                                try:
+                                    self.create_score(
+                                        trace_id=trace_id,
+                                        observation_id=task_span.id,
+                                        name=evaluation.name,
+                                        value=evaluation.value,  # type: ignore
+                                        comment=evaluation.comment,
+                                        metadata=evaluation.metadata,
+                                        config_id=evaluation.config_id,
+                                        data_type=evaluation.data_type,  # type: ignore
+                                    )
+                                except Exception as e:
+                                    langfuse_logger.error(
+                                        f"Failed to store evaluation: {e}"
+                                    )
+
+                        if composite_evaluator and evaluations:
+                            composite_evaluator_name = _get_evaluator_name(
+                                composite_evaluator
                             )
+                            composite_input = {
+                                "input": input_data,
+                                "output": output,
+                                "expected_output": expected_output,
+                                "metadata": eval_metadata,
+                                "evaluations": _serialize_evaluations(evaluations),
+                            }
 
-                except Exception as e:
-                    langfuse_logger.error(f"Evaluator failed: {e}")
+                            with evaluation_span.start_as_current_observation(
+                                name=composite_evaluator_name,
+                                as_type="evaluator",
+                                input=composite_input,
+                                metadata={"evaluator_kind": "composite"},
+                            ) as composite_evaluator_span:
+                                try:
+                                    result = composite_evaluator(
+                                        input=input_data,
+                                        output=output,
+                                        expected_output=expected_output,
+                                        metadata=eval_metadata,
+                                        evaluations=evaluations,
+                                    )
 
-            # Run composite evaluator if provided and we have evaluations
-            if composite_evaluator and evaluations:
-                try:
-                    composite_eval_metadata: Optional[Dict[str, Any]] = None
-                    if isinstance(item, dict):
-                        composite_eval_metadata = item.get("metadata")
-                    elif hasattr(item, "metadata"):
-                        composite_eval_metadata = item.metadata
+                                    if asyncio.iscoroutine(result):
+                                        result = await result
 
-                    with _propagate_attributes(
-                        experiment=propagated_experiment_attributes
-                    ):
-                        result = composite_evaluator(
-                            input=input_data,
-                            output=output,
-                            expected_output=expected_output,
-                            metadata=composite_eval_metadata,
-                            evaluations=evaluations,
+                                    composite_evals = _normalize_evaluator_result(
+                                        result
+                                    )
+
+                                    composite_evaluator_span.update(
+                                        output=_serialize_evaluations(composite_evals)
+                                    )
+                                except Exception as e:
+                                    failed_evaluator_count += 1
+                                    composite_evaluator_span.update(
+                                        output={"error": str(e)},
+                                        level="ERROR",
+                                        status_message=str(e),
+                                    )
+                                    langfuse_logger.error(
+                                        f"Composite evaluator failed: {e}"
+                                    )
+                                    composite_evals = []
+
+                            for composite_evaluation in composite_evals:
+                                evaluations.append(composite_evaluation)
+                                try:
+                                    self.create_score(
+                                        trace_id=trace_id,
+                                        observation_id=task_span.id,
+                                        name=composite_evaluation.name,
+                                        value=composite_evaluation.value,  # type: ignore
+                                        comment=composite_evaluation.comment,
+                                        metadata=composite_evaluation.metadata,
+                                        config_id=composite_evaluation.config_id,
+                                        data_type=composite_evaluation.data_type,  # type: ignore
+                                    )
+                                except Exception as e:
+                                    langfuse_logger.error(
+                                        f"Failed to store composite evaluation: {e}"
+                                    )
+
+                        evaluation_span.update(
+                            output={
+                                "evaluator_count": len(evaluators)
+                                + (1 if composite_evaluator else 0),
+                                "evaluation_count": len(evaluations),
+                                "failed_evaluator_count": failed_evaluator_count,
+                                "skipped_evaluator_count": (
+                                    1 if composite_evaluator and not evaluations else 0
+                                ),
+                            }
                         )
-
-                        # Handle async composite evaluators
-                        if asyncio.iscoroutine(result):
-                            result = await result
-
-                        # Normalize to list
-                        composite_evals: List[Evaluation] = []
-                        if isinstance(result, (dict, Evaluation)):
-                            composite_evals = [result]  # type: ignore
-                        elif isinstance(result, list):
-                            composite_evals = result  # type: ignore
-
-                        # Store composite evaluations as scores and add to evaluations list
-                        for composite_evaluation in composite_evals:
-                            self.create_score(
-                                trace_id=trace_id,
-                                observation_id=span.id,
-                                name=composite_evaluation.name,
-                                value=composite_evaluation.value,  # type: ignore
-                                comment=composite_evaluation.comment,
-                                metadata=composite_evaluation.metadata,
-                                config_id=composite_evaluation.config_id,
-                                data_type=composite_evaluation.data_type,  # type: ignore
-                            )
-                            evaluations.append(composite_evaluation)
-
-                except Exception as e:
-                    langfuse_logger.error(f"Composite evaluator failed: {e}")
 
             return ExperimentItemResult(
                 item=item,
