@@ -3038,6 +3038,8 @@ class Langfuse:
                     with _propagate_attributes(
                         experiment=propagated_experiment_attributes
                     ):
+                        # _propagate_attributes updates the current task span and future children.
+                        # Explicitly backfill the parent item-run span to preserve experiment association.
                         span._otel_span.set_attributes(
                             _get_propagated_attributes_from_context(
                                 otel_context_api.get_current()
