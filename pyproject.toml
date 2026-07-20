@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "4.14.0"
+version = "4.14.1"
 description = "Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
