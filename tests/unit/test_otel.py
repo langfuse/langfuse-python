@@ -884,6 +884,48 @@ class TestBasicSpans(TestOTelBase):
         assert spans[0]["trace_id"] == trace_id
         assert spans[0]["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
 
+    def test_non_hex_trace_id_does_not_crash(self, langfuse_client, memory_exporter):
+        """A non-hex trace ID must not raise; it falls back to a random trace ID."""
+        # Previously ``int(trace_id, 16)`` raised ValueError for non-hex IDs even
+        # though the warning claimed the ID would be ignored.
+        remote_parent_span = langfuse_client._create_remote_parent_span(
+            trace_id="my-trace-123", parent_span_id=None
+        )
+
+        span_context = remote_parent_span.get_span_context()
+        # 128-bit trace ID -> non-zero and within range
+        assert 0 < span_context.trace_id < 2**128
+        assert 0 < span_context.span_id < 2**64
+
+    def test_non_hex_parent_span_id_does_not_crash(
+        self, langfuse_client, memory_exporter
+    ):
+        """A non-hex parent span ID must not raise; it falls back to a random span ID."""
+        remote_parent_span = langfuse_client._create_remote_parent_span(
+            trace_id="abcdef1234567890abcdef1234567890",
+            parent_span_id="not-a-hex-span",
+        )
+
+        span_context = remote_parent_span.get_span_context()
+        assert span_context.trace_id == int("abcdef1234567890abcdef1234567890", 16)
+        assert 0 < span_context.span_id < 2**64
+
+    def test_parseable_non_standard_trace_id_is_preserved(
+        self, langfuse_client, memory_exporter
+    ):
+        """A hex but non-32-char trace ID stays usable (no regression, no fallback)."""
+        # 31 hex chars: parseable as hex, just not zero-padded to 32.
+        non_standard_trace_id = "1ab" + "0" * 28  # 31 chars
+        assert len(non_standard_trace_id) == 31
+
+        remote_parent_span = langfuse_client._create_remote_parent_span(
+            trace_id=non_standard_trace_id, parent_span_id=None
+        )
+
+        span_context = remote_parent_span.get_span_context()
+        # The integer is derived directly from the passed hex, not randomized.
+        assert span_context.trace_id == int(non_standard_trace_id, 16)
+
     def test_multiple_generations_in_trace(self, langfuse_client, memory_exporter):
         """Test creating multiple generation spans within the same trace."""
         # Create a trace with multiple generation spans
