@@ -383,3 +383,39 @@ class TestCredentialValidation:
 
         assert isinstance(client._otel_tracer, NoOpTracer)
         assert client._resources is None
+
+    def test_explicit_empty_public_key_argument_is_not_overridden_by_env_var(
+        self, monkeypatch
+    ):
+        # An explicitly passed empty public_key must be respected (and
+        # disable the client) rather than silently falling back to a real
+        # key that happens to be set in the environment -- e.g. a shared
+        # dev machine or CI runner with LANGFUSE_PUBLIC_KEY already exported.
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-real-env-key")
+
+        client = Langfuse(public_key="", secret_key="test_sk")
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_explicit_empty_secret_key_argument_is_not_overridden_by_env_var(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-real-env-key")
+
+        client = Langfuse(public_key="test_pk", secret_key="")
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_omitted_public_key_still_falls_back_to_env_var(self, monkeypatch):
+        # Sanity check for the precedence fix: when the argument is truly
+        # omitted (not passed at all, so it defaults to None), the env var
+        # fallback must still work exactly as before.
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-from-env")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-from-env")
+
+        client = Langfuse()
+
+        assert not isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is not None

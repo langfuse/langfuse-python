@@ -377,7 +377,15 @@ class Langfuse:
             )
             langfuse_logger.setLevel(logging.DEBUG)
 
-        public_key = public_key or os.environ.get(LANGFUSE_PUBLIC_KEY)
+        # Only fall back to the env var when the argument wasn't provided at
+        # all (None). An explicitly passed falsy value (e.g. public_key="")
+        # must be respected and rejected by the check below, not silently
+        # replaced by a real key that happens to be set in the environment.
+        public_key = (
+            public_key
+            if public_key is not None
+            else os.environ.get(LANGFUSE_PUBLIC_KEY)
+        )
         if not isinstance(public_key, str) or not public_key.strip():
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without public_key. Client will be disabled. "
@@ -386,7 +394,11 @@ class Langfuse:
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
 
-        secret_key = secret_key or os.environ.get(LANGFUSE_SECRET_KEY)
+        secret_key = (
+            secret_key
+            if secret_key is not None
+            else os.environ.get(LANGFUSE_SECRET_KEY)
+        )
         if not isinstance(secret_key, str) or not secret_key.strip():
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without secret_key. Client will be disabled. "

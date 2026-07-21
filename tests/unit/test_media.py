@@ -100,6 +100,17 @@ def test_parse_reference_string_with_empty_field_values_raises_missing_fields_er
         LangfuseMedia.parse_reference_string("@@@langfuseMedia:type=|id=|source=@@@")
 
 
+def test_parse_reference_string_with_whitespace_only_field_value_raises_missing_fields_error():
+    # A whitespace-only value (e.g. "id=   ") is non-empty as a raw string,
+    # so it would pass a plain truthiness check on the parsed value, and the
+    # resulting whitespace-only media_id would still reach a real
+    # api.media.get() call in LangfuseMedia.resolve_media_references.
+    with pytest.raises(ValueError, match="Missing required fields"):
+        LangfuseMedia.parse_reference_string(
+            "@@@langfuseMedia:type=image/jpeg|id=   |source=bytes@@@"
+        )
+
+
 def test_parse_reference_string_with_malformed_pair_raises_missing_fields_error():
     # A pipe-separated segment with no "=" (here, a typo dropping the "="
     # from "id=") used to crash with a raw "not enough values to unpack"
