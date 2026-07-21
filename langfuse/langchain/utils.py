@@ -70,8 +70,12 @@ def _extract_model_name(
 
             serialized_kwargs = serialized.get("kwargs")
             if serialized_kwargs and isinstance(serialized_kwargs, dict):
+                # LangChain's AzureOpenAI exposes the API version under
+                # `openai_api_version`, not `deployment_version` — the latter
+                # is never populated, so previously the version suffix was
+                # dropped from the resulting model name.
                 if serialized_kwargs.get("openai_api_version"):
-                    deployment_version = serialized_kwargs.get("deployment_version")
+                    deployment_version = serialized_kwargs.get("openai_api_version")
 
                 if serialized_kwargs.get("deployment_name"):
                     deployment_name = serialized_kwargs.get("deployment_name")
