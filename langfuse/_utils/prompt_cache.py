@@ -130,9 +130,16 @@ class PromptCacheTaskManager(object):
 
         atexit.unregister(self.shutdown)
 
-        for consumer in self._consumers:
-            consumer.pause()
-
+        # Send one sentinel per consumer so that each blocked `_queue.get()` call
+        # wakes up and exits cleanly via the `if task is _SHUTDOWN_SENTINEL` check.
+        #
+        # NOTE: We intentionally do NOT call `consumer.pause()` here.  Calling
+        # `pause()` (which sets `self.running = False`) before the sentinels are
+        # enqueued creates a race condition: if a consumer finishes its current
+        # task and re-evaluates the `while self.running` guard before its sentinel
+        # arrives, it exits the loop without consuming the sentinel.  The sentinel
+        # then remains in the queue with `task_done()` never called, which causes
+        # any subsequent `wait_for_idle()` (i.e. `Queue.join()`) to block forever.
         for _ in self._consumers:
             self._queue.put(_SHUTDOWN_SENTINEL)
 
@@ -177,10 +184,18 @@ class PromptCache:
             self._cache.pop(key, None)
 
     def invalidate(self, prompt_name: str) -> None:
-        """Invalidate all cached prompts with the given prompt name."""
+        """Invalidate all cached prompts with the given prompt name.
+
+        Cache keys have the form ``{name}-label:{value}`` or ``{name}-version:{n}``.
+        We match on the full name followed by a ``-label:`` or ``-version:`` token so
+        that a prompt named ``"foo"`` does not accidentally evict entries belonging to
+        the similarly-named prompt ``"foobar"`` (whose keys start with ``"foo"`` too).
+        """
+        label_prefix = prompt_name + "-label:"
+        version_prefix = prompt_name + "-version:"
         with self._lock:
             for key in list(self._cache):
-                if key.startswith(prompt_name):
+                if key.startswith(label_prefix) or key.startswith(version_prefix):
                     del self._cache[key]
 
     def add_refresh_prompt_task(self, key: str, fetch_func: Callable[[], None]) -> None:
