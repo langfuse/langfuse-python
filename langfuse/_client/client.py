@@ -378,7 +378,7 @@ class Langfuse:
             langfuse_logger.setLevel(logging.DEBUG)
 
         public_key = public_key or os.environ.get(LANGFUSE_PUBLIC_KEY)
-        if public_key is None:
+        if not isinstance(public_key, str) or not public_key.strip():
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without public_key. Client will be disabled. "
                 "Provide a public_key parameter or set LANGFUSE_PUBLIC_KEY environment variable. "
@@ -387,7 +387,7 @@ class Langfuse:
             return
 
         secret_key = secret_key or os.environ.get(LANGFUSE_SECRET_KEY)
-        if secret_key is None:
+        if not isinstance(secret_key, str) or not secret_key.strip():
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without secret_key. Client will be disabled. "
                 "Provide a secret_key parameter or set LANGFUSE_SECRET_KEY environment variable. "

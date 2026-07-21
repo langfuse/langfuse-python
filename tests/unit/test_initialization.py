@@ -7,6 +7,7 @@ environment variables work correctly for initializing the Langfuse client.
 import os
 
 import pytest
+from opentelemetry.trace import NoOpTracer
 
 from langfuse import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
@@ -297,3 +298,88 @@ class TestClientInitialization:
             secret_key="test_sk",
         )
         assert client2._base_url == "http://insecure.com"
+
+
+class TestCredentialValidation:
+    """An empty-string key (e.g. an unset secret rendered as "" by a
+    templated Docker/k8s env file) must disable the client the same way a
+    missing key does, rather than silently proceeding to construct a client
+    that then fails confusingly on every real request.
+    """
+
+    @pytest.fixture(autouse=True)
+    def cleanup(self):
+        original = {
+            "LANGFUSE_PUBLIC_KEY": os.environ.get("LANGFUSE_PUBLIC_KEY"),
+            "LANGFUSE_SECRET_KEY": os.environ.get("LANGFUSE_SECRET_KEY"),
+        }
+
+        yield
+
+        with LangfuseResourceManager._lock:
+            LangfuseResourceManager._instances.clear()
+
+        for key, value in original.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    def test_empty_string_public_key_env_var_disables_client(self, monkeypatch):
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test_sk")
+
+        client = Langfuse()
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_empty_string_secret_key_env_var_disables_client(self, monkeypatch):
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "test_pk")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "")
+
+        client = Langfuse()
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_empty_string_public_key_argument_disables_client(self, monkeypatch):
+        monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+
+        client = Langfuse(public_key="", secret_key="test_sk")
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_whitespace_only_public_key_argument_disables_client(self, monkeypatch):
+        # A whitespace-only value is falsy-string-adjacent but not caught by
+        # a plain truthiness check ("   " is truthy); it must still disable
+        # the client rather than proceed with a blank credential.
+        monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+
+        client = Langfuse(public_key="   ", secret_key="test_sk")
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_whitespace_only_secret_key_argument_disables_client(self, monkeypatch):
+        monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+
+        client = Langfuse(public_key="test_pk", secret_key="   ")
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_non_string_public_key_argument_disables_client_without_crashing(
+        self, monkeypatch
+    ):
+        # A caller passing a non-string value (violating the declared
+        # Optional[str] type at runtime, since Python doesn't enforce it)
+        # must still disable the client cleanly rather than crash inside
+        # the validation guard itself (e.g. calling .strip() on an int).
+        monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+
+        client = Langfuse(public_key=123, secret_key="test_sk")  # type: ignore[arg-type]
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
