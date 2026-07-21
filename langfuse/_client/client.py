@@ -213,6 +213,7 @@ class Langfuse:
         tracing_enabled (Optional[bool]): Enable or disable tracing. Defaults to True. Can also be set via LANGFUSE_TRACING_ENABLED environment variable.
         flush_at (Optional[int]): Number of spans to batch before sending to the API. Defaults to 512. Can also be set via LANGFUSE_FLUSH_AT environment variable.
         flush_interval (Optional[float]): Time in seconds between batch flushes. Defaults to 5 seconds. Can also be set via LANGFUSE_FLUSH_INTERVAL environment variable.
+        max_queue_size (Optional[int]): Maximum number of spans buffered in memory before export. When the buffer fills (for example under high concurrency), additional spans are dropped, which can result in incomplete traces; increase this to reduce drops. Must be greater than or equal to flush_at. Defaults to 2048. Can also be set via LANGFUSE_MAX_QUEUE_SIZE environment variable.
         environment (Optional[str]): Environment name for tracing. Default is 'default'. Can also be set via LANGFUSE_TRACING_ENVIRONMENT environment variable. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
         release (Optional[str]): Release version/hash of your application. Used for grouping analytics by release.
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
@@ -323,6 +324,7 @@ class Langfuse:
         tracing_enabled: Optional[bool] = True,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
+        max_queue_size: Optional[int] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         media_upload_thread_count: Optional[int] = None,
@@ -422,6 +424,7 @@ class Langfuse:
             release=release,
             flush_at=flush_at,
             flush_interval=flush_interval,
+            max_queue_size=max_queue_size,
             httpx_client=httpx_client,
             media_upload_thread_count=media_upload_thread_count,
             sample_rate=sample_rate,

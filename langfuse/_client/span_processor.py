@@ -27,6 +27,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
+    LANGFUSE_MAX_QUEUE_SIZE,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.propagation import (
@@ -72,6 +73,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
+        max_queue_size: Optional[int] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
@@ -97,6 +99,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         env_flush_interval = os.environ.get(LANGFUSE_FLUSH_INTERVAL, None)
         if flush_interval is None and env_flush_interval is not None:
             flush_interval = float(env_flush_interval)
+
+        env_max_queue_size = os.environ.get(LANGFUSE_MAX_QUEUE_SIZE, None)
+        if max_queue_size is None and env_max_queue_size is not None:
+            max_queue_size = int(env_max_queue_size)
 
         if span_exporter is None:
             basic_auth_header = "Basic " + base64.b64encode(
@@ -138,6 +144,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         super().__init__(
             span_exporter=span_exporter,
             export_timeout_millis=timeout * 1_000 if timeout else None,
+            max_queue_size=max_queue_size,
             max_export_batch_size=flush_at,
             schedule_delay_millis=flush_interval * 1_000
             if flush_interval is not None
