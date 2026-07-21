@@ -18,6 +18,7 @@ from uuid import UUID
 import pydantic
 from opentelemetry import context, trace
 from opentelemetry.util._decorator import _AgnosticContextManager
+from typing_extensions import Protocol
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
@@ -142,12 +143,26 @@ class _PendingResumeTraceContextStore:
         return list(self._contexts.keys())
 
 
+class LangchainGenerationMetadataExtractor(Protocol):
+    def __call__(
+        self,
+        response: LLMResult,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Optional[Dict[str, Any]]: ...
+
+
 class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def __init__(
         self,
         *,
         public_key: Optional[str] = None,
         trace_context: Optional[TraceContext] = None,
+        generation_metadata_extractor: Optional[
+            LangchainGenerationMetadataExtractor
+        ] = None,
     ) -> None:
         """Initialize the LangchainCallbackHandler.
 
@@ -157,6 +172,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 setting a custom trace id for the root LangChain run. Pass a `TraceContext` dict, e.g.
                 `{"trace_id": "<trace_id>"}` (and optionally `{"parent_span_id": "<span_id>"}`) to link
                 the trace to an upstream system.
+            generation_metadata_extractor: Optional callable that receives the LangChain `LLMResult`,
+                `run_id`, `parent_run_id`, and callback kwargs, and returns metadata to merge with
+                the ended Langfuse generation observation.
 
         Example:
             Use a custom trace id without context managers:
@@ -183,6 +201,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self._prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self._updated_completion_start_time_memo: Set[UUID] = set()
         self._trace_context = trace_context
+        self._generation_metadata_extractor = generation_metadata_extractor
+        self._generation_metadata_by_run_id: Dict[UUID, Dict[str, Any]] = {}
         self._pending_resume_trace_contexts = _PendingResumeTraceContextStore(
             MAX_PENDING_RESUME_TRACE_CONTEXTS
         )
@@ -190,6 +210,25 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self._root_run_states: Dict[UUID, _RootRunState] = {}
 
         self.last_trace_id: Optional[str] = None
+
+    def get_generation_metadata(
+        self,
+        response: LLMResult,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Optional[Dict[str, Any]]:
+        """Return response-derived metadata for a LangChain generation observation."""
+        if self._generation_metadata_extractor is None:
+            return None
+
+        return self._generation_metadata_extractor(
+            response,
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            **kwargs,
+        )
 
     def on_llm_new_token(
         self,
@@ -1212,18 +1251,18 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                         current_parent_run_id
                     )
 
+            observation_metadata = self._get_langchain_observation_metadata(
+                parent_run_id=parent_run_id,
+                tags=tags,
+                metadata=metadata,
+                # If llm is run isolated and outside chain, keep trace attributes
+                keep_langfuse_trace_attributes=True if parent_run_id is None else False,
+            )
+
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
                 "input": prompts,
-                "metadata": self._get_langchain_observation_metadata(
-                    parent_run_id=parent_run_id,
-                    tags=tags,
-                    metadata=metadata,
-                    # If llm is run isolated and outside chain, keep trace attributes
-                    keep_langfuse_trace_attributes=True
-                    if parent_run_id is None
-                    else False,
-                ),
+                "metadata": observation_metadata,
                 "model": model_name,
                 "model_parameters": self._parse_model_parameters(kwargs),
                 "prompt": registered_prompt,
@@ -1241,6 +1280,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     as_type="generation", **content
                 )  # type: ignore
             self._attach_observation(run_id, generation)
+            if observation_metadata is not None:
+                self._generation_metadata_by_run_id[run_id] = observation_metadata
 
             self.last_trace_id = self._runs[run_id].trace_id
 
@@ -1335,14 +1376,30 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             model = _parse_model(response)
 
             generation = self._detach_observation(run_id)
+            initial_metadata = self._generation_metadata_by_run_id.pop(run_id, {})
 
             if generation is not None:
+                try:
+                    generation_metadata = self.get_generation_metadata(
+                        response,
+                        run_id=run_id,
+                        parent_run_id=parent_run_id,
+                        **kwargs,
+                    )
+                except Exception as e:
+                    langfuse_logger.exception(e)
+                    generation_metadata = None
+
                 generation.update(
                     output=extracted_response,
                     usage=llm_usage,
                     usage_details=llm_usage,
                     input=kwargs.get("inputs"),
                     model=model,
+                    metadata={
+                        **initial_metadata,
+                        **(generation_metadata or {}),
+                    },
                 ).end()
 
         except Exception as e:
@@ -1367,6 +1424,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event("on_llm_error", run_id, parent_run_id, error=error)
 
             generation = self._detach_observation(run_id)
+            self._generation_metadata_by_run_id.pop(run_id, None)
 
             if generation is not None:
                 level, status_message = self._get_error_level_and_status_message(error)
@@ -1401,10 +1459,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         root_run_state = self._root_run_states.pop(run_state.root_run_id, None)
         if root_run_state is None:
             self._run_states.pop(root_run_id, None)
+            self._generation_metadata_by_run_id.pop(root_run_id, None)
             return
 
         for run_id in root_run_state.run_ids:
             self._run_states.pop(run_id, None)
+            self._generation_metadata_by_run_id.pop(run_id, None)
 
     def _exit_propagation_context(self, run_id: UUID) -> None:
         root_run_state = self._get_root_run_state(run_id)
