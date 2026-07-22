@@ -36,7 +36,7 @@ class RawMetricsV1Client:
             JSON string containing the query parameters with the following structure:
             ```json
             {
-              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-categorical"
+              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-boolean", "scores-categorical"
               "dimensions": [           // Optional. Default: []
                 {
                   "field": string       // Field to group by, e.g. "name", "userId", "sessionId"
@@ -189,7 +189,7 @@ class AsyncRawMetricsV1Client:
             JSON string containing the query parameters with the following structure:
             ```json
             {
-              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-categorical"
+              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-boolean", "scores-categorical"
               "dimensions": [           // Optional. Default: []
                 {
                   "field": string       // Field to group by, e.g. "name", "userId", "sessionId"

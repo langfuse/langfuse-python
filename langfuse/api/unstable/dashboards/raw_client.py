@@ -23,6 +23,7 @@ from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
+from ..dashboard_widgets.types.dashboard_widget_filter import DashboardWidgetFilter
 from ..errors.errors.access_denied_error import (
     AccessDeniedError as unstable_errors_errors_access_denied_error_AccessDeniedError,
 )
@@ -40,21 +41,19 @@ from ..errors.errors.unauthorized_error import (
     UnauthorizedError as unstable_errors_errors_unauthorized_error_UnauthorizedError,
 )
 from ..errors.types.public_api_error import PublicApiError
-from .types.dashboard_widget import DashboardWidget
-from .types.dashboard_widget_chart_config_input import DashboardWidgetChartConfigInput
-from .types.dashboard_widget_chart_type import DashboardWidgetChartType
-from .types.dashboard_widget_dimension import DashboardWidgetDimension
-from .types.dashboard_widget_filter import DashboardWidgetFilter
-from .types.dashboard_widget_list import DashboardWidgetList
-from .types.dashboard_widget_metric import DashboardWidgetMetric
-from .types.dashboard_widget_view import DashboardWidgetView
-from .types.delete_dashboard_widget_response import DeleteDashboardWidgetResponse
+from .types.create_dashboard_placement_request import CreateDashboardPlacementRequest
+from .types.dashboard import Dashboard
+from .types.dashboard_definition import DashboardDefinition
+from .types.dashboard_list import DashboardList
+from .types.dashboard_placement import DashboardPlacement
+from .types.delete_dashboard_placement_response import DeleteDashboardPlacementResponse
+from .types.delete_dashboard_response import DeleteDashboardResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class RawDashboardWidgetsClient:
+class RawDashboardsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
@@ -64,13 +63,10 @@ class RawDashboardWidgetsClient:
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[DashboardWidgetList]:
+    ) -> HttpResponse[DashboardList]:
         """
-        List dashboard widgets in the project, ordered by most recently
-        updated first.
-
-        Responses may include legacy `traces` widgets created before this
-        API existed. New widgets cannot be created with `view: traces`.
+        List dashboards in the project, ordered by most recently updated
+        first.
 
         Parameters
         ----------
@@ -85,10 +81,10 @@ class RawDashboardWidgetsClient:
 
         Returns
         -------
-        HttpResponse[DashboardWidgetList]
+        HttpResponse[DashboardList]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/dashboard-widgets",
+            "api/public/unstable/dashboards",
             method="GET",
             params={
                 "page": page,
@@ -99,9 +95,9 @@ class RawDashboardWidgetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidgetList,
+                    DashboardList,
                     parse_obj_as(
-                        type_=DashboardWidgetList,  # type: ignore
+                        type_=DashboardList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -244,86 +240,45 @@ class RawDashboardWidgetsClient:
         self,
         *,
         name: str,
-        view: DashboardWidgetView,
-        dimensions: typing.Sequence[DashboardWidgetDimension],
-        metrics: typing.Sequence[DashboardWidgetMetric],
-        filters: typing.Sequence[DashboardWidgetFilter],
-        chart_type: DashboardWidgetChartType,
         description: typing.Optional[str] = OMIT,
-        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
+        definition: typing.Optional[DashboardDefinition] = OMIT,
+        filters: typing.Optional[typing.Sequence[DashboardWidgetFilter]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[DashboardWidget]:
+    ) -> HttpResponse[Dashboard]:
         """
-        Create a dashboard widget (a standalone chart definition you place on
-        any dashboard).
-
-        This endpoint creates the widget only; place it on a dashboard via
-        `POST /dashboards/{dashboardId}/placements`.
-
-        Supported views are `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical`.
-        The legacy `traces` view is not supported by this unstable API.
-        Widgets are created as v2 internally.
-
-        `chartConfig` is optional and defaults to the plain config for
-        `chartType`; when `chartConfig.type` is given it must match
-        `chartType`.
-
-        Unstable API note:
-        - This surface may evolve while dashboard/widget APIs are being finalized.
+        Create a dashboard.
 
         Parameters
         ----------
         name : str
 
-        view : DashboardWidgetView
-
-        dimensions : typing.Sequence[DashboardWidgetDimension]
-
-        metrics : typing.Sequence[DashboardWidgetMetric]
-
-        filters : typing.Sequence[DashboardWidgetFilter]
-
-        chart_type : DashboardWidgetChartType
-
         description : typing.Optional[str]
-            Defaults to an empty string.
 
-        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
-            Defaults to the plain config for `chartType`.
+        definition : typing.Optional[DashboardDefinition]
+
+        filters : typing.Optional[typing.Sequence[DashboardWidgetFilter]]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[DashboardWidget]
+        HttpResponse[Dashboard]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/dashboard-widgets",
+            "api/public/unstable/dashboards",
             method="POST",
             json={
                 "name": name,
                 "description": description,
-                "view": view,
-                "dimensions": convert_and_respect_annotation_metadata(
-                    object_=dimensions,
-                    annotation=typing.Sequence[DashboardWidgetDimension],
-                    direction="write",
-                ),
-                "metrics": convert_and_respect_annotation_metadata(
-                    object_=metrics,
-                    annotation=typing.Sequence[DashboardWidgetMetric],
+                "definition": convert_and_respect_annotation_metadata(
+                    object_=definition,
+                    annotation=DashboardDefinition,
                     direction="write",
                 ),
                 "filters": convert_and_respect_annotation_metadata(
                     object_=filters,
                     annotation=typing.Sequence[DashboardWidgetFilter],
-                    direction="write",
-                ),
-                "chartType": chart_type,
-                "chartConfig": convert_and_respect_annotation_metadata(
-                    object_=chart_config,
-                    annotation=DashboardWidgetChartConfigInput,
                     direction="write",
                 ),
             },
@@ -333,9 +288,9 @@ class RawDashboardWidgetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidget,
+                    Dashboard,
                     parse_obj_as(
-                        type_=DashboardWidget,  # type: ignore
+                        type_=Dashboard,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -364,6 +319,17 @@ class RawDashboardWidgetsClient:
                 )
             if _response.status_code == 403:
                 raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         PublicApiError,
@@ -475,35 +441,36 @@ class RawDashboardWidgetsClient:
         )
 
     def get(
-        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[DashboardWidget]:
+        self,
+        dashboard_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[Dashboard]:
         """
-        Get a dashboard widget by id.
-
-        The response may use `view: traces` for legacy widgets.
+        Get a dashboard by id.
 
         Parameters
         ----------
-        widget_id : str
+        dashboard_id : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[DashboardWidget]
+        HttpResponse[Dashboard]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/dashboard-widgets/{jsonable_encoder(widget_id)}",
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}",
             method="GET",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidget,
+                    Dashboard,
                     parse_obj_as(
-                        type_=DashboardWidget,  # type: ignore
+                        type_=Dashboard,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -655,82 +622,50 @@ class RawDashboardWidgetsClient:
 
     def update(
         self,
-        widget_id: str,
+        dashboard_id: str,
         *,
         name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        view: typing.Optional[DashboardWidgetView] = OMIT,
-        dimensions: typing.Optional[typing.Sequence[DashboardWidgetDimension]] = OMIT,
-        metrics: typing.Optional[typing.Sequence[DashboardWidgetMetric]] = OMIT,
+        definition: typing.Optional[DashboardDefinition] = OMIT,
         filters: typing.Optional[typing.Sequence[DashboardWidgetFilter]] = OMIT,
-        chart_type: typing.Optional[DashboardWidgetChartType] = OMIT,
-        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[DashboardWidget]:
+    ) -> HttpResponse[Dashboard]:
         """
-        Update a dashboard widget.
-
-        All fields are optional; at least one field is required.
-        Changing `chartType` without sending `chartConfig` resets the config
-        to the new chart type's defaults. When `chartConfig.type` is given
-        it must match the widget's (possibly updated) `chartType`.
-
-        `view` cannot be changed to the legacy `traces` value. Existing
-        `traces` widgets may be updated on other fields.
+        Update a dashboard's name, description, definition, or filters.
 
         Parameters
         ----------
-        widget_id : str
+        dashboard_id : str
 
         name : typing.Optional[str]
 
         description : typing.Optional[str]
 
-        view : typing.Optional[DashboardWidgetView]
-
-        dimensions : typing.Optional[typing.Sequence[DashboardWidgetDimension]]
-
-        metrics : typing.Optional[typing.Sequence[DashboardWidgetMetric]]
+        definition : typing.Optional[DashboardDefinition]
 
         filters : typing.Optional[typing.Sequence[DashboardWidgetFilter]]
-
-        chart_type : typing.Optional[DashboardWidgetChartType]
-
-        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[DashboardWidget]
+        HttpResponse[Dashboard]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/dashboard-widgets/{jsonable_encoder(widget_id)}",
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}",
             method="PATCH",
             json={
                 "name": name,
                 "description": description,
-                "view": view,
-                "dimensions": convert_and_respect_annotation_metadata(
-                    object_=dimensions,
-                    annotation=typing.Sequence[DashboardWidgetDimension],
-                    direction="write",
-                ),
-                "metrics": convert_and_respect_annotation_metadata(
-                    object_=metrics,
-                    annotation=typing.Sequence[DashboardWidgetMetric],
+                "definition": convert_and_respect_annotation_metadata(
+                    object_=definition,
+                    annotation=DashboardDefinition,
                     direction="write",
                 ),
                 "filters": convert_and_respect_annotation_metadata(
                     object_=filters,
                     annotation=typing.Sequence[DashboardWidgetFilter],
-                    direction="write",
-                ),
-                "chartType": chart_type,
-                "chartConfig": convert_and_respect_annotation_metadata(
-                    object_=chart_config,
-                    annotation=DashboardWidgetChartConfigInput,
                     direction="write",
                 ),
             },
@@ -740,9 +675,9 @@ class RawDashboardWidgetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidget,
+                    Dashboard,
                     parse_obj_as(
-                        type_=DashboardWidget,  # type: ignore
+                        type_=Dashboard,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -893,36 +828,234 @@ class RawDashboardWidgetsClient:
         )
 
     def delete(
-        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[DeleteDashboardWidgetResponse]:
+        self,
+        dashboard_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[DeleteDashboardResponse]:
         """
-        Delete a dashboard widget.
-
-        The API returns `409` while the widget is still placed on a dashboard.
-        Remove those placements first.
+        Delete a dashboard.
 
         Parameters
         ----------
-        widget_id : str
+        dashboard_id : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[DeleteDashboardWidgetResponse]
+        HttpResponse[DeleteDashboardResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/dashboard-widgets/{jsonable_encoder(widget_id)}",
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}",
             method="DELETE",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DeleteDashboardWidgetResponse,
+                    DeleteDashboardResponse,
                     parse_obj_as(
-                        type_=DeleteDashboardWidgetResponse,  # type: ignore
+                        type_=DeleteDashboardResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    def add_placement(
+        self,
+        dashboard_id: str,
+        *,
+        request: CreateDashboardPlacementRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[DashboardPlacement]:
+        """
+        Add a placement to a dashboard grid (see `DashboardPlacement` for
+        grid semantics).
+
+        `id` and the position fields are optional: when omitted, the
+        placement gets a server-generated id and is appended below all
+        existing tiles as a 6x6 tile. Returns the created placement.
+
+        The referenced widget must exist in the same project or be a
+        Langfuse-managed widget. The API returns `409` if a placement with
+        the same `id` already exists on the dashboard.
+
+        Parameters
+        ----------
+        dashboard_id : str
+
+        request : CreateDashboardPlacementRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DashboardPlacement]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}/placements",
+            method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request,
+                annotation=CreateDashboardPlacementRequest,
+                direction="write",
+            ),
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DashboardPlacement,
+                    parse_obj_as(
+                        type_=DashboardPlacement,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1083,8 +1216,400 @@ class RawDashboardWidgetsClient:
             body=_response_json,
         )
 
+    def update_placement(
+        self,
+        dashboard_id: str,
+        placement_id: str,
+        *,
+        x: typing.Optional[int] = OMIT,
+        y: typing.Optional[int] = OMIT,
+        width: typing.Optional[int] = OMIT,
+        height: typing.Optional[int] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[DashboardPlacement]:
+        """
+        Move or resize a placement. All fields are optional; at least one is
+        required. Omitted fields keep their current value. The placement's
+        content (widget/preset reference) and id cannot change — delete and
+        re-add the placement to swap content. Returns the updated placement.
 
-class AsyncRawDashboardWidgetsClient:
+        Parameters
+        ----------
+        dashboard_id : str
+
+        placement_id : str
+
+        x : typing.Optional[int]
+            Grid column (12-column grid).
+
+        y : typing.Optional[int]
+            Grid row.
+
+        width : typing.Optional[int]
+            Width in grid columns.
+
+        height : typing.Optional[int]
+            Height in grid rows.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DashboardPlacement]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}/placements/{jsonable_encoder(placement_id)}",
+            method="PATCH",
+            json={
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DashboardPlacement,
+                    parse_obj_as(
+                        type_=DashboardPlacement,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    def delete_placement(
+        self,
+        dashboard_id: str,
+        placement_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[DeleteDashboardPlacementResponse]:
+        """
+        Remove a placement from a dashboard grid without deleting the referenced widget.
+
+        Parameters
+        ----------
+        dashboard_id : str
+
+        placement_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DeleteDashboardPlacementResponse]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}/placements/{jsonable_encoder(placement_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteDashboardPlacementResponse,
+                    parse_obj_as(
+                        type_=DeleteDashboardPlacementResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+
+class AsyncRawDashboardsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
@@ -1094,13 +1619,10 @@ class AsyncRawDashboardWidgetsClient:
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[DashboardWidgetList]:
+    ) -> AsyncHttpResponse[DashboardList]:
         """
-        List dashboard widgets in the project, ordered by most recently
-        updated first.
-
-        Responses may include legacy `traces` widgets created before this
-        API existed. New widgets cannot be created with `view: traces`.
+        List dashboards in the project, ordered by most recently updated
+        first.
 
         Parameters
         ----------
@@ -1115,10 +1637,10 @@ class AsyncRawDashboardWidgetsClient:
 
         Returns
         -------
-        AsyncHttpResponse[DashboardWidgetList]
+        AsyncHttpResponse[DashboardList]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/dashboard-widgets",
+            "api/public/unstable/dashboards",
             method="GET",
             params={
                 "page": page,
@@ -1129,9 +1651,9 @@ class AsyncRawDashboardWidgetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidgetList,
+                    DashboardList,
                     parse_obj_as(
-                        type_=DashboardWidgetList,  # type: ignore
+                        type_=DashboardList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1274,86 +1796,45 @@ class AsyncRawDashboardWidgetsClient:
         self,
         *,
         name: str,
-        view: DashboardWidgetView,
-        dimensions: typing.Sequence[DashboardWidgetDimension],
-        metrics: typing.Sequence[DashboardWidgetMetric],
-        filters: typing.Sequence[DashboardWidgetFilter],
-        chart_type: DashboardWidgetChartType,
         description: typing.Optional[str] = OMIT,
-        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
+        definition: typing.Optional[DashboardDefinition] = OMIT,
+        filters: typing.Optional[typing.Sequence[DashboardWidgetFilter]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[DashboardWidget]:
+    ) -> AsyncHttpResponse[Dashboard]:
         """
-        Create a dashboard widget (a standalone chart definition you place on
-        any dashboard).
-
-        This endpoint creates the widget only; place it on a dashboard via
-        `POST /dashboards/{dashboardId}/placements`.
-
-        Supported views are `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical`.
-        The legacy `traces` view is not supported by this unstable API.
-        Widgets are created as v2 internally.
-
-        `chartConfig` is optional and defaults to the plain config for
-        `chartType`; when `chartConfig.type` is given it must match
-        `chartType`.
-
-        Unstable API note:
-        - This surface may evolve while dashboard/widget APIs are being finalized.
+        Create a dashboard.
 
         Parameters
         ----------
         name : str
 
-        view : DashboardWidgetView
-
-        dimensions : typing.Sequence[DashboardWidgetDimension]
-
-        metrics : typing.Sequence[DashboardWidgetMetric]
-
-        filters : typing.Sequence[DashboardWidgetFilter]
-
-        chart_type : DashboardWidgetChartType
-
         description : typing.Optional[str]
-            Defaults to an empty string.
 
-        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
-            Defaults to the plain config for `chartType`.
+        definition : typing.Optional[DashboardDefinition]
+
+        filters : typing.Optional[typing.Sequence[DashboardWidgetFilter]]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[DashboardWidget]
+        AsyncHttpResponse[Dashboard]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/dashboard-widgets",
+            "api/public/unstable/dashboards",
             method="POST",
             json={
                 "name": name,
                 "description": description,
-                "view": view,
-                "dimensions": convert_and_respect_annotation_metadata(
-                    object_=dimensions,
-                    annotation=typing.Sequence[DashboardWidgetDimension],
-                    direction="write",
-                ),
-                "metrics": convert_and_respect_annotation_metadata(
-                    object_=metrics,
-                    annotation=typing.Sequence[DashboardWidgetMetric],
+                "definition": convert_and_respect_annotation_metadata(
+                    object_=definition,
+                    annotation=DashboardDefinition,
                     direction="write",
                 ),
                 "filters": convert_and_respect_annotation_metadata(
                     object_=filters,
                     annotation=typing.Sequence[DashboardWidgetFilter],
-                    direction="write",
-                ),
-                "chartType": chart_type,
-                "chartConfig": convert_and_respect_annotation_metadata(
-                    object_=chart_config,
-                    annotation=DashboardWidgetChartConfigInput,
                     direction="write",
                 ),
             },
@@ -1363,9 +1844,9 @@ class AsyncRawDashboardWidgetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidget,
+                    Dashboard,
                     parse_obj_as(
-                        type_=DashboardWidget,  # type: ignore
+                        type_=Dashboard,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1394,6 +1875,17 @@ class AsyncRawDashboardWidgetsClient:
                 )
             if _response.status_code == 403:
                 raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         PublicApiError,
@@ -1505,35 +1997,36 @@ class AsyncRawDashboardWidgetsClient:
         )
 
     async def get(
-        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[DashboardWidget]:
+        self,
+        dashboard_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[Dashboard]:
         """
-        Get a dashboard widget by id.
-
-        The response may use `view: traces` for legacy widgets.
+        Get a dashboard by id.
 
         Parameters
         ----------
-        widget_id : str
+        dashboard_id : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[DashboardWidget]
+        AsyncHttpResponse[Dashboard]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/dashboard-widgets/{jsonable_encoder(widget_id)}",
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}",
             method="GET",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidget,
+                    Dashboard,
                     parse_obj_as(
-                        type_=DashboardWidget,  # type: ignore
+                        type_=Dashboard,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1685,82 +2178,50 @@ class AsyncRawDashboardWidgetsClient:
 
     async def update(
         self,
-        widget_id: str,
+        dashboard_id: str,
         *,
         name: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        view: typing.Optional[DashboardWidgetView] = OMIT,
-        dimensions: typing.Optional[typing.Sequence[DashboardWidgetDimension]] = OMIT,
-        metrics: typing.Optional[typing.Sequence[DashboardWidgetMetric]] = OMIT,
+        definition: typing.Optional[DashboardDefinition] = OMIT,
         filters: typing.Optional[typing.Sequence[DashboardWidgetFilter]] = OMIT,
-        chart_type: typing.Optional[DashboardWidgetChartType] = OMIT,
-        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[DashboardWidget]:
+    ) -> AsyncHttpResponse[Dashboard]:
         """
-        Update a dashboard widget.
-
-        All fields are optional; at least one field is required.
-        Changing `chartType` without sending `chartConfig` resets the config
-        to the new chart type's defaults. When `chartConfig.type` is given
-        it must match the widget's (possibly updated) `chartType`.
-
-        `view` cannot be changed to the legacy `traces` value. Existing
-        `traces` widgets may be updated on other fields.
+        Update a dashboard's name, description, definition, or filters.
 
         Parameters
         ----------
-        widget_id : str
+        dashboard_id : str
 
         name : typing.Optional[str]
 
         description : typing.Optional[str]
 
-        view : typing.Optional[DashboardWidgetView]
-
-        dimensions : typing.Optional[typing.Sequence[DashboardWidgetDimension]]
-
-        metrics : typing.Optional[typing.Sequence[DashboardWidgetMetric]]
+        definition : typing.Optional[DashboardDefinition]
 
         filters : typing.Optional[typing.Sequence[DashboardWidgetFilter]]
-
-        chart_type : typing.Optional[DashboardWidgetChartType]
-
-        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[DashboardWidget]
+        AsyncHttpResponse[Dashboard]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/dashboard-widgets/{jsonable_encoder(widget_id)}",
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}",
             method="PATCH",
             json={
                 "name": name,
                 "description": description,
-                "view": view,
-                "dimensions": convert_and_respect_annotation_metadata(
-                    object_=dimensions,
-                    annotation=typing.Sequence[DashboardWidgetDimension],
-                    direction="write",
-                ),
-                "metrics": convert_and_respect_annotation_metadata(
-                    object_=metrics,
-                    annotation=typing.Sequence[DashboardWidgetMetric],
+                "definition": convert_and_respect_annotation_metadata(
+                    object_=definition,
+                    annotation=DashboardDefinition,
                     direction="write",
                 ),
                 "filters": convert_and_respect_annotation_metadata(
                     object_=filters,
                     annotation=typing.Sequence[DashboardWidgetFilter],
-                    direction="write",
-                ),
-                "chartType": chart_type,
-                "chartConfig": convert_and_respect_annotation_metadata(
-                    object_=chart_config,
-                    annotation=DashboardWidgetChartConfigInput,
                     direction="write",
                 ),
             },
@@ -1770,9 +2231,9 @@ class AsyncRawDashboardWidgetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DashboardWidget,
+                    Dashboard,
                     parse_obj_as(
-                        type_=DashboardWidget,  # type: ignore
+                        type_=Dashboard,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1923,36 +2384,234 @@ class AsyncRawDashboardWidgetsClient:
         )
 
     async def delete(
-        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[DeleteDashboardWidgetResponse]:
+        self,
+        dashboard_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[DeleteDashboardResponse]:
         """
-        Delete a dashboard widget.
-
-        The API returns `409` while the widget is still placed on a dashboard.
-        Remove those placements first.
+        Delete a dashboard.
 
         Parameters
         ----------
-        widget_id : str
+        dashboard_id : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[DeleteDashboardWidgetResponse]
+        AsyncHttpResponse[DeleteDashboardResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/dashboard-widgets/{jsonable_encoder(widget_id)}",
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}",
             method="DELETE",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    DeleteDashboardWidgetResponse,
+                    DeleteDashboardResponse,
                     parse_obj_as(
-                        type_=DeleteDashboardWidgetResponse,  # type: ignore
+                        type_=DeleteDashboardResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def add_placement(
+        self,
+        dashboard_id: str,
+        *,
+        request: CreateDashboardPlacementRequest,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[DashboardPlacement]:
+        """
+        Add a placement to a dashboard grid (see `DashboardPlacement` for
+        grid semantics).
+
+        `id` and the position fields are optional: when omitted, the
+        placement gets a server-generated id and is appended below all
+        existing tiles as a 6x6 tile. Returns the created placement.
+
+        The referenced widget must exist in the same project or be a
+        Langfuse-managed widget. The API returns `409` if a placement with
+        the same `id` already exists on the dashboard.
+
+        Parameters
+        ----------
+        dashboard_id : str
+
+        request : CreateDashboardPlacementRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DashboardPlacement]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}/placements",
+            method="POST",
+            json=convert_and_respect_annotation_metadata(
+                object_=request,
+                annotation=CreateDashboardPlacementRequest,
+                direction="write",
+            ),
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DashboardPlacement,
+                    parse_obj_as(
+                        type_=DashboardPlacement,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -2014,6 +2673,398 @@ class AsyncRawDashboardWidgetsClient:
                 )
             if _response.status_code == 409:
                 raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def update_placement(
+        self,
+        dashboard_id: str,
+        placement_id: str,
+        *,
+        x: typing.Optional[int] = OMIT,
+        y: typing.Optional[int] = OMIT,
+        width: typing.Optional[int] = OMIT,
+        height: typing.Optional[int] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[DashboardPlacement]:
+        """
+        Move or resize a placement. All fields are optional; at least one is
+        required. Omitted fields keep their current value. The placement's
+        content (widget/preset reference) and id cannot change — delete and
+        re-add the placement to swap content. Returns the updated placement.
+
+        Parameters
+        ----------
+        dashboard_id : str
+
+        placement_id : str
+
+        x : typing.Optional[int]
+            Grid column (12-column grid).
+
+        y : typing.Optional[int]
+            Grid row.
+
+        width : typing.Optional[int]
+            Width in grid columns.
+
+        height : typing.Optional[int]
+            Height in grid rows.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DashboardPlacement]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}/placements/{jsonable_encoder(placement_id)}",
+            method="PATCH",
+            json={
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DashboardPlacement,
+                    parse_obj_as(
+                        type_=DashboardPlacement,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def delete_placement(
+        self,
+        dashboard_id: str,
+        placement_id: str,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[DeleteDashboardPlacementResponse]:
+        """
+        Remove a placement from a dashboard grid without deleting the referenced widget.
+
+        Parameters
+        ----------
+        dashboard_id : str
+
+        placement_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DeleteDashboardPlacementResponse]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/dashboards/{jsonable_encoder(dashboard_id)}/placements/{jsonable_encoder(placement_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteDashboardPlacementResponse,
+                    parse_obj_as(
+                        type_=DeleteDashboardPlacementResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         PublicApiError,

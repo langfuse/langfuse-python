@@ -7,11 +7,17 @@ from ....core import enum
 T_Result = typing.TypeVar("T_Result")
 
 
-class DashboardWidgetView(enum.StrEnum):
+class DashboardWidgetViewWithLegacy(enum.StrEnum):
+    """
+    Widget data view. Responses may include the legacy `traces` value for
+    widgets created before this API existed.
+    """
+
     OBSERVATIONS = "observations"
     SCORES_NUMERIC = "scores-numeric"
     SCORES_BOOLEAN = "scores-boolean"
     SCORES_CATEGORICAL = "scores-categorical"
+    TRACES = "traces"
 
     def visit(
         self,
@@ -19,12 +25,15 @@ class DashboardWidgetView(enum.StrEnum):
         scores_numeric: typing.Callable[[], T_Result],
         scores_boolean: typing.Callable[[], T_Result],
         scores_categorical: typing.Callable[[], T_Result],
+        traces: typing.Callable[[], T_Result],
     ) -> T_Result:
-        if self is DashboardWidgetView.OBSERVATIONS:
+        if self is DashboardWidgetViewWithLegacy.OBSERVATIONS:
             return observations()
-        if self is DashboardWidgetView.SCORES_NUMERIC:
+        if self is DashboardWidgetViewWithLegacy.SCORES_NUMERIC:
             return scores_numeric()
-        if self is DashboardWidgetView.SCORES_BOOLEAN:
+        if self is DashboardWidgetViewWithLegacy.SCORES_BOOLEAN:
             return scores_boolean()
-        if self is DashboardWidgetView.SCORES_CATEGORICAL:
+        if self is DashboardWidgetViewWithLegacy.SCORES_CATEGORICAL:
             return scores_categorical()
+        if self is DashboardWidgetViewWithLegacy.TRACES:
+            return traces()

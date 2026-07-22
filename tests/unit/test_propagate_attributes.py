@@ -2752,11 +2752,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter, monkeypatch
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
+        created_run_items = []
 
         # Mock the sync API used by run_experiment to create dataset run items
         def mock_create_dataset_run_item(*args, **kwargs):
             from langfuse.api import DatasetRunItem
 
+            created_run_items.append(kwargs)
             return DatasetRunItem(
                 id="mock-run-item-id",
                 dataset_run_id="mock-dataset-run-id-123",
@@ -2835,7 +2837,10 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         assert len(root_spans) >= 1, "Should have at least 1 root span"
         first_root = root_spans[0]
+        task_span = self.get_span_by_name(memory_exporter, "experiment-item-task")
         assert result.experiment_id == "mock-dataset-run-id-123"
+        assert len(created_run_items) == 1
+        assert created_run_items[0]["observation_id"] == task_span["span_id"]
 
         # Root-only attributes should be on root
         self.verify_span_attribute(

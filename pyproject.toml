@@ -1,7 +1,7 @@
 [project]
 name = "langfuse"
-version = "4.14.0"
-description = "A client library for accessing langfuse"
+version = "4.14.1"
+description = "Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
 license = "MIT"
