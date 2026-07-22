@@ -9,11 +9,14 @@ from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI, OpenAI
 from opentelemetry import context as otel_context
+from pydantic import BaseModel, Field
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.langchain import CallbackHandler
+from langfuse.langchain.utils import _normalize_tool_definition
 
 callback_handler_module = importlib.import_module("langfuse.langchain.CallbackHandler")
 
@@ -940,3 +943,117 @@ def test_graphbubbleup_import_is_independent_from_command_import():
         )
 
     importlib.reload(callback_handler_module)
+
+
+class _ExampleToolArgs(BaseModel):
+    query: str = Field(description="What to search for")
+
+
+def _make_example_tool() -> StructuredTool:
+    return StructuredTool.from_function(
+        func=lambda query: query,
+        name="example_tool",
+        description="Example tool description",
+        args_schema=_ExampleToolArgs,
+    )
+
+
+def _invoke_chat_model_with_tools(langfuse_memory_client, bind):
+    response = ChatResult(
+        generations=[ChatGeneration(message=AIMessage(content="ok"), text="ok")],
+        llm_output={"token_usage": {}, "model_name": "gpt-4o-mini"},
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            bind(ChatOpenAI(api_key="test", temperature=0)).invoke(
+                [HumanMessage(content="hello")],
+                config={"callbacks": [handler]},
+            )
+
+    langfuse_memory_client.flush()
+
+
+def _tool_definition_messages(generation_span, json_attr):
+    input_messages = json_attr(
+        generation_span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT
+    )
+    return [message for message in input_messages if message.get("role") == "tool"]
+
+
+def test_normalize_tool_definition_passes_openai_format_through():
+    openai_tool = {
+        "type": "function",
+        "function": {"name": "example_tool", "parameters": {"type": "object"}},
+    }
+
+    assert _normalize_tool_definition(openai_tool) is openai_tool
+
+
+def test_normalize_tool_definition_converts_base_tool_instances():
+    normalized = _normalize_tool_definition(_make_example_tool())
+
+    assert normalized["type"] == "function"
+    assert normalized["function"]["name"] == "example_tool"
+    assert normalized["function"]["description"] == "Example tool description"
+    assert "query" in normalized["function"]["parameters"]["properties"]
+
+
+def test_normalize_tool_definition_wraps_bare_function_schemas():
+    bare_function = {
+        "name": "example_tool",
+        "description": "Example tool description",
+        "parameters": {"type": "object", "properties": {}},
+    }
+
+    normalized = _normalize_tool_definition(bare_function)
+
+    assert normalized["type"] == "function"
+    assert normalized["function"]["name"] == "example_tool"
+
+
+def test_normalize_tool_definition_returns_unconvertible_values_unchanged():
+    unconvertible = object()
+
+    assert _normalize_tool_definition(unconvertible) is unconvertible
+
+
+def test_raw_bound_tools_are_normalized_in_generation_input(
+    langfuse_memory_client, get_span, json_attr
+):
+    # .bind() (unlike .bind_tools()) forwards raw tool objects into
+    # invocation_params -- the path that produced unrenderable tool
+    # definitions in the Langfuse UI.
+    _invoke_chat_model_with_tools(
+        langfuse_memory_client, lambda model: model.bind(tools=[_make_example_tool()])
+    )
+
+    tool_messages = _tool_definition_messages(get_span("ChatOpenAI"), json_attr)
+
+    assert len(tool_messages) == 1
+    tool_definition = tool_messages[0]["content"]
+    assert tool_definition["type"] == "function"
+    assert tool_definition["function"]["name"] == "example_tool"
+    assert "query" in tool_definition["function"]["parameters"]["properties"], (
+        "args schema should be exposed as OpenAI-style parameters"
+    )
+
+
+def test_bind_tools_tool_definitions_stay_in_openai_format(
+    langfuse_memory_client, get_span, json_attr
+):
+    # Regression guard for the standard path: bind_tools() already provides
+    # OpenAI-format definitions, which must pass through unchanged.
+    _invoke_chat_model_with_tools(
+        langfuse_memory_client, lambda model: model.bind_tools([_make_example_tool()])
+    )
+
+    tool_messages = _tool_definition_messages(get_span("ChatOpenAI"), json_attr)
+
+    assert len(tool_messages) == 1
+    tool_definition = tool_messages[0]["content"]
+    assert tool_definition["type"] == "function"
+    assert tool_definition["function"]["name"] == "example_tool"
+    assert "query" in tool_definition["function"]["parameters"]["properties"]
