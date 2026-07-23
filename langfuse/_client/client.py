@@ -39,6 +39,7 @@ from opentelemetry.util._decorator import (
     _agnosticcontextmanager,
 )
 from packaging.version import Version
+from pydantic import ValidationError
 from typing_extensions import deprecated
 
 from langfuse._client.attributes import (
@@ -2048,6 +2049,8 @@ class Langfuse:
                     force_sample=force_sample,
                 )
 
+        except ValidationError as e:
+            raise ValueError(f"Invalid score parameters: {e}") from e
         except Exception as e:
             langfuse_logger.exception(
                 f"Error creating score: Failed to process score event for trace_id={trace_id}, name={name}. Error: {e}"
