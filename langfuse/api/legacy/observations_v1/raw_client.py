@@ -10,7 +10,7 @@ from ...commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ...commons.errors.not_found_error import NotFoundError
 from ...commons.errors.unauthorized_error import UnauthorizedError
 from ...commons.types.observation_level import ObservationLevel
-from ...commons.types.observations_view import ObservationsView
+from ...commons.types.observations_view_single import ObservationsViewSingle
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.datetime_utils import serialize_datetime
@@ -30,7 +30,7 @@ class RawObservationsV1Client:
         observation_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ObservationsView]:
+    ) -> HttpResponse[ObservationsViewSingle]:
         """
         Get a observation
 
@@ -44,7 +44,7 @@ class RawObservationsV1Client:
 
         Returns
         -------
-        HttpResponse[ObservationsView]
+        HttpResponse[ObservationsViewSingle]
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/observations/{jsonable_encoder(observation_id)}",
@@ -54,9 +54,9 @@ class RawObservationsV1Client:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ObservationsView,
+                    ObservationsViewSingle,
                     parse_obj_as(
-                        type_=ObservationsView,  # type: ignore
+                        type_=ObservationsViewSingle,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -399,7 +399,7 @@ class AsyncRawObservationsV1Client:
         observation_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ObservationsView]:
+    ) -> AsyncHttpResponse[ObservationsViewSingle]:
         """
         Get a observation
 
@@ -413,7 +413,7 @@ class AsyncRawObservationsV1Client:
 
         Returns
         -------
-        AsyncHttpResponse[ObservationsView]
+        AsyncHttpResponse[ObservationsViewSingle]
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/observations/{jsonable_encoder(observation_id)}",
@@ -423,9 +423,9 @@ class AsyncRawObservationsV1Client:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ObservationsView,
+                    ObservationsViewSingle,
                     parse_obj_as(
-                        type_=ObservationsView,  # type: ignore
+                        type_=ObservationsViewSingle,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

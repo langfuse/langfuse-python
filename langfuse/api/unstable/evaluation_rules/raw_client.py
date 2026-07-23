@@ -49,6 +49,7 @@ from .types.delete_evaluation_rule_response import DeleteEvaluationRuleResponse
 from .types.evaluation_rule import EvaluationRule
 from .types.evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
 from .types.evaluation_rules import EvaluationRules
+from .types.readable_evaluation_rule import ReadableEvaluationRule
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -311,7 +312,7 @@ class RawEvaluationRulesClient:
         """
         List evaluation rules in the authenticated project.
 
-        Each item describes one live evaluation rule and its effective runtime status.
+        This includes legacy `trace` and `dataset` rules so they can be inspected and migrated to v4 rules. Legacy rules are read-only through this API; create, update, and delete continue to support only `observation` and `experiment` rules.
 
         Parameters
         ----------
@@ -486,11 +487,11 @@ class RawEvaluationRulesClient:
         evaluation_rule_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[EvaluationRule]:
+    ) -> HttpResponse[ReadableEvaluationRule]:
         """
         Get one evaluation rule by its identifier.
 
-        Use this endpoint to inspect the current evaluator, target, mapping, filters, and effective runtime status.
+        Use this endpoint to inspect the current evaluator, target, mapping, filters, execution timing, and effective runtime status. Legacy `trace` and `dataset` rules are returned for migration and are read-only through this API.
 
         Parameters
         ----------
@@ -502,7 +503,7 @@ class RawEvaluationRulesClient:
 
         Returns
         -------
-        HttpResponse[EvaluationRule]
+        HttpResponse[ReadableEvaluationRule]
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/unstable/evaluation-rules/{jsonable_encoder(evaluation_rule_id)}",
@@ -512,9 +513,9 @@ class RawEvaluationRulesClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EvaluationRule,
+                    ReadableEvaluationRule,
                     parse_obj_as(
-                        type_=EvaluationRule,  # type: ignore
+                        type_=ReadableEvaluationRule,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1374,7 +1375,7 @@ class AsyncRawEvaluationRulesClient:
         """
         List evaluation rules in the authenticated project.
 
-        Each item describes one live evaluation rule and its effective runtime status.
+        This includes legacy `trace` and `dataset` rules so they can be inspected and migrated to v4 rules. Legacy rules are read-only through this API; create, update, and delete continue to support only `observation` and `experiment` rules.
 
         Parameters
         ----------
@@ -1549,11 +1550,11 @@ class AsyncRawEvaluationRulesClient:
         evaluation_rule_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[EvaluationRule]:
+    ) -> AsyncHttpResponse[ReadableEvaluationRule]:
         """
         Get one evaluation rule by its identifier.
 
-        Use this endpoint to inspect the current evaluator, target, mapping, filters, and effective runtime status.
+        Use this endpoint to inspect the current evaluator, target, mapping, filters, execution timing, and effective runtime status. Legacy `trace` and `dataset` rules are returned for migration and are read-only through this API.
 
         Parameters
         ----------
@@ -1565,7 +1566,7 @@ class AsyncRawEvaluationRulesClient:
 
         Returns
         -------
-        AsyncHttpResponse[EvaluationRule]
+        AsyncHttpResponse[ReadableEvaluationRule]
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/unstable/evaluation-rules/{jsonable_encoder(evaluation_rule_id)}",
@@ -1575,9 +1576,9 @@ class AsyncRawEvaluationRulesClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EvaluationRule,
+                    ReadableEvaluationRule,
                     parse_obj_as(
-                        type_=EvaluationRule,  # type: ignore
+                        type_=ReadableEvaluationRule,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
