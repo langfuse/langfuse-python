@@ -13,6 +13,7 @@ from .types.delete_evaluation_rule_response import DeleteEvaluationRuleResponse
 from .types.evaluation_rule import EvaluationRule
 from .types.evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
 from .types.evaluation_rules import EvaluationRules
+from .types.readable_evaluation_rule import ReadableEvaluationRule
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -159,7 +160,7 @@ class EvaluationRulesClient:
         """
         List evaluation rules in the authenticated project.
 
-        Each item describes one live evaluation rule and its effective runtime status.
+        This includes legacy `trace` and `dataset` rules so they can be inspected and migrated to v4 rules. Legacy rules are read-only through this API; create, update, and delete continue to support only `observation` and `experiment` rules.
 
         Parameters
         ----------
@@ -200,11 +201,11 @@ class EvaluationRulesClient:
         evaluation_rule_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EvaluationRule:
+    ) -> ReadableEvaluationRule:
         """
         Get one evaluation rule by its identifier.
 
-        Use this endpoint to inspect the current evaluator, target, mapping, filters, and effective runtime status.
+        Use this endpoint to inspect the current evaluator, target, mapping, filters, execution timing, and effective runtime status. Legacy `trace` and `dataset` rules are returned for migration and are read-only through this API.
 
         Parameters
         ----------
@@ -216,7 +217,7 @@ class EvaluationRulesClient:
 
         Returns
         -------
-        EvaluationRule
+        ReadableEvaluationRule
 
         Examples
         --------
@@ -538,7 +539,7 @@ class AsyncEvaluationRulesClient:
         """
         List evaluation rules in the authenticated project.
 
-        Each item describes one live evaluation rule and its effective runtime status.
+        This includes legacy `trace` and `dataset` rules so they can be inspected and migrated to v4 rules. Legacy rules are read-only through this API; create, update, and delete continue to support only `observation` and `experiment` rules.
 
         Parameters
         ----------
@@ -587,11 +588,11 @@ class AsyncEvaluationRulesClient:
         evaluation_rule_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EvaluationRule:
+    ) -> ReadableEvaluationRule:
         """
         Get one evaluation rule by its identifier.
 
-        Use this endpoint to inspect the current evaluator, target, mapping, filters, and effective runtime status.
+        Use this endpoint to inspect the current evaluator, target, mapping, filters, execution timing, and effective runtime status. Legacy `trace` and `dataset` rules are returned for migration and are read-only through this API.
 
         Parameters
         ----------
@@ -603,7 +604,7 @@ class AsyncEvaluationRulesClient:
 
         Returns
         -------
-        EvaluationRule
+        ReadableEvaluationRule
 
         Examples
         --------

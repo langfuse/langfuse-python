@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....utils.pagination.types.meta_response import MetaResponse
-from .evaluation_rule import EvaluationRule
+from .readable_evaluation_rule import ReadableEvaluationRule
 
 
 class EvaluationRules(UniversalBaseModel):
@@ -13,7 +13,7 @@ class EvaluationRules(UniversalBaseModel):
     Paginated list of evaluation rules.
     """
 
-    data: typing.List[EvaluationRule] = pydantic.Field()
+    data: typing.List[ReadableEvaluationRule] = pydantic.Field()
     """
     Evaluation rules in the current page.
     """

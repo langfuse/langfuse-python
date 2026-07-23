@@ -9,10 +9,21 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
+from .deprecation import Deprecation
 from .score_source import ScoreSource
 
 
-class Score_Numeric(UniversalBaseModel):
+class Base(UniversalBaseModel):
+    deprecation: typing_extensions.Annotated[
+        typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
+    ] = None
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
+
+
+class Score_Numeric(Base):
     data_type: typing_extensions.Annotated[
         typing.Literal["NUMERIC"], FieldMetadata(alias="dataType")
     ] = "NUMERIC"
@@ -57,7 +68,7 @@ class Score_Numeric(UniversalBaseModel):
     )
 
 
-class Score_Categorical(UniversalBaseModel):
+class Score_Categorical(Base):
     data_type: typing_extensions.Annotated[
         typing.Literal["CATEGORICAL"], FieldMetadata(alias="dataType")
     ] = "CATEGORICAL"
@@ -103,7 +114,7 @@ class Score_Categorical(UniversalBaseModel):
     )
 
 
-class Score_Boolean(UniversalBaseModel):
+class Score_Boolean(Base):
     data_type: typing_extensions.Annotated[
         typing.Literal["BOOLEAN"], FieldMetadata(alias="dataType")
     ] = "BOOLEAN"
@@ -149,7 +160,7 @@ class Score_Boolean(UniversalBaseModel):
     )
 
 
-class Score_Correction(UniversalBaseModel):
+class Score_Correction(Base):
     data_type: typing_extensions.Annotated[
         typing.Literal["CORRECTION"], FieldMetadata(alias="dataType")
     ] = "CORRECTION"
@@ -195,7 +206,7 @@ class Score_Correction(UniversalBaseModel):
     )
 
 
-class Score_Text(UniversalBaseModel):
+class Score_Text(Base):
     data_type: typing_extensions.Annotated[
         typing.Literal["TEXT"], FieldMetadata(alias="dataType")
     ] = "TEXT"
