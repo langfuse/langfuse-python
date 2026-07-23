@@ -4,16 +4,12 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...commons.types.deprecation import Deprecation
-from ...commons.types.trace_with_details import TraceWithDetails
-from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
-from ...utils.pagination.types.meta_response import MetaResponse
+from .deprecation import Deprecation
+from .observations_view import ObservationsView
 
 
-class Traces(UniversalBaseModel):
-    data: typing.List[TraceWithDetails]
-    meta: MetaResponse
+class ObservationsViewSingle(ObservationsView):
     deprecation: typing_extensions.Annotated[
         typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
     ] = None

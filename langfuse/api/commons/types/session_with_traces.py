@@ -3,12 +3,18 @@
 import typing
 
 import pydantic
+import typing_extensions
+from ...core.serialization import FieldMetadata
+from .deprecation import Deprecation
 from .session import Session
 from .trace import Trace
 
 
 class SessionWithTraces(Session):
     traces: typing.List[Trace]
+    deprecation: typing_extensions.Annotated[
+        typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
+    ] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
