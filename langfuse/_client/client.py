@@ -176,6 +176,10 @@ def _serialize_evaluations(evaluations: List[Evaluation]) -> List[Dict[str, Any]
     ]
 
 
+class LangfuseAuthCheckError(Exception):
+    """Raised by `Langfuse.auth_check()` when no project is found for the provided credentials."""
+
+
 class Langfuse:
     """Main client for Langfuse tracing and platform features.
 
@@ -3474,7 +3478,7 @@ class Langfuse:
         """Check if the provided credentials (public and secret key) are valid.
 
         Raises:
-            Exception: If no projects were found for the provided credentials.
+            LangfuseAuthCheckError: If no projects were found for the provided credentials.
 
         Note:
             This method is blocking. It is discouraged to use it in production code.
@@ -3485,9 +3489,10 @@ class Langfuse:
                 f"Auth check successful, found {len(projects.data)} projects"
             )
             if len(projects.data) == 0:
-                raise Exception(
+                no_project_message = (
                     "Auth check failed, no project found for the keys provided."
                 )
+                raise LangfuseAuthCheckError(no_project_message)
             return True
 
         except AttributeError as e:
