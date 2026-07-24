@@ -651,7 +651,17 @@ class _ContextPreservedSyncGeneratorWrapper:
 
 
 class _ContextPreservedAsyncGeneratorWrapper:
-    """Async generator wrapper that ensures each iteration runs in preserved context."""
+    """Async generator wrapper that ensures each iteration runs in preserved context.
+
+    .. note::
+        The wrapper snapshots the caller's contextvars once at construction time
+        and re-applies those values before each ``__anext__`` call.  This means
+        mutations issued by the generator body *across* ``yield`` points are
+        discarded between iterations.  For Langfuse's own tracing this is fine
+        because child spans are opened and closed within a single ``__anext__``
+        call, but user generators that rely on context-var state persisting
+        across yields will not see those changes.
+    """
 
     def __init__(
         self,
@@ -713,19 +723,24 @@ class _ContextPreservedAsyncGeneratorWrapper:
         if self._span_ended:
             return
 
+        # Apply preserved context to current task without creating a new
+        # task, so that asyncio.timeout / asyncio.current_task() bindings
+        # remain intact (see langfuse/langfuse#13349).
+        tokens: list[tuple[contextvars.ContextVar[Any], contextvars.Token[Any]]] = []
+        for var in list(self.context.keys()):
+            val = self.context.get(var)
+            tokens.append((var, var.set(val)))
         try:
             try:
-                await asyncio.create_task(
-                    self.generator.aclose(),
-                    context=self.context,
-                )  # type: ignore
-            except TypeError:
-                await self.context.run(asyncio.create_task, self.generator.aclose())
-        except (Exception, asyncio.CancelledError) as error:
-            self._finalize_with_error(error)
-            raise
-        else:
-            self._finalize()
+                await self.generator.aclose()
+            except (Exception, asyncio.CancelledError) as error:
+                self._finalize_with_error(error)
+                raise
+            else:
+                self._finalize()
+        finally:
+            for var, token in reversed(tokens):
+                var.reset(token)
 
     async def close(self) -> None:
         await self.aclose()
@@ -735,19 +750,18 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def __anext__(self) -> Any:
         try:
-            # Run the generator's __anext__ in the preserved context
+            # Apply preserved context to current task without creating a new
+            # task, so that asyncio.timeout / asyncio.current_task() bindings
+            # remain intact (see langfuse/langfuse#13349).
+            tokens: list[tuple[contextvars.ContextVar[Any], contextvars.Token[Any]]] = []
+            for var in list(self.context.keys()):
+                val = self.context.get(var)
+                tokens.append((var, var.set(val)))
             try:
-                # Python 3.11+ approach with explicit task context
-                item = await asyncio.create_task(
-                    self.generator.__anext__(),  # type: ignore
-                    context=self.context,
-                )  # type: ignore
-            except TypeError:
-                # Python 3.10 fallback - create the task inside the preserved context.
-                item = await self.context.run(
-                    asyncio.create_task,
-                    self.generator.__anext__(),  # type: ignore
-                )
+                item = await self.generator.__anext__()  # type: ignore
+            finally:
+                for var, token in reversed(tokens):
+                    var.reset(token)
 
             if self.capture_output:
                 self.items.append(item)
