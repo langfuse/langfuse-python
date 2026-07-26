@@ -727,8 +727,14 @@ def _parse_cost(usage: Optional[Any] = None) -> Any:
 
     # OpenRouter is returning total cost of the invocation
     # https://openrouter.ai/docs/use-cases/usage-accounting#cost-breakdown
-    if hasattr(usage, "cost") and isinstance(getattr(usage, "cost"), float):
-        return {"total": getattr(usage, "cost")}
+    cost = (
+        usage.get("cost") if isinstance(usage, dict) else getattr(usage, "cost", None)
+    )
+
+    # bool is a subclass of int, so it has to be excluded explicitly to avoid
+    # turning a stray `"cost": true` into a cost of 1.0
+    if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+        return {"total": float(cost)}
 
     return None
 
