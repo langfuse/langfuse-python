@@ -351,7 +351,8 @@ class Langfuse:
             or get_common_release_envs()
         )
         self._project_id: Optional[str] = None
-        sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
+        if sample_rate is None:
+            sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
             raise ValueError(
                 f"Sample rate must be between 0.0 and 1.0, got {sample_rate}"
