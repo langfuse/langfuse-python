@@ -37,6 +37,7 @@ class RawObservationsClient:
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
         parent_observation_id: typing.Optional[str] = None,
+        is_root_observation: typing.Optional[bool] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
@@ -55,7 +56,7 @@ class RawObservationsClient:
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
         - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
+        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId, isRootObservation
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
@@ -109,6 +110,13 @@ class RawObservationsClient:
             Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
 
         parent_observation_id : typing.Optional[str]
+            Filter by the physical parent observation ID.
+            An empty value matches only observations without a physical parent. Use `isRootObservation` to include observations marked as app roots by the SDK, which may retain a non-null `parentObservationId`.
+
+        is_root_observation : typing.Optional[bool]
+            Filter by whether an observation is a logical root.
+            Root observations include observations without a physical parent and observations marked as app roots by the SDK.
+            An app-root observation may have `isRootObservation=true` and a non-null `parentObservationId`.
 
         environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for observations where the environment is one of the provided values.
@@ -164,6 +172,7 @@ class RawObservationsClient:
             - `version` (string) - Version tag
             - `userId` (string) - User ID
             - `sessionId` (string) - Session ID
+            - `isRootObservation` (boolean) - Whether the observation is a logical root. Observations marked as app roots by the SDK may retain a non-null parentObservationId.
 
             ### Trace-Related Fields
             - `traceName` (string) - Name of the parent trace
@@ -224,6 +233,12 @@ class RawObservationsClient:
                 "column": "output",
                 "operator": "matches",
                 "value": "needle"
+              },
+              {
+                "type": "boolean",
+                "column": "isRootObservation",
+                "operator": "=",
+                "value": true
               }
             ]
             ```
@@ -250,6 +265,7 @@ class RawObservationsClient:
                 "traceId": trace_id,
                 "level": level,
                 "parentObservationId": parent_observation_id,
+                "isRootObservation": is_root_observation,
                 "environment": environment,
                 "fromStartTime": serialize_datetime(from_start_time)
                 if from_start_time is not None
@@ -359,6 +375,7 @@ class AsyncRawObservationsClient:
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
         parent_observation_id: typing.Optional[str] = None,
+        is_root_observation: typing.Optional[bool] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
@@ -377,7 +394,7 @@ class AsyncRawObservationsClient:
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
         - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
+        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId, isRootObservation
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
@@ -431,6 +448,13 @@ class AsyncRawObservationsClient:
             Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
 
         parent_observation_id : typing.Optional[str]
+            Filter by the physical parent observation ID.
+            An empty value matches only observations without a physical parent. Use `isRootObservation` to include observations marked as app roots by the SDK, which may retain a non-null `parentObservationId`.
+
+        is_root_observation : typing.Optional[bool]
+            Filter by whether an observation is a logical root.
+            Root observations include observations without a physical parent and observations marked as app roots by the SDK.
+            An app-root observation may have `isRootObservation=true` and a non-null `parentObservationId`.
 
         environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for observations where the environment is one of the provided values.
@@ -486,6 +510,7 @@ class AsyncRawObservationsClient:
             - `version` (string) - Version tag
             - `userId` (string) - User ID
             - `sessionId` (string) - Session ID
+            - `isRootObservation` (boolean) - Whether the observation is a logical root. Observations marked as app roots by the SDK may retain a non-null parentObservationId.
 
             ### Trace-Related Fields
             - `traceName` (string) - Name of the parent trace
@@ -546,6 +571,12 @@ class AsyncRawObservationsClient:
                 "column": "output",
                 "operator": "matches",
                 "value": "needle"
+              },
+              {
+                "type": "boolean",
+                "column": "isRootObservation",
+                "operator": "=",
+                "value": true
               }
             ]
             ```
@@ -572,6 +603,7 @@ class AsyncRawObservationsClient:
                 "traceId": trace_id,
                 "level": level,
                 "parentObservationId": parent_observation_id,
+                "isRootObservation": is_root_observation,
                 "environment": environment,
                 "fromStartTime": serialize_datetime(from_start_time)
                 if from_start_time is not None

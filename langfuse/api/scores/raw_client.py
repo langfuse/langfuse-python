@@ -9,6 +9,7 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
+from ..commons.types.create_score_value import CreateScoreValue
 from ..commons.types.score import Score
 from ..commons.types.score_data_type import ScoreDataType
 from ..commons.types.score_source import ScoreSource
@@ -19,12 +20,185 @@ from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
+from .types.create_score_response import CreateScoreResponse
+from .types.create_score_source import CreateScoreSource
 from .types.get_scores_response import GetScoresResponse
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class RawScoresClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    def create(
+        self,
+        *,
+        name: str,
+        value: CreateScoreValue,
+        id: typing.Optional[str] = OMIT,
+        trace_id: typing.Optional[str] = OMIT,
+        session_id: typing.Optional[str] = OMIT,
+        observation_id: typing.Optional[str] = OMIT,
+        dataset_run_id: typing.Optional[str] = OMIT,
+        comment: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        environment: typing.Optional[str] = OMIT,
+        queue_id: typing.Optional[str] = OMIT,
+        data_type: typing.Optional[ScoreDataType] = OMIT,
+        config_id: typing.Optional[str] = OMIT,
+        source: typing.Optional[CreateScoreSource] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[CreateScoreResponse]:
+        """
+        Create a score (supports trace, observation, session, and dataset run scores)
+
+        Parameters
+        ----------
+        name : str
+
+        value : CreateScoreValue
+            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
+
+        id : typing.Optional[str]
+
+        trace_id : typing.Optional[str]
+
+        session_id : typing.Optional[str]
+
+        observation_id : typing.Optional[str]
+
+        dataset_run_id : typing.Optional[str]
+
+        comment : typing.Optional[str]
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+
+        environment : typing.Optional[str]
+            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
+
+        queue_id : typing.Optional[str]
+            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
+
+        data_type : typing.Optional[ScoreDataType]
+            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
+
+        config_id : typing.Optional[str]
+            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+
+        source : typing.Optional[CreateScoreSource]
+            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[CreateScoreResponse]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/public/scores",
+            method="POST",
+            json={
+                "id": id,
+                "traceId": trace_id,
+                "sessionId": session_id,
+                "observationId": observation_id,
+                "datasetRunId": dataset_run_id,
+                "name": name,
+                "value": convert_and_respect_annotation_metadata(
+                    object_=value, annotation=CreateScoreValue, direction="write"
+                ),
+                "comment": comment,
+                "metadata": metadata,
+                "environment": environment,
+                "queueId": queue_id,
+                "dataType": data_type,
+                "configId": config_id,
+                "source": source,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CreateScoreResponse,
+                    parse_obj_as(
+                        type_=CreateScoreResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
 
     def get_many(
         self,
@@ -348,6 +522,173 @@ class RawScoresClient:
 class AsyncRawScoresClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    async def create(
+        self,
+        *,
+        name: str,
+        value: CreateScoreValue,
+        id: typing.Optional[str] = OMIT,
+        trace_id: typing.Optional[str] = OMIT,
+        session_id: typing.Optional[str] = OMIT,
+        observation_id: typing.Optional[str] = OMIT,
+        dataset_run_id: typing.Optional[str] = OMIT,
+        comment: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        environment: typing.Optional[str] = OMIT,
+        queue_id: typing.Optional[str] = OMIT,
+        data_type: typing.Optional[ScoreDataType] = OMIT,
+        config_id: typing.Optional[str] = OMIT,
+        source: typing.Optional[CreateScoreSource] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[CreateScoreResponse]:
+        """
+        Create a score (supports trace, observation, session, and dataset run scores)
+
+        Parameters
+        ----------
+        name : str
+
+        value : CreateScoreValue
+            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
+
+        id : typing.Optional[str]
+
+        trace_id : typing.Optional[str]
+
+        session_id : typing.Optional[str]
+
+        observation_id : typing.Optional[str]
+
+        dataset_run_id : typing.Optional[str]
+
+        comment : typing.Optional[str]
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+
+        environment : typing.Optional[str]
+            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
+
+        queue_id : typing.Optional[str]
+            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
+
+        data_type : typing.Optional[ScoreDataType]
+            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
+
+        config_id : typing.Optional[str]
+            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
+
+        source : typing.Optional[CreateScoreSource]
+            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[CreateScoreResponse]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/public/scores",
+            method="POST",
+            json={
+                "id": id,
+                "traceId": trace_id,
+                "sessionId": session_id,
+                "observationId": observation_id,
+                "datasetRunId": dataset_run_id,
+                "name": name,
+                "value": convert_and_respect_annotation_metadata(
+                    object_=value, annotation=CreateScoreValue, direction="write"
+                ),
+                "comment": comment,
+                "metadata": metadata,
+                "environment": environment,
+                "queueId": queue_id,
+                "dataType": data_type,
+                "configId": config_id,
+                "source": source,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CreateScoreResponse,
+                    parse_obj_as(
+                        type_=CreateScoreResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
 
     async def get_many(
         self,
