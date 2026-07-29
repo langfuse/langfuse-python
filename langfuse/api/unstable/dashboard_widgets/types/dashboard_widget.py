@@ -12,7 +12,7 @@ from .dashboard_widget_chart_type import DashboardWidgetChartType
 from .dashboard_widget_dimension import DashboardWidgetDimension
 from .dashboard_widget_filter import DashboardWidgetFilter
 from .dashboard_widget_metric import DashboardWidgetMetric
-from .dashboard_widget_view import DashboardWidgetView
+from .dashboard_widget_view_with_legacy import DashboardWidgetViewWithLegacy
 
 
 class DashboardWidget(UniversalBaseModel):
@@ -25,7 +25,7 @@ class DashboardWidget(UniversalBaseModel):
     ]
     name: str
     description: str
-    view: DashboardWidgetView
+    view: DashboardWidgetViewWithLegacy
     dimensions: typing.List[DashboardWidgetDimension]
     metrics: typing.List[DashboardWidgetMetric]
     filters: typing.List[DashboardWidgetFilter]
@@ -35,7 +35,6 @@ class DashboardWidget(UniversalBaseModel):
     chart_config: typing_extensions.Annotated[
         DashboardWidgetChartConfig, FieldMetadata(alias="chartConfig")
     ]
-    min_version: typing_extensions.Annotated[int, FieldMetadata(alias="minVersion")]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

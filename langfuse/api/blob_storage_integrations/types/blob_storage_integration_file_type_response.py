@@ -9,7 +9,7 @@ T_Result = typing.TypeVar("T_Result")
 
 class BlobStorageIntegrationFileTypeResponse(enum.StrEnum):
     """
-    File type reported for an existing integration. Includes `PARQUET`, which a project may enable through the Langfuse UI but cannot yet be set via this API (the request `fileType` omits it).
+    File type reported for an existing integration.
     """
 
     JSON = "JSON"

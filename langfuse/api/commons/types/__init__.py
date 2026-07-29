@@ -26,6 +26,7 @@ if typing.TYPE_CHECKING:
     from .dataset_run_item import DatasetRunItem
     from .dataset_run_with_items import DatasetRunWithItems
     from .dataset_status import DatasetStatus
+    from .deprecation import Deprecation
     from .map_value import MapValue
     from .model import Model
     from .model_price import ModelPrice
@@ -36,6 +37,7 @@ if typing.TYPE_CHECKING:
     from .observation_level import ObservationLevel
     from .observation_v2 import ObservationV2
     from .observations_view import ObservationsView
+    from .observations_view_single import ObservationsViewSingle
     from .pricing_tier import PricingTier
     from .pricing_tier_condition import PricingTierCondition
     from .pricing_tier_input import PricingTierInput
@@ -88,6 +90,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DatasetRunItem": ".dataset_run_item",
     "DatasetRunWithItems": ".dataset_run_with_items",
     "DatasetStatus": ".dataset_status",
+    "Deprecation": ".deprecation",
     "MapValue": ".map_value",
     "Model": ".model",
     "ModelPrice": ".model_price",
@@ -98,6 +101,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ObservationLevel": ".observation_level",
     "ObservationV2": ".observation_v2",
     "ObservationsView": ".observations_view",
+    "ObservationsViewSingle": ".observations_view_single",
     "PricingTier": ".pricing_tier",
     "PricingTierCondition": ".pricing_tier_condition",
     "PricingTierInput": ".pricing_tier_input",
@@ -176,6 +180,7 @@ __all__ = [
     "DatasetRunItem",
     "DatasetRunWithItems",
     "DatasetStatus",
+    "Deprecation",
     "MapValue",
     "Model",
     "ModelPrice",
@@ -186,6 +191,7 @@ __all__ = [
     "ObservationLevel",
     "ObservationV2",
     "ObservationsView",
+    "ObservationsViewSingle",
     "PricingTier",
     "PricingTierCondition",
     "PricingTierInput",

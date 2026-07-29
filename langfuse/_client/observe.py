@@ -109,8 +109,18 @@ class LangfuseDecorator:
             as_type (Optional[Literal]): Set the observation type. Supported values:
                     "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
                     Observation types are highlighted in the Langfuse UI for filtering and visualization.
-                    The types "generation" and "embedding" create a span on which additional attributes such as model metrics
-                    can be set.
+                    The types "generation" and "embedding" create a span on which additional attributes such as model,
+                    usage_details, and cost_details can be set — use `as_type="generation"` for LLM calls and update the
+                    observation via `langfuse.update_current_generation(...)` inside the function.
+            capture_input (Optional[bool]): Whether to capture the function's arguments as the observation's input.
+                    Defaults to the LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED environment variable (True if unset).
+                    Set to False for sensitive or very large inputs, then set input explicitly via
+                    `langfuse.update_current_span(input=...)` if needed.
+            capture_output (Optional[bool]): Whether to capture the function's return value as the observation's output.
+                    Same default and override mechanism as capture_input.
+            transform_to_string (Optional[Callable[[Iterable], str]]): For functions returning generators, joins the
+                    yielded chunks into the string stored as output. Without it, chunks are concatenated if all are
+                    strings, otherwise stored as a list.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -126,14 +136,23 @@ class LangfuseDecorator:
 
             For language model generation tracking:
             ```python
+            from langfuse import get_client, observe
+
             @observe(name="answer-generation", as_type="generation")
             async def generate_answer(query):
-                # Creates a generation-type span with extended LLM metrics
+                # Creates a generation-type observation with extended LLM metrics
                 response = await openai.chat.completions.create(
                     model="gpt-4",
                     messages=[{"role": "user", "content": query}]
                 )
                 return response.choices[0].message.content
+            ```
+
+            Disabling input/output capture (e.g. for sensitive or large payloads):
+            ```python
+            @observe(capture_input=False, capture_output=False)
+            def handle_pii(user_record):
+                return process(user_record)
             ```
 
             For trace context propagation between functions:

@@ -3,7 +3,10 @@
 import typing
 
 import pydantic
+import typing_extensions
+from ....commons.types.deprecation import Deprecation
 from ....core.pydantic_utilities import UniversalBaseModel
+from ....core.serialization import FieldMetadata
 
 
 class MetricsResponse(UniversalBaseModel):
@@ -13,6 +16,10 @@ class MetricsResponse(UniversalBaseModel):
     Format varies based on the query parameters.
     Histograms will return an array with [lower, upper, height] tuples.
     """
+
+    deprecation: typing_extensions.Annotated[
+        typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
+    ] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

@@ -14,13 +14,14 @@ class EvaluationRuleMappingSource(enum.StrEnum):
     Use these values when mapping evaluator prompt variables to live data.
 
     Target-specific rules:
-    - `target=observation` supports `input`, `output`, and `metadata`
-    - `target=experiment` supports `input`, `output`, `metadata`, `expected_output`, and `experiment_item_metadata`
+    - `target=observation` supports `input`, `output`, `metadata`, and `tool_calls`
+    - `target=experiment` supports `input`, `output`, `metadata`, `tool_calls`, `expected_output`, and `experiment_item_metadata`
 
     Source semantics:
     - `input`: the observation or experiment input payload
     - `output`: the observation or experiment output payload
     - `metadata`: the metadata object for the target. Combine with `jsonPath` when you need one nested field instead of the whole object.
+    - `tool_calls`: the tool calls recorded on the observation, as an array of `{id, name, arguments, type, index}` objects in the order the model emitted them. Combine with `jsonPath` (for example `$[*].name`) to select parts of each call.
     - `expected_output`: the experiment item's expected output. Only valid for `target=experiment`.
     - `experiment_item_metadata`: the experiment item's metadata object. Only valid for `target=experiment`.
     """
@@ -28,6 +29,7 @@ class EvaluationRuleMappingSource(enum.StrEnum):
     INPUT = "input"
     OUTPUT = "output"
     METADATA = "metadata"
+    TOOL_CALLS = "tool_calls"
     EXPECTED_OUTPUT = "expected_output"
     EXPERIMENT_ITEM_METADATA = "experiment_item_metadata"
 
@@ -36,6 +38,7 @@ class EvaluationRuleMappingSource(enum.StrEnum):
         input: typing.Callable[[], T_Result],
         output: typing.Callable[[], T_Result],
         metadata: typing.Callable[[], T_Result],
+        tool_calls: typing.Callable[[], T_Result],
         expected_output: typing.Callable[[], T_Result],
         experiment_item_metadata: typing.Callable[[], T_Result],
     ) -> T_Result:
@@ -45,6 +48,8 @@ class EvaluationRuleMappingSource(enum.StrEnum):
             return output()
         if self is EvaluationRuleMappingSource.METADATA:
             return metadata()
+        if self is EvaluationRuleMappingSource.TOOL_CALLS:
+            return tool_calls()
         if self is EvaluationRuleMappingSource.EXPECTED_OUTPUT:
             return expected_output()
         if self is EvaluationRuleMappingSource.EXPERIMENT_ITEM_METADATA:

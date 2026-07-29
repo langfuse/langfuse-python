@@ -6,7 +6,7 @@ import pydantic
 import typing_extensions
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
-from .dashboard_widget_chart_config import DashboardWidgetChartConfig
+from .dashboard_widget_chart_config_input import DashboardWidgetChartConfigInput
 from .dashboard_widget_chart_type import DashboardWidgetChartType
 from .dashboard_widget_dimension import DashboardWidgetDimension
 from .dashboard_widget_filter import DashboardWidgetFilter
@@ -16,7 +16,11 @@ from .dashboard_widget_view import DashboardWidgetView
 
 class CreateDashboardWidgetRequest(UniversalBaseModel):
     name: str
-    description: str
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Defaults to an empty string.
+    """
+
     view: DashboardWidgetView
     dimensions: typing.List[DashboardWidgetDimension]
     metrics: typing.List[DashboardWidgetMetric]
@@ -25,11 +29,12 @@ class CreateDashboardWidgetRequest(UniversalBaseModel):
         DashboardWidgetChartType, FieldMetadata(alias="chartType")
     ]
     chart_config: typing_extensions.Annotated[
-        DashboardWidgetChartConfig, FieldMetadata(alias="chartConfig")
-    ]
-    min_version: typing_extensions.Annotated[
-        typing.Optional[int], FieldMetadata(alias="minVersion")
-    ] = None
+        typing.Optional[DashboardWidgetChartConfigInput],
+        FieldMetadata(alias="chartConfig"),
+    ] = pydantic.Field(default=None)
+    """
+    Defaults to the plain config for `chartType`.
+    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

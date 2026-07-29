@@ -74,6 +74,7 @@ def test_openai_chat_completion(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -125,6 +126,7 @@ def test_openai_chat_completion_stream(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -185,6 +187,7 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -391,6 +394,7 @@ def test_openai_chat_completion_with_seed(openai):
     )
 
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -659,6 +663,7 @@ async def test_async_chat(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -703,6 +708,7 @@ async def test_async_chat_stream(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -763,6 +769,7 @@ async def test_async_chat_stream_with_anext(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -1054,6 +1061,7 @@ def test_structured_output_response_format_kwarg(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,
@@ -1160,6 +1168,7 @@ async def test_close_async_stream(openai):
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
     assert generation.data[0].model_parameters == {
+        "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
         "frequency_penalty": 0,

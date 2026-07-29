@@ -3,10 +3,42 @@
 import re
 from typing import Any, Dict, List, Literal, Optional, cast
 
+from langfuse.logger import langfuse_logger
+
 # NOTE ON DEPENDENCIES:
 # - since Jan 2024, there is https://pypi.org/project/langchain-openai/ which is a separate package and imports openai models.
 #   Decided to not make this a dependency of langfuse as few people will have this. Need to match these models manually
 # - langchain_community is loaded as a dependency of langchain, but extremely unreliable. Decided to not depend on it.
+
+
+def _normalize_tool_definition(tool: Any) -> Any:
+    """Best-effort normalization of a tool definition into the OpenAI function-tool format.
+
+    LangChain integrations are expected to pass tool definitions through
+    `invocation_params["tools"]` in the OpenAI format
+    `{"type": "function", "function": {...}}`. Some code paths (custom chat
+    models, `model.bind(tools=...)` instead of `bind_tools`) forward raw
+    `BaseTool` instances instead, which would otherwise be serialized as their
+    attribute dict (`args_schema`, `return_direct`, ...) and not be recognized
+    as tools by the Langfuse UI.
+    """
+    if (
+        isinstance(tool, dict)
+        and tool.get("type") == "function"
+        and isinstance(tool.get("function"), dict)
+    ):
+        return tool
+
+    try:
+        from langchain_core.utils.function_calling import convert_to_openai_tool
+
+        return convert_to_openai_tool(tool)
+    except Exception:
+        langfuse_logger.debug(
+            "Could not normalize tool definition to OpenAI format; keeping original.",
+            exc_info=True,
+        )
+        return tool
 
 
 def _extract_model_name(

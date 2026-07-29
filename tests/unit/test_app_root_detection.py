@@ -447,6 +447,86 @@ def test_child_started_after_parent_end_is_marked_as_app_root(memory_exporter):
     assert processor._span_export_expectation_by_id == {}
 
 
+def test_litellm_raw_request_with_ended_parent_is_not_marked_as_app_root(
+    memory_exporter,
+):
+    tracer_provider, processor = _create_processor(memory_exporter)
+    litellm_tracer = tracer_provider.get_tracer("litellm")
+
+    parent = litellm_tracer.start_span("litellm_request")
+    parent_ctx = trace_api.set_span_in_context(parent)
+    parent.end()
+
+    raw_request = litellm_tracer.start_span(
+        "raw_gen_ai_request",
+        context=parent_ctx,
+    )
+    raw_request_ctx = trace_api.set_span_in_context(raw_request)
+    child = litellm_tracer.start_span("child", context=raw_request_ctx)
+    child.end()
+    raw_request.end()
+
+    processor.force_flush()
+
+    spans = _get_spans_by_name(memory_exporter)
+
+    assert (
+        spans["litellm_request"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT]
+        is True
+    )
+    assert (
+        LangfuseOtelSpanAttributes.IS_APP_ROOT
+        not in spans["raw_gen_ai_request"].attributes
+    )
+    assert LangfuseOtelSpanAttributes.IS_APP_ROOT not in spans["child"].attributes
+    assert processor._span_export_expectation_by_id == {}
+
+
+def test_parentless_litellm_raw_request_is_marked_as_app_root(memory_exporter):
+    tracer_provider, processor = _create_processor(memory_exporter)
+    litellm_tracer = tracer_provider.get_tracer("litellm")
+
+    with litellm_tracer.start_as_current_span("raw_gen_ai_request"):
+        pass
+
+    processor.force_flush()
+
+    spans = _get_spans_by_name(memory_exporter)
+
+    assert (
+        spans["raw_gen_ai_request"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT]
+        is True
+    )
+    assert processor._span_export_expectation_by_id == {}
+
+
+def test_raw_request_name_from_other_scope_remains_app_root_eligible(
+    memory_exporter,
+):
+    tracer_provider, processor = _create_processor(memory_exporter)
+    openinference_tracer = tracer_provider.get_tracer("openinference.custom")
+
+    parent = openinference_tracer.start_span("parent")
+    parent_ctx = trace_api.set_span_in_context(parent)
+    parent.end()
+
+    child = openinference_tracer.start_span(
+        "raw_gen_ai_request",
+        context=parent_ctx,
+    )
+    child.end()
+
+    processor.force_flush()
+
+    spans = _get_spans_by_name(memory_exporter)
+
+    assert (
+        spans["raw_gen_ai_request"].attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT]
+        is True
+    )
+    assert processor._span_export_expectation_by_id == {}
+
+
 def test_set_langfuse_trace_id_in_baggage_sets_value():
     trace_id = "a" * 32
     context = _set_langfuse_trace_id_in_baggage(
