@@ -10,6 +10,7 @@ known generated shape where ``scores.create`` exists and
 from __future__ import annotations
 
 import argparse
+import ast
 from pathlib import Path
 
 CLIENT_IMPORTS = """\
@@ -141,10 +142,25 @@ def _append_type_exports(path: Path, imports_by_type: dict[str, str]) -> None:
         for type_name, module_name in imports_by_type.items()
     )
     names = ", ".join(repr(type_name) for type_name in TYPE_NAMES)
-    path.write_text(
-        f"{contents.rstrip()}\n\n{exports_marker}\n{imports}\n"
-        f"__all__ = [*__all__, {names}]\n"
+    defines_all = any(
+        (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "__all__"
+                for target in node.targets
+            )
+        )
+        or (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "__all__"
+        )
+        for node in ast.parse(contents).body
     )
+    exports = (
+        f"__all__ = [*__all__, {names}]" if defines_all else f"__all__ = [{names}]"
+    )
+    path.write_text(f"{contents.rstrip()}\n\n{exports_marker}\n{imports}\n{exports}\n")
 
 
 def _create_type_aliases(types_dir: Path) -> None:
