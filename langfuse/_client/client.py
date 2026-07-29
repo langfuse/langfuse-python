@@ -2947,9 +2947,10 @@ class Langfuse:
                 )
 
                 final_observation_metadata = {
+                    **(item_metadata if isinstance(item_metadata, dict) else {}),
+                    **(experiment_metadata or {}),
                     "experiment_name": experiment_name,
                     "experiment_run_name": experiment_run_name,
-                    **(experiment_metadata or {}),
                 }
 
                 trace_id = span.trace_id
@@ -2968,9 +2969,6 @@ class Langfuse:
                     final_observation_metadata.update(
                         {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
                     )
-
-                if isinstance(item_metadata, dict):
-                    final_observation_metadata.update(item_metadata)
 
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
