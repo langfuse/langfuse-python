@@ -9,7 +9,6 @@ with error handling, retry logic, and resume capability.
 import asyncio
 import json
 import time
-from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,41 +32,6 @@ from langfuse.logger import langfuse_logger as logger
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
-
-
-def _parse_observation_value(value: Any) -> Any:
-    if not isinstance(value, str):
-        return value
-
-    try:
-        return json.loads(value)
-    except (json.JSONDecodeError, TypeError):
-        return value
-
-
-@dataclass
-class _BatchEvaluationObservation:
-    id: str
-    trace_id: Optional[str]
-    start_time: Any
-    input: Any
-    output: Any
-    metadata: Any
-    name: Optional[str]
-    user_id: Optional[str]
-    tags: List[str]
-
-
-@dataclass
-class _BatchEvaluationTrace:
-    id: str
-    timestamp: Any
-    input: Any
-    output: Any
-    metadata: Any
-    name: Optional[str]
-    user_id: Optional[str]
-    tags: List[str]
 
 
 class EvaluatorInputs:
@@ -954,7 +918,6 @@ class BatchEvaluationRunner:
 
         # Pagination state
         page = 1
-        cursor: Optional[str] = None
         has_more = True
         last_item_timestamp: Optional[str] = None
         last_item_id: Optional[str] = None
@@ -980,10 +943,10 @@ class BatchEvaluationRunner:
 
             # Fetch next batch with retry logic
             try:
-                items, next_cursor = await self._fetch_batch_with_retry(
+                items = await self._fetch_batch_with_retry(
                     scope=scope,
                     filter=effective_filter,
-                    cursor=cursor,
+                    page=page,
                     limit=fetch_batch_size,
                     max_retries=max_retries,
                     fields=fetch_trace_fields,
@@ -1122,11 +1085,10 @@ class BatchEvaluationRunner:
                     )
 
             # Check if we should continue to next page
-            if next_cursor is None:
+            if len(items) < fetch_batch_size:
                 # Last page - no more items available
                 has_more = False
             else:
-                cursor = next_cursor
                 page += 1
 
                 # Check max_items again before next fetch
@@ -1179,93 +1141,48 @@ class BatchEvaluationRunner:
         *,
         scope: str,
         filter: Optional[str],
-        cursor: Optional[str],
+        page: int,
         limit: int,
         max_retries: int,
         fields: Optional[str],
-    ) -> Tuple[List[Any], Optional[str]]:
+    ) -> List[Union[TraceWithFullDetails, ObservationsView]]:
         """Fetch a batch of items with retry logic.
 
         Args:
             scope: The type of items ("traces", "observations").
             filter: JSON filter string for querying.
-            cursor: Cursor returned by the previous Observations API page.
+            page: Page number (1-indexed).
             limit: Number of items per page.
             max_retries: Maximum number of retry attempts.
             verbose: Whether to log retry attempts.
             fields: Trace fields to fetch
 
         Returns:
-            The items and cursor for the next page.
+            List of items from the API.
 
         Raises:
             Exception: If all retry attempts fail.
         """
-        if scope not in {"traces", "observations"}:
+        if scope == "traces":
+            response = self.client.api.trace.list(
+                page=page,
+                limit=limit,
+                filter=filter,
+                request_options={"max_retries": max_retries},
+                fields=fields,
+            )  # type: ignore
+            return list(response.data)  # type: ignore
+        elif scope == "observations":
+            response = self.client.api.legacy.observations_v1.get_many(
+                page=page,
+                limit=limit,
+                filter=filter,
+                request_options={"max_retries": max_retries},
+            )  # type: ignore
+            return list(response.data)  # type: ignore
+        else:
             error_message = f"Invalid scope: {scope}"
             raise ValueError(error_message)
-
-        effective_filter = filter
-        if scope == "traces":
-            filters = json.loads(filter) if filter else []
-            filters.append(
-                {
-                    "type": "boolean",
-                    "column": "isRootObservation",
-                    "operator": "=",
-                    "value": True,
-                }
-            )
-            effective_filter = json.dumps(filters)
-
-        response = self.client.api.observations.get_many(
-            fields="core,basic,io,metadata,trace_context",
-            limit=limit,
-            cursor=cursor,
-            filter=effective_filter,
-            request_options={"max_retries": max_retries},
-        )
-
-        observations = [
-            _BatchEvaluationObservation(
-                id=observation.id,
-                trace_id=observation.trace_id,
-                start_time=observation.start_time,
-                input=_parse_observation_value(observation.input),
-                output=_parse_observation_value(observation.output),
-                metadata=_parse_observation_value(observation.metadata),
-                name=observation.name,
-                user_id=observation.user_id,
-                tags=observation.tags or [],
-            )
-            for observation in response.data
-        ]
-        if scope == "observations":
-            return observations, response.meta.cursor  # type: ignore[return-value]
-
-        return (
-            [
-                _BatchEvaluationTrace(
-                    id=observation.trace_id or observation.id,
-                    timestamp=observation.start_time,
-                    input=observation.input,
-                    output=observation.output,
-                    metadata=observation.metadata,
-                    name=next(
-                        (
-                            item.trace_name
-                            for item in response.data
-                            if item.id == observation.id and item.trace_name
-                        ),
-                        observation.name,
-                    ),
-                    user_id=observation.user_id,
-                    tags=observation.tags,
-                )
-                for observation in observations
-            ],
-            response.meta.cursor,
-        )  # type: ignore[return-value]
 
     async def _process_batch_evaluation_item(
         self,

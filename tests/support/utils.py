@@ -9,7 +9,6 @@ from tests.support.retry import (
     DEFAULT_RETRY_TIMEOUT_SECONDS,
     retry_until_ready,
 )
-from tests.support.v4_api import V4TestAPI
 
 READ_METHOD_NAMES = {"get", "get_by_id", "get_many", "get_run", "list"}
 PAGINATION_ARGUMENTS = {"limit", "page"}
@@ -72,8 +71,7 @@ def get_api(*, retry: bool = True):
         password=os.environ.get("LANGFUSE_SECRET_KEY"),
         base_url=os.environ.get("LANGFUSE_BASE_URL"),
     )
-    test_api = V4TestAPI(client)
-    return _RetryingApiProxy(test_api) if retry else test_api
+    return _RetryingApiProxy(client) if retry else client
 
 
 def wait_for_result(

@@ -1,71 +1,9 @@
-from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from langfuse.api.commons.errors.not_found_error import NotFoundError
 from tests.support.api_wrapper import LangfuseAPI as SupportLangfuseAPI
 from tests.support.retry import retry_until_ready
 from tests.support.utils import get_api, wait_for_trace
-from tests.support.v4_api import V4TraceView
-
-
-def test_v4_trace_view_merges_metadata_from_all_observations():
-    started_at = datetime.now(timezone.utc)
-
-    def observation(
-        *,
-        observation_id,
-        metadata,
-        start_time,
-        is_root_observation,
-        parent_observation_id,
-    ):
-        return SimpleNamespace(
-            id=observation_id,
-            name=observation_id,
-            start_time=start_time,
-            is_root_observation=is_root_observation,
-            parent_observation_id=parent_observation_id,
-            input=None,
-            output=None,
-            version=None,
-            metadata=metadata,
-            _observation=SimpleNamespace(
-                trace_name="experiment-trace",
-                session_id=None,
-                release=None,
-                user_id=None,
-                tags=[],
-                public=False,
-                environment="default",
-            ),
-        )
-
-    trace = V4TraceView(
-        "trace-123",
-        [
-            observation(
-                observation_id="root",
-                metadata={"experiment_name": "metadata-test"},
-                start_time=started_at,
-                is_root_observation=True,
-                parent_observation_id=None,
-            ),
-            observation(
-                observation_id="external-child",
-                metadata={"mode": "offline", "job_name": "agent-eval/PR-4"},
-                start_time=started_at + timedelta(milliseconds=1),
-                is_root_observation=False,
-                parent_observation_id="root",
-            ),
-        ],
-        [],
-    )
-
-    assert trace.metadata == {
-        "experiment_name": "metadata-test",
-        "mode": "offline",
-        "job_name": "agent-eval/PR-4",
-    }
 
 
 def test_get_api_retries_not_found(monkeypatch):
@@ -91,7 +29,6 @@ def test_get_api_retries_not_found(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
-    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     trace = get_api().trace.get("trace-123")
 
@@ -117,7 +54,6 @@ def test_get_api_retries_filtered_lists(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
-    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     response = get_api().trace.list(name="ready-trace")
 
@@ -137,7 +73,6 @@ def test_get_api_retry_can_be_disabled(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
-    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     response = get_api(retry=False).trace.list(name="missing-trace")
 
@@ -150,26 +85,30 @@ def test_raw_api_wrapper_retries_not_found_payload(monkeypatch):
 
     attempts = {"count": 0}
 
-    class FakeTraceService:
-        def get(self, trace_id):
-            attempts["count"] += 1
-            if attempts["count"] < 3:
-                raise NotFoundError(
-                    body={
-                        "error": "LangfuseNotFoundError",
-                        "message": "Trace trace-123 not found within authorized project",
-                    }
-                )
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+            self.headers = {}
 
-            return {"id": trace_id, "observations": []}
+        def json(self):
+            return self._payload
 
-    class FakeClient:
-        trace = FakeTraceService()
+    def fake_get(*args, **kwargs):
+        attempts["count"] += 1
 
-    monkeypatch.setattr("tests.support.api_wrapper.get_api", lambda **_: FakeClient())
-    monkeypatch.setattr(
-        SupportLangfuseAPI, "_trace_json", staticmethod(lambda trace: trace)
-    )
+        if attempts["count"] < 3:
+            return FakeResponse(
+                404,
+                {
+                    "error": "LangfuseNotFoundError",
+                    "message": "Trace trace-123 not found within authorized project",
+                },
+            )
+
+        return FakeResponse(200, {"id": "trace-123", "observations": []})
+
+    monkeypatch.setattr("tests.support.api_wrapper.httpx.get", fake_get)
 
     api = SupportLangfuseAPI(username="user", password="pass", base_url="http://test")
     trace = api.get_trace("trace-123")
@@ -192,7 +131,6 @@ def test_wait_for_trace_retries_until_predicate_matches(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
-    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     trace = wait_for_trace(
         "trace-123", is_result_ready=lambda trace: len(trace["observations"]) == 3

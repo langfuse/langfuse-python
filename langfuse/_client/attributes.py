@@ -68,7 +68,6 @@ class LangfuseOtelSpanAttributes:
     EXPERIMENT_METADATA = "langfuse.experiment.metadata"
     EXPERIMENT_DATASET_ID = "langfuse.experiment.dataset.id"
     EXPERIMENT_ITEM_ID = "langfuse.experiment.item.id"
-    EXPERIMENT_ITEM_VERSION = "langfuse.experiment.item.version"
     EXPERIMENT_ITEM_EXPECTED_OUTPUT = "langfuse.experiment.item.expected_output"
     EXPERIMENT_ITEM_METADATA = "langfuse.experiment.item.metadata"
     EXPERIMENT_ITEM_ROOT_OBSERVATION_ID = "langfuse.experiment.item.root_observation_id"

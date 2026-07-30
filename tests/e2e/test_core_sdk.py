@@ -270,7 +270,8 @@ def test_create_boolean_score():
     assert created_score is not None, "Score not found in trace"
     assert created_score["id"] == score_id
     assert created_score["dataType"] == "BOOLEAN"
-    assert created_score["value"] is True
+    assert created_score["value"] == 1
+    assert created_score["stringValue"] == "True"
 
 
 def test_create_categorical_score():
@@ -327,7 +328,8 @@ def test_create_categorical_score():
     assert created_score is not None, "Score not found in trace"
     assert created_score["id"] == score_id
     assert created_score["dataType"] == "CATEGORICAL"
-    assert created_score["value"] == "high score"
+    assert created_score["value"] == 0
+    assert created_score["stringValue"] == "high score"
 
 
 def test_create_text_score():
@@ -384,8 +386,9 @@ def test_create_text_score():
             assert created_score is not None, "Score not found in trace"
             assert created_score["id"] == score_id
             assert created_score["dataType"] == "TEXT"
+
             assert (
-                created_score["value"]
+                created_score["stringValue"]
                 == "This is a detailed text evaluation of the output quality."
             )
 
@@ -491,6 +494,7 @@ def test_create_trace():
     assert trace["metadata"]["key"] == "value"
     assert trace["tags"] == ["tag1", "tag2"]
     assert trace["public"] is True
+    assert True if not trace["externalId"] else False
 
 
 def test_create_update_trace():
@@ -552,7 +556,7 @@ def test_create_update_current_trace():
             user_id="test",
             metadata={"key": "value"},
         ):
-            langfuse.update_current_span(input="test_input")
+            langfuse.set_current_trace_io(input="test_input")
             langfuse.set_current_trace_as_public()
             # Get trace ID for later reference
             trace_id = span.trace_id
@@ -656,7 +660,7 @@ def test_create_generation():
         (
             {
                 "input": 51,
-                "output": 49,
+                "output": 0,
                 "total": 100,
             },
             "TOKENS",
@@ -667,7 +671,7 @@ def test_create_generation():
         (
             {
                 "input": 51,
-                "output": 49,
+                "output": 0,
                 "total": 100,
             },
             "CHARACTERS",
@@ -697,7 +701,6 @@ def test_create_generation_complex(
             },
         ],
         output=[{"foo": "bar"}],
-        model="gpt-3.5-turbo",
         usage_details=usage,
         metadata={"tags": ["yo"]},
     ).end()
@@ -733,7 +736,7 @@ def test_create_generation_complex(
         assert generation_api.metadata["tags"] == ["yo"]
 
     assert generation_api.start_time is not None
-    assert generation_api.usage_details == {"input": 51, "output": 49, "total": 100}
+    assert generation_api.usage_details == {"input": 51, "output": 0, "total": 100}
 
 
 def test_create_span():
@@ -986,7 +989,7 @@ def test_create_trace_and_generation():
     # Create parent span and set trace properties
     with langfuse.start_as_current_observation(name=trace_name) as parent_span:
         with propagate_attributes(trace_name=trace_name, session_id="test-session-id"):
-            parent_span.update(input={"key": "value"})
+            parent_span.set_trace_io(input={"key": "value"})
 
             # Create a generation as child
             generation = parent_span.start_observation(
@@ -1391,7 +1394,6 @@ def test_end_generation_with_openai_token_format():
     generation = langfuse.start_observation(
         as_type="generation",
         name="query-generation",
-        model="gpt-3.5-turbo",
     )
 
     # Get trace ID for verification
@@ -1432,6 +1434,7 @@ def test_end_generation_with_openai_token_format():
     assert generation_api.usage.input == 100  # prompt_tokens mapped to input
     assert generation_api.usage.output == 200  # completion_tokens mapped to output
     assert generation_api.usage.total == 500
+    assert generation_api.usage.unit == "TOKENS"  # Default unit for OpenAI format
     assert generation_api.calculated_input_cost == 111
     assert generation_api.calculated_output_cost == 222
     assert generation_api.calculated_total_cost == 444
@@ -1809,7 +1812,7 @@ def test_fetch_traces():
     # First trace
     with langfuse.start_as_current_observation(name="test1") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
-            span.update(input={"key": "value"}, output="output-value")
+            span.set_trace_io(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
 
     sleep(1)  # Ensure traces have different timestamps
@@ -1817,7 +1820,7 @@ def test_fetch_traces():
     # Second trace
     with langfuse.start_as_current_observation(name="test2") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
-            span.update(input={"key": "value"}, output="output-value")
+            span.set_trace_io(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
 
     sleep(1)  # Ensure traces have different timestamps
@@ -1825,7 +1828,7 @@ def test_fetch_traces():
     # Third trace
     with langfuse.start_as_current_observation(name="test3") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
-            span.update(input={"key": "value"}, output="output-value")
+            span.set_trace_io(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
 
     # Ensure data is sent
@@ -2085,11 +2088,11 @@ def test_mask_function(request):
     # Create a root span with trace properties
     with langfuse.start_as_current_observation(name="test-span") as root_span:
         with propagate_attributes(trace_name="test_trace"):
-            root_span.update(input={"sensitive": "data"})
+            root_span.set_trace_io(input={"sensitive": "data"})
             # Get trace ID for later use
             trace_id = root_span.trace_id
             # Add output to the trace
-            root_span.update(output={"more": "sensitive"})
+            root_span.set_trace_io(output={"more": "sensitive"})
 
             # Create a generation as child
             gen = root_span.start_observation(
@@ -2133,11 +2136,11 @@ def test_mask_function(request):
     # Create a root span with trace properties
     with langfuse.start_as_current_observation(name="test-span") as root_span:
         with propagate_attributes(trace_name="test_trace"):
-            root_span.update(input={"should_raise": "data"})
+            root_span.set_trace_io(input={"should_raise": "data"})
             # Get trace ID for later use
             trace_id = root_span.trace_id
             # Add output to the trace
-            root_span.update(output={"should_raise": "sensitive"})
+            root_span.set_trace_io(output={"should_raise": "sensitive"})
 
     # Ensure data is sent
     langfuse.flush()

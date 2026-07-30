@@ -160,6 +160,8 @@ jobs:
           LANGFUSE_SERVER_SHA="$(git ls-remote https://github.com/langfuse/langfuse.git HEAD | cut -f1)"
           curl -fsSL "https://raw.githubusercontent.com/langfuse/langfuse/${LANGFUSE_SERVER_SHA}/docker-compose.yml" \
             -o ./langfuse-server/docker-compose.yml
+          cp ./.github/langfuse-v4-dual-write.override.yml \
+            ./langfuse-server/docker-compose.override.yml
           echo "${LANGFUSE_SERVER_SHA}"
 
       - name: Run langfuse server

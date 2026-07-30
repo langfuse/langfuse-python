@@ -109,7 +109,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 "x-langfuse-sdk-name": "python",
                 "x-langfuse-sdk-version": langfuse_version,
                 "x-langfuse-public-key": public_key,
-                "x-langfuse-ingestion-version": "4",
             }
 
             # Merge additional headers if provided

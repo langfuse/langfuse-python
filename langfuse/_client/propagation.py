@@ -58,11 +58,9 @@ PropagatedKeys = Literal[
 InternalPropagatedKeys = Literal[
     "experiment_id",
     "experiment_name",
-    "experiment_description",
     "experiment_metadata",
     "experiment_dataset_id",
     "experiment_item_id",
-    "experiment_item_version",
     "experiment_item_metadata",
     "experiment_item_root_observation_id",
 ]
@@ -79,11 +77,9 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
     "prompt_version",
     "experiment_id",
     "experiment_name",
-    "experiment_description",
     "experiment_metadata",
     "experiment_dataset_id",
     "experiment_item_id",
-    "experiment_item_version",
     "experiment_item_metadata",
     "experiment_item_root_observation_id",
 ]
@@ -92,11 +88,9 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
 class PropagatedExperimentAttributes(TypedDict):
     experiment_id: str
     experiment_name: str
-    experiment_description: Optional[str]
     experiment_metadata: Optional[Dict[str, str]]
     experiment_dataset_id: Optional[str]
     experiment_item_id: str
-    experiment_item_version: Optional[str]
     experiment_item_metadata: Optional[Dict[str, str]]
     experiment_item_root_observation_id: str
 
@@ -764,11 +758,9 @@ def _get_propagated_span_key(key: str) -> str:
         "prompt_version": LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
         "experiment_id": LangfuseOtelSpanAttributes.EXPERIMENT_ID,
         "experiment_name": LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
-        "experiment_description": LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
         "experiment_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
         "experiment_dataset_id": LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID,
         "experiment_item_id": LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID,
-        "experiment_item_version": LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_VERSION,
         "experiment_item_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA,
         "experiment_item_root_observation_id": LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID,
     }.get(key) or f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"

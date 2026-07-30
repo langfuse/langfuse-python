@@ -187,7 +187,6 @@ class TestAdditionalHeadersSimple:
         assert "Authorization" in exporter._headers
         assert "x-langfuse-sdk-name" in exporter._headers
         assert "x-langfuse-public-key" in exporter._headers
-        assert exporter._headers["x-langfuse-ingestion-version"] == "4"
 
         # Check that our override worked
         assert exporter._headers["X-Override-Default"] == "override-value"
@@ -211,7 +210,6 @@ class TestAdditionalHeadersSimple:
         assert "Authorization" in exporter._headers
         assert "x-langfuse-sdk-name" in exporter._headers
         assert "x-langfuse-public-key" in exporter._headers
-        assert exporter._headers["x-langfuse-ingestion-version"] == "4"
 
     def test_span_processor_uses_custom_span_exporter_when_provided(self):
         """Test that a custom exporter bypasses the default OTLP exporter construction."""
