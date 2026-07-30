@@ -1,7 +1,6 @@
 import asyncio
 import contextvars
 import gc
-import inspect
 import json
 import sys
 from typing import Any, AsyncGenerator, Generator, cast
@@ -295,8 +294,7 @@ def test_sync_generator_wrapper_close_closes_generator_after_span_ended() -> Non
 
     assert next(wrapper) == "item_0"
 
-    # __next__ raising without resuming the generator (here: re-entering the
-    # preserved context) ends the span while the generator is still suspended.
+    # An error from __next__ that never resumed the generator ends the span.
     with pytest.raises(RuntimeError):
         context.run(lambda: next(wrapper))
 
@@ -337,8 +335,7 @@ async def test_async_generator_wrapper_aclose_closes_generator_after_span_ended(
 
     assert await wrapper.__anext__() == "item_0"
 
-    # Span ends while the generator is still suspended (as happens when a
-    # cancellation never resumes the generator, see the test below).
+    # Span ends while the generator is still suspended (e.g. the cancel race below).
     wrapper._finalize_with_error(asyncio.CancelledError())
     assert span.ended == 1
     assert seen == []
@@ -381,20 +378,19 @@ async def test_async_generator_wrapper_closes_generator_cancel_never_resumed() -
     consumer = asyncio.create_task(consume())
     for _ in range(4):
         await asyncio.sleep(0)
-    # The cancel lands between chunks, before the inner __anext__ task's
-    # first step: the generator is never resumed, but the span is ended.
+    # Cancel lands before the inner __anext__ task's first step.
     asyncio.get_running_loop().call_soon(consumer.cancel)
     with pytest.raises(asyncio.CancelledError):
         await consumer
 
-    assert inspect.getasyncgenstate(raw) == "AGEN_SUSPENDED"
+    assert raw.ag_frame is not None  # still suspended, never resumed
     assert span.ended == 1
     assert seen == []
 
     marker.set("ambient-now")
     await wrapper.aclose()
 
-    assert inspect.getasyncgenstate(raw) == "AGEN_CLOSED"
+    assert raw.ag_frame is None  # closed
     assert seen == ["preserved"]
     assert span.ended == 1
 
