@@ -1,9 +1,71 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from langfuse.api.commons.errors.not_found_error import NotFoundError
 from tests.support.api_wrapper import LangfuseAPI as SupportLangfuseAPI
 from tests.support.retry import retry_until_ready
 from tests.support.utils import get_api, wait_for_trace
+from tests.support.v4_api import V4TraceView
+
+
+def test_v4_trace_view_merges_metadata_from_all_observations():
+    started_at = datetime.now(timezone.utc)
+
+    def observation(
+        *,
+        observation_id,
+        metadata,
+        start_time,
+        is_root_observation,
+        parent_observation_id,
+    ):
+        return SimpleNamespace(
+            id=observation_id,
+            name=observation_id,
+            start_time=start_time,
+            is_root_observation=is_root_observation,
+            parent_observation_id=parent_observation_id,
+            input=None,
+            output=None,
+            version=None,
+            metadata=metadata,
+            _observation=SimpleNamespace(
+                trace_name="experiment-trace",
+                session_id=None,
+                release=None,
+                user_id=None,
+                tags=[],
+                public=False,
+                environment="default",
+            ),
+        )
+
+    trace = V4TraceView(
+        "trace-123",
+        [
+            observation(
+                observation_id="root",
+                metadata={"experiment_name": "metadata-test"},
+                start_time=started_at,
+                is_root_observation=True,
+                parent_observation_id=None,
+            ),
+            observation(
+                observation_id="external-child",
+                metadata={"mode": "offline", "job_name": "agent-eval/PR-4"},
+                start_time=started_at + timedelta(milliseconds=1),
+                is_root_observation=False,
+                parent_observation_id="root",
+            ),
+        ],
+        [],
+    )
+
+    assert trace.metadata == {
+        "experiment_name": "metadata-test",
+        "mode": "offline",
+        "job_name": "agent-eval/PR-4",
+    }
 
 
 def test_get_api_retries_not_found(monkeypatch):

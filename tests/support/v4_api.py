@@ -169,11 +169,9 @@ class V4TraceView:
         self.release = first_populated("release")
         self.version = root.version
         self.user_id = first_populated("user_id")
-        self.metadata = max(
-            (observation.metadata for observation in observations),
-            key=len,
-            default={},
-        )
+        self.metadata = {}
+        for observation in observations:
+            self.metadata.update(observation.metadata)
         self.tags = list(
             dict.fromkeys(
                 tag
