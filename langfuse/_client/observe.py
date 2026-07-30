@@ -616,6 +616,12 @@ class _ContextPreservedSyncGeneratorWrapper:
 
     def close(self) -> None:
         if self._span_ended:
+            # The span can end while the generator is still suspended (e.g.
+            # an error surfaced from __next__ without resuming the generator).
+            # Still close the generator so its cleanup runs deterministically
+            # in the preserved context instead of at GC time under an
+            # arbitrary ambient context.
+            self.context.run(self.generator.close)
             return
 
         try:
@@ -711,21 +717,30 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def aclose(self) -> None:
         if self._span_ended:
+            # The span can end while the generator is still suspended (e.g. a
+            # cancellation delivered before the inner __anext__ task resumed
+            # the generator). Still close the generator so its cleanup runs
+            # deterministically in the preserved context instead of at GC time
+            # under an arbitrary ambient context.
+            await self._close_generator()
             return
 
         try:
-            try:
-                await asyncio.create_task(
-                    self.generator.aclose(),
-                    context=self.context,
-                )  # type: ignore
-            except TypeError:
-                await self.context.run(asyncio.create_task, self.generator.aclose())
+            await self._close_generator()
         except (Exception, asyncio.CancelledError) as error:
             self._finalize_with_error(error)
             raise
         else:
             self._finalize()
+
+    async def _close_generator(self) -> None:
+        try:
+            await asyncio.create_task(
+                self.generator.aclose(),
+                context=self.context,
+            )  # type: ignore
+        except TypeError:
+            await self.context.run(asyncio.create_task, self.generator.aclose())
 
     async def close(self) -> None:
         await self.aclose()
