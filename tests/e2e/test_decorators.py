@@ -1075,7 +1075,7 @@ def test_media():
     @observe()
     def main():
         sleep(1)
-        langfuse.set_current_trace_io(
+        langfuse.update_current_span(
             input={
                 "context": {
                     "nested": media,

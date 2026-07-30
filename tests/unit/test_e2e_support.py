@@ -29,6 +29,7 @@ def test_get_api_retries_not_found(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
+    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     trace = get_api().trace.get("trace-123")
 
@@ -54,6 +55,7 @@ def test_get_api_retries_filtered_lists(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
+    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     response = get_api().trace.list(name="ready-trace")
 
@@ -73,6 +75,7 @@ def test_get_api_retry_can_be_disabled(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
+    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     response = get_api(retry=False).trace.list(name="missing-trace")
 
@@ -85,30 +88,26 @@ def test_raw_api_wrapper_retries_not_found_payload(monkeypatch):
 
     attempts = {"count": 0}
 
-    class FakeResponse:
-        def __init__(self, status_code, payload):
-            self.status_code = status_code
-            self._payload = payload
-            self.headers = {}
+    class FakeTraceService:
+        def get(self, trace_id):
+            attempts["count"] += 1
+            if attempts["count"] < 3:
+                raise NotFoundError(
+                    body={
+                        "error": "LangfuseNotFoundError",
+                        "message": "Trace trace-123 not found within authorized project",
+                    }
+                )
 
-        def json(self):
-            return self._payload
+            return {"id": trace_id, "observations": []}
 
-    def fake_get(*args, **kwargs):
-        attempts["count"] += 1
+    class FakeClient:
+        trace = FakeTraceService()
 
-        if attempts["count"] < 3:
-            return FakeResponse(
-                404,
-                {
-                    "error": "LangfuseNotFoundError",
-                    "message": "Trace trace-123 not found within authorized project",
-                },
-            )
-
-        return FakeResponse(200, {"id": "trace-123", "observations": []})
-
-    monkeypatch.setattr("tests.support.api_wrapper.httpx.get", fake_get)
+    monkeypatch.setattr("tests.support.api_wrapper.get_api", lambda **_: FakeClient())
+    monkeypatch.setattr(
+        SupportLangfuseAPI, "_trace_json", staticmethod(lambda trace: trace)
+    )
 
     api = SupportLangfuseAPI(username="user", password="pass", base_url="http://test")
     trace = api.get_trace("trace-123")
@@ -131,6 +130,7 @@ def test_wait_for_trace_retries_until_predicate_matches(monkeypatch):
         trace = FakeTraceService()
 
     monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
+    monkeypatch.setattr("tests.support.utils.V4TestAPI", lambda client: client)
 
     trace = wait_for_trace(
         "trace-123", is_result_ready=lambda trace: len(trace["observations"]) == 3

@@ -52,7 +52,7 @@ def _seed_trace_corpus(
         trace_names.append(trace_name)
         with langfuse_client.start_as_current_observation(name=trace_name) as span:
             with propagate_attributes(tags=[corpus_tag]):
-                span.set_trace_io(
+                span.update(
                     input=f"Seed input {index}",
                     output=f"Seed output {index}",
                 )
@@ -161,7 +161,7 @@ def test_batch_evaluation_with_filter(langfuse_client):
         name=f"filtered-trace-{create_uuid()}"
     ) as span:
         with propagate_attributes(tags=[unique_tag]):
-            span.set_trace_io(
+            span.update(
                 input="Filtered test",
                 output="Filtered output",
             )
@@ -789,7 +789,7 @@ def test_pagination_with_max_items(langfuse_client):
             name=f"pagination-test-{create_uuid()}"
         ) as span:
             with propagate_attributes(tags=["pagination_test"]):
-                span.set_trace_io(
+                span.update(
                     input=f"Input {i}",
                     output=f"Output {i}",
                 )
@@ -821,7 +821,7 @@ def test_has_more_items_flag(langfuse_client):
             name=f"more-items-test-{i}"
         ) as span:
             with propagate_attributes(tags=[batch_tag]):
-                span.set_trace_io(
+                span.update(
                     input=f"Input {i}",
                     output=f"Output {i}",
                 )

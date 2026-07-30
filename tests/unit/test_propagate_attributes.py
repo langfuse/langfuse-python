@@ -2706,11 +2706,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
             )
 
-            # Root-only attributes should NOT be present on children
-            self.verify_missing_attribute(
+            # Experiment context is propagated to children.
+            self.verify_span_attribute(
                 child_span,
                 LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+                "Test experiment description",
             )
+            # Item payload attributes remain root-only.
             self.verify_missing_attribute(
                 child_span,
                 LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT,
@@ -2783,33 +2785,9 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         )
 
     def test_experiment_attributes_propagate_with_dataset(
-        self, langfuse_client, memory_exporter, monkeypatch
+        self, langfuse_client, memory_exporter
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
-        created_run_items = []
-
-        # Mock the sync API used by run_experiment to create dataset run items
-        def mock_create_dataset_run_item(*args, **kwargs):
-            from langfuse.api import DatasetRunItem
-
-            created_run_items.append(kwargs)
-            return DatasetRunItem(
-                id="mock-run-item-id",
-                dataset_run_id="mock-dataset-run-id-123",
-                dataset_run_name=kwargs.get("run_name", "Dataset Test"),
-                dataset_item_id=kwargs.get("dataset_item_id", "mock-item-id"),
-                trace_id="mock-trace-id",
-                observation_id=kwargs.get("observation_id"),
-                created_at=datetime.now(),
-                updated_at=datetime.now(),
-            )
-
-        monkeypatch.setattr(
-            langfuse_client.api.dataset_run_items,
-            "create",
-            mock_create_dataset_run_item,
-        )
-
         # Create a mock dataset with items
         dataset_id = "test-dataset-id-456"
         dataset_item_id = "test-dataset-item-id-789"
@@ -2871,10 +2849,7 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         assert len(root_spans) >= 1, "Should have at least 1 root span"
         first_root = root_spans[0]
-        task_span = self.get_span_by_name(memory_exporter, "experiment-item-task")
-        assert result.experiment_id == "mock-dataset-run-id-123"
-        assert len(created_run_items) == 1
-        assert created_run_items[0]["observation_id"] == task_span["span_id"]
+        assert result.experiment_id == result.dataset_run_id
 
         # Root-only attributes should be on root
         self.verify_span_attribute(
@@ -2971,11 +2946,13 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
             )
 
-            # Root-only attributes should NOT be present on children
-            self.verify_missing_attribute(
+            # Experiment context is propagated to children.
+            self.verify_span_attribute(
                 child_span,
                 LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+                "Dataset experiment description",
             )
+            # Item payload attributes remain root-only.
             self.verify_missing_attribute(
                 child_span,
                 LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT,
@@ -3054,10 +3031,11 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
                 LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
             )
 
-            # Root-only attributes should NOT be present
-            self.verify_missing_attribute(
+            # Experiment context is propagated to nested spans.
+            self.verify_span_attribute(
                 span_data,
                 LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION,
+                "Nested test",
             )
             self.verify_missing_attribute(
                 span_data,

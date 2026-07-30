@@ -2997,37 +2997,23 @@ class Langfuse:
                     # Link dataset runs to the canonical task observation so their
                     # latency excludes the subsequent evaluator subtree.
                     if hasattr(item, "id") and hasattr(item, "dataset_id"):
-                        try:
-                            # Use sync API to avoid event loop issues when
-                            # run_async_safely creates multiple event loops across
-                            # different threads.
-                            dataset_run_item = await asyncio.to_thread(
-                                self.api.dataset_run_items.create,
-                                run_name=experiment_run_name,
-                                run_description=experiment_description,
-                                metadata=experiment_metadata,
-                                dataset_item_id=item.id,  # type: ignore
-                                trace_id=trace_id,
-                                observation_id=task_span.id,
-                                dataset_version=dataset_version,
-                            )
-
-                            dataset_run_id = dataset_run_item.dataset_run_id
-
-                        except Exception as e:
-                            langfuse_logger.error(
-                                f"Failed to create dataset run item: {e}"
-                            )
+                        # Langfuse v4 synthesizes the experiment and item links from
+                        # the OpenTelemetry attributes propagated below.
+                        dataset_run_id = fallback_experiment_id
 
                     experiment_id = dataset_run_id or fallback_experiment_id
                     propagated_experiment_attributes = PropagatedExperimentAttributes(
                         experiment_id=experiment_id,
                         experiment_name=experiment_run_name,
+                        experiment_description=experiment_description,
                         experiment_metadata=_flatten_and_serialize_metadata_values(
                             experiment_metadata
                         ),
                         experiment_dataset_id=dataset_id,
                         experiment_item_id=experiment_item_id,
+                        experiment_item_version=(
+                            dataset_version.isoformat() if dataset_version else None
+                        ),
                         experiment_item_metadata=_flatten_and_serialize_metadata_values(
                             item_metadata if isinstance(item_metadata, dict) else None
                         ),
