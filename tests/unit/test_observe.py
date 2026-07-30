@@ -400,6 +400,32 @@ async def test_async_generator_wrapper_closes_generator_cancel_never_resumed() -
 
 
 @pytest.mark.asyncio
+async def test_async_generator_wrapper_aclose_propagates_cleanup_type_error() -> None:
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+        finally:
+            raise TypeError("cleanup failed")
+
+    span = SpanRecorder()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        contextvars.copy_context(),
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert await wrapper.__anext__() == "item_0"
+
+    with pytest.raises(TypeError, match="cleanup failed"):
+        await wrapper.aclose()
+
+    assert span.ended == 1
+    assert span.updates[-1] == {"level": "ERROR", "status_message": "cleanup failed"}
+
+
+@pytest.mark.asyncio
 async def test_async_generator_wrapper_fallback_preserves_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -735,12 +735,17 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def _close_generator(self) -> None:
         try:
-            await asyncio.create_task(
+            close_task = asyncio.create_task(
                 self.generator.aclose(),
                 context=self.context,
             )  # type: ignore
         except TypeError:
-            await self.context.run(asyncio.create_task, self.generator.aclose())
+            # Python 3.10: create_task has no context parameter. Only the
+            # create_task call is guarded so a TypeError raised from the
+            # generator's own cleanup is not mistaken for it.
+            close_task = self.context.run(asyncio.create_task, self.generator.aclose())
+
+        await close_task
 
     async def close(self) -> None:
         await self.aclose()
