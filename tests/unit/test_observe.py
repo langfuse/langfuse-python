@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import gc
+import inspect
 import json
 import sys
 from typing import Any, AsyncGenerator, Generator, cast
@@ -268,6 +269,138 @@ async def test_async_generator_wrapper_aclose_preserves_context() -> None:
 
     assert seen == ["preserved"]
     assert span.ended == 1
+
+
+def test_sync_generator_wrapper_close_closes_generator_after_span_ended() -> None:
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    def generator() -> Generator[str, None, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedSyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert next(wrapper) == "item_0"
+
+    # __next__ raising without resuming the generator (here: re-entering the
+    # preserved context) ends the span while the generator is still suspended.
+    with pytest.raises(RuntimeError):
+        context.run(lambda: next(wrapper))
+
+    assert span.ended == 1
+    assert seen == []
+
+    marker.set("ambient-now")
+    wrapper.close()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_aclose_closes_generator_after_span_ended() -> (
+    None
+):
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert await wrapper.__anext__() == "item_0"
+
+    # Span ends while the generator is still suspended.
+    wrapper._finalize_with_error(RuntimeError("ended early"))
+    assert span.ended == 1
+    assert seen == []
+
+    marker.set("ambient-now")
+    await wrapper.aclose()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_defers_span_end_for_unresumed_cancel() -> None:
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    raw = generator()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        raw,
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    async def consume() -> None:
+        async for _ in wrapper:
+            await asyncio.sleep(0)
+
+    consumer = asyncio.create_task(consume())
+    for _ in range(4):
+        await asyncio.sleep(0)
+    # The cancel lands between chunks, before the inner __anext__ task's
+    # first step: the generator is never resumed.
+    asyncio.get_running_loop().call_soon(consumer.cancel)
+    with pytest.raises(asyncio.CancelledError):
+        await consumer
+
+    assert inspect.getasyncgenstate(raw) == "AGEN_SUSPENDED"
+    # Span end is deferred so the generator's cleanup can still update it.
+    assert span.ended == 0
+
+    marker.set("ambient-now")
+    await wrapper.aclose()
+
+    assert inspect.getasyncgenstate(raw) == "AGEN_CLOSED"
+    assert seen == ["preserved"]
+    assert span.ended == 1
+    # The retained cancellation still finalizes the span as an error.
+    assert span.updates[-1] == {
+        "level": "ERROR",
+        "status_message": "CancelledError",
+    }
 
 
 @pytest.mark.asyncio

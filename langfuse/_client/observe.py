@@ -616,6 +616,12 @@ class _ContextPreservedSyncGeneratorWrapper:
 
     def close(self) -> None:
         if self._span_ended:
+            # The span can end while the generator is still suspended (e.g.
+            # an error surfaced from __next__ without resuming the generator).
+            # Still close the generator so its cleanup runs deterministically
+            # in the preserved context instead of at GC time under an
+            # arbitrary ambient context.
+            self.context.run(self.generator.close)
             return
 
         try:
@@ -678,9 +684,18 @@ class _ContextPreservedAsyncGeneratorWrapper:
         self.capture_output = capture_output
         self.transform_fn = transform_fn
         self._span_ended = False
+        self._pending_error: Optional[BaseException] = None
 
     def __aiter__(self) -> "_ContextPreservedAsyncGeneratorWrapper":
         return self
+
+    def _generator_never_resumed(self) -> bool:
+        try:
+            state = inspect.getasyncgenstate(self.generator)
+        except TypeError:
+            return False
+
+        return state in ("AGEN_CREATED", "AGEN_SUSPENDED")
 
     def _finalize(self) -> None:
         if self._span_ended:
@@ -711,27 +726,41 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def aclose(self) -> None:
         if self._span_ended:
+            # The span can end while the generator is still suspended. Still
+            # close the generator so its cleanup runs deterministically in
+            # the preserved context instead of at GC time under an arbitrary
+            # ambient context.
+            await self._close_generator()
             return
 
         try:
-            try:
-                await asyncio.create_task(
-                    self.generator.aclose(),
-                    context=self.context,
-                )  # type: ignore
-            except TypeError:
-                await self.context.run(asyncio.create_task, self.generator.aclose())
+            await self._close_generator()
         except (Exception, asyncio.CancelledError) as error:
             self._finalize_with_error(error)
             raise
         else:
-            self._finalize()
+            if self._pending_error is not None:
+                self._finalize_with_error(self._pending_error)
+            else:
+                self._finalize()
+
+    async def _close_generator(self) -> None:
+        try:
+            await asyncio.create_task(
+                self.generator.aclose(),
+                context=self.context,
+            )  # type: ignore
+        except TypeError:
+            await self.context.run(asyncio.create_task, self.generator.aclose())
 
     async def close(self) -> None:
         await self.aclose()
 
     def __del__(self) -> None:
-        self._finalize()
+        if self._pending_error is not None:
+            self._finalize_with_error(self._pending_error)
+        else:
+            self._finalize()
 
     async def __anext__(self) -> Any:
         try:
@@ -757,6 +786,16 @@ class _ContextPreservedAsyncGeneratorWrapper:
         except StopAsyncIteration:
             self._finalize()
             raise  # Re-raise StopAsyncIteration
-        except (Exception, asyncio.CancelledError) as e:
+        except asyncio.CancelledError as e:
+            if self._generator_never_resumed():
+                # The cancellation was delivered before the inner task resumed
+                # the generator. Defer the span end so aclose() can run the
+                # generator's cleanup (including any span updates it makes)
+                # before the span is finalized with this error.
+                self._pending_error = e
+                raise
+            self._finalize_with_error(e)
+            raise
+        except Exception as e:
             self._finalize_with_error(e)
             raise
