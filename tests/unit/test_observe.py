@@ -9,6 +9,7 @@ from typing import Any, AsyncGenerator, Generator, cast
 import pytest
 
 from langfuse import observe
+from langfuse._client import observe as observe_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.observe import (
     _ContextPreservedAsyncGeneratorWrapper,
@@ -352,6 +353,7 @@ async def test_async_generator_wrapper_aclose_closes_generator_after_span_ended(
 async def test_async_generator_wrapper_defers_span_end_for_unresumed_cancel() -> None:
     marker = contextvars.ContextVar("marker", default="ambient")
     seen: list[str] = []
+    cleanup_span_states: list[int] = []
 
     async def generator() -> AsyncGenerator[str, None]:
         try:
@@ -359,6 +361,8 @@ async def test_async_generator_wrapper_defers_span_end_for_unresumed_cancel() ->
             yield "item_1"
         finally:
             seen.append(marker.get())
+            cleanup_span_states.append(span.ended)
+            span.update(cleanup=True)
 
     span = SpanRecorder()
     context = contextvars.copy_context()
@@ -393,12 +397,12 @@ async def test_async_generator_wrapper_defers_span_end_for_unresumed_cancel() ->
 
     assert raw.ag_frame is None  # closed
     assert seen == ["preserved"]
+    assert cleanup_span_states == [0]
     assert span.ended == 1
-    # The retained cancellation still finalizes the span as an error.
-    assert span.updates[-1] == {
-        "level": "ERROR",
-        "status_message": "CancelledError",
-    }
+    assert span.updates == [
+        {"cleanup": True},
+        {"level": "ERROR", "status_message": "CancelledError"},
+    ]
 
 
 @pytest.mark.asyncio
@@ -481,15 +485,7 @@ async def test_async_generator_wrapper_fallback_preserves_context(
 ) -> None:
     marker = contextvars.ContextVar("marker", default="ambient")
     seen: list[str] = []
-    original_create_task = asyncio.create_task
-
-    def create_task_with_type_error(*args: Any, **kwargs: Any) -> asyncio.Task[Any]:
-        if "context" in kwargs:
-            raise TypeError("context argument unsupported")
-
-        return original_create_task(*args, **kwargs)
-
-    monkeypatch.setattr(asyncio, "create_task", create_task_with_type_error)
+    monkeypatch.setattr(observe_module, "_ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT", False)
 
     async def generator() -> AsyncGenerator[str, None]:
         try:
