@@ -616,11 +616,7 @@ class _ContextPreservedSyncGeneratorWrapper:
 
     def close(self) -> None:
         if self._span_ended:
-            # The span can end while the generator is still suspended (e.g.
-            # an error surfaced from __next__ without resuming the generator).
-            # Still close the generator so its cleanup runs deterministically
-            # in the preserved context instead of at GC time under an
-            # arbitrary ambient context.
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
             self.context.run(self.generator.close)
             return
 
@@ -692,8 +688,12 @@ class _ContextPreservedAsyncGeneratorWrapper:
     def _generator_never_resumed(self) -> bool:
         try:
             state = inspect.getasyncgenstate(self.generator)
-        except TypeError:
-            return False
+        except (AttributeError, TypeError):
+            # getasyncgenstate is Python 3.12+; fall back to the attributes it reads.
+            frame = getattr(self.generator, "ag_frame", None)
+            return frame is not None and not getattr(
+                self.generator, "ag_running", False
+            )
 
         return state in ("AGEN_CREATED", "AGEN_SUSPENDED")
 
@@ -726,10 +726,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def aclose(self) -> None:
         if self._span_ended:
-            # The span can end while the generator is still suspended. Still
-            # close the generator so its cleanup runs deterministically in
-            # the preserved context instead of at GC time under an arbitrary
-            # ambient context.
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
             await self._close_generator()
             return
 
@@ -751,9 +748,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
                 context=self.context,
             )  # type: ignore
         except TypeError:
-            # Python 3.10: create_task has no context parameter. Only the
-            # create_task call is guarded so a TypeError raised from the
-            # generator's own cleanup is not mistaken for it.
+            # Python 3.10 create_task has no context param; guard only the call itself.
             close_task = self.context.run(asyncio.create_task, self.generator.aclose())
 
         await close_task
@@ -793,10 +788,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
             raise  # Re-raise StopAsyncIteration
         except asyncio.CancelledError as e:
             if self._generator_never_resumed():
-                # The cancellation was delivered before the inner task resumed
-                # the generator. Defer the span end so aclose() can run the
-                # generator's cleanup (including any span updates it makes)
-                # before the span is finalized with this error.
+                # Defer span end so aclose() can run the generator's cleanup first.
                 self._pending_error = e
                 raise
             self._finalize_with_error(e)

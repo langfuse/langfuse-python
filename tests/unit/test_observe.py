@@ -295,8 +295,7 @@ def test_sync_generator_wrapper_close_closes_generator_after_span_ended() -> Non
 
     assert next(wrapper) == "item_0"
 
-    # __next__ raising without resuming the generator (here: re-entering the
-    # preserved context) ends the span while the generator is still suspended.
+    # An error from __next__ that never resumed the generator ends the span.
     with pytest.raises(RuntimeError):
         context.run(lambda: next(wrapper))
 
@@ -380,23 +379,70 @@ async def test_async_generator_wrapper_defers_span_end_for_unresumed_cancel() ->
     consumer = asyncio.create_task(consume())
     for _ in range(4):
         await asyncio.sleep(0)
-    # The cancel lands between chunks, before the inner __anext__ task's
-    # first step: the generator is never resumed.
+    # Cancel lands before the inner __anext__ task's first step.
     asyncio.get_running_loop().call_soon(consumer.cancel)
     with pytest.raises(asyncio.CancelledError):
         await consumer
 
-    assert inspect.getasyncgenstate(raw) == "AGEN_SUSPENDED"
+    assert raw.ag_frame is not None  # still suspended, never resumed
     # Span end is deferred so the generator's cleanup can still update it.
     assert span.ended == 0
 
     marker.set("ambient-now")
     await wrapper.aclose()
 
-    assert inspect.getasyncgenstate(raw) == "AGEN_CLOSED"
+    assert raw.ag_frame is None  # closed
     assert seen == ["preserved"]
     assert span.ended == 1
     # The retained cancellation still finalizes the span as an error.
+    assert span.updates[-1] == {
+        "level": "ERROR",
+        "status_message": "CancelledError",
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_defers_unresumed_cancel_without_inspect_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Python < 3.12 has no inspect.getasyncgenstate; the fallback must still defer.
+    monkeypatch.delattr(inspect, "getasyncgenstate", raising=False)
+
+    seen: list[str] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append("closed")
+
+    span = SpanRecorder()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        contextvars.copy_context(),
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    async def consume() -> None:
+        async for _ in wrapper:
+            await asyncio.sleep(0)
+
+    consumer = asyncio.create_task(consume())
+    for _ in range(4):
+        await asyncio.sleep(0)
+    asyncio.get_running_loop().call_soon(consumer.cancel)
+    with pytest.raises(asyncio.CancelledError):
+        await consumer
+
+    assert span.ended == 0
+
+    await wrapper.aclose()
+
+    assert seen == ["closed"]
+    assert span.ended == 1
     assert span.updates[-1] == {
         "level": "ERROR",
         "status_message": "CancelledError",
