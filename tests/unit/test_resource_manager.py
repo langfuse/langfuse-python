@@ -20,11 +20,14 @@ from langfuse.types import MaskOtelSpansResult
 class NoOpSpanExporter(SpanExporter):
     """Minimal exporter used to verify configuration propagation."""
 
+    def __init__(self) -> None:
+        self.shutdown_count = 0
+
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         return SpanExportResult.SUCCESS
 
     def shutdown(self) -> None:
-        pass
+        self.shutdown_count += 1
 
 
 def test_get_client_preserves_all_settings(monkeypatch):
@@ -170,6 +173,109 @@ def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
     consumer.join(timeout=0.5)
 
     assert not consumer.is_alive()
+
+
+def test_shutdown_evicts_manager_and_rejects_stale_client_tasks(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    old_exporter = NoOpSpanExporter()
+    settings = {
+        "public_key": "pk-shutdown-reinit",
+        "secret_key": "sk-shutdown-reinit",
+        "span_exporter": old_exporter,
+    }
+    first_client = Langfuse(**settings)
+    stale_client = Langfuse(**settings)
+    old_manager = first_client._resources
+
+    assert old_manager is not None
+    assert stale_client._resources is old_manager
+
+    first_client.shutdown()
+
+    assert old_manager._shutdown
+    assert settings["public_key"] not in LangfuseResourceManager._instances
+    assert not old_manager._ingestion_consumers[0].is_alive()
+    assert old_exporter.shutdown_count == 1
+
+    stale_client.create_score(name="quality", value=1.0)
+    stale_client._create_trace_tags_via_ingestion(
+        trace_id="0" * 32,
+        tags=["after-shutdown"],
+    )
+
+    assert old_manager._score_ingestion_queue.unfinished_tasks == 0
+    stale_client.shutdown()
+
+    fresh_client = Langfuse(
+        public_key=settings["public_key"],
+        secret_key=settings["secret_key"],
+        span_exporter=NoOpSpanExporter(),
+    )
+    fresh_manager = fresh_client._resources
+
+    assert fresh_manager is not None
+    assert fresh_manager is not old_manager
+    assert fresh_manager._ingestion_consumers[0].is_alive()
+
+    fresh_client.shutdown()
+
+
+def test_shutdown_rejects_stale_media_tasks(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "true")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-media-shutdown",
+        secret_key="sk-media-shutdown",
+        span_exporter=NoOpSpanExporter(),
+    )
+    manager = client._resources
+    assert manager is not None
+
+    client.shutdown()
+
+    data_uri = "data:text/plain;base64,SGVsbG8="
+    processed = manager._media_manager._find_and_process_media(
+        data=data_uri,
+        trace_id="0" * 32,
+        observation_id="0" * 16,
+        field="input",
+    )
+
+    assert processed == data_uri
+    assert manager._media_upload_queue.unfinished_tasks == 0
+
+
+def test_reset_handles_shutdown_eviction(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    first_client = Langfuse(
+        public_key="pk-reset-first",
+        secret_key="sk-reset-first",
+        span_exporter=NoOpSpanExporter(),
+    )
+    second_client = Langfuse(
+        public_key="pk-reset-second",
+        secret_key="sk-reset-second",
+        span_exporter=NoOpSpanExporter(),
+    )
+
+    LangfuseResourceManager.reset()
+
+    assert LangfuseResourceManager._instances == {}
+    assert first_client._resources is not None
+    assert first_client._resources._shutdown
+    assert second_client._resources is not None
+    assert second_client._resources._shutdown
 
 
 def test_at_fork_reinit_creates_new_queues_and_consumers(monkeypatch):
