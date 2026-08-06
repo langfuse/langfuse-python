@@ -1,4 +1,5 @@
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -8,7 +9,13 @@ from pydantic import BaseModel
 
 import langfuse.openai as lf_openai_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse.api import Prompt_Text
+from langfuse.model import TextPromptClient
 from langfuse.openai import openai as lf_openai
+
+
+class StreamAnswer(BaseModel):
+    answer: int
 
 
 class DummySyncResponse:
@@ -1261,24 +1268,92 @@ def _chat_completion_payload():
     }
 
 
-def _chat_completion_chunk_sse_body():
-    return (
-        'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
-        '"created":1700000000,"model":"gpt-4o-mini-2024-07-18",'
-        '"choices":[{"index":0,"delta":{"role":"assistant","content":"2"},'
-        '"finish_reason":null}]}\n\n'
+def _chat_completion_chunk_sse_body(content: str = "2"):
+    chunks = [
+        {
+            "id": "chatcmpl-test",
+            "object": "chat.completion.chunk",
+            "created": 1700000000,
+            "model": "sample-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": content},
+                    "finish_reason": None,
+                }
+            ],
+        },
+        {
+            "id": "chatcmpl-test",
+            "object": "chat.completion.chunk",
+            "created": 1700000000,
+            "model": "sample-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {},
+                    "finish_reason": "stop",
+                }
+            ],
+        },
+        {
+            "id": "chatcmpl-test",
+            "object": "chat.completion.chunk",
+            "created": 1700000000,
+            "model": "sample-model",
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 1,
+                "total_tokens": 4,
+            },
+        },
+    ]
+
+    return "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks) + (
         "data: [DONE]\n\n"
     )
 
 
-def _mock_transport_openai_client(async_client: bool = False):
+def _response_stream_sse_body():
+    return (
+        'data: {"type":"response.created","sequence_number":0,"response":'
+        '{"id":"resp-test","object":"response","created_at":1700000000,'
+        '"model":"sample-model","output":[],"parallel_tool_calls":true,'
+        '"tool_choice":"auto","tools":[],"status":"in_progress"}}\n\n'
+        'data: {"type":"response.completed","sequence_number":1,"response":'
+        '{"id":"resp-test","object":"response","created_at":1700000000,'
+        '"model":"sample-model","output":[{"id":"msg-test","type":"message",'
+        '"status":"completed","role":"assistant","content":[{"type":"output_text",'
+        '"text":"Hello","annotations":[]}]}],"parallel_tool_calls":true,'
+        '"tool_choice":"auto","tools":[],"status":"completed","usage":'
+        '{"input_tokens":3,"input_tokens_details":{"cached_tokens":0},'
+        '"output_tokens":1,"output_tokens_details":{"reasoning_tokens":0},'
+        '"total_tokens":4}}}\n\n'
+        "data: [DONE]\n\n"
+    )
+
+
+def _mock_transport_openai_client(
+    async_client: bool = False, request_bodies=None, chat_stream_content: str = "2"
+):
     import httpx
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request_bodies is not None:
+            request_bodies.append(json.loads(request.content))
+
+        if request.url.path.endswith("/responses"):
+            return httpx.Response(
+                200,
+                content=_response_stream_sse_body().encode(),
+                headers={"content-type": "text/event-stream"},
+            )
+
         if b'"stream": true' in request.content or b'"stream":true' in request.content:
             return httpx.Response(
                 200,
-                content=_chat_completion_chunk_sse_body().encode(),
+                content=_chat_completion_chunk_sse_body(chat_stream_content).encode(),
                 headers={"content-type": "text/event-stream"},
             )
 
@@ -1294,6 +1369,388 @@ def _mock_transport_openai_client(async_client: bool = False):
         api_key="test",
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
+
+
+def _stream_manager(openai_client, resource, name):
+    if resource == "chat":
+        return openai_client.chat.completions.stream(
+            name=name,
+            model="sample-model",
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+
+    return openai_client.responses.stream(
+        name=name,
+        model="sample-model",
+        input="Hello",
+    )
+
+
+def test_openai_stream_helpers_accept_langfuse_arguments(
+    langfuse_memory_client, find_spans, get_span, json_attr
+):
+    request_bodies = []
+    openai_client = _mock_transport_openai_client(
+        request_bodies=request_bodies,
+        chat_stream_content='{"answer":2}',
+    )
+    prompt = TextPromptClient(
+        Prompt_Text(
+            name="stream-helper-prompt",
+            version=3,
+            prompt="Hello",
+            type="text",
+            labels=[],
+            config={},
+            tags=[],
+        )
+    )
+    trace_id = "1" * 32
+    parent_observation_id = "2" * 16
+    extra_body = {"custom_field": "kept"}
+
+    with patch.object(
+        lf_openai_module, "get_client", return_value=langfuse_memory_client
+    ) as get_client_mock:
+        with openai_client.chat.completions.stream(
+            name="unit-openai-chat-stream-helper",
+            langfuse_prompt=prompt,
+            langfuse_public_key="stream-public-key",
+            trace_id=trace_id,
+            parent_observation_id=parent_observation_id,
+            metadata={"stream": "helper"},
+            extra_body=extra_body,
+            model="sample-model",
+            messages=[{"role": "user", "content": "Hello"}],
+            response_format=StreamAnswer,
+            stream_options={"include_usage": True},
+        ) as stream:
+            completion = stream.get_final_completion()
+
+    get_client_mock.assert_called_once_with(public_key="stream-public-key")
+
+    assert completion.model == "sample-model"
+    assert completion.choices[0].message.content == '{"answer":2}'
+    assert completion.choices[0].message.parsed == StreamAnswer(answer=2)
+    assert extra_body == {"custom_field": "kept"}
+    assert request_bodies[0]["custom_field"] == "kept"
+    assert all(
+        name not in request_bodies[0]
+        for name in (
+            "name",
+            "langfuse_prompt",
+            "langfuse_public_key",
+            "trace_id",
+            "parent_observation_id",
+        )
+    )
+
+    with openai_client.responses.stream(
+        name="unit-openai-responses-stream-helper",
+        model="sample-model",
+        input="Hello",
+    ) as stream:
+        response = stream.get_final_response()
+
+    assert response.model == "sample-model"
+    assert response.status == "completed"
+    assert response.output_text == "Hello"
+
+    langfuse_memory_client.flush()
+    assert len(find_spans("unit-openai-chat-stream-helper")) == 1
+    assert len(find_spans("unit-openai-responses-stream-helper")) == 1
+    assert find_spans("OpenAI-generation") == []
+
+    chat_span = get_span("unit-openai-chat-stream-helper")
+    assert (
+        chat_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME]
+        == "stream-helper-prompt"
+    )
+    assert (
+        chat_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION] == 3
+    )
+    assert chat_span.attributes["langfuse.observation.metadata.stream"] == "helper"
+    assert json_attr(chat_span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == [
+        {"role": "user", "content": "Hello"}
+    ]
+    assert json_attr(
+        chat_span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    ) == {
+        "temperature": 1,
+        "max_tokens": "Infinity",
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+    }
+    assert (
+        chat_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+        == '{"answer":2}'
+    )
+    assert (
+        chat_span.attributes[
+            LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME
+        ]
+        is not None
+    )
+    assert json_attr(
+        chat_span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS
+    ) == {
+        "prompt_tokens": 3,
+        "completion_tokens": 1,
+        "total_tokens": 4,
+        "prompt_tokens_details": None,
+        "completion_tokens_details": None,
+    }
+    assert format(chat_span.context.trace_id, "032x") == trace_id
+    assert chat_span.parent is not None
+    assert format(chat_span.parent.span_id, "016x") == parent_observation_id
+
+    responses_span = get_span("unit-openai-responses-stream-helper")
+    assert (
+        responses_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+        == "Hello"
+    )
+    assert json_attr(
+        responses_span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    ) == {
+        "temperature": 1,
+        "max_tokens": "Infinity",
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+    }
+    assert json_attr(responses_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT) == {
+        "id": "msg-test",
+        "content": [
+            {
+                "annotations": [],
+                "text": "Hello",
+                "type": "output_text",
+                "logprobs": None,
+            }
+        ],
+        "role": "assistant",
+        "status": "completed",
+        "type": "message",
+        "phase": None,
+    }
+    assert json_attr(
+        responses_span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS
+    ) == {
+        "input_tokens": 3,
+        "input_tokens_details": {"cached_tokens": 0},
+        "output_tokens": 1,
+        "output_tokens_details": {"reasoning_tokens": 0},
+        "total_tokens": 4,
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_openai_stream_helpers_accept_langfuse_arguments(
+    langfuse_memory_client, find_spans
+):
+    openai_client = _mock_transport_openai_client(async_client=True)
+
+    async with openai_client.chat.completions.stream(
+        name="unit-openai-async-chat-stream-helper",
+        model="sample-model",
+        messages=[{"role": "user", "content": "Hello"}],
+    ) as stream:
+        completion = await stream.get_final_completion()
+
+    assert completion.model == "sample-model"
+    assert completion.choices[0].message.content == "2"
+
+    async with openai_client.responses.stream(
+        name="unit-openai-async-responses-stream-helper",
+        model="sample-model",
+        input="Hello",
+    ) as stream:
+        response = await stream.get_final_response()
+
+    assert response.model == "sample-model"
+    assert response.status == "completed"
+
+    langfuse_memory_client.flush()
+    assert len(find_spans("unit-openai-async-chat-stream-helper")) == 1
+    assert len(find_spans("unit-openai-async-responses-stream-helper")) == 1
+    assert find_spans("OpenAI-generation") == []
+
+
+@pytest.mark.parametrize("omitted_argument", ["response_id", "starting_after"])
+@pytest.mark.asyncio
+async def test_async_responses_stream_treats_openai_omit_as_absent(
+    omitted_argument, langfuse_memory_client, find_spans
+):
+    openai_client = _mock_transport_openai_client(async_client=True)
+    name = f"unit-openai-responses-stream-omit-{omitted_argument}"
+
+    async with openai_client.responses.stream(
+        name=name,
+        model="sample-model",
+        input="Hello",
+        **{omitted_argument: lf_openai.omit},
+    ) as stream:
+        response = await stream.get_final_response()
+
+    assert response.status == "completed"
+
+    langfuse_memory_client.flush()
+    assert len(find_spans(name)) == 1
+
+
+@pytest.mark.parametrize("resource", ["chat", "responses"])
+@pytest.mark.parametrize(
+    "consume_one_event", [False, True], ids=["unconsumed", "partial"]
+)
+def test_stream_helpers_finalize_on_context_exit(
+    resource, consume_one_event, langfuse_memory_client, find_spans
+):
+    openai_client = _mock_transport_openai_client()
+    name = f"unit-openai-{resource}-stream-context-exit-{consume_one_event}"
+    manager = _stream_manager(openai_client, resource, name)
+
+    with manager as stream:
+        if consume_one_event:
+            next(stream)
+
+    langfuse_memory_client.flush()
+    assert len(find_spans(name)) == 1
+
+
+@pytest.mark.parametrize("resource", ["chat", "responses"])
+@pytest.mark.parametrize(
+    "consume_one_event", [False, True], ids=["unconsumed", "partial"]
+)
+@pytest.mark.asyncio
+async def test_async_stream_helpers_finalize_on_context_exit(
+    resource, consume_one_event, langfuse_memory_client, find_spans
+):
+    openai_client = _mock_transport_openai_client(async_client=True)
+    name = f"unit-openai-async-{resource}-stream-context-exit-{consume_one_event}"
+    manager = _stream_manager(openai_client, resource, name)
+
+    async with manager as stream:
+        if consume_one_event:
+            await stream.__anext__()
+
+    langfuse_memory_client.flush()
+    assert len(find_spans(name)) == 1
+
+
+@pytest.mark.parametrize("resource", ["chat", "responses"])
+def test_stream_manager_reuse_preserves_langfuse_arguments(
+    resource, langfuse_memory_client, find_spans
+):
+    openai_client = _mock_transport_openai_client()
+    name = f"unit-openai-reused-{resource}-stream-manager"
+    manager = _stream_manager(openai_client, resource, name)
+
+    with manager as stream:
+        list(stream)
+
+    with manager as stream:
+        list(stream)
+
+    langfuse_memory_client.flush()
+    assert len(find_spans(name)) == 2
+
+
+@pytest.mark.parametrize(
+    ("openai_version", "expected_registrations"),
+    [
+        ("1.39.9", set()),
+        (
+            "1.40.0",
+            {
+                (
+                    "openai.resources.beta.chat.completions",
+                    "Completions.stream",
+                ),
+                (
+                    "openai.resources.beta.chat.completions",
+                    "AsyncCompletions.stream",
+                ),
+            },
+        ),
+        (
+            "1.92.0",
+            {
+                ("openai.resources.chat.completions", "Completions.stream"),
+                ("openai.resources.chat.completions", "AsyncCompletions.stream"),
+            },
+        ),
+    ],
+)
+def test_chat_stream_registration_version_boundaries(
+    monkeypatch, openai_version, expected_registrations
+):
+    registrations = set()
+
+    def record_registration(module, name, _wrapper):
+        if module in {
+            "openai.resources.beta.chat.completions",
+            "openai.resources.chat.completions",
+        } and name.endswith(".stream"):
+            registrations.add((module, name))
+
+    monkeypatch.setattr(lf_openai_module.openai, "__version__", openai_version)
+    monkeypatch.setattr(lf_openai_module, "wrap_function_wrapper", record_registration)
+
+    lf_openai_module.register_tracing()
+
+    assert registrations == expected_registrations
+
+
+def test_legacy_beta_stream_forwards_langfuse_metadata():
+    captured_args = {}
+
+    def legacy_stream(*, model, messages, extra_body):
+        extractor = lf_openai_module.OpenAiArgsExtractor(
+            model=model,
+            messages=messages,
+            extra_body=extra_body,
+        )
+        captured_args.update(extractor.get_langfuse_args())
+        return "stream-manager"
+
+    resource = lf_openai_module.OpenAiDefinition(
+        module="openai.resources.beta.chat.completions",
+        object="Completions",
+        method="stream",
+        type="chat",
+        sync=True,
+    )
+    wrapper = lf_openai_module._wrap_stream(resource)
+
+    result = wrapper(
+        legacy_stream,
+        None,
+        (),
+        {
+            "metadata": {"suite": "legacy-beta"},
+            "model": "sample-model",
+            "messages": [{"role": "user", "content": "Hello"}],
+        },
+    )
+
+    assert result == "stream-manager"
+    assert captured_args["metadata"] == {"suite": "legacy-beta"}
+
+
+def test_responses_stream_retrieval_rejects_langfuse_arguments(
+    langfuse_memory_client, find_spans
+):
+    openai_client = _mock_transport_openai_client()
+
+    with pytest.raises(TypeError):
+        openai_client.responses.stream(
+            response_id="resp-test",
+            name="unit-openai-responses-stream-retrieval",
+        )
+
+    langfuse_memory_client.flush()
+    assert find_spans("unit-openai-responses-stream-retrieval") == []
 
 
 def test_with_raw_response_chat_completion_captures_output_and_usage(
