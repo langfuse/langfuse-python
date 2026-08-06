@@ -3,14 +3,20 @@
 import typing
 
 import pydantic
+import typing_extensions
+from ....commons.types.deprecation import Deprecation
 from ....commons.types.observations_view import ObservationsView
 from ....core.pydantic_utilities import UniversalBaseModel
+from ....core.serialization import FieldMetadata
 from ....utils.pagination.types.meta_response import MetaResponse
 
 
 class ObservationsViews(UniversalBaseModel):
     data: typing.List[ObservationsView]
     meta: MetaResponse
+    deprecation: typing_extensions.Annotated[
+        typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
+    ] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

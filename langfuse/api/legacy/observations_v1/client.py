@@ -4,7 +4,7 @@ import datetime as dt
 import typing
 
 from ...commons.types.observation_level import ObservationLevel
-from ...commons.types.observations_view import ObservationsView
+from ...commons.types.observations_view_single import ObservationsViewSingle
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawObservationsV1Client, RawObservationsV1Client
@@ -31,7 +31,7 @@ class ObservationsV1Client:
         observation_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsView:
+    ) -> ObservationsViewSingle:
         """
         Get a observation
 
@@ -45,7 +45,7 @@ class ObservationsV1Client:
 
         Returns
         -------
-        ObservationsView
+        ObservationsViewSingle
 
         Examples
         --------
@@ -279,7 +279,7 @@ class AsyncObservationsV1Client:
         observation_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationsView:
+    ) -> ObservationsViewSingle:
         """
         Get a observation
 
@@ -293,7 +293,7 @@ class AsyncObservationsV1Client:
 
         Returns
         -------
-        ObservationsView
+        ObservationsViewSingle
 
         Examples
         --------
