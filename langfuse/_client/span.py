@@ -96,6 +96,7 @@ class LangfuseObservationWrapper:
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
+        set_observation_type: bool = True,
     ):
         """Initialize a new Langfuse span wrapper.
 
@@ -120,11 +121,15 @@ class LangfuseObservationWrapper:
             usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
             cost_details: Cost information for the model call
             prompt: Associated prompt template from Langfuse prompt management
+            set_observation_type: Whether to write the Langfuse observation type to
+                the wrapped OpenTelemetry span
         """
         self._otel_span = otel_span
-        self._otel_span.set_attribute(
-            LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
-        )
+        self._set_observation_type = set_observation_type
+        if self._set_observation_type:
+            self._otel_span.set_attribute(
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
+            )
         self._langfuse_client = langfuse_client
         self._observation_type = as_type
 
@@ -727,6 +732,9 @@ class LangfuseObservationWrapper:
                 ),
             )
 
+        if not self._set_observation_type:
+            attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
+
         self._otel_span.set_attributes(attributes=attributes)
         # Set OTEL span status if level is ERROR
         self._set_otel_span_status_if_error(level=level, status_message=status_message)
@@ -1286,6 +1294,7 @@ class LangfuseSpan(LangfuseObservationWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        set_observation_type: bool = True,
     ):
         """Initialize a new LangfuseSpan.
 
@@ -1300,6 +1309,8 @@ class LangfuseSpan(LangfuseObservationWrapper):
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
+            set_observation_type: Whether to write the Langfuse observation type to
+                the wrapped OpenTelemetry span
         """
         super().__init__(
             otel_span=otel_span,
@@ -1313,6 +1324,7 @@ class LangfuseSpan(LangfuseObservationWrapper):
             version=version,
             level=level,
             status_message=status_message,
+            set_observation_type=set_observation_type,
         )
 
 
@@ -1343,6 +1355,7 @@ class LangfuseGeneration(LangfuseObservationWrapper):
         usage_details: Optional[Dict[str, int]] = None,
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
+        set_observation_type: bool = True,
     ):
         """Initialize a new LangfuseGeneration span.
 
@@ -1363,6 +1376,8 @@ class LangfuseGeneration(LangfuseObservationWrapper):
             usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
             cost_details: Cost information for the model call
             prompt: Associated prompt template from Langfuse prompt management
+            set_observation_type: Whether to write the Langfuse observation type to
+                the wrapped OpenTelemetry span
         """
         super().__init__(
             as_type="generation",
@@ -1382,6 +1397,7 @@ class LangfuseGeneration(LangfuseObservationWrapper):
             usage_details=usage_details,
             cost_details=cost_details,
             prompt=prompt,
+            set_observation_type=set_observation_type,
         )
 
 
@@ -1401,6 +1417,7 @@ class LangfuseEvent(LangfuseObservationWrapper):
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        set_observation_type: bool = True,
     ):
         """Initialize a new LangfuseEvent span.
 
@@ -1415,6 +1432,8 @@ class LangfuseEvent(LangfuseObservationWrapper):
             version: Version identifier for the model or component
             level: Importance level of the generation (info, warning, error)
             status_message: Optional status message for the generation
+            set_observation_type: Whether to write the Langfuse observation type to
+                the wrapped OpenTelemetry span
         """
         super().__init__(
             otel_span=otel_span,
@@ -1428,6 +1447,7 @@ class LangfuseEvent(LangfuseObservationWrapper):
             version=version,
             level=level,
             status_message=status_message,
+            set_observation_type=set_observation_type,
         )
 
     def update(

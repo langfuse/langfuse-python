@@ -374,6 +374,19 @@ class TestBasicSpans(TestOTelBase):
         )
         assert len(original_spans) == 0, "Expected no spans with original name"
 
+    def test_update_current_span_preserves_third_party_observation_type(
+        self, langfuse_client, tracer_provider
+    ):
+        tracer = tracer_provider.get_tracer("openinference.instrumentation.agno")
+
+        with tracer.start_as_current_span("third-party-agent") as span:
+            span.set_attribute("openinference.span.kind", "AGENT")
+
+            langfuse_client.update_current_span(metadata={"user_id": "u1"})
+
+            assert LangfuseOtelSpanAttributes.OBSERVATION_TYPE not in span.attributes
+            assert span.attributes["langfuse.observation.metadata.user_id"] == "u1"
+
     def test_span_attributes(self, langfuse_client, memory_exporter):
         """Test that span attributes are correctly set and updated."""
         # Create a span with attributes

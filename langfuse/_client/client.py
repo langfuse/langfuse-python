@@ -1548,6 +1548,7 @@ class Langfuse:
                 langfuse_client=self,
                 environment=self._environment,
                 release=self._release,
+                set_observation_type=False,
             )
 
             if name:
@@ -1604,6 +1605,7 @@ class Langfuse:
                 langfuse_client=self,
                 environment=self._environment,
                 release=self._release,
+                set_observation_type=False,
             )
 
             span.set_trace_io(
@@ -1638,6 +1640,7 @@ class Langfuse:
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                set_observation_type=False,
             )
 
             span.set_trace_as_public()
