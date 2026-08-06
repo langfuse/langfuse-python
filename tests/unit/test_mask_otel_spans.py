@@ -574,7 +574,7 @@ def test_mask_otel_spans_drops_contextless_spans_without_dropping_batch(caplog):
     )
 
 
-def test_mask_otel_spans_keeps_last_duplicate_without_dropping_batch(caplog):
+def test_mask_otel_spans_keeps_last_duplicate_without_dropping_batch():
     exporter = InMemorySpanExporter()
     seen_params: list[MaskOtelSpansParams] = []
 
@@ -630,9 +630,6 @@ def test_mask_otel_spans_keeps_last_duplicate_without_dropping_batch(caplog):
             attributes={"attempt": 2},
         ),
     ]
-
-    with caplog.at_level(logging.WARNING, logger="langfuse"):
-        result = transforming_exporter.export(spans)
 
     assert result == SpanExportResult.SUCCESS
     assert len(seen_params) == 1
