@@ -285,14 +285,6 @@ class LangfuseTransformingSpanExporter(SpanExporter):
 
             span_attributes_by_identifier[identifier] = (span, attributes)
 
-        if duplicate_span_count:
-            langfuse_logger.warning(
-                "Masking warning: mask_otel_spans received duplicate span identifiers. "
-                "Keeping the last span for each identifier. "
-                f"duplicate_span_count={duplicate_span_count} "
-                f"remaining_span_count={len(span_attributes_by_identifier)}"
-            )
-
         maskable_span_attributes = list(span_attributes_by_identifier.values())
 
         if not maskable_span_attributes:
