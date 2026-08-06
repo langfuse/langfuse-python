@@ -134,10 +134,14 @@ class LangfuseResourceManager:
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ) -> "LangfuseResourceManager":
-        if public_key in cls._instances:
-            return cls._instances[public_key]
-
         with cls._lock:
+            cached_instance = cls._instances.get(public_key)
+            if cached_instance is not None and not cached_instance._shutdown:
+                return cached_instance
+
+            if cached_instance is not None:
+                cls._instances.pop(public_key, None)
+
             if public_key not in cls._instances:
                 instance = super(LangfuseResourceManager, cls).__new__(cls)
 
@@ -226,6 +230,7 @@ class LangfuseResourceManager:
 
         self._custom_httpx_client = httpx_client
         self._init_api_clients()
+        self._span_processor: Optional[LangfuseSpanProcessor] = None
 
         # Media
         self._media_upload_enabled = os.environ.get(
@@ -263,6 +268,7 @@ class LangfuseResourceManager:
                 mask_otel_spans=mask_otel_spans,
             )
             tracer_provider.add_span_processor(langfuse_processor)
+            self._span_processor = langfuse_processor
 
             self._otel_tracer = tracer_provider.get_tracer(
                 LANGFUSE_TRACER_NAME,
@@ -476,10 +482,11 @@ class LangfuseResourceManager:
     @classmethod
     def reset(cls) -> None:
         with cls._lock:
-            for key in cls._instances:
-                cls._instances[key].shutdown()
-
+            instances = list(cls._instances.values())
             cls._instances.clear()
+
+        for instance in instances:
+            instance.shutdown()
 
     def add_score_task(self, event: dict, *, force_sample: bool = False) -> None:
         try:
@@ -508,10 +515,17 @@ class LangfuseResourceManager:
             )
 
             if should_sample:
-                langfuse_logger.debug(
-                    f"Score: Enqueuing event type={event['type']} for trace_id={event['body'].trace_id} name={event['body'].name} value={event['body'].value}"
-                )
-                self._score_ingestion_queue.put(event, block=False)
+                with self._lock:
+                    if self._shutdown:
+                        langfuse_logger.warning(
+                            "Score: Dropping event because the Langfuse client has already been shut down."
+                        )
+                        return
+
+                    langfuse_logger.debug(
+                        f"Score: Enqueuing event type={event['type']} for trace_id={event['body'].trace_id} name={event['body'].name} value={event['body'].value}"
+                    )
+                    self._score_ingestion_queue.put(event, block=False)
 
         except Full:
             langfuse_logger.warning(
@@ -531,10 +545,17 @@ class LangfuseResourceManager:
         event: dict,
     ) -> None:
         try:
-            langfuse_logger.debug(
-                f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
-            )
-            self._score_ingestion_queue.put(event, block=False)
+            with self._lock:
+                if self._shutdown:
+                    langfuse_logger.warning(
+                        "Trace: Dropping event because the Langfuse client has already been shut down."
+                    )
+                    return
+
+                langfuse_logger.debug(
+                    f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
+                )
+                self._score_ingestion_queue.put(event, block=False)
 
         except Full:
             langfuse_logger.warning(
@@ -612,13 +633,24 @@ class LangfuseResourceManager:
         langfuse_logger.debug("Successfully flushed media upload queue")
 
     def shutdown(self) -> None:
-        self._shutdown = True
+        with self._lock:
+            if self._shutdown:
+                return
+
+            self._shutdown = True
+            if self._instances.get(self.public_key) is self:
+                self._instances.pop(self.public_key)
+            self._media_manager.begin_shutdown()
 
         # Unregister the atexit handler first
         atexit.unregister(self.shutdown)
 
-        self.flush()
-        self._stop_and_join_consumer_threads()
+        try:
+            self.flush()
+        finally:
+            self._stop_and_join_consumer_threads()
+            if self._span_processor is not None:
+                self._span_processor.shutdown()
 
 
 def _init_tracer_provider(
