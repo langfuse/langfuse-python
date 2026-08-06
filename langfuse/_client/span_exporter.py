@@ -267,7 +267,6 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         span_attributes_by_identifier: Dict[
             OtelSpanIdentifier, tuple[ReadableSpan, Dict[str, AttributeValue]]
         ] = {}
-        duplicate_span_count = 0
 
         for span, attributes in span_attributes:
             if not _has_valid_span_context(span):
@@ -280,7 +279,6 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             identifier = _create_otel_span_identifier(span)
 
             if identifier in span_attributes_by_identifier:
-                duplicate_span_count += 1
                 span_attributes_by_identifier.pop(identifier)
 
             span_attributes_by_identifier[identifier] = (span, attributes)
