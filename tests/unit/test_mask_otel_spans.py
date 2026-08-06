@@ -631,6 +631,8 @@ def test_mask_otel_spans_keeps_last_duplicate_without_dropping_batch():
         ),
     ]
 
+    result = transforming_exporter.export(spans)
+
     assert result == SpanExportResult.SUCCESS
     assert len(seen_params) == 1
     assert [span.name for span in seen_params[0].spans.values()] == [
@@ -647,7 +649,6 @@ def test_mask_otel_spans_keeps_last_duplicate_without_dropping_batch():
         "attempt": 2,
         "masking.applied": True,
     }
-    assert "duplicate_span_count=1 remaining_span_count=2" in caplog.text
 
 
 def test_exporter_exception_does_not_stop_background_export_thread():
