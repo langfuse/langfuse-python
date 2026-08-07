@@ -2,6 +2,7 @@ import json
 import threading
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from enum import Enum
 from pathlib import Path
 from uuid import UUID
@@ -329,3 +330,43 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     result = json.loads(EventSerializer().encode(input_obj))
 
     assert result == expected
+
+
+def test_decimal_is_preserved_exactly():
+    # Serialized to its exact string form (never the "<Decimal>" fallback)
+    assert json.loads(EventSerializer().encode(Decimal("19.99"))) == "19.99"
+    assert json.loads(EventSerializer().encode({"price": Decimal("19.99")})) == {
+        "price": "19.99"
+    }
+    # High-precision values are preserved exactly (a float() conversion would
+    # silently round these).
+    assert (
+        json.loads(EventSerializer().encode(Decimal("1.0000000000000001")))
+        == "1.0000000000000001"
+    )
+    assert (
+        json.loads(EventSerializer().encode(Decimal("123456789012345678")))
+        == "123456789012345678"
+    )
+
+
+def test_decimal_special_values():
+    assert EventSerializer().encode(Decimal("NaN")) == '"NaN"'
+    assert EventSerializer().encode(Decimal("Infinity")) == '"Infinity"'
+    assert EventSerializer().encode(Decimal("-Infinity")) == '"-Infinity"'
+
+
+def test_dict_with_non_primitive_keys_preserves_values():
+    # A tuple key must not discard the entire dict (previously the whole dict
+    # serialized to a "<not serializable ...>" string).
+    result = json.loads(EventSerializer().encode({(1, 2): "v", "other": "data"}))
+    assert result == {"(1, 2)": "v", "other": "data"}
+
+
+def test_dict_with_custom_object_key_uses_str():
+    class _Key:
+        def __str__(self) -> str:
+            return "custom-key"
+
+    result = json.loads(EventSerializer().encode({_Key(): "val", "k2": "x"}))
+    assert result == {"custom-key": "val", "k2": "x"}
