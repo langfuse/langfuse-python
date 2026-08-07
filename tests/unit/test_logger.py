@@ -1,3 +1,5 @@
+import importlib
+import logging
 import os
 
 from langfuse import Langfuse
@@ -34,3 +36,18 @@ def test_debug_langfuse():
 
     # Reset
     langfuse_logger.setLevel("WARNING")
+
+
+def test_httpx_handler_not_duplicated_when_handler_exists():
+    import langfuse.logger as lf_logger
+
+    httpx_logger = logging.getLogger("httpx")
+    saved = httpx_logger.handlers[:]
+    httpx_logger.handlers = []
+    pre_existing = logging.NullHandler()
+    httpx_logger.addHandler(pre_existing)
+    try:
+        importlib.reload(lf_logger)
+        assert httpx_logger.handlers == [pre_existing]
+    finally:
+        httpx_logger.handlers = saved
