@@ -121,6 +121,7 @@ class LangfuseResourceManager:
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
+        max_queue_size: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
@@ -157,6 +158,7 @@ class LangfuseResourceManager:
                     release=release,
                     flush_at=flush_at,
                     flush_interval=flush_interval,
+                    max_queue_size=max_queue_size,
                     httpx_client=httpx_client,
                     media_upload_thread_count=media_upload_thread_count,
                     sample_rate=sample_rate,
@@ -188,6 +190,7 @@ class LangfuseResourceManager:
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
+        max_queue_size: Optional[int] = None,
         media_upload_thread_count: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         sample_rate: Optional[float] = None,
@@ -214,6 +217,7 @@ class LangfuseResourceManager:
         self.timeout = timeout
         self.flush_at = flush_at
         self.flush_interval = flush_interval
+        self.max_queue_size = max_queue_size
         self.release = release
         self.media_upload_thread_count = media_upload_thread_count
         self.sample_rate = sample_rate
@@ -255,6 +259,7 @@ class LangfuseResourceManager:
                 timeout=timeout,
                 flush_at=flush_at,
                 flush_interval=flush_interval,
+                max_queue_size=max_queue_size,
                 blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                 should_export_span=should_export_span,
                 additional_headers=additional_headers,
