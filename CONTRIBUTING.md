@@ -36,11 +36,42 @@ Unit tests do not require a running Langfuse server:
 uv run --frozen pytest -n auto --dist worksteal tests/unit
 ```
 
-E2E tests require a running Langfuse server and environment variables based on `.env.template`:
+E2E tests require a running Langfuse server and environment variables based on `.env.template`. To start one locally with Docker (the same approach CI uses in `.github/workflows/ci.yml`):
+
+```bash
+mkdir -p ./langfuse-server && cd ./langfuse-server
+curl -fsSL https://raw.githubusercontent.com/langfuse/langfuse/main/docker-compose.yml -o docker-compose.yml
+
+# These auto-provision a project on first boot with keys matching .env.template,
+# so no manual setup via the UI is needed.
+LANGFUSE_INIT_ORG_ID=0c6c96f4-0ca0-4f16-92a8-6dd7d7c6a501 \
+LANGFUSE_INIT_ORG_NAME="SDK Test Org" \
+LANGFUSE_INIT_PROJECT_ID=7a88fb47-b4e2-43b8-a06c-a5ce950dc53a \
+LANGFUSE_INIT_PROJECT_NAME="SDK Test Project" \
+LANGFUSE_INIT_PROJECT_PUBLIC_KEY=pk-lf-1234567890 \
+LANGFUSE_INIT_PROJECT_SECRET_KEY=sk-lf-1234567890 \
+LANGFUSE_INIT_USER_EMAIL=sdk-tests@langfuse.local \
+LANGFUSE_INIT_USER_NAME="SDK Tests" \
+LANGFUSE_INIT_USER_PASSWORD=langfuse-ci-password \
+NEXT_PUBLIC_LANGFUSE_RUN_NEXT_INIT=true \
+docker compose up -d
+
+# Wait until this succeeds before running e2e tests; the stack takes a
+# moment to become healthy on first boot.
+curl --fail --retry 20 --retry-delay 5 --retry-connrefused http://localhost:3000/api/public/health
+```
+
+Then, back in the repo root (`cd ..` from `./langfuse-server`), with `.env` copied from `.env.template`:
 
 ```bash
 uv run --frozen pytest -n 4 --dist worksteal tests/e2e -m "not serial_e2e"
 uv run --frozen pytest tests/e2e -m "serial_e2e"
+```
+
+To stop the local server when done:
+
+```bash
+(cd ./langfuse-server && docker compose down -v)
 ```
 
 Live-provider tests make real provider calls and require provider API keys:
