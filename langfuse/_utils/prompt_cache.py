@@ -130,9 +130,16 @@ class PromptCacheTaskManager(object):
 
         atexit.unregister(self.shutdown)
 
-        for consumer in self._consumers:
-            consumer.pause()
-
+        # Send one sentinel per consumer so that each blocked `_queue.get()` call
+        # wakes up and exits cleanly via the `if task is _SHUTDOWN_SENTINEL` check.
+        #
+        # NOTE: We intentionally do NOT call `consumer.pause()` here.  Calling
+        # `pause()` (which sets `self.running = False`) before the sentinels are
+        # enqueued creates a race condition: if a consumer finishes its current
+        # task and re-evaluates the `while self.running` guard before its sentinel
+        # arrives, it exits the loop without consuming the sentinel.  The sentinel
+        # then remains in the queue with `task_done()` never called, which causes
+        # any subsequent `wait_for_idle()` (i.e. `Queue.join()`) to block forever.
         for _ in self._consumers:
             self._queue.put(_SHUTDOWN_SENTINEL)
 
