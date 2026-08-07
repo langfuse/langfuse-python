@@ -449,6 +449,43 @@ Final note: Hello and Test input"""
 
         assert formatted_prompt == expected
 
+    def test_langchain_prompt_escapes_bare_empty_json_objects(self):
+        """Test that bare empty JSON objects remain literals in LangChain prompts."""
+        prompt_string = """Variable: {{test_var}}
+Empty object: {}
+Spaced empty object: { }
+Multiline empty object: {
+}
+LangChain variable: {langchain_var}"""
+
+        prompt = TextPromptClient(
+            Prompt_Text(
+                type="text",
+                name="bare_empty_json_test",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt=prompt_string,
+            )
+        )
+
+        langchain_prompt_string = prompt.get_langchain_prompt()
+        langchain_prompt = PromptTemplate.from_template(langchain_prompt_string)
+        formatted_prompt = langchain_prompt.format(
+            test_var="value",
+            langchain_var="chain",
+        )
+
+        expected = """Variable: value
+Empty object: {}
+Spaced empty object: { }
+Multiline empty object: {
+}
+LangChain variable: chain"""
+
+        assert formatted_prompt == expected
+
     def test_edge_case_nested_quotes_in_json(self):
         """Test edge case with nested quotes and escaped characters in JSON."""
         prompt_string = """Message: {{message}}
