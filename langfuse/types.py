@@ -126,7 +126,9 @@ class MaskOtelSpansParams:
     A single call receives one OpenTelemetry export batch, not necessarily a
     complete trace, request, or Langfuse observation tree. Batch contents depend
     on OpenTelemetry span processor settings such as `flush_at`,
-    `flush_interval`, explicit `flush()`, and shutdown.
+    `flush_interval`, explicit `flush()`, and shutdown. If a batch contains
+    duplicate trace and span identifiers, Langfuse keeps only the last matching
+    span before calling the masking function.
 
     Example:
         ```python
