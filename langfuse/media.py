@@ -253,6 +253,8 @@ class LangfuseMedia:
         parsed_data = {}
 
         for pair in pairs:
+            if "=" not in pair:
+                continue
             key, value = pair.split("=", 1)
             parsed_data[key] = value
 

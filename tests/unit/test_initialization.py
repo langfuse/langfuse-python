@@ -7,6 +7,7 @@ environment variables work correctly for initializing the Langfuse client.
 import os
 
 import pytest
+from opentelemetry.trace import NoOpTracer
 
 from langfuse import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
@@ -313,3 +314,23 @@ class TestClientInitialization:
             secret_key="test_sk",
         )
         assert client2._base_url == "http://insecure.com"
+
+    def test_empty_public_key_env_disables_client(self, cleanup_env_vars, monkeypatch):
+        """Test that an empty LANGFUSE_PUBLIC_KEY env var disables the client."""
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
+
+        client = Langfuse()
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
+
+    def test_empty_secret_key_env_disables_client(self, cleanup_env_vars, monkeypatch):
+        """Test that an empty LANGFUSE_SECRET_KEY env var disables the client."""
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "")
+
+        client = Langfuse()
+
+        assert isinstance(client._otel_tracer, NoOpTracer)
+        assert client._resources is None
