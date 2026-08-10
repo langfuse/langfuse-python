@@ -985,8 +985,22 @@ def _format_value(value: Any) -> str:
     return str(value)
 
 
+def _normalize_evaluator_result(result: Any) -> List[Evaluation]:
+    """Normalize documented evaluator return shapes to Evaluation objects."""
+    candidates = result if isinstance(result, list) else [result]
+
+    return [
+        Evaluation(**candidate) if isinstance(candidate, dict) else candidate
+        for candidate in candidates
+        if isinstance(candidate, (dict, Evaluation))
+    ]
+
+
 async def _run_evaluator(
-    evaluator: Union[EvaluatorFunction, RunEvaluatorFunction], **kwargs: Any
+    evaluator: Union[EvaluatorFunction, RunEvaluatorFunction],
+    *,
+    _raise_on_error: bool = False,
+    **kwargs: Any,
 ) -> List[Evaluation]:
     """Run an evaluator function and normalize the result."""
     try:
@@ -996,17 +1010,12 @@ async def _run_evaluator(
         if asyncio.iscoroutine(result):
             result = await result
 
-        # Normalize to list
-        if isinstance(result, (dict, Evaluation)):
-            return [result]  # type: ignore
-
-        elif isinstance(result, list):
-            return result
-
-        else:
-            return []
+        return _normalize_evaluator_result(result)
 
     except Exception as e:
+        if _raise_on_error:
+            raise
+
         evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
         logger.error(f"Evaluator {evaluator_name} failed: {e}")
         return []

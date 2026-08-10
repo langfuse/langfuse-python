@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import gc
+import inspect
 import json
 import sys
 from typing import Any, AsyncGenerator, Generator, cast
@@ -8,6 +9,7 @@ from typing import Any, AsyncGenerator, Generator, cast
 import pytest
 
 from langfuse import observe
+from langfuse._client import observe as observe_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.observe import (
     _ContextPreservedAsyncGeneratorWrapper,
@@ -270,21 +272,220 @@ async def test_async_generator_wrapper_aclose_preserves_context() -> None:
     assert span.ended == 1
 
 
+def test_sync_generator_wrapper_close_closes_generator_after_span_ended() -> None:
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    def generator() -> Generator[str, None, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedSyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert next(wrapper) == "item_0"
+
+    # An error from __next__ that never resumed the generator ends the span.
+    with pytest.raises(RuntimeError):
+        context.run(lambda: next(wrapper))
+
+    assert span.ended == 1
+    assert seen == []
+
+    marker.set("ambient-now")
+    wrapper.close()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_aclose_closes_generator_after_span_ended() -> (
+    None
+):
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert await wrapper.__anext__() == "item_0"
+
+    # Span ends while the generator is still suspended.
+    wrapper._finalize_with_error(RuntimeError("ended early"))
+    assert span.ended == 1
+    assert seen == []
+
+    marker.set("ambient-now")
+    await wrapper.aclose()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_defers_span_end_for_unresumed_cancel() -> None:
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+    cleanup_span_states: list[int] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append(marker.get())
+            cleanup_span_states.append(span.ended)
+            span.update(cleanup=True)
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    raw = generator()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        raw,
+        context,
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    async def consume() -> None:
+        async for _ in wrapper:
+            await asyncio.sleep(0)
+
+    consumer = asyncio.create_task(consume())
+    for _ in range(4):
+        await asyncio.sleep(0)
+    # Cancel lands before the inner __anext__ task's first step.
+    asyncio.get_running_loop().call_soon(consumer.cancel)
+    with pytest.raises(asyncio.CancelledError):
+        await consumer
+
+    assert raw.ag_frame is not None  # still suspended, never resumed
+    # Span end is deferred so the generator's cleanup can still update it.
+    assert span.ended == 0
+
+    marker.set("ambient-now")
+    await wrapper.aclose()
+
+    assert raw.ag_frame is None  # closed
+    assert seen == ["preserved"]
+    assert cleanup_span_states == [0]
+    assert span.ended == 1
+    assert span.updates == [
+        {"cleanup": True},
+        {"level": "ERROR", "status_message": "CancelledError"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_defers_unresumed_cancel_without_inspect_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Python < 3.12 has no inspect.getasyncgenstate; the fallback must still defer.
+    monkeypatch.delattr(inspect, "getasyncgenstate", raising=False)
+
+    seen: list[str] = []
+
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+            yield "item_1"
+        finally:
+            seen.append("closed")
+
+    span = SpanRecorder()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        contextvars.copy_context(),
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    async def consume() -> None:
+        async for _ in wrapper:
+            await asyncio.sleep(0)
+
+    consumer = asyncio.create_task(consume())
+    for _ in range(4):
+        await asyncio.sleep(0)
+    asyncio.get_running_loop().call_soon(consumer.cancel)
+    with pytest.raises(asyncio.CancelledError):
+        await consumer
+
+    assert span.ended == 0
+
+    await wrapper.aclose()
+
+    assert seen == ["closed"]
+    assert span.ended == 1
+    assert span.updates[-1] == {
+        "level": "ERROR",
+        "status_message": "CancelledError",
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_generator_wrapper_aclose_propagates_cleanup_type_error() -> None:
+    async def generator() -> AsyncGenerator[str, None]:
+        try:
+            yield "item_0"
+        finally:
+            raise TypeError("cleanup failed")
+
+    span = SpanRecorder()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        generator(),
+        contextvars.copy_context(),
+        cast(Any, span),
+        False,
+        None,
+    )
+
+    assert await wrapper.__anext__() == "item_0"
+
+    with pytest.raises(TypeError, match="cleanup failed"):
+        await wrapper.aclose()
+
+    assert span.ended == 1
+    assert span.updates[-1] == {"level": "ERROR", "status_message": "cleanup failed"}
+
+
 @pytest.mark.asyncio
 async def test_async_generator_wrapper_fallback_preserves_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     marker = contextvars.ContextVar("marker", default="ambient")
     seen: list[str] = []
-    original_create_task = asyncio.create_task
-
-    def create_task_with_type_error(*args: Any, **kwargs: Any) -> asyncio.Task[Any]:
-        if "context" in kwargs:
-            raise TypeError("context argument unsupported")
-
-        return original_create_task(*args, **kwargs)
-
-    monkeypatch.setattr(asyncio, "create_task", create_task_with_type_error)
+    monkeypatch.setattr(observe_module, "_ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT", False)
 
     async def generator() -> AsyncGenerator[str, None]:
         try:

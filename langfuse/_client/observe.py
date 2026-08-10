@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import inspect
 import os
+import sys
 from functools import wraps
 from typing import (
     Any,
@@ -47,6 +48,8 @@ from langfuse.types import TraceContext
 F = TypeVar("F", bound=Callable[..., Any])
 P = ParamSpec("P")
 R = TypeVar("R")
+
+_ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT = sys.version_info >= (3, 11)
 
 
 class LangfuseDecorator:
@@ -616,6 +619,8 @@ class _ContextPreservedSyncGeneratorWrapper:
 
     def close(self) -> None:
         if self._span_ended:
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
+            self.context.run(self.generator.close)
             return
 
         try:
@@ -678,9 +683,22 @@ class _ContextPreservedAsyncGeneratorWrapper:
         self.capture_output = capture_output
         self.transform_fn = transform_fn
         self._span_ended = False
+        self._pending_error: Optional[BaseException] = None
 
     def __aiter__(self) -> "_ContextPreservedAsyncGeneratorWrapper":
         return self
+
+    def _generator_never_resumed(self) -> bool:
+        try:
+            state = inspect.getasyncgenstate(self.generator)
+        except (AttributeError, TypeError):
+            # getasyncgenstate is Python 3.12+; fall back to the attributes it reads.
+            frame = getattr(self.generator, "ag_frame", None)
+            return frame is not None and not getattr(
+                self.generator, "ag_running", False
+            )
+
+        return state in ("AGEN_CREATED", "AGEN_SUSPENDED")
 
     def _finalize(self) -> None:
         if self._span_ended:
@@ -711,39 +729,50 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def aclose(self) -> None:
         if self._span_ended:
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
+            await self._close_generator()
             return
 
         try:
-            try:
-                await asyncio.create_task(
-                    self.generator.aclose(),
-                    context=self.context,
-                )  # type: ignore
-            except TypeError:
-                await self.context.run(asyncio.create_task, self.generator.aclose())
+            await self._close_generator()
         except (Exception, asyncio.CancelledError) as error:
             self._finalize_with_error(error)
             raise
         else:
-            self._finalize()
+            if self._pending_error is not None:
+                self._finalize_with_error(self._pending_error)
+            else:
+                self._finalize()
+
+    async def _close_generator(self) -> None:
+        if _ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT:
+            close_task = asyncio.create_task(
+                self.generator.aclose(),
+                context=self.context,
+            )  # type: ignore
+        else:
+            close_task = self.context.run(asyncio.create_task, self.generator.aclose())
+
+        await close_task
 
     async def close(self) -> None:
         await self.aclose()
 
     def __del__(self) -> None:
-        self._finalize()
+        if self._pending_error is not None:
+            self._finalize_with_error(self._pending_error)
+        else:
+            self._finalize()
 
     async def __anext__(self) -> Any:
         try:
             # Run the generator's __anext__ in the preserved context
-            try:
-                # Python 3.11+ approach with explicit task context
+            if _ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT:
                 item = await asyncio.create_task(
                     self.generator.__anext__(),  # type: ignore
                     context=self.context,
                 )  # type: ignore
-            except TypeError:
-                # Python 3.10 fallback - create the task inside the preserved context.
+            else:
                 item = await self.context.run(
                     asyncio.create_task,
                     self.generator.__anext__(),  # type: ignore
@@ -757,6 +786,13 @@ class _ContextPreservedAsyncGeneratorWrapper:
         except StopAsyncIteration:
             self._finalize()
             raise  # Re-raise StopAsyncIteration
-        except (Exception, asyncio.CancelledError) as e:
+        except asyncio.CancelledError as e:
+            if self._generator_never_resumed():
+                # Defer span end so aclose() can run the generator's cleanup first.
+                self._pending_error = e
+                raise
+            self._finalize_with_error(e)
+            raise
+        except Exception as e:
             self._finalize_with_error(e)
             raise

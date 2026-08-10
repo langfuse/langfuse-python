@@ -2748,15 +2748,51 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         assert len(experiment_ids) == 1
         assert result.experiment_id == next(iter(experiment_ids))
 
+    def test_experiment_run_metadata_overrides_item_metadata(
+        self, langfuse_client, memory_exporter
+    ):
+        langfuse_client.run_experiment(
+            name="Metadata precedence",
+            run_name="run-name",
+            data=[
+                {
+                    "input": "test",
+                    "metadata": {"shared": "item", "item_only": "yes"},
+                }
+            ],
+            task=lambda *, item, **kwargs: "result",
+            metadata={"shared": "run"},
+        )
+        langfuse_client.flush()
+
+        span = self.get_span_by_name(memory_exporter, "experiment-item-run")
+        self.verify_span_attribute(
+            span,
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.shared",
+            "run",
+        )
+        self.verify_span_attribute(
+            span,
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.experiment_run_name",
+            "run-name",
+        )
+        self.verify_span_attribute(
+            span,
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.item_only",
+            "yes",
+        )
+
     def test_experiment_attributes_propagate_with_dataset(
         self, langfuse_client, memory_exporter, monkeypatch
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
+        created_run_items = []
 
         # Mock the sync API used by run_experiment to create dataset run items
         def mock_create_dataset_run_item(*args, **kwargs):
             from langfuse.api import DatasetRunItem
 
+            created_run_items.append(kwargs)
             return DatasetRunItem(
                 id="mock-run-item-id",
                 dataset_run_id="mock-dataset-run-id-123",
@@ -2835,7 +2871,10 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         root_spans = self.get_spans_by_name(memory_exporter, "experiment-item-run")
         assert len(root_spans) >= 1, "Should have at least 1 root span"
         first_root = root_spans[0]
+        task_span = self.get_span_by_name(memory_exporter, "experiment-item-task")
         assert result.experiment_id == "mock-dataset-run-id-123"
+        assert len(created_run_items) == 1
+        assert created_run_items[0]["observation_id"] == task_span["span_id"]
 
         # Root-only attributes should be on root
         self.verify_span_attribute(

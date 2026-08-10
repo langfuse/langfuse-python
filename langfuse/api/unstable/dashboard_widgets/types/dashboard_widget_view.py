@@ -10,17 +10,21 @@ T_Result = typing.TypeVar("T_Result")
 class DashboardWidgetView(enum.StrEnum):
     OBSERVATIONS = "observations"
     SCORES_NUMERIC = "scores-numeric"
+    SCORES_BOOLEAN = "scores-boolean"
     SCORES_CATEGORICAL = "scores-categorical"
 
     def visit(
         self,
         observations: typing.Callable[[], T_Result],
         scores_numeric: typing.Callable[[], T_Result],
+        scores_boolean: typing.Callable[[], T_Result],
         scores_categorical: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is DashboardWidgetView.OBSERVATIONS:
             return observations()
         if self is DashboardWidgetView.SCORES_NUMERIC:
             return scores_numeric()
+        if self is DashboardWidgetView.SCORES_BOOLEAN:
+            return scores_boolean()
         if self is DashboardWidgetView.SCORES_CATEGORICAL:
             return scores_categorical()

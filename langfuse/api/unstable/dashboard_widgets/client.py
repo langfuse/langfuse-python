@@ -102,7 +102,7 @@ class DashboardWidgetsClient:
         This endpoint creates the widget only; place it on a dashboard via
         `POST /dashboards/{dashboardId}/placements`.
 
-        Supported views are `observations`, `scores-numeric`, and `scores-categorical`.
+        Supported views are `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical`.
         The legacy `traces` view is not supported by this unstable API.
         Widgets are created as v2 internally.
 
@@ -446,7 +446,7 @@ class AsyncDashboardWidgetsClient:
         This endpoint creates the widget only; place it on a dashboard via
         `POST /dashboards/{dashboardId}/placements`.
 
-        Supported views are `observations`, `scores-numeric`, and `scores-categorical`.
+        Supported views are `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical`.
         The legacy `traces` view is not supported by this unstable API.
         Widgets are created as v2 internally.
 

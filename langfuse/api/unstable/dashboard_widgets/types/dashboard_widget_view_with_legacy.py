@@ -15,6 +15,7 @@ class DashboardWidgetViewWithLegacy(enum.StrEnum):
 
     OBSERVATIONS = "observations"
     SCORES_NUMERIC = "scores-numeric"
+    SCORES_BOOLEAN = "scores-boolean"
     SCORES_CATEGORICAL = "scores-categorical"
     TRACES = "traces"
 
@@ -22,6 +23,7 @@ class DashboardWidgetViewWithLegacy(enum.StrEnum):
         self,
         observations: typing.Callable[[], T_Result],
         scores_numeric: typing.Callable[[], T_Result],
+        scores_boolean: typing.Callable[[], T_Result],
         scores_categorical: typing.Callable[[], T_Result],
         traces: typing.Callable[[], T_Result],
     ) -> T_Result:
@@ -29,6 +31,8 @@ class DashboardWidgetViewWithLegacy(enum.StrEnum):
             return observations()
         if self is DashboardWidgetViewWithLegacy.SCORES_NUMERIC:
             return scores_numeric()
+        if self is DashboardWidgetViewWithLegacy.SCORES_BOOLEAN:
+            return scores_boolean()
         if self is DashboardWidgetViewWithLegacy.SCORES_CATEGORICAL:
             return scores_categorical()
         if self is DashboardWidgetViewWithLegacy.TRACES:

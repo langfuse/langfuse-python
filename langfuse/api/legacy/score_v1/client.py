@@ -2,16 +2,18 @@
 
 import typing
 
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...commons.types.create_score_value import CreateScoreValue
 from ...commons.types.score_data_type import ScoreDataType
-from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...scores.client import (
+    AsyncScoresClient as CanonicalAsyncScoresClient,
+    ScoresClient as CanonicalScoresClient,
+    OMIT,
+)
+from ...scores.types.create_score_response import CreateScoreResponse
+from ...scores.types.create_score_source import CreateScoreSource
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawScoreV1Client, RawScoreV1Client
-from .types.create_score_response import CreateScoreResponse
-from .types.create_score_source import CreateScoreSource
-
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
 
 
 class ScoreV1Client:
@@ -48,70 +50,10 @@ class ScoreV1Client:
         source: typing.Optional[CreateScoreSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
-        """
-        Create a score (supports both trace and session scores)
-
-        Parameters
-        ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        CreateScoreResponse
-
-        Examples
-        --------
-        from langfuse import LangfuseAPI
-
-        client = LangfuseAPI(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.legacy.score_v1.create(
-            name="name",
-            value=1.1,
-        )
-        """
-        _response = self._raw_client.create(
+        """**Deprecated compatibility alias.** Use ``client.scores.create``."""
+        return CanonicalScoresClient(
+            client_wrapper=self._raw_client._client_wrapper
+        ).create(
             name=name,
             value=value,
             id=id,
@@ -128,7 +70,6 @@ class ScoreV1Client:
             source=source,
             request_options=request_options,
         )
-        return _response.data
 
     def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -202,78 +143,10 @@ class AsyncScoreV1Client:
         source: typing.Optional[CreateScoreSource] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
-        """
-        Create a score (supports both trace and session scores)
-
-        Parameters
-        ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        CreateScoreResponse
-
-        Examples
-        --------
-        import asyncio
-
-        from langfuse import AsyncLangfuseAPI
-
-        client = AsyncLangfuseAPI(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.legacy.score_v1.create(
-                name="name",
-                value=1.1,
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.create(
+        """**Deprecated compatibility alias.** Use ``client.scores.create``."""
+        return await CanonicalAsyncScoresClient(
+            client_wrapper=self._raw_client._client_wrapper
+        ).create(
             name=name,
             value=value,
             id=id,
@@ -290,7 +163,6 @@ class AsyncScoreV1Client:
             source=source,
             request_options=request_options,
         )
-        return _response.data
 
     async def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None

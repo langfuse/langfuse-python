@@ -16,13 +16,20 @@ if typing.TYPE_CHECKING:
     )
     from .delete_evaluation_rule_response import DeleteEvaluationRuleResponse
     from .evaluation_rule import EvaluationRule
+    from .evaluation_rule_base import EvaluationRuleBase
     from .evaluation_rule_evaluator import EvaluationRuleEvaluator
     from .evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
+    from .evaluation_rule_time_scope import EvaluationRuleTimeScope
     from .evaluation_rules import EvaluationRules
+    from .legacy_evaluation_object import LegacyEvaluationObject
+    from .legacy_evaluation_rule import LegacyEvaluationRule
+    from .legacy_evaluation_rule_mapping import LegacyEvaluationRuleMapping
+    from .legacy_evaluation_rule_target import LegacyEvaluationRuleTarget
     from .llm_as_judge_evaluation_rule_evaluator_reference import (
         LlmAsJudgeEvaluationRuleEvaluatorReference,
     )
     from .llm_as_judge_evaluator_type import LlmAsJudgeEvaluatorType
+    from .readable_evaluation_rule import ReadableEvaluationRule
     from .update_evaluation_rule_request import UpdateEvaluationRuleRequest
 _dynamic_imports: typing.Dict[str, str] = {
     "CodeEvaluationRuleEvaluatorReference": ".code_evaluation_rule_evaluator_reference",
@@ -31,11 +38,18 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateLlmAsJudgeEvaluationRuleRequest": ".create_llm_as_judge_evaluation_rule_request",
     "DeleteEvaluationRuleResponse": ".delete_evaluation_rule_response",
     "EvaluationRule": ".evaluation_rule",
+    "EvaluationRuleBase": ".evaluation_rule_base",
     "EvaluationRuleEvaluator": ".evaluation_rule_evaluator",
     "EvaluationRuleEvaluatorReference": ".evaluation_rule_evaluator_reference",
+    "EvaluationRuleTimeScope": ".evaluation_rule_time_scope",
     "EvaluationRules": ".evaluation_rules",
+    "LegacyEvaluationObject": ".legacy_evaluation_object",
+    "LegacyEvaluationRule": ".legacy_evaluation_rule",
+    "LegacyEvaluationRuleMapping": ".legacy_evaluation_rule_mapping",
+    "LegacyEvaluationRuleTarget": ".legacy_evaluation_rule_target",
     "LlmAsJudgeEvaluationRuleEvaluatorReference": ".llm_as_judge_evaluation_rule_evaluator_reference",
     "LlmAsJudgeEvaluatorType": ".llm_as_judge_evaluator_type",
+    "ReadableEvaluationRule": ".readable_evaluation_rule",
     "UpdateEvaluationRuleRequest": ".update_evaluation_rule_request",
 }
 
@@ -74,10 +88,17 @@ __all__ = [
     "CreateLlmAsJudgeEvaluationRuleRequest",
     "DeleteEvaluationRuleResponse",
     "EvaluationRule",
+    "EvaluationRuleBase",
     "EvaluationRuleEvaluator",
     "EvaluationRuleEvaluatorReference",
+    "EvaluationRuleTimeScope",
     "EvaluationRules",
+    "LegacyEvaluationObject",
+    "LegacyEvaluationRule",
+    "LegacyEvaluationRuleMapping",
+    "LegacyEvaluationRuleTarget",
     "LlmAsJudgeEvaluationRuleEvaluatorReference",
     "LlmAsJudgeEvaluatorType",
+    "ReadableEvaluationRule",
     "UpdateEvaluationRuleRequest",
 ]

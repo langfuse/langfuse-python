@@ -574,6 +574,83 @@ def test_mask_otel_spans_drops_contextless_spans_without_dropping_batch(caplog):
     )
 
 
+def test_mask_otel_spans_keeps_last_duplicate_without_dropping_batch():
+    exporter = InMemorySpanExporter()
+    seen_params: list[MaskOtelSpansParams] = []
+
+    def mask_otel_spans(*, params: MaskOtelSpansParams):
+        seen_params.append(params)
+        duplicate_identifier = next(
+            identifier
+            for identifier, span in params.spans.items()
+            if span.name == "duplicate-last"
+        )
+
+        return MaskOtelSpansResult(
+            span_patches={
+                duplicate_identifier: OtelSpanPatch(
+                    set_attributes={"masking.applied": True}
+                )
+            }
+        )
+
+    transforming_exporter = span_exporter_module.LangfuseTransformingSpanExporter(
+        exporter=exporter,
+        media_manager=None,
+        mask_otel_spans=mask_otel_spans,
+    )
+    duplicate_context = SpanContext(
+        trace_id=1,
+        span_id=2,
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        trace_state=TraceState(),
+    )
+    unrelated_context = SpanContext(
+        trace_id=3,
+        span_id=4,
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        trace_state=TraceState(),
+    )
+    spans = [
+        ReadableSpan(
+            name="duplicate-first",
+            context=duplicate_context,
+            attributes={"attempt": 1},
+        ),
+        ReadableSpan(
+            name="unrelated",
+            context=unrelated_context,
+            attributes={"unrelated": True},
+        ),
+        ReadableSpan(
+            name="duplicate-last",
+            context=duplicate_context,
+            attributes={"attempt": 2},
+        ),
+    ]
+
+    result = transforming_exporter.export(spans)
+
+    assert result == SpanExportResult.SUCCESS
+    assert len(seen_params) == 1
+    assert [span.name for span in seen_params[0].spans.values()] == [
+        "unrelated",
+        "duplicate-last",
+    ]
+
+    exported_spans = exporter.get_finished_spans()
+    assert [span.name for span in exported_spans] == [
+        "unrelated",
+        "duplicate-last",
+    ]
+    assert exported_spans[1].attributes == {
+        "attempt": 2,
+        "masking.applied": True,
+    }
+
+
 def test_exporter_exception_does_not_stop_background_export_thread():
     exporter = FailsOnceSpanExporter()
     media_manager, _ = _media_manager()
