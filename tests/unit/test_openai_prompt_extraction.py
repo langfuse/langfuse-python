@@ -11,13 +11,18 @@ try:
 except ImportError:
     from openai._types import NOT_GIVEN
 
+from openai._types import Omit
+
 from langfuse.openai import (
     OpenAiArgsExtractor,
     OpenAiDefinition,
+    _extract_chat_prompt,
     _extract_responses_prompt,
     _get_langfuse_data_from_kwargs,
     _serialize_openai_value,
 )
+
+OMIT = Omit()
 
 
 @pytest.mark.parametrize(
@@ -51,6 +56,22 @@ from langfuse.openai import (
         ),
         ({"instructions": NOT_GIVEN, "input": "Hello!"}, "Hello!"),
         ({"instructions": NOT_GIVEN, "input": NOT_GIVEN}, None),
+        (
+            {"instructions": "You are helpful.", "input": OMIT},
+            {"instructions": "You are helpful."},
+        ),
+        ({"instructions": OMIT, "input": "Hello!"}, "Hello!"),
+        ({"instructions": OMIT, "input": OMIT}, None),
+        (
+            {
+                "instructions": OMIT,
+                "input": "Hello!",
+                "tool_choice": OMIT,
+                "parallel_tool_calls": OMIT,
+                "tools": OMIT,
+            },
+            "Hello!",
+        ),
         (
             {
                 "input": "Search for the weather in Berlin.",
@@ -193,6 +214,64 @@ def test_store_preserves_user_structured_output_metadata_keys_for_openai():
 
     assert openai_args["metadata"] == metadata
     assert openai_args["metadata"] is not metadata
+
+
+def test_serialize_openai_value_treats_omit_as_not_given():
+    assert _serialize_openai_value(OMIT) is None
+    assert _serialize_openai_value({"tool_choice": OMIT, "keep": 1}) == {"keep": 1}
+
+
+@pytest.mark.parametrize("sentinel", [NOT_GIVEN, OMIT], ids=["not_given", "omit"])
+def test_extract_chat_prompt_excludes_unset_sentinel_tool_fields(sentinel):
+    messages = [{"role": "user", "content": "Hello!"}]
+
+    prompt = _extract_chat_prompt(
+        {
+            "messages": messages,
+            "functions": sentinel,
+            "function_call": sentinel,
+            "tools": sentinel,
+        }
+    )
+
+    assert prompt == messages
+
+
+@pytest.mark.parametrize("sentinel", [NOT_GIVEN, OMIT], ids=["not_given", "omit"])
+def test_unset_sentinel_kwargs_do_not_leak_into_langfuse_data(sentinel):
+    resource = OpenAiDefinition(
+        module="",
+        object="Completions",
+        method="create",
+        type="chat",
+        sync=True,
+    )
+    args = OpenAiArgsExtractor(
+        model="gpt-4.1",
+        messages=[{"role": "user", "content": "Hello!"}],
+        metadata=sentinel,
+        temperature=sentinel,
+        top_p=sentinel,
+        max_tokens=sentinel,
+        frequency_penalty=sentinel,
+        presence_penalty=sentinel,
+        seed=sentinel,
+        n=sentinel,
+        service_tier=sentinel,
+        tools=sentinel,
+    ).get_langfuse_args()
+
+    langfuse_data = _get_langfuse_data_from_kwargs(resource, args)
+
+    assert langfuse_data["input"] == [{"role": "user", "content": "Hello!"}]
+    assert langfuse_data["metadata"] is None
+    assert langfuse_data["model_parameters"] == {
+        "temperature": 1,
+        "max_tokens": float("inf"),
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+    }
 
 
 def test_store_does_not_forward_instrumentation_structured_output_metadata():
