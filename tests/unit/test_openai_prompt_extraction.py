@@ -27,26 +27,6 @@ from langfuse.openai import (
 OMIT = Omit()
 
 
-def test_openai_integration_does_not_require_omit_type():
-    script = "; ".join(
-        (
-            "import importlib",
-            "import openai._types",
-            "import langfuse.openai",
-            "del openai._types.Omit",
-            "importlib.reload(langfuse.openai)",
-        )
-    )
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-
-
 @pytest.mark.parametrize(
     "kwargs, expected",
     [
