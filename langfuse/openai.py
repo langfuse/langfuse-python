@@ -32,7 +32,8 @@ from datetime import datetime
 from inspect import isawaitable, isclass
 from typing import Any, Optional, cast
 
-from openai._types import NotGiven, Omit
+from openai import _types as openai_types
+from openai._types import NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
@@ -59,6 +60,13 @@ try:
     from openai._constants import RAW_RESPONSE_HEADER
 except ImportError:
     RAW_RESPONSE_HEADER = "X-Stainless-Raw-Response"
+
+_openai_omit_type = getattr(openai_types, "Omit", None)
+_OPENAI_UNSET_TYPES: tuple[type[Any], ...] = (
+    (NotGiven, _openai_omit_type)
+    if isinstance(_openai_omit_type, type)
+    else (NotGiven,)
+)
 
 
 @dataclass
@@ -207,7 +215,7 @@ _STRUCTURED_OUTPUT_METADATA_FIELDS = ("response_format", "text_format")
 
 
 def _is_not_given(value: Any) -> bool:
-    return isinstance(value, (NotGiven, Omit))
+    return isinstance(value, _OPENAI_UNSET_TYPES)
 
 
 def _get_attr_or_item(value: Any, key: str, default: Any = None) -> Any:
