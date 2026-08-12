@@ -32,6 +32,7 @@ from datetime import datetime
 from inspect import isawaitable, isclass
 from typing import Any, Optional, cast
 
+from openai import _types as openai_types
 from openai._types import NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
@@ -59,6 +60,13 @@ try:
     from openai._constants import RAW_RESPONSE_HEADER
 except ImportError:
     RAW_RESPONSE_HEADER = "X-Stainless-Raw-Response"
+
+_openai_omit_type = getattr(openai_types, "Omit", None)
+_OPENAI_UNSET_TYPES: tuple[type[Any], ...] = (
+    (NotGiven, _openai_omit_type)
+    if isinstance(_openai_omit_type, type)
+    else (NotGiven,)
+)
 
 
 @dataclass
@@ -207,7 +215,7 @@ _STRUCTURED_OUTPUT_METADATA_FIELDS = ("response_format", "text_format")
 
 
 def _is_not_given(value: Any) -> bool:
-    return isinstance(value, NotGiven)
+    return isinstance(value, _OPENAI_UNSET_TYPES)
 
 
 def _get_attr_or_item(value: Any, key: str, default: Any = None) -> Any:
@@ -356,13 +364,13 @@ def _extract_responses_prompt(kwargs: Any) -> Any:
     for key in _RESPONSES_PROMPT_FIELDS:
         value = kwargs.get(key, None)
 
-        if value is not None and not isinstance(value, NotGiven):
+        if value is not None and not _is_not_given(value):
             prompt_fields[key] = _serialize_openai_value(value)
 
-    if isinstance(input_value, NotGiven):
+    if _is_not_given(input_value):
         input_value = None
 
-    if isinstance(instructions, NotGiven):
+    if _is_not_given(instructions):
         instructions = None
 
     if instructions is None:
@@ -395,14 +403,11 @@ def _extract_chat_prompt(kwargs: Any) -> Any:
     """Extracts the user input from prompts. Returns an array of messages or dict with messages and functions"""
     prompt = {}
 
-    if kwargs.get("functions") is not None:
-        prompt.update({"functions": kwargs["functions"]})
+    for key in ("functions", "function_call", "tools"):
+        value = kwargs.get(key)
 
-    if kwargs.get("function_call") is not None:
-        prompt.update({"function_call": kwargs["function_call"]})
-
-    if kwargs.get("tools") is not None:
-        prompt.update({"tools": kwargs["tools"]})
+        if value is not None and not _is_not_given(value):
+            prompt.update({key: value})
 
     if prompt:
         # uf user provided functions, we need to send these together with messages to langfuse
@@ -533,7 +538,7 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
     metadata = kwargs.get("metadata", {})
     if (
         metadata is not None
-        and not isinstance(metadata, NotGiven)
+        and not _is_not_given(metadata)
         and not isinstance(metadata, dict)
     ):
         if isinstance(metadata, BaseModel):
@@ -556,63 +561,61 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     parsed_temperature = (
         kwargs.get("temperature", 1)
-        if not isinstance(kwargs.get("temperature", 1), NotGiven)
+        if not _is_not_given(kwargs.get("temperature", 1))
         else 1
     )
 
     parsed_max_tokens = (
         kwargs.get("max_tokens", float("inf"))
-        if not isinstance(kwargs.get("max_tokens", float("inf")), NotGiven)
+        if not _is_not_given(kwargs.get("max_tokens", float("inf")))
         else float("inf")
     )
 
     parsed_max_completion_tokens = (
         kwargs.get("max_completion_tokens", None)
-        if not isinstance(kwargs.get("max_completion_tokens", float("inf")), NotGiven)
+        if not _is_not_given(kwargs.get("max_completion_tokens", float("inf")))
         else None
     )
 
     parsed_top_p = (
-        kwargs.get("top_p", 1)
-        if not isinstance(kwargs.get("top_p", 1), NotGiven)
-        else 1
+        kwargs.get("top_p", 1) if not _is_not_given(kwargs.get("top_p", 1)) else 1
     )
 
     parsed_frequency_penalty = (
         kwargs.get("frequency_penalty", 0)
-        if not isinstance(kwargs.get("frequency_penalty", 0), NotGiven)
+        if not _is_not_given(kwargs.get("frequency_penalty", 0))
         else 0
     )
 
     parsed_presence_penalty = (
         kwargs.get("presence_penalty", 0)
-        if not isinstance(kwargs.get("presence_penalty", 0), NotGiven)
+        if not _is_not_given(kwargs.get("presence_penalty", 0))
         else 0
     )
 
     parsed_seed = (
         kwargs.get("seed", None)
-        if not isinstance(kwargs.get("seed", None), NotGiven)
+        if not _is_not_given(kwargs.get("seed", None))
         else None
     )
 
-    parsed_n = kwargs.get("n", 1) if not isinstance(kwargs.get("n", 1), NotGiven) else 1
+    parsed_n = kwargs.get("n", 1) if not _is_not_given(kwargs.get("n", 1)) else 1
 
     parsed_service_tier = (
         kwargs.get("service_tier", None)
-        if not isinstance(kwargs.get("service_tier", None), NotGiven)
+        if not _is_not_given(kwargs.get("service_tier", None))
         else None
     )
 
     if resource.type == "embedding":
         parsed_dimensions = (
             kwargs.get("dimensions", None)
-            if not isinstance(kwargs.get("dimensions", None), NotGiven)
+            if not _is_not_given(kwargs.get("dimensions", None))
             else None
         )
         parsed_encoding_format = (
             kwargs.get("encoding_format", "float")
-            if not isinstance(kwargs.get("encoding_format", "float"), NotGiven)
+            if not _is_not_given(kwargs.get("encoding_format", "float"))
             else "float"
         )
 
@@ -1195,7 +1198,7 @@ def _get_raw_response_mode(kwargs: Any) -> Optional[str]:
     """
     extra_headers = kwargs.get("extra_headers", None)
 
-    if extra_headers is None or isinstance(extra_headers, NotGiven):
+    if extra_headers is None or _is_not_given(extra_headers):
         return None
 
     try:
