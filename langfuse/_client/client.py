@@ -7,7 +7,6 @@ import asyncio
 import logging
 import os
 import re
-import threading
 import urllib.parse
 import uuid
 import warnings
@@ -351,9 +350,6 @@ class Langfuse:
             or os.environ.get(LANGFUSE_RELEASE, None)
             or get_common_release_envs()
         )
-        self._project_id: Optional[str] = None
-        self._project_id_resolved: bool = False
-        self._project_id_lock = threading.Lock()
         if sample_rate is None:
             sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
@@ -2411,56 +2407,22 @@ class Langfuse:
         return self._get_otel_span_id(current_otel_span) if current_otel_span else None
 
     def _get_project_id(self) -> Optional[str]:
-        """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys.
+        """Fetch and return the current project id. Returns None if no project id is found for api keys.
 
-        The lookup is a blocking network request, so its outcome is resolved at
-        most once per client instance -- including a negative outcome. A project
-        id never changes for a given key pair, so caching only the success meant
-        that a failing lookup was retried on every call: `get_trace_url` is
-        commonly called once per row when rendering links, which turned an auth
-        failure or an empty project list into one blocking request per row.
-
-        Failures are logged and swallowed rather than raised. This is only ever
-        reached from URL generation, which is a convenience: it returns None when
-        the project id is unavailable, and must not surface an exception into the
-        caller's code path.
-
-        The resolution is guarded by a lock, and the flag is set only once the
-        outcome is known: concurrent callers either see a fully resolved state or
-        wait for the in-flight lookup, rather than reading a `None` project id
-        that a request in flight is about to fill in.
+        Delegates to the resource manager, which caches the outcome. The cache
+        cannot live here: `get_client()` constructs a new `Langfuse` on every
+        call, so anything memoized on this object dies with it, and a caller
+        generating one URL per row would issue one blocking lookup per row. The
+        resource manager is a singleton keyed by public key, which is the
+        granularity a project id has.
         """
-        if self._project_id_resolved:
-            return self._project_id
-
-        with self._project_id_lock:
-            # Another thread may have resolved it while this one waited.
-            if not self._project_id_resolved:
-                self._project_id = self._fetch_project_id()
-                self._project_id_resolved = True
-
-            return self._project_id
-
-    def _fetch_project_id(self) -> Optional[str]:
-        """Fetch the project id for the configured keys. Returns None if unavailable."""
-        try:
-            proj = self.api.projects.get()
-        except Exception as e:
-            langfuse_logger.warning(
-                f"Could not resolve project id: {e}. URL generation is disabled for this client instance."
+        if self._resources is None:
+            langfuse_logger.debug(
+                "Operation skipped: _get_project_id - Client is not initialized."
             )
             return None
 
-        if not proj.data or not proj.data[0].id:
-            langfuse_logger.warning(
-                "Could not resolve project id: no project found for the configured API keys. "
-                "URL generation is disabled for this client instance."
-            )
-            return None
-
-        project_id: Optional[str] = proj.data[0].id
-
-        return project_id
+        return self._resources.get_project_id()
 
     def get_trace_url(self, *, trace_id: Optional[str] = None) -> Optional[str]:
         """Get the URL to view a trace in the Langfuse UI.

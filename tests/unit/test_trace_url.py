@@ -2,8 +2,9 @@
 
 The project id lookup is a blocking network request. `get_trace_url` is commonly
 called once per row when rendering links, so the lookup must be attempted at most
-once per client instance -- on failure as well as on success -- and it must never
-raise into the caller.
+once -- on failure as well as on success -- and it must never raise into the
+caller. "At most once" is per resource manager rather than per `Langfuse`, since
+`get_client()` returns a new `Langfuse` on every call.
 """
 
 import threading
@@ -14,6 +15,7 @@ from unittest.mock import Mock
 import pytest
 
 from langfuse import Langfuse
+from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
 
 TRACE_ID = "1234567890abcdef1234567890abcdef"
@@ -122,3 +124,64 @@ def test_no_project_id_lookup_without_a_trace_id(client):
 
     assert client.get_trace_url() is None
     assert client.api.projects.get.call_count == 0
+
+
+def test_project_id_is_shared_across_client_instances(client):
+    """`get_client()` returns a new `Langfuse` per call; the cache must outlive it.
+
+    This is why the resolution lives on the resource manager. Were it on the
+    `Langfuse` object, rendering one link per row via `get_client()` would issue
+    one blocking lookup per row.
+    """
+    api = _api_returning("project-id")
+    client.api = api
+    expected = f"http://localhost:3000/project/project-id/traces/{TRACE_ID}"
+
+    assert client.get_trace_url(trace_id=TRACE_ID) == expected
+    assert api.projects.get.call_count == 1
+
+    for _ in range(3):
+        other = get_client()
+        assert other is not client
+        assert other.get_trace_url(trace_id=TRACE_ID) == expected
+
+    assert api.projects.get.call_count == 1
+
+
+def test_a_failed_lookup_is_not_retried_by_a_later_client_instance(client):
+    """The negative outcome has to outlive the instance too.
+
+    An auth failure is the case that produced a blocking request per rendered
+    row, so caching it only for the lifetime of one `Langfuse` object would
+    leave the original problem in place.
+    """
+    api = Mock()
+    api.projects.get.side_effect = RuntimeError("401 Unauthorized")
+    client.api = api
+
+    assert client.get_trace_url(trace_id=TRACE_ID) is None
+
+    for _ in range(3):
+        assert get_client().get_trace_url(trace_id=TRACE_ID) is None
+
+    assert api.projects.get.call_count == 1
+
+
+def test_fork_replaces_the_project_id_lock(client):
+    """A lock held at fork time would deadlock the child, so it is replaced.
+
+    `_at_fork_reinit` resets it before the `_shutdown` early return, for the same
+    reason the class lock is reset there: the child needs a usable lock whether
+    or not this instance was torn down. Setting `_shutdown` here stops the method
+    before it recreates HTTP clients and consumer threads, which this test does
+    not exercise.
+    """
+    resources = client._resources
+    held = resources._project_id_lock
+    held.acquire()  # a thread in the parent, mid-lookup when the fork happened
+    resources._shutdown = True
+
+    resources._at_fork_reinit()
+
+    assert resources._project_id_lock is not held
+    assert not resources._project_id_lock.locked()

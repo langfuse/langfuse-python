@@ -275,6 +275,12 @@ class LangfuseResourceManager:
         # Prompt cache
         self.prompt_cache = PromptCache()
 
+        # Project id cache. Resolved lazily on first use, at most once per
+        # instance -- see get_project_id.
+        self._project_id: Optional[str] = None
+        self._project_id_resolved = False
+        self._project_id_lock = threading.Lock()
+
         # Register shutdown handler
         atexit.register(self.shutdown)
 
@@ -399,6 +405,57 @@ class LangfuseResourceManager:
         ingestion_consumer.start()
         self._ingestion_consumers.append(ingestion_consumer)
 
+    def get_project_id(self) -> Optional[str]:
+        """Return the project id for this instance's credentials, or None if unavailable.
+
+        The lookup is a blocking network request, so its outcome is resolved at
+        most once per instance -- including a negative outcome. A project id does
+        not change for a given key pair, so caching only the success meant a
+        failing lookup was repeated on every call: `Langfuse.get_trace_url` is
+        commonly called once per row when rendering links, which turned an auth
+        failure or an empty project list into one blocking request per row.
+
+        This lives on the resource manager rather than on `Langfuse` because
+        `get_client()` constructs a new `Langfuse` on every call; state cached on
+        that object does not outlive the call that created it. The singleton here
+        is keyed by public key, which is the granularity a project id has.
+
+        Failures are logged and swallowed rather than raised: the only caller is
+        URL generation, which is a convenience and must not surface an exception
+        into the caller's code path.
+        """
+        if self._project_id_resolved:
+            return self._project_id
+
+        with self._project_id_lock:
+            # Another thread may have resolved it while this one waited.
+            if not self._project_id_resolved:
+                self._project_id = self._fetch_project_id()
+                self._project_id_resolved = True
+
+            return self._project_id
+
+    def _fetch_project_id(self) -> Optional[str]:
+        """Fetch the project id for this instance's credentials over the API."""
+        try:
+            projects = self.api.projects.get()
+        except Exception as e:
+            langfuse_logger.warning(
+                f"Could not resolve project id: {e}. URL generation is disabled until the client is recreated."
+            )
+            return None
+
+        if not projects.data or not projects.data[0].id:
+            langfuse_logger.warning(
+                "Could not resolve project id: no project found for the configured API keys. "
+                "URL generation is disabled until the client is recreated."
+            )
+            return None
+
+        project_id: Optional[str] = projects.data[0].id
+
+        return project_id
+
     def _at_fork_reinit(self) -> None:
         """Reinitialize consumer threads after fork in child process.
 
@@ -420,6 +477,13 @@ class LangfuseResourceManager:
         # the lock is class-level state needed by the child (e.g. to create a new client)
         # even if this particular instance was already shut down.
         LangfuseResourceManager._lock = threading.RLock()
+
+        # Same hazard for the project id lock: a thread in the parent may have
+        # been holding it across the lookup at fork time, which would deadlock
+        # the first caller here. The cached value survives (a project id is not
+        # per-process); only the mutex is replaced, so a lookup interrupted by
+        # the fork is simply retried in this child.
+        self._project_id_lock = threading.Lock()
 
         if self._shutdown:
             return
