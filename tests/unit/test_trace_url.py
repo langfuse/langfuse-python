@@ -6,7 +6,9 @@ once per client instance -- on failure as well as on success -- and it must neve
 raise into the caller.
 """
 
+import threading
 from types import SimpleNamespace
+from typing import List, Optional
 from unittest.mock import Mock
 
 import pytest
@@ -69,6 +71,49 @@ def test_project_id_lookup_failure_does_not_raise_and_is_not_retried(client):
 
     assert client.get_trace_url(trace_id=TRACE_ID) is None
     assert client.get_trace_url(trace_id=TRACE_ID) is None
+    assert api.projects.get.call_count == 1
+
+
+def test_concurrent_callers_all_see_the_resolved_project_id(client):
+    """A caller must not observe the pre-resolution state of an in-flight lookup.
+
+    The lookup is slow enough here that every other thread arrives while the
+    first one is still waiting on the network. Each must block and then see the
+    resolved id -- not a `None` that a request in flight is about to fill in.
+    """
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow_get():
+        started.set()
+        release.wait(timeout=5)
+        return SimpleNamespace(data=[SimpleNamespace(id="project-id")])
+
+    api = Mock()
+    api.projects.get.side_effect = slow_get
+    client.api = api
+
+    results: List[Optional[str]] = []
+    results_lock = threading.Lock()
+
+    def call():
+        url = client.get_trace_url(trace_id=TRACE_ID)
+        with results_lock:
+            results.append(url)
+
+    threads = [threading.Thread(target=call) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+
+    assert started.wait(timeout=5), "the first lookup never started"
+    release.set()
+
+    for thread in threads:
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+    expected = f"http://localhost:3000/project/project-id/traces/{TRACE_ID}"
+    assert results == [expected] * 8
     assert api.projects.get.call_count == 1
 
 
