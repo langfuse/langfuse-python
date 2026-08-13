@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 import re
+import threading
 import urllib.parse
 import uuid
 import warnings
@@ -352,6 +353,7 @@ class Langfuse:
         )
         self._project_id: Optional[str] = None
         self._project_id_resolved: bool = False
+        self._project_id_lock = threading.Lock()
         if sample_rate is None:
             sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
@@ -2422,12 +2424,25 @@ class Langfuse:
         reached from URL generation, which is a convenience: it returns None when
         the project id is unavailable, and must not surface an exception into the
         caller's code path.
+
+        The resolution is guarded by a lock, and the flag is set only once the
+        outcome is known: concurrent callers either see a fully resolved state or
+        wait for the in-flight lookup, rather than reading a `None` project id
+        that a request in flight is about to fill in.
         """
         if self._project_id_resolved:
             return self._project_id
 
-        self._project_id_resolved = True
+        with self._project_id_lock:
+            # Another thread may have resolved it while this one waited.
+            if not self._project_id_resolved:
+                self._project_id = self._fetch_project_id()
+                self._project_id_resolved = True
 
+            return self._project_id
+
+    def _fetch_project_id(self) -> Optional[str]:
+        """Fetch the project id for the configured keys. Returns None if unavailable."""
         try:
             proj = self.api.projects.get()
         except Exception as e:
@@ -2443,9 +2458,9 @@ class Langfuse:
             )
             return None
 
-        self._project_id = proj.data[0].id
+        project_id: Optional[str] = proj.data[0].id
 
-        return self._project_id
+        return project_id
 
     def get_trace_url(self, *, trace_id: Optional[str] = None) -> Optional[str]:
         """Get the URL to view a trace in the Langfuse UI.
