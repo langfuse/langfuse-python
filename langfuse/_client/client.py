@@ -351,6 +351,7 @@ class Langfuse:
             or get_common_release_envs()
         )
         self._project_id: Optional[str] = None
+        self._project_id_resolved: bool = False
         if sample_rate is None:
             sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
@@ -2408,13 +2409,41 @@ class Langfuse:
         return self._get_otel_span_id(current_otel_span) if current_otel_span else None
 
     def _get_project_id(self) -> Optional[str]:
-        """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys."""
-        if not self._project_id:
-            proj = self.api.projects.get()
-            if not proj.data or not proj.data[0].id:
-                return None
+        """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys.
 
-            self._project_id = proj.data[0].id
+        The lookup is a blocking network request, so its outcome is resolved at
+        most once per client instance -- including a negative outcome. A project
+        id never changes for a given key pair, so caching only the success meant
+        that a failing lookup was retried on every call: `get_trace_url` is
+        commonly called once per row when rendering links, which turned an auth
+        failure or an empty project list into one blocking request per row.
+
+        Failures are logged and swallowed rather than raised. This is only ever
+        reached from URL generation, which is a convenience: it returns None when
+        the project id is unavailable, and must not surface an exception into the
+        caller's code path.
+        """
+        if self._project_id_resolved:
+            return self._project_id
+
+        self._project_id_resolved = True
+
+        try:
+            proj = self.api.projects.get()
+        except Exception as e:
+            langfuse_logger.warning(
+                f"Could not resolve project id: {e}. URL generation is disabled for this client instance."
+            )
+            return None
+
+        if not proj.data or not proj.data[0].id:
+            langfuse_logger.warning(
+                "Could not resolve project id: no project found for the configured API keys. "
+                "URL generation is disabled for this client instance."
+            )
+            return None
+
+        self._project_id = proj.data[0].id
 
         return self._project_id
 
