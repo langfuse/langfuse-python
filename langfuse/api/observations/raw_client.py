@@ -33,6 +33,7 @@ class RawObservationsClient:
         parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
@@ -100,6 +101,9 @@ class RawObservationsClient:
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
+
+        session_id : typing.Optional[str]
+            Filter by session ID.
 
         type : typing.Optional[str]
             Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
@@ -261,6 +265,7 @@ class RawObservationsClient:
                 "parseIoAsJson": parse_io_as_json,
                 "name": name,
                 "userId": user_id,
+                "sessionId": session_id,
                 "type": type,
                 "traceId": trace_id,
                 "level": level,
@@ -371,6 +376,7 @@ class AsyncRawObservationsClient:
         parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
@@ -438,6 +444,9 @@ class AsyncRawObservationsClient:
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
+
+        session_id : typing.Optional[str]
+            Filter by session ID.
 
         type : typing.Optional[str]
             Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
@@ -599,6 +608,7 @@ class AsyncRawObservationsClient:
                 "parseIoAsJson": parse_io_as_json,
                 "name": name,
                 "userId": user_id,
+                "sessionId": session_id,
                 "type": type,
                 "traceId": trace_id,
                 "level": level,

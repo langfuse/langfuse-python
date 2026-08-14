@@ -29,6 +29,7 @@ class RawMetricsClient:
         ## V2 Differences
         - Supports `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical` views only (traces view not supported)
         - Direct access to tags and release fields on observations
+        - Semantic-root filtering and grouping through the v2-only `isRootObservation` dimension
         - Backwards-compatible: traceName, traceRelease, traceVersion dimensions are still available on observations view
         - High cardinality dimensions are not supported and will return a 400 error (see below)
 
@@ -53,6 +54,7 @@ class RawMetricsClient:
         - `providedModelName` - Name of the model used
         - `promptName` - Name of the prompt used
         - `promptVersion` - Version of the prompt used
+        - `isRootObservation` - Boolean semantic-root status. `true` includes physical roots and app roots whose SDK parent is external (so `parentObservationId` may be non-null).
         - `startTimeMonth` - Month of start_time in YYYY-MM format
 
         **Measures:**
@@ -189,6 +191,17 @@ class RawMetricsClient:
             }
             ```
 
+            For example, to count semantic roots (including app roots with a non-null external parent), use a boolean filter:
+            ```json
+            {
+              "view": "observations",
+              "metrics": [{"measure": "count", "aggregation": "count"}],
+              "filters": [{"column": "isRootObservation", "operator": "=", "value": true, "type": "boolean"}],
+              "fromTimestamp": "2025-01-01T00:00:00.000Z",
+              "toTimestamp": "2025-02-01T00:00:00.000Z"
+            }
+            ```
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -296,6 +309,7 @@ class AsyncRawMetricsClient:
         ## V2 Differences
         - Supports `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical` views only (traces view not supported)
         - Direct access to tags and release fields on observations
+        - Semantic-root filtering and grouping through the v2-only `isRootObservation` dimension
         - Backwards-compatible: traceName, traceRelease, traceVersion dimensions are still available on observations view
         - High cardinality dimensions are not supported and will return a 400 error (see below)
 
@@ -320,6 +334,7 @@ class AsyncRawMetricsClient:
         - `providedModelName` - Name of the model used
         - `promptName` - Name of the prompt used
         - `promptVersion` - Version of the prompt used
+        - `isRootObservation` - Boolean semantic-root status. `true` includes physical roots and app roots whose SDK parent is external (so `parentObservationId` may be non-null).
         - `startTimeMonth` - Month of start_time in YYYY-MM format
 
         **Measures:**
@@ -453,6 +468,17 @@ class AsyncRawMetricsClient:
                 "bins": number,         // Optional. Number of bins for histogram aggregation (1-100), default: 10
                 "row_limit": number     // Optional. Maximum number of rows to return (1-1000), default: 100
               }
+            }
+            ```
+
+            For example, to count semantic roots (including app roots with a non-null external parent), use a boolean filter:
+            ```json
+            {
+              "view": "observations",
+              "metrics": [{"measure": "count", "aggregation": "count"}],
+              "filters": [{"column": "isRootObservation", "operator": "=", "value": true, "type": "boolean"}],
+              "fromTimestamp": "2025-01-01T00:00:00.000Z",
+              "toTimestamp": "2025-02-01T00:00:00.000Z"
             }
             ```
 
