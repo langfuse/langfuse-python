@@ -3919,7 +3919,7 @@ class Langfuse:
                     fetch_timeout_seconds=fetch_timeout_seconds,
                 )
             except Exception as e:
-                if fallback:
+                if fallback is not None:
                     langfuse_logger.warning(
                         f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
                     )
