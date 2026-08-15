@@ -136,7 +136,10 @@ class EventSerializer(JSONEncoder):
                 if isinstance(raw := getattr(obj, "raw", None), BaseModel):
                     raw.model_rebuild()
 
-                return obj.model_dump()
+                # model_dump() returns plain dicts/lists/scalars, so route it back
+                # through default() to keep nested non-finite floats (NaN/Inf) and
+                # other non-JSON-safe values sanitized like the dict branch does.
+                return self.default(obj.model_dump())
 
             # if langchain is not available, the Serializable type is NoneType
             if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore

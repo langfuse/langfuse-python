@@ -71,6 +71,26 @@ def test_pydantic_model():
     assert json.loads(serializer.encode(model)) == {"field": "test"}
 
 
+def test_pydantic_model_with_non_finite_float_serializes_to_valid_json():
+    # model_dump() returns a plain dict; the previous BaseModel branch returned
+    # it directly, so nested NaN/Inf floats bypassed the sanitizer and produced
+    # bare NaN/Infinity tokens that strict JSON parsers reject. See #16048.
+    class Scores(BaseModel):
+        confidence: float
+
+    serializer = EventSerializer()
+    encoded = serializer.encode(Scores(confidence=float("nan")))
+
+    # Strict parse must succeed and the NaN token must be a quoted string.
+    assert json.loads(
+        encoded, parse_constant=lambda t: (_ for _ in ()).throw(ValueError(t))
+    ) == {"confidence": "NaN"}
+    assert (
+        serializer.encode(Scores(confidence=float("inf")))
+        == '{"confidence": "Infinity"}'
+    )
+
+
 def test_langfuse_media_reference_serializes_to_reference_string():
     # Resolved references must round-trip back to their original reference string
     # rather than falling through to asdict() and emitting an opaque dict.
