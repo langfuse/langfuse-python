@@ -227,9 +227,6 @@ class RawScoresClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetScoresResponse]:
         """
-        **Deprecated.** Use `GET /api/public/v3/scores` instead. This endpoint
-        is no longer available on Langfuse v4 and later.
-
         Get a list of scores (supports both trace and session scores)
 
         Parameters
@@ -418,9 +415,6 @@ class RawScoresClient:
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[Score]:
         """
-        **Deprecated.** Use `GET /api/public/v3/scores` with the `id` filter
-        instead. This endpoint is no longer available on Langfuse v4 and later.
-
         Get a score (supports both trace and session scores)
 
         Parameters
@@ -717,9 +711,6 @@ class AsyncRawScoresClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetScoresResponse]:
         """
-        **Deprecated.** Use `GET /api/public/v3/scores` instead. This endpoint
-        is no longer available on Langfuse v4 and later.
-
         Get a list of scores (supports both trace and session scores)
 
         Parameters
@@ -908,9 +899,6 @@ class AsyncRawScoresClient:
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Score]:
         """
-        **Deprecated.** Use `GET /api/public/v3/scores` with the `id` filter
-        instead. This endpoint is no longer available on Langfuse v4 and later.
-
         Get a score (supports both trace and session scores)
 
         Parameters

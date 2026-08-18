@@ -58,7 +58,7 @@ class PricingTierInput(UniversalBaseModel):
     The default tier must have an empty array (conditions=[]).
     Conditional tiers should define one or more conditions that specify when this tier's pricing applies.
     
-    Each condition specifies a regex pattern, operator, and threshold value for matching against usage details.
+    Conditions can compare summed matching usage details to a numeric threshold, or exactly match a top-level model parameter or metadata value.
     """
 
     prices: typing.Dict[str, float] = pydantic.Field()
