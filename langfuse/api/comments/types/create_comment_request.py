@@ -39,7 +39,7 @@ class CreateCommentRequest(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = pydantic.Field(default=None)
     """
-    The id of the user who created the comment.
+    The id of the user who created the comment. Must be a member of the organization that owns the project, otherwise an error will be thrown.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
