@@ -263,6 +263,7 @@ def test_resolve_media_references_uses_configured_httpx_client():
         "https://example.com/test.jpg", timeout=fetch_timeout_seconds
     )
 
+
 def test_init_with_urlsafe_base64_data_uri():
     original_bytes = b"\xfb\xff"
     urlsafe_base64 = base64.urlsafe_b64encode(original_bytes).decode()
@@ -275,3 +276,78 @@ def test_init_with_urlsafe_base64_data_uri():
     assert media._content_type == "application/octet-stream"
     assert media._content_bytes == original_bytes
 
+
+def test_1799_media_admission_toctou_and_begin_shutdown():
+    """Media check+put must be atomic – no job stranded after begin_shutdown."""
+    import threading
+    from queue import Queue
+    from unittest.mock import Mock
+
+    from langfuse._task_manager.media_manager import MediaManager
+
+    q: Queue = Queue()
+    mm = MediaManager(
+        api_client=Mock(),
+        httpx_client=Mock(),
+        media_upload_queue=q,
+    )
+
+    # Stub upload so queue drain is instant
+    mm._process_upload_media_job = Mock(return_value=None)  # type: ignore[attr-defined]
+
+    # Deterministic barrier: block inside queue.put while holding _state_lock
+    orig_put = q.put
+    block_in_put = threading.Event()
+    release_put = threading.Event()
+
+    def blocking_put(*args, **kwargs):
+        block_in_put.set()
+        assert release_put.wait(timeout=2)
+        return orig_put(*args, **kwargs)
+
+    q.put = blocking_put  # type: ignore[assignment]
+
+    # Create a valid media object
+    media = LangfuseMedia(content_bytes=b"hello", content_type="text/plain")
+    assert media._media_id is not None
+
+    producer = threading.Thread(
+        target=lambda: mm._process_media(
+            media=media, trace_id="0" * 32, observation_id="0" * 16, field="input"
+        )
+    )
+    producer.start()
+    assert block_in_put.wait(timeout=2)
+
+    # begin_shutdown must wait for the put's lock, not interleave and strand
+    shutdown_done = threading.Event()
+
+    def do_shutdown():
+        mm.begin_shutdown()
+        shutdown_done.set()
+
+    t_shutdown = threading.Thread(target=do_shutdown)
+    t_shutdown.start()
+    # shutdown should be blocked while producer holds _state_lock inside put
+    assert not shutdown_done.wait(timeout=0.3)
+
+    release_put.set()
+    producer.join(timeout=2)
+    t_shutdown.join(timeout=2)
+
+    # Producer's job was enqueued atomically; simulate flush drain via task_done
+    assert q.unfinished_tasks == 1
+    assert q.qsize() == 1
+    # Drain as flush would (join would wait for task_done)
+    q.get()
+    q.task_done()
+    q.join()
+    assert q.unfinished_tasks == 0
+
+    # After shutdown, further admission is dropped, not stranded
+    media2 = LangfuseMedia(content_bytes=b"world", content_type="text/plain")
+    mm._process_media(
+        media=media2, trace_id="0" * 32, observation_id="0" * 16, field="input"
+    )
+    assert q.unfinished_tasks == 0
+    assert q.qsize() == 0
