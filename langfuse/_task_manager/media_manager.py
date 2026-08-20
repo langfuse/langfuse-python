@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
@@ -45,6 +46,8 @@ class MediaManager:
         self._enabled = os.environ.get(
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
+        self._shutdown = False
+        self._state_lock = threading.Lock()
 
     def reinitialize(
         self,
@@ -53,9 +56,15 @@ class MediaManager:
         httpx_client: httpx.Client,
         media_upload_queue: Queue,
     ) -> None:
-        self._api_client = api_client
-        self._httpx_client = httpx_client
-        self._queue = media_upload_queue
+        with self._state_lock:
+            self._api_client = api_client
+            self._httpx_client = httpx_client
+            self._queue = media_upload_queue
+            self._shutdown = False
+
+    def begin_shutdown(self) -> None:
+        with self._state_lock:
+            self._shutdown = True
 
     def process_next_media_upload(self) -> None:
         try:
@@ -98,6 +107,12 @@ class MediaManager:
     ) -> Any:
         if not self._enabled:
             return data
+        with self._state_lock:
+            if self._shutdown:
+                logger.warning(
+                    "Media: Skipping upload because the Langfuse client has already been shut down."
+                )
+                return data
 
         seen = set()
         max_levels = 10
@@ -279,10 +294,16 @@ class MediaManager:
                 field=field,
             )
 
-            self._queue.put(
-                item=upload_media_job,
-                block=False,
-            )
+            with self._state_lock:
+                if self._shutdown:
+                    logger.warning(
+                        f"Media: Skipping upload for media_id={media._media_id} because the Langfuse client has already been shut down."
+                    )
+                    return
+                self._queue.put(
+                    item=upload_media_job,
+                    block=False,
+                )
             logger.debug(
                 f"Queue: Enqueued media ID {media._media_id} for upload processing | trace_id={trace_id} | field={field}"
             )
