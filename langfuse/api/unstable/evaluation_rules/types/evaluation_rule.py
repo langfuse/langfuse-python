@@ -4,9 +4,10 @@ import typing
 
 import pydantic
 from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
-from ...commons.types.evaluation_rule_mapping import EvaluationRuleMapping
+from ...commons.types.evaluation_rule_read_mapping import EvaluationRuleReadMapping
 from ...commons.types.evaluation_rule_target import EvaluationRuleTarget
 from .evaluation_rule_base import EvaluationRuleBase
+from .evaluation_rule_evaluator_assignment import EvaluationRuleEvaluatorAssignment
 
 
 class EvaluationRule(EvaluationRuleBase):
@@ -17,17 +18,17 @@ class EvaluationRule(EvaluationRuleBase):
 
     from langfuse.unstable.commons import (
         EvaluationRuleFilter_StringOptions,
-        EvaluationRuleMapping,
         EvaluationRuleMappingSource,
         EvaluationRuleOptionsFilterOperator,
+        EvaluationRuleReadMapping,
         EvaluationRuleStatus,
         EvaluationRuleTarget,
-        EvaluatorScope,
         EvaluatorType,
     )
     from langfuse.unstable.evaluation_rules import (
         EvaluationRule,
         EvaluationRuleEvaluator,
+        EvaluationRuleEvaluatorAssignment,
     )
 
     EvaluationRule(
@@ -36,9 +37,27 @@ class EvaluationRule(EvaluationRuleBase):
         evaluator=EvaluationRuleEvaluator(
             id="evaltmpl_123",
             name="answer-correctness",
-            scope=EvaluatorScope.PROJECT,
             type=EvaluatorType.LLM_AS_JUDGE,
         ),
+        evaluators=[
+            EvaluationRuleEvaluatorAssignment(
+                evaluator=EvaluationRuleEvaluator(
+                    id="evaltmpl_123",
+                    name="answer-correctness",
+                    type=EvaluatorType.LLM_AS_JUDGE,
+                ),
+                mapping=[
+                    EvaluationRuleReadMapping(
+                        variable="input",
+                        source=EvaluationRuleMappingSource.INPUT,
+                    ),
+                    EvaluationRuleReadMapping(
+                        variable="output",
+                        source=EvaluationRuleMappingSource.OUTPUT,
+                    ),
+                ],
+            )
+        ],
         target=EvaluationRuleTarget.OBSERVATION,
         enabled=True,
         status=EvaluationRuleStatus.ACTIVE,
@@ -51,11 +70,11 @@ class EvaluationRule(EvaluationRuleBase):
             )
         ],
         mapping=[
-            EvaluationRuleMapping(
+            EvaluationRuleReadMapping(
                 variable="input",
                 source=EvaluationRuleMappingSource.INPUT,
             ),
-            EvaluationRuleMapping(
+            EvaluationRuleReadMapping(
                 variable="output",
                 source=EvaluationRuleMappingSource.OUTPUT,
             ),
@@ -69,6 +88,11 @@ class EvaluationRule(EvaluationRuleBase):
     )
     """
 
+    evaluators: typing.List[EvaluationRuleEvaluatorAssignment] = pydantic.Field()
+    """
+    Evaluators attached to this rule in deterministic assignment order. A `null` mapping inherits the evaluator version's default mapping.
+    """
+
     target: EvaluationRuleTarget = pydantic.Field()
     """
     Target object type that should trigger scoring.
@@ -79,9 +103,9 @@ class EvaluationRule(EvaluationRuleBase):
     List of filter conditions used to decide whether a target should be evaluated.
     """
 
-    mapping: typing.List[EvaluationRuleMapping] = pydantic.Field()
+    mapping: typing.List[EvaluationRuleReadMapping] = pydantic.Field()
     """
-    Variable mappings used to populate evaluator runtime variables from the live target object.
+    Deprecated compatibility alias containing the effective mapping for `evaluators[0]`.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

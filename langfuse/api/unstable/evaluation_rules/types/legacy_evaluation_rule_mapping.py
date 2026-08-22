@@ -14,18 +14,10 @@ class LegacyEvaluationRuleMapping(UniversalBaseModel):
     Maps one evaluator variable to a trace, dataset item, or field on a named observation in a legacy rule.
     """
 
-    variable: str = pydantic.Field()
-    """
-    Evaluator prompt variable populated by this mapping.
-    """
-
+    variable: str
     langfuse_object: typing_extensions.Annotated[
         LegacyEvaluationObject, FieldMetadata(alias="langfuseObject")
-    ] = pydantic.Field()
-    """
-    Trace, dataset item, or observation type from which the value is read.
-    """
-
+    ]
     object_name: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="objectName")
     ] = pydantic.Field(default=None)
@@ -33,17 +25,10 @@ class LegacyEvaluationRuleMapping(UniversalBaseModel):
     Observation name to match, or `null` when `langfuseObject` is `trace` or `dataset_item`.
     """
 
-    source: str = pydantic.Field()
-    """
-    Stored field selected from the trace, dataset item, or observation.
-    """
-
+    source: str
     json_path: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="jsonPath")
-    ] = pydantic.Field(default=None)
-    """
-    Optional JSONPath selector applied to the selected field.
-    """
+    ] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

@@ -8,6 +8,9 @@ from ....core.serialization import FieldMetadata
 from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
 from .evaluation_rule_base import EvaluationRuleBase
 from .evaluation_rule_time_scope import EvaluationRuleTimeScope
+from .legacy_evaluation_rule_evaluator_assignment import (
+    LegacyEvaluationRuleEvaluatorAssignment,
+)
 from .legacy_evaluation_rule_mapping import LegacyEvaluationRuleMapping
 from .legacy_evaluation_rule_target import LegacyEvaluationRuleTarget
 
@@ -16,7 +19,12 @@ class LegacyEvaluationRule(EvaluationRuleBase):
     """
     Legacy trace- or dataset-level evaluation rule returned by list and get for migration.
 
-    This resource is read-only through the unstable public API. Its mapping preserves the trace, dataset item, or named observation that each evaluator variable previously read from. Its filters use the persisted legacy filter format so migration clients can read the configuration without losing information.
+    This resource is read-only through the unstable public API. Its mapping preserves the trace, dataset item, or named observation selected for each evaluator variable.
+    """
+
+    evaluators: typing.List[LegacyEvaluationRuleEvaluatorAssignment] = pydantic.Field()
+    """
+    Evaluators attached to this rule in deterministic assignment order.
     """
 
     target: LegacyEvaluationRuleTarget

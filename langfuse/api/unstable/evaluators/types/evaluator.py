@@ -12,8 +12,8 @@ from ....core.serialization import FieldMetadata
 from ...commons.types.code_evaluator_source_code_language import (
     CodeEvaluatorSourceCodeLanguage,
 )
+from ...commons.types.evaluation_rule_read_mapping import EvaluationRuleReadMapping
 from ...commons.types.evaluator_model_config import EvaluatorModelConfig
-from ...commons.types.evaluator_scope import EvaluatorScope
 from ...commons.types.public_evaluator_output_definition import (
     PublicEvaluatorOutputDefinition,
 )
@@ -33,7 +33,8 @@ class Evaluator_LlmAsJudge(UniversalBaseModel):
 
     Versioning behavior:
     - `GET /evaluators` returns the latest version of each available evaluator.
-    - `GET /evaluators/{id}` can return an older version.
+    - `GET /evaluators/{id}` returns the latest version.
+    - `id` identifies the evaluator family and remains stable when a new version is created.
     - Evaluation rules always run against the latest version for the selected evaluator name within the same source (`project` or `managed`).
     """
 
@@ -48,8 +49,8 @@ class Evaluator_LlmAsJudge(UniversalBaseModel):
     id: str
     name: str
     version: int
-    scope: EvaluatorScope
     variables: typing.List[str]
+    mapping: typing.Optional[typing.List[EvaluationRuleReadMapping]] = None
     evaluation_rule_count: typing_extensions.Annotated[
         int, FieldMetadata(alias="evaluationRuleCount")
     ]
@@ -79,7 +80,8 @@ class Evaluator_Code(UniversalBaseModel):
 
     Versioning behavior:
     - `GET /evaluators` returns the latest version of each available evaluator.
-    - `GET /evaluators/{id}` can return an older version.
+    - `GET /evaluators/{id}` returns the latest version.
+    - `id` identifies the evaluator family and remains stable when a new version is created.
     - Evaluation rules always run against the latest version for the selected evaluator name within the same source (`project` or `managed`).
     """
 
@@ -91,8 +93,8 @@ class Evaluator_Code(UniversalBaseModel):
     id: str
     name: str
     version: int
-    scope: EvaluatorScope
     variables: typing.List[str]
+    mapping: typing.Optional[typing.List[EvaluationRuleReadMapping]] = None
     evaluation_rule_count: typing_extensions.Annotated[
         int, FieldMetadata(alias="evaluationRuleCount")
     ]

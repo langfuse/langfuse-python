@@ -44,6 +44,9 @@ from ..errors.errors.unauthorized_error import (
 )
 from ..errors.errors.unprocessable_content_error import UnprocessableContentError
 from ..errors.types.public_api_error import PublicApiError
+from .types.create_evaluation_rule_evaluator_assignment import (
+    CreateEvaluationRuleEvaluatorAssignment,
+)
 from .types.create_evaluation_rule_request import CreateEvaluationRuleRequest
 from .types.delete_evaluation_rule_response import DeleteEvaluationRuleResponse
 from .types.evaluation_rule import EvaluationRule
@@ -75,19 +78,21 @@ class RawEvaluationRulesClient:
         Key rules:
         - `name` must be unique within the project for public evaluation rules
         - `target` must be `observation` or `experiment`
-        - `evaluator.name` + `evaluator.scope` must identify an existing evaluator family returned by the evaluator endpoints
+        - provide either the compatibility `evaluator` field or the new `evaluators` array, never both
+        - each evaluator `name` + `type` must identify an existing evaluator family returned by the evaluator endpoints
         - Langfuse resolves that family to its latest version before saving the evaluation rule
         - for `target=experiment`, use dataset `id` values from `GET /api/public/v2/datasets` when filtering by `datasetId`
-        - for `llm_as_judge` evaluators, every evaluator prompt variable must be mapped exactly once
+        - an omitted LLM-as-judge assignment mapping inherits the evaluator version's default mapping
+        - the effective mapping must map every evaluator prompt variable exactly once
         - for `code` evaluators, Langfuse uses the fixed code runtime mapping; omit `mapping` in create and update requests
         - for user-provided `llm_as_judge` mappings, `expected_output` and `experiment_item_metadata` are only valid for `target=experiment`
         - if `enabled=true`, Langfuse validates that the referenced evaluator can currently run
-        - at most 50 evaluation rules can be effectively active in one project at the same time
+        - at most 500 evaluation rules can be effectively active in one project at the same time (enforced identically by the API, the MCP tools, and the app)
 
         If an evaluation rule with the same `name` already exists in the project, the API returns `409`.
         In that case, update the existing resource with `PATCH /api/public/unstable/evaluation-rules/{evaluationRuleId}` instead of creating a second one.
 
-        If enabling this resource would exceed the 50-active limit, the API also returns `409`.
+        If enabling this resource would exceed the 500-active limit, the API also returns `409`.
         In that case, disable or pause another active evaluation rule before enabling a new one.
 
         Current scope:
@@ -670,6 +675,9 @@ class RawEvaluationRulesClient:
         evaluation_rule_id: str,
         *,
         name: typing.Optional[str] = OMIT,
+        evaluators: typing.Optional[
+            typing.Sequence[CreateEvaluationRuleEvaluatorAssignment]
+        ] = OMIT,
         evaluator: typing.Optional[EvaluationRuleEvaluatorReference] = OMIT,
         target: typing.Optional[EvaluationRuleTarget] = OMIT,
         enabled: typing.Optional[bool] = OMIT,
@@ -695,7 +703,7 @@ class RawEvaluationRulesClient:
         - if you change `target` for an LLM-as-judge rule, also send a compatible `filter` and `mapping` in the same request unless the existing ones are still valid for the new target
         - for `code` evaluator rules, omit `mapping`; Langfuse stores the fixed code runtime mapping automatically
         - if the resulting config is enabled, Langfuse re-validates that the selected evaluator can run
-        - if the update would move a non-active evaluation rule into the active state and the project already has 50 active evaluation rules, the API returns `409`
+        - if the update would move a non-active evaluation rule into the active state and the project already has 500 active evaluation rules, the API returns `409`
 
         Recovery guidance:
         - if an LLM-as-judge update fails with `missing_variable_mapping` or `invalid_variable_mapping` after changing `evaluator` or `target`, resend the request with a complete new `mapping`
@@ -709,11 +717,17 @@ class RawEvaluationRulesClient:
         name : typing.Optional[str]
             Updated deployment name.
 
+        evaluators : typing.Optional[typing.Sequence[CreateEvaluationRuleEvaluatorAssignment]]
+            Full replacement of the rule's evaluator assignments: entries that are
+            not listed are detached.
+
+            Mutually exclusive with the deprecated `evaluator` and `mapping` fields.
+
         evaluator : typing.Optional[EvaluationRuleEvaluatorReference]
-            Updated evaluator family.
+            Deprecated single-evaluator alias: updates the first assignment only. Prefer `evaluators`.
 
             Langfuse resolves the provided evaluator family to its latest version before saving the rule.
-            A rule's evaluator type cannot be changed: provide `name` and `scope` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
+            A rule's evaluator type cannot be changed: provide `name` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
 
         target : typing.Optional[EvaluationRuleTarget]
             Updated target object type.
@@ -746,6 +760,11 @@ class RawEvaluationRulesClient:
             method="PATCH",
             json={
                 "name": name,
+                "evaluators": convert_and_respect_annotation_metadata(
+                    object_=evaluators,
+                    annotation=typing.Sequence[CreateEvaluationRuleEvaluatorAssignment],
+                    direction="write",
+                ),
                 "evaluator": convert_and_respect_annotation_metadata(
                     object_=evaluator,
                     annotation=EvaluationRuleEvaluatorReference,
@@ -1138,19 +1157,21 @@ class AsyncRawEvaluationRulesClient:
         Key rules:
         - `name` must be unique within the project for public evaluation rules
         - `target` must be `observation` or `experiment`
-        - `evaluator.name` + `evaluator.scope` must identify an existing evaluator family returned by the evaluator endpoints
+        - provide either the compatibility `evaluator` field or the new `evaluators` array, never both
+        - each evaluator `name` + `type` must identify an existing evaluator family returned by the evaluator endpoints
         - Langfuse resolves that family to its latest version before saving the evaluation rule
         - for `target=experiment`, use dataset `id` values from `GET /api/public/v2/datasets` when filtering by `datasetId`
-        - for `llm_as_judge` evaluators, every evaluator prompt variable must be mapped exactly once
+        - an omitted LLM-as-judge assignment mapping inherits the evaluator version's default mapping
+        - the effective mapping must map every evaluator prompt variable exactly once
         - for `code` evaluators, Langfuse uses the fixed code runtime mapping; omit `mapping` in create and update requests
         - for user-provided `llm_as_judge` mappings, `expected_output` and `experiment_item_metadata` are only valid for `target=experiment`
         - if `enabled=true`, Langfuse validates that the referenced evaluator can currently run
-        - at most 50 evaluation rules can be effectively active in one project at the same time
+        - at most 500 evaluation rules can be effectively active in one project at the same time (enforced identically by the API, the MCP tools, and the app)
 
         If an evaluation rule with the same `name` already exists in the project, the API returns `409`.
         In that case, update the existing resource with `PATCH /api/public/unstable/evaluation-rules/{evaluationRuleId}` instead of creating a second one.
 
-        If enabling this resource would exceed the 50-active limit, the API also returns `409`.
+        If enabling this resource would exceed the 500-active limit, the API also returns `409`.
         In that case, disable or pause another active evaluation rule before enabling a new one.
 
         Current scope:
@@ -1733,6 +1754,9 @@ class AsyncRawEvaluationRulesClient:
         evaluation_rule_id: str,
         *,
         name: typing.Optional[str] = OMIT,
+        evaluators: typing.Optional[
+            typing.Sequence[CreateEvaluationRuleEvaluatorAssignment]
+        ] = OMIT,
         evaluator: typing.Optional[EvaluationRuleEvaluatorReference] = OMIT,
         target: typing.Optional[EvaluationRuleTarget] = OMIT,
         enabled: typing.Optional[bool] = OMIT,
@@ -1758,7 +1782,7 @@ class AsyncRawEvaluationRulesClient:
         - if you change `target` for an LLM-as-judge rule, also send a compatible `filter` and `mapping` in the same request unless the existing ones are still valid for the new target
         - for `code` evaluator rules, omit `mapping`; Langfuse stores the fixed code runtime mapping automatically
         - if the resulting config is enabled, Langfuse re-validates that the selected evaluator can run
-        - if the update would move a non-active evaluation rule into the active state and the project already has 50 active evaluation rules, the API returns `409`
+        - if the update would move a non-active evaluation rule into the active state and the project already has 500 active evaluation rules, the API returns `409`
 
         Recovery guidance:
         - if an LLM-as-judge update fails with `missing_variable_mapping` or `invalid_variable_mapping` after changing `evaluator` or `target`, resend the request with a complete new `mapping`
@@ -1772,11 +1796,17 @@ class AsyncRawEvaluationRulesClient:
         name : typing.Optional[str]
             Updated deployment name.
 
+        evaluators : typing.Optional[typing.Sequence[CreateEvaluationRuleEvaluatorAssignment]]
+            Full replacement of the rule's evaluator assignments: entries that are
+            not listed are detached.
+
+            Mutually exclusive with the deprecated `evaluator` and `mapping` fields.
+
         evaluator : typing.Optional[EvaluationRuleEvaluatorReference]
-            Updated evaluator family.
+            Deprecated single-evaluator alias: updates the first assignment only. Prefer `evaluators`.
 
             Langfuse resolves the provided evaluator family to its latest version before saving the rule.
-            A rule's evaluator type cannot be changed: provide `name` and `scope` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
+            A rule's evaluator type cannot be changed: provide `name` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
 
         target : typing.Optional[EvaluationRuleTarget]
             Updated target object type.
@@ -1809,6 +1839,11 @@ class AsyncRawEvaluationRulesClient:
             method="PATCH",
             json={
                 "name": name,
+                "evaluators": convert_and_respect_annotation_metadata(
+                    object_=evaluators,
+                    annotation=typing.Sequence[CreateEvaluationRuleEvaluatorAssignment],
+                    direction="write",
+                ),
                 "evaluator": convert_and_respect_annotation_metadata(
                     object_=evaluator,
                     annotation=EvaluationRuleEvaluatorReference,
