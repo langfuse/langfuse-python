@@ -12,6 +12,9 @@ from .evaluator_output_field_definition import EvaluatorOutputFieldDefinition
 from .public_categorical_evaluator_output_score_definition import (
     PublicCategoricalEvaluatorOutputScoreDefinition,
 )
+from .public_numeric_evaluator_output_score_definition import (
+    PublicNumericEvaluatorOutputScoreDefinition,
+)
 
 
 class PublicEvaluatorOutputDefinition_Numeric(UniversalBaseModel):
@@ -32,6 +35,7 @@ class PublicEvaluatorOutputDefinition_Numeric(UniversalBaseModel):
         EvaluatorOutputDataType,
         EvaluatorOutputFieldDefinition,
         PublicEvaluatorOutputDefinition_Numeric,
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
 
     PublicEvaluatorOutputDefinition_Numeric(
@@ -39,8 +43,10 @@ class PublicEvaluatorOutputDefinition_Numeric(UniversalBaseModel):
         reasoning=EvaluatorOutputFieldDefinition(
             description="Explain why the answer is correct or incorrect.",
         ),
-        score=EvaluatorOutputFieldDefinition(
+        score=PublicNumericEvaluatorOutputScoreDefinition(
             description="Return a score between 0 and 1.",
+            min_value=0.0,
+            max_value=1.0,
         ),
     )
     """
@@ -49,7 +55,7 @@ class PublicEvaluatorOutputDefinition_Numeric(UniversalBaseModel):
         typing.Literal["NUMERIC"], FieldMetadata(alias="dataType")
     ] = "NUMERIC"
     reasoning: EvaluatorOutputFieldDefinition
-    score: EvaluatorOutputFieldDefinition
+    score: PublicNumericEvaluatorOutputScoreDefinition
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -74,6 +80,7 @@ class PublicEvaluatorOutputDefinition_Boolean(UniversalBaseModel):
         EvaluatorOutputDataType,
         EvaluatorOutputFieldDefinition,
         PublicEvaluatorOutputDefinition_Numeric,
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
 
     PublicEvaluatorOutputDefinition_Numeric(
@@ -81,8 +88,10 @@ class PublicEvaluatorOutputDefinition_Boolean(UniversalBaseModel):
         reasoning=EvaluatorOutputFieldDefinition(
             description="Explain why the answer is correct or incorrect.",
         ),
-        score=EvaluatorOutputFieldDefinition(
+        score=PublicNumericEvaluatorOutputScoreDefinition(
             description="Return a score between 0 and 1.",
+            min_value=0.0,
+            max_value=1.0,
         ),
     )
     """
@@ -116,6 +125,7 @@ class PublicEvaluatorOutputDefinition_Categorical(UniversalBaseModel):
         EvaluatorOutputDataType,
         EvaluatorOutputFieldDefinition,
         PublicEvaluatorOutputDefinition_Numeric,
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
 
     PublicEvaluatorOutputDefinition_Numeric(
@@ -123,8 +133,10 @@ class PublicEvaluatorOutputDefinition_Categorical(UniversalBaseModel):
         reasoning=EvaluatorOutputFieldDefinition(
             description="Explain why the answer is correct or incorrect.",
         ),
-        score=EvaluatorOutputFieldDefinition(
+        score=PublicNumericEvaluatorOutputScoreDefinition(
             description="Return a score between 0 and 1.",
+            min_value=0.0,
+            max_value=1.0,
         ),
     )
     """
@@ -145,6 +157,7 @@ from langfuse.unstable.commons import (
     EvaluatorOutputDataType,
     EvaluatorOutputFieldDefinition,
     PublicEvaluatorOutputDefinition_Numeric,
+    PublicNumericEvaluatorOutputScoreDefinition,
 )
 
 PublicEvaluatorOutputDefinition_Numeric(
@@ -152,8 +165,10 @@ PublicEvaluatorOutputDefinition_Numeric(
     reasoning=EvaluatorOutputFieldDefinition(
         description="Explain why the answer is correct or incorrect.",
     ),
-    score=EvaluatorOutputFieldDefinition(
+    score=PublicNumericEvaluatorOutputScoreDefinition(
         description="Return a score between 0 and 1.",
+        min_value=0.0,
+        max_value=1.0,
     ),
 )
 """

@@ -3,10 +3,15 @@
 import typing
 
 from .create_code_evaluation_rule_request import CreateCodeEvaluationRuleRequest
+from .create_evaluation_rule_with_evaluators_request import (
+    CreateEvaluationRuleWithEvaluatorsRequest,
+)
 from .create_llm_as_judge_evaluation_rule_request import (
     CreateLlmAsJudgeEvaluationRuleRequest,
 )
 
 CreateEvaluationRuleRequest = typing.Union[
-    CreateLlmAsJudgeEvaluationRuleRequest, CreateCodeEvaluationRuleRequest
+    CreateLlmAsJudgeEvaluationRuleRequest,
+    CreateCodeEvaluationRuleRequest,
+    CreateEvaluationRuleWithEvaluatorsRequest,
 ]

@@ -4,7 +4,6 @@ import typing
 
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
-from ...commons.types.evaluator_scope import EvaluatorScope
 from .llm_as_judge_evaluator_type import LlmAsJudgeEvaluatorType
 
 
@@ -16,11 +15,6 @@ class LlmAsJudgeEvaluationRuleEvaluatorReference(UniversalBaseModel):
     name: str = pydantic.Field()
     """
     Evaluator family name.
-    """
-
-    scope: EvaluatorScope = pydantic.Field()
-    """
-    Whether the evaluator family is project-owned or Langfuse-managed.
     """
 
     type: typing.Optional[LlmAsJudgeEvaluatorType] = pydantic.Field(default=None)
