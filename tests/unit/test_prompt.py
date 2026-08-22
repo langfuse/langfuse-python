@@ -762,7 +762,7 @@ def test_prompt_cache_invalidate_exact_prefix_match(langfuse: Langfuse):
         tags=[],
     )
     prompt2 = Prompt_Text(
-        name="summary_detailed",
+        name="summary-detailed",
         version=1,
         prompt="Summarize in detail",
         labels=[],
@@ -772,7 +772,7 @@ def test_prompt_cache_invalidate_exact_prefix_match(langfuse: Langfuse):
     )
 
     key1 = PromptCache.generate_cache_key("summary", version=1, label=None)
-    key2 = PromptCache.generate_cache_key("summary_detailed", version=1, label=None)
+    key2 = PromptCache.generate_cache_key("summary-detailed", version=1, label=None)
 
     cache.set(key1, TextPromptClient(prompt1), ttl_seconds=60)
     cache.set(key2, TextPromptClient(prompt2), ttl_seconds=60)
@@ -782,7 +782,7 @@ def test_prompt_cache_invalidate_exact_prefix_match(langfuse: Langfuse):
 
     cache.invalidate("summary")
 
-    # summary should be invalidated, but summary_detailed must be preserved
+    # summary should be invalidated, but summary-detailed must be preserved
     assert cache.get(key1) is None
     assert cache.get(key2) is not None
 
