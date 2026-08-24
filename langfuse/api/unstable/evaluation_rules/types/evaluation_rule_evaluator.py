@@ -4,7 +4,6 @@ import typing
 
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
-from ...commons.types.evaluator_scope import EvaluatorScope
 from ...commons.types.evaluator_type import EvaluatorType
 
 
@@ -12,8 +11,8 @@ class EvaluationRuleEvaluator(UniversalBaseModel):
     """
     Resolved evaluator currently used by the evaluation rule.
 
-    `id` is the exact active evaluator version.
-    `name`, `scope`, and `type` identify the evaluator family conceptually.
+    `id` identifies the evaluator family. Evaluation runs automatically use
+    the latest available evaluator version.
     """
 
     id: str = pydantic.Field()
@@ -24,11 +23,6 @@ class EvaluationRuleEvaluator(UniversalBaseModel):
     name: str = pydantic.Field()
     """
     Evaluator family name.
-    """
-
-    scope: EvaluatorScope = pydantic.Field()
-    """
-    Whether the evaluator family is project-owned or Langfuse-managed.
     """
 
     type: EvaluatorType = pydantic.Field()

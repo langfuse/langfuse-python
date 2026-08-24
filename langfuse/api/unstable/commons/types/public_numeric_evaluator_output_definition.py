@@ -8,6 +8,9 @@ from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
 from .evaluator_output_data_type import EvaluatorOutputDataType
 from .evaluator_output_field_definition import EvaluatorOutputFieldDefinition
+from .public_numeric_evaluator_output_score_definition import (
+    PublicNumericEvaluatorOutputScoreDefinition,
+)
 
 
 class PublicNumericEvaluatorOutputDefinition(UniversalBaseModel):
@@ -19,7 +22,7 @@ class PublicNumericEvaluatorOutputDefinition(UniversalBaseModel):
     """
 
     reasoning: EvaluatorOutputFieldDefinition
-    score: EvaluatorOutputFieldDefinition
+    score: PublicNumericEvaluatorOutputScoreDefinition
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

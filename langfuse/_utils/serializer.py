@@ -136,7 +136,11 @@ class EventSerializer(JSONEncoder):
                 if isinstance(raw := getattr(obj, "raw", None), BaseModel):
                     raw.model_rebuild()
 
-                return obj.model_dump()
+                # Recurse the dumped model back through default() so nested
+                # non-finite floats (NaN/Inf) are converted to safe strings.
+                # Returning model_dump() directly lets the json C-encoder emit
+                # bare NaN/Infinity tokens, which are invalid JSON.
+                return self.default(obj.model_dump())
 
             # if langchain is not available, the Serializable type is NoneType
             if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore

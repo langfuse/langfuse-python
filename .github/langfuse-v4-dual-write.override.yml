@@ -1,0 +1,7 @@
+services:
+  langfuse-worker:
+    environment:
+      LANGFUSE_MIGRATION_V4_WRITE_MODE: dual
+  langfuse-web:
+    environment:
+      LANGFUSE_MIGRATION_V4_WRITE_MODE: dual

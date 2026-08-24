@@ -110,6 +110,22 @@ class TestClientInitialization:
 
         assert client._base_url == "https://cloud.langfuse.com"
 
+    def test_zero_sample_rate_parameter_is_preserved(
+        self, cleanup_env_vars, monkeypatch
+    ):
+        """Test that an explicit zero sample rate overrides the environment."""
+        monkeypatch.setenv("LANGFUSE_SAMPLE_RATE", "1.0")
+
+        client = Langfuse(
+            public_key="test_pk_zero_sample_rate",
+            secret_key="test_sk",
+            tracing_enabled=False,
+            sample_rate=0.0,
+        )
+
+        assert client._resources is not None
+        assert client._resources.sample_rate == 0.0
+
     def test_base_url_env_var(self, cleanup_env_vars):
         """Test that LANGFUSE_BASE_URL environment variable is used correctly."""
         os.environ["LANGFUSE_BASE_URL"] = "http://test-base-url.com"
