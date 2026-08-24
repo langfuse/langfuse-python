@@ -194,6 +194,22 @@ OPENAI_METHODS_V1 = [
         min_version="1.66.0",
     ),
     OpenAiDefinition(
+        module="openai.resources.responses",
+        object="Responses",
+        method="retrieve",
+        type="chat",
+        sync=True,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
+        module="openai.resources.responses",
+        object="AsyncResponses",
+        method="retrieve",
+        type="chat",
+        sync=False,
+        min_version="1.66.0",
+    ),
+    OpenAiDefinition(
         module="openai.resources.embeddings",
         object="Embeddings",
         method="create",
@@ -550,7 +566,11 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
     prompt = None
 
-    if resource.type == "completion":
+    if resource.method == "retrieve":
+        # retrieve() only knows the id of a response created earlier; the model,
+        # output and usage are filled in from the response itself.
+        prompt = {"response_id": kwargs.get("response_id", None)}
+    elif resource.type == "completion":
         prompt = kwargs.get("prompt", None)
     elif resource.object == "Responses" or resource.object == "AsyncResponses":
         prompt = _extract_responses_prompt(kwargs)
