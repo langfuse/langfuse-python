@@ -33,7 +33,7 @@ from langfuse._client.span import (
     LangfuseTool,
 )
 from langfuse._utils import _get_timestamp
-from langfuse.langchain.utils import _extract_model_name
+from langfuse.langchain.utils import _extract_model_name, _normalize_tool_definition
 from langfuse.logger import langfuse_logger
 from langfuse.types import TraceContext
 
@@ -1189,7 +1189,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
             if tools and isinstance(tools, list):
-                prompts.extend([{"role": "tool", "content": tool} for tool in tools])
+                prompts.extend(
+                    [
+                        {"role": "tool", "content": _normalize_tool_definition(tool)}
+                        for tool in tools
+                    ]
+                )
 
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs

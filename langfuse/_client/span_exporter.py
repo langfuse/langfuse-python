@@ -264,10 +264,9 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         span_attributes: Sequence[tuple[ReadableSpan, Dict[str, AttributeValue]]],
     ) -> Optional[list[tuple[ReadableSpan, Dict[str, AttributeValue]]]]:
         mask_otel_spans = cast(MaskOtelSpansFunction, self._mask_otel_spans)
-        maskable_span_attributes: list[
-            tuple[ReadableSpan, Dict[str, AttributeValue]]
-        ] = []
-        span_data_by_identifier: Dict[OtelSpanIdentifier, OtelSpanData] = {}
+        span_attributes_by_identifier: Dict[
+            OtelSpanIdentifier, tuple[ReadableSpan, Dict[str, AttributeValue]]
+        ] = {}
 
         for span, attributes in span_attributes:
             if not _has_valid_span_context(span):
@@ -279,21 +278,22 @@ class LangfuseTransformingSpanExporter(SpanExporter):
 
             identifier = _create_otel_span_identifier(span)
 
-            if identifier in span_data_by_identifier:
-                langfuse_logger.error(
-                    "Masking error: mask_otel_spans received duplicate span identifiers. "
-                    "Dropping export batch. "
-                    f"trace_id='{identifier.trace_id}' span_id='{identifier.span_id}'"
-                )
-                return None
+            if identifier in span_attributes_by_identifier:
+                span_attributes_by_identifier.pop(identifier)
 
-            span_data_by_identifier[identifier] = _create_otel_span_data(
-                span=span, attributes=attributes, identifier=identifier
-            )
-            maskable_span_attributes.append((span, attributes))
+            span_attributes_by_identifier[identifier] = (span, attributes)
+
+        maskable_span_attributes = list(span_attributes_by_identifier.values())
 
         if not maskable_span_attributes:
             return []
+
+        span_data_by_identifier = {
+            identifier: _create_otel_span_data(
+                span=span, attributes=attributes, identifier=identifier
+            )
+            for identifier, (span, attributes) in span_attributes_by_identifier.items()
+        }
 
         try:
             result: Any = mask_otel_spans(

@@ -4,25 +4,19 @@ import typing
 
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
-from ...commons.types.evaluator_scope import EvaluatorScope
 
 
 class EvaluationRuleEvaluatorReference(UniversalBaseModel):
     """
     Evaluator family reference used when updating an evaluation rule.
 
-    `name` and `scope` identify the evaluator family in the authenticated project context.
+    `name` identifies the evaluator family in the authenticated project context.
     A rule's evaluator type cannot be changed, so this reference does not accept a `type`; the family must match the rule's current evaluator type.
     """
 
     name: str = pydantic.Field()
     """
     Evaluator family name.
-    """
-
-    scope: EvaluatorScope = pydantic.Field()
-    """
-    Whether the evaluator family is project-owned or Langfuse-managed.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

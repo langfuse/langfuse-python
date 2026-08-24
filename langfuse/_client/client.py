@@ -226,7 +226,7 @@ class Langfuse:
 
             The hook receives one OpenTelemetry export batch. A batch is not guaranteed to contain a complete trace, request, or Langfuse observation tree. The hook usually runs on the OpenTelemetry batch span processor worker thread; during `flush()` and shutdown it may run on the caller thread. Keep it synchronous, deterministic, and fast.
 
-            Return `None` to leave the batch unchanged. Return `MaskOtelSpansResult` with `OtelSpanPatch` values to delete or replace attributes on selected spans. If the hook raises or returns an invalid batch result, Langfuse drops the whole export batch. If one returned span patch is invalid, Langfuse drops only that span from the Langfuse export.
+            Return `None` to leave the batch unchanged. Return `MaskOtelSpansResult` with `OtelSpanPatch` values to delete or replace attributes on selected spans. If a batch contains duplicate trace and span identifiers, Langfuse keeps only the last matching span. If the hook raises or returns an invalid batch result, Langfuse drops the whole export batch. If one returned span patch is invalid, Langfuse drops only that span from the Langfuse export.
 
             Example:
                 ```python
@@ -355,7 +355,8 @@ class Langfuse:
             or get_common_release_envs()
         )
         self._project_id: Optional[str] = None
-        sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
+        if sample_rate is None:
+            sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
             raise ValueError(
                 f"Sample rate must be between 0.0 and 1.0, got {sample_rate}"
@@ -2950,9 +2951,10 @@ class Langfuse:
                 )
 
                 final_observation_metadata = {
+                    **(item_metadata if isinstance(item_metadata, dict) else {}),
+                    **(experiment_metadata or {}),
                     "experiment_name": experiment_name,
                     "experiment_run_name": experiment_run_name,
-                    **(experiment_metadata or {}),
                 }
 
                 trace_id = span.trace_id
@@ -2971,9 +2973,6 @@ class Langfuse:
                     final_observation_metadata.update(
                         {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
                     )
-
-                if isinstance(item_metadata, dict):
-                    final_observation_metadata.update(item_metadata)
 
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
