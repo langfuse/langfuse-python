@@ -115,9 +115,11 @@ if typing.TYPE_CHECKING:
         PricingTierAttributeCondition,
         PricingTierAttributeSource,
         PricingTierCondition,
+        PricingTierConditionInput,
         PricingTierInput,
         PricingTierOperator,
         PricingTierUsageCondition,
+        PricingTierUsageConditionInput,
         Score,
         ScoreConfig,
         ScoreConfigDataType,
@@ -228,7 +230,7 @@ if typing.TYPE_CHECKING:
         PatchMediaBody,
     )
     from .metrics import MetricsV2Response
-    from .models import CreateModelRequest, PaginatedModels
+    from .models import CreateModelRequest, ModelTokenizerId, PaginatedModels
     from .observations import ObservationsV2Meta, ObservationsV2Response
     from .opentelemetry import (
         OtelAttribute,
@@ -501,6 +503,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MetricsV2Response": ".metrics",
     "Model": ".commons",
     "ModelPrice": ".commons",
+    "ModelTokenizerId": ".models",
     "ModelUsageUnit": ".commons",
     "NotFoundError": ".commons",
     "NumericScore": ".commons",
@@ -548,9 +551,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PricingTierAttributeCondition": ".commons",
     "PricingTierAttributeSource": ".commons",
     "PricingTierCondition": ".commons",
+    "PricingTierConditionInput": ".commons",
     "PricingTierInput": ".commons",
     "PricingTierOperator": ".commons",
     "PricingTierUsageCondition": ".commons",
+    "PricingTierUsageConditionInput": ".commons",
     "Project": ".projects",
     "ProjectDeletionResponse": ".projects",
     "Projects": ".projects",
@@ -845,6 +850,7 @@ __all__ = [
     "MetricsV2Response",
     "Model",
     "ModelPrice",
+    "ModelTokenizerId",
     "ModelUsageUnit",
     "NotFoundError",
     "NumericScore",
@@ -892,9 +898,11 @@ __all__ = [
     "PricingTierAttributeCondition",
     "PricingTierAttributeSource",
     "PricingTierCondition",
+    "PricingTierConditionInput",
     "PricingTierInput",
     "PricingTierOperator",
     "PricingTierUsageCondition",
+    "PricingTierUsageConditionInput",
     "Project",
     "ProjectDeletionResponse",
     "Projects",
