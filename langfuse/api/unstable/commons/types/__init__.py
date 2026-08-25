@@ -41,6 +41,7 @@ if typing.TYPE_CHECKING:
     from .evaluation_rule_options_filter_operator import (
         EvaluationRuleOptionsFilterOperator,
     )
+    from .evaluation_rule_read_mapping import EvaluationRuleReadMapping
     from .evaluation_rule_status import EvaluationRuleStatus
     from .evaluation_rule_string_filter_operator import (
         EvaluationRuleStringFilterOperator,
@@ -55,7 +56,6 @@ if typing.TYPE_CHECKING:
         EvaluatorOutputDefinition_Numeric,
     )
     from .evaluator_output_field_definition import EvaluatorOutputFieldDefinition
-    from .evaluator_scope import EvaluatorScope
     from .evaluator_type import EvaluatorType
     from .null_evaluation_rule_filter import NullEvaluationRuleFilter
     from .number_evaluation_rule_filter import NumberEvaluationRuleFilter
@@ -77,6 +77,9 @@ if typing.TYPE_CHECKING:
     )
     from .public_numeric_evaluator_output_definition import (
         PublicNumericEvaluatorOutputDefinition,
+    )
+    from .public_numeric_evaluator_output_score_definition import (
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
     from .string_evaluation_rule_filter import StringEvaluationRuleFilter
     from .string_object_evaluation_rule_filter import StringObjectEvaluationRuleFilter
@@ -105,6 +108,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EvaluationRuleNullFilterOperator": ".evaluation_rule_null_filter_operator",
     "EvaluationRuleNumberFilterOperator": ".evaluation_rule_number_filter_operator",
     "EvaluationRuleOptionsFilterOperator": ".evaluation_rule_options_filter_operator",
+    "EvaluationRuleReadMapping": ".evaluation_rule_read_mapping",
     "EvaluationRuleStatus": ".evaluation_rule_status",
     "EvaluationRuleStringFilterOperator": ".evaluation_rule_string_filter_operator",
     "EvaluationRuleTarget": ".evaluation_rule_target",
@@ -115,7 +119,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EvaluatorOutputDefinition_Categorical": ".evaluator_output_definition",
     "EvaluatorOutputDefinition_Numeric": ".evaluator_output_definition",
     "EvaluatorOutputFieldDefinition": ".evaluator_output_field_definition",
-    "EvaluatorScope": ".evaluator_scope",
     "EvaluatorType": ".evaluator_type",
     "NullEvaluationRuleFilter": ".null_evaluation_rule_filter",
     "NumberEvaluationRuleFilter": ".number_evaluation_rule_filter",
@@ -128,6 +131,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PublicEvaluatorOutputDefinition_Categorical": ".public_evaluator_output_definition",
     "PublicEvaluatorOutputDefinition_Numeric": ".public_evaluator_output_definition",
     "PublicNumericEvaluatorOutputDefinition": ".public_numeric_evaluator_output_definition",
+    "PublicNumericEvaluatorOutputScoreDefinition": ".public_numeric_evaluator_output_score_definition",
     "StringEvaluationRuleFilter": ".string_evaluation_rule_filter",
     "StringObjectEvaluationRuleFilter": ".string_object_evaluation_rule_filter",
     "StringOptionsEvaluationRuleFilter": ".string_options_evaluation_rule_filter",
@@ -185,6 +189,7 @@ __all__ = [
     "EvaluationRuleNullFilterOperator",
     "EvaluationRuleNumberFilterOperator",
     "EvaluationRuleOptionsFilterOperator",
+    "EvaluationRuleReadMapping",
     "EvaluationRuleStatus",
     "EvaluationRuleStringFilterOperator",
     "EvaluationRuleTarget",
@@ -195,7 +200,6 @@ __all__ = [
     "EvaluatorOutputDefinition_Categorical",
     "EvaluatorOutputDefinition_Numeric",
     "EvaluatorOutputFieldDefinition",
-    "EvaluatorScope",
     "EvaluatorType",
     "NullEvaluationRuleFilter",
     "NumberEvaluationRuleFilter",
@@ -208,6 +212,7 @@ __all__ = [
     "PublicEvaluatorOutputDefinition_Categorical",
     "PublicEvaluatorOutputDefinition_Numeric",
     "PublicNumericEvaluatorOutputDefinition",
+    "PublicNumericEvaluatorOutputScoreDefinition",
     "StringEvaluationRuleFilter",
     "StringObjectEvaluationRuleFilter",
     "StringOptionsEvaluationRuleFilter",

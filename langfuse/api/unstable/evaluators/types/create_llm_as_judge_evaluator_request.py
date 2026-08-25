@@ -6,6 +6,7 @@ import pydantic
 import typing_extensions
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
+from ...commons.types.evaluation_rule_mapping import EvaluationRuleMapping
 from ...commons.types.evaluator_model_config import EvaluatorModelConfig
 from ...commons.types.evaluator_output_definition import EvaluatorOutputDefinition
 
@@ -36,6 +37,13 @@ class CreateLlmAsJudgeEvaluatorRequest(UniversalBaseModel):
     ] = pydantic.Field(default=None)
     """
     Optional explicit model configuration. Omit or set to `null` to use the project default evaluation model.
+    """
+
+    mapping: typing.Optional[typing.List[EvaluationRuleMapping]] = pydantic.Field(
+        default=None
+    )
+    """
+    Optional default variable mapping inherited by rule assignments that do not provide an override.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

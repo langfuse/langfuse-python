@@ -7,6 +7,9 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        CreateScoreRequest,
+        CreateScoreResponse,
+        CreateScoreSource,
         GetScoresResponse,
         GetScoresResponseData,
         GetScoresResponseDataBoolean,
@@ -22,6 +25,9 @@ if typing.TYPE_CHECKING:
         GetScoresResponseTraceData,
     )
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreateScoreRequest": ".types",
+    "CreateScoreResponse": ".types",
+    "CreateScoreSource": ".types",
     "GetScoresResponse": ".types",
     "GetScoresResponseData": ".types",
     "GetScoresResponseDataBoolean": ".types",
@@ -66,6 +72,9 @@ def __dir__():
 
 
 __all__ = [
+    "CreateScoreRequest",
+    "CreateScoreResponse",
+    "CreateScoreSource",
     "GetScoresResponse",
     "GetScoresResponseData",
     "GetScoresResponseDataBoolean",

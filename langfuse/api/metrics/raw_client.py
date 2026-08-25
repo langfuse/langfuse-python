@@ -27,8 +27,9 @@ class RawMetricsClient:
         Get metrics from the Langfuse project using a query object. V2 endpoint with optimized performance.
 
         ## V2 Differences
-        - Supports `observations`, `scores-numeric`, and `scores-categorical` views only (traces view not supported)
+        - Supports `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical` views only (traces view not supported)
         - Direct access to tags and release fields on observations
+        - Semantic-root filtering and grouping through the v2-only `isRootObservation` dimension
         - Backwards-compatible: traceName, traceRelease, traceVersion dimensions are still available on observations view
         - High cardinality dimensions are not supported and will return a 400 error (see below)
 
@@ -53,6 +54,7 @@ class RawMetricsClient:
         - `providedModelName` - Name of the model used
         - `promptName` - Name of the prompt used
         - `promptVersion` - Version of the prompt used
+        - `isRootObservation` - Boolean semantic-root status. `true` includes physical roots and app roots whose SDK parent is external (so `parentObservationId` may be non-null).
         - `startTimeMonth` - Month of start_time in YYYY-MM format
 
         **Measures:**
@@ -95,6 +97,16 @@ class RawMetricsClient:
         - `count` - Total number of scores
         - `value` - Score value (for aggregations)
 
+        ### scores-boolean
+        Query boolean score data. It has the same score and parent trace/observation dimensions as scores-numeric, plus:
+
+        **Dimensions:**
+        - `booleanValue` - Boolean value for true/false grouping and filtering
+
+        **Measures:**
+        - `count` - Total number of boolean scores
+        - `value` - Numeric 0/1 score value; `avg` returns the true-rate
+
         ### scores-categorical
         Query categorical score data. Same dimensions as scores-numeric except uses `stringValue` instead of `value`.
 
@@ -112,7 +124,7 @@ class RawMetricsClient:
         - `sessionId` - Use sessionId filter instead
         - `parentObservationId` - Use parentObservationId filter instead
 
-        **scores-numeric / scores-categorical views:**
+        **scores-numeric / scores-boolean / scores-categorical views:**
         - `id` - Use specific filters to narrow down results
         - `traceId` - Use traceId filter instead
         - `userId` - Use userId filter instead
@@ -132,7 +144,7 @@ class RawMetricsClient:
             JSON string containing the query parameters with the following structure:
             ```json
             {
-              "view": string,           // Required. One of "observations", "scores-numeric", "scores-categorical"
+              "view": string,           // Required. One of "observations", "scores-numeric", "scores-boolean", "scores-categorical"
               "dimensions": [           // Optional. Default: []
                 {
                   "field": string       // Field to group by (see available dimensions above)
@@ -176,6 +188,17 @@ class RawMetricsClient:
                 "bins": number,         // Optional. Number of bins for histogram aggregation (1-100), default: 10
                 "row_limit": number     // Optional. Maximum number of rows to return (1-1000), default: 100
               }
+            }
+            ```
+
+            For example, to count semantic roots (including app roots with a non-null external parent), use a boolean filter:
+            ```json
+            {
+              "view": "observations",
+              "metrics": [{"measure": "count", "aggregation": "count"}],
+              "filters": [{"column": "isRootObservation", "operator": "=", "value": true, "type": "boolean"}],
+              "fromTimestamp": "2025-01-01T00:00:00.000Z",
+              "toTimestamp": "2025-02-01T00:00:00.000Z"
             }
             ```
 
@@ -284,8 +307,9 @@ class AsyncRawMetricsClient:
         Get metrics from the Langfuse project using a query object. V2 endpoint with optimized performance.
 
         ## V2 Differences
-        - Supports `observations`, `scores-numeric`, and `scores-categorical` views only (traces view not supported)
+        - Supports `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical` views only (traces view not supported)
         - Direct access to tags and release fields on observations
+        - Semantic-root filtering and grouping through the v2-only `isRootObservation` dimension
         - Backwards-compatible: traceName, traceRelease, traceVersion dimensions are still available on observations view
         - High cardinality dimensions are not supported and will return a 400 error (see below)
 
@@ -310,6 +334,7 @@ class AsyncRawMetricsClient:
         - `providedModelName` - Name of the model used
         - `promptName` - Name of the prompt used
         - `promptVersion` - Version of the prompt used
+        - `isRootObservation` - Boolean semantic-root status. `true` includes physical roots and app roots whose SDK parent is external (so `parentObservationId` may be non-null).
         - `startTimeMonth` - Month of start_time in YYYY-MM format
 
         **Measures:**
@@ -352,6 +377,16 @@ class AsyncRawMetricsClient:
         - `count` - Total number of scores
         - `value` - Score value (for aggregations)
 
+        ### scores-boolean
+        Query boolean score data. It has the same score and parent trace/observation dimensions as scores-numeric, plus:
+
+        **Dimensions:**
+        - `booleanValue` - Boolean value for true/false grouping and filtering
+
+        **Measures:**
+        - `count` - Total number of boolean scores
+        - `value` - Numeric 0/1 score value; `avg` returns the true-rate
+
         ### scores-categorical
         Query categorical score data. Same dimensions as scores-numeric except uses `stringValue` instead of `value`.
 
@@ -369,7 +404,7 @@ class AsyncRawMetricsClient:
         - `sessionId` - Use sessionId filter instead
         - `parentObservationId` - Use parentObservationId filter instead
 
-        **scores-numeric / scores-categorical views:**
+        **scores-numeric / scores-boolean / scores-categorical views:**
         - `id` - Use specific filters to narrow down results
         - `traceId` - Use traceId filter instead
         - `userId` - Use userId filter instead
@@ -389,7 +424,7 @@ class AsyncRawMetricsClient:
             JSON string containing the query parameters with the following structure:
             ```json
             {
-              "view": string,           // Required. One of "observations", "scores-numeric", "scores-categorical"
+              "view": string,           // Required. One of "observations", "scores-numeric", "scores-boolean", "scores-categorical"
               "dimensions": [           // Optional. Default: []
                 {
                   "field": string       // Field to group by (see available dimensions above)
@@ -433,6 +468,17 @@ class AsyncRawMetricsClient:
                 "bins": number,         // Optional. Number of bins for histogram aggregation (1-100), default: 10
                 "row_limit": number     // Optional. Maximum number of rows to return (1-1000), default: 100
               }
+            }
+            ```
+
+            For example, to count semantic roots (including app roots with a non-null external parent), use a boolean filter:
+            ```json
+            {
+              "view": "observations",
+              "metrics": [{"measure": "count", "aggregation": "count"}],
+              "filters": [{"column": "isRootObservation", "operator": "=", "value": true, "type": "boolean"}],
+              "fromTimestamp": "2025-01-01T00:00:00.000Z",
+              "toTimestamp": "2025-02-01T00:00:00.000Z"
             }
             ```
 

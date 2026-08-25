@@ -11,10 +11,10 @@ from .pricing_tier_condition import PricingTierCondition
 
 class PricingTier(UniversalBaseModel):
     """
-    Pricing tier definition with conditional pricing based on usage thresholds.
+    Pricing tier definition with conditional pricing based on usage thresholds or observation attributes.
 
-    Pricing tiers enable accurate cost tracking for LLM providers that charge different rates based on usage patterns.
-    For example, some providers charge higher rates when context size exceeds certain thresholds.
+    Pricing tiers enable accurate cost tracking for LLM providers that charge different rates based on usage patterns or request attributes.
+    For example, some providers charge higher rates when context size exceeds certain thresholds or when an accelerated service tier is selected.
 
     How tier matching works:
     1. Tiers are evaluated in ascending priority order (priority 1 before priority 2, etc.)

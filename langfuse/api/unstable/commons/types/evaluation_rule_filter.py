@@ -37,6 +37,7 @@ class EvaluationRuleFilter_Datetime(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -51,6 +52,7 @@ class EvaluationRuleFilter_Datetime(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -106,6 +108,7 @@ class EvaluationRuleFilter_String(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -120,6 +123,7 @@ class EvaluationRuleFilter_String(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -175,6 +179,7 @@ class EvaluationRuleFilter_Number(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -189,6 +194,7 @@ class EvaluationRuleFilter_Number(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -244,6 +250,7 @@ class EvaluationRuleFilter_StringOptions(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -258,6 +265,7 @@ class EvaluationRuleFilter_StringOptions(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -313,6 +321,7 @@ class EvaluationRuleFilter_CategoryOptions(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -327,6 +336,7 @@ class EvaluationRuleFilter_CategoryOptions(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -383,6 +393,7 @@ class EvaluationRuleFilter_ArrayOptions(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -397,6 +408,7 @@ class EvaluationRuleFilter_ArrayOptions(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -452,6 +464,7 @@ class EvaluationRuleFilter_StringObject(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -466,6 +479,7 @@ class EvaluationRuleFilter_StringObject(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -522,6 +536,7 @@ class EvaluationRuleFilter_NumberObject(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -536,6 +551,7 @@ class EvaluationRuleFilter_NumberObject(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -592,6 +608,7 @@ class EvaluationRuleFilter_Boolean(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -606,6 +623,7 @@ class EvaluationRuleFilter_Boolean(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`
@@ -661,6 +679,7 @@ class EvaluationRuleFilter_Null(UniversalBaseModel):
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
     - `stringObject`: same operators as `string`
+    - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
     Supported columns by target:
@@ -675,6 +694,7 @@ class EvaluationRuleFilter_Null(UniversalBaseModel):
       - `sessionId`: `string`
       - `tags`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `metadata`: `stringObject` with `key`
+      - `isRootObservation`: `boolean`, operators `=` / `<>`; true when the observation has no parent or is explicitly marked as an application root
       - `parentObservationId`: `null`, operators `is null` / `is not null`
       - `calledToolNames`: `arrayOptions`, operators `any of` / `none of` / `all of`
       - `toolCalls`: `number`

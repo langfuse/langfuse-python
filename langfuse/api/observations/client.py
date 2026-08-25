@@ -35,10 +35,12 @@ class ObservationsClient:
         parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
         parent_observation_id: typing.Optional[str] = None,
+        is_root_observation: typing.Optional[bool] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
@@ -57,7 +59,7 @@ class ObservationsClient:
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
         - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
+        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId, isRootObservation
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
@@ -102,6 +104,9 @@ class ObservationsClient:
 
         user_id : typing.Optional[str]
 
+        session_id : typing.Optional[str]
+            Filter by session ID.
+
         type : typing.Optional[str]
             Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
 
@@ -111,6 +116,13 @@ class ObservationsClient:
             Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
 
         parent_observation_id : typing.Optional[str]
+            Filter by the physical parent observation ID.
+            An empty value matches only observations without a physical parent. Use `isRootObservation` to include observations marked as app roots by the SDK, which may retain a non-null `parentObservationId`.
+
+        is_root_observation : typing.Optional[bool]
+            Filter by whether an observation is a logical root.
+            Root observations include observations without a physical parent and observations marked as app roots by the SDK.
+            An app-root observation may have `isRootObservation=true` and a non-null `parentObservationId`.
 
         environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for observations where the environment is one of the provided values.
@@ -166,6 +178,7 @@ class ObservationsClient:
             - `version` (string) - Version tag
             - `userId` (string) - User ID
             - `sessionId` (string) - Session ID
+            - `isRootObservation` (boolean) - Whether the observation is a logical root. Observations marked as app roots by the SDK may retain a non-null parentObservationId.
 
             ### Trace-Related Fields
             - `traceName` (string) - Name of the parent trace
@@ -226,6 +239,12 @@ class ObservationsClient:
                 "column": "output",
                 "operator": "matches",
                 "value": "needle"
+              },
+              {
+                "type": "boolean",
+                "column": "isRootObservation",
+                "operator": "=",
+                "value": true
               }
             ]
             ```
@@ -259,10 +278,12 @@ class ObservationsClient:
             parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
+            session_id=session_id,
             type=type,
             trace_id=trace_id,
             level=level,
             parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
             environment=environment,
             from_start_time=from_start_time,
             to_start_time=to_start_time,
@@ -298,10 +319,12 @@ class AsyncObservationsClient:
         parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
         parent_observation_id: typing.Optional[str] = None,
+        is_root_observation: typing.Optional[bool] = None,
         environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         from_start_time: typing.Optional[dt.datetime] = None,
         to_start_time: typing.Optional[dt.datetime] = None,
@@ -320,7 +343,7 @@ class AsyncObservationsClient:
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
         - `core` - Always included: id, traceId, startTime, endTime, projectId, parentObservationId, type
-        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId
+        - `basic` - name, level, statusMessage, version, environment, bookmarked, public, userId, sessionId, isRootObservation
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
@@ -365,6 +388,9 @@ class AsyncObservationsClient:
 
         user_id : typing.Optional[str]
 
+        session_id : typing.Optional[str]
+            Filter by session ID.
+
         type : typing.Optional[str]
             Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
 
@@ -374,6 +400,13 @@ class AsyncObservationsClient:
             Optional filter for observations with a specific level (e.g. "DEBUG", "DEFAULT", "WARNING", "ERROR").
 
         parent_observation_id : typing.Optional[str]
+            Filter by the physical parent observation ID.
+            An empty value matches only observations without a physical parent. Use `isRootObservation` to include observations marked as app roots by the SDK, which may retain a non-null `parentObservationId`.
+
+        is_root_observation : typing.Optional[bool]
+            Filter by whether an observation is a logical root.
+            Root observations include observations without a physical parent and observations marked as app roots by the SDK.
+            An app-root observation may have `isRootObservation=true` and a non-null `parentObservationId`.
 
         environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Optional filter for observations where the environment is one of the provided values.
@@ -429,6 +462,7 @@ class AsyncObservationsClient:
             - `version` (string) - Version tag
             - `userId` (string) - User ID
             - `sessionId` (string) - Session ID
+            - `isRootObservation` (boolean) - Whether the observation is a logical root. Observations marked as app roots by the SDK may retain a non-null parentObservationId.
 
             ### Trace-Related Fields
             - `traceName` (string) - Name of the parent trace
@@ -489,6 +523,12 @@ class AsyncObservationsClient:
                 "column": "output",
                 "operator": "matches",
                 "value": "needle"
+              },
+              {
+                "type": "boolean",
+                "column": "isRootObservation",
+                "operator": "=",
+                "value": true
               }
             ]
             ```
@@ -530,10 +570,12 @@ class AsyncObservationsClient:
             parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
+            session_id=session_id,
             type=type,
             trace_id=trace_id,
             level=level,
             parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
             environment=environment,
             from_start_time=from_start_time,
             to_start_time=to_start_time,

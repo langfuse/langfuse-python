@@ -7,13 +7,13 @@ import pydantic
 import typing_extensions
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
-from ...commons.types.evaluator_scope import EvaluatorScope
+from ...commons.types.evaluation_rule_read_mapping import EvaluationRuleReadMapping
 
 
 class EvaluatorBase(UniversalBaseModel):
     id: str = pydantic.Field()
     """
-    Identifier of this evaluator.
+    Stable identifier of this evaluator across all versions.
     """
 
     name: str = pydantic.Field()
@@ -26,11 +26,6 @@ class EvaluatorBase(UniversalBaseModel):
     Version number of this evaluator.
     """
 
-    scope: EvaluatorScope = pydantic.Field()
-    """
-    Where this evaluator comes from: your project or Langfuse-managed defaults.
-    """
-
     variables: typing.List[str] = pydantic.Field()
     """
     Variables that can be mapped when creating an evaluation rule.
@@ -38,11 +33,22 @@ class EvaluatorBase(UniversalBaseModel):
     LLM evaluators require every variable to be mapped exactly once. Code evaluators always expose the fixed runtime payload fields and Langfuse maps them automatically.
     """
 
+    mapping: typing.Optional[typing.List[EvaluationRuleReadMapping]] = pydantic.Field(
+        default=None
+    )
+    """
+    Default variable mapping for this evaluator version, or `null` when no default is configured.
+    
+    An entry's `source` is `null` when that variable was never fully configured, and sources
+    are not restricted by rule `target` here, because the default is stored on the evaluator
+    rather than on any one rule.
+    """
+
     evaluation_rule_count: typing_extensions.Annotated[
         int, FieldMetadata(alias="evaluationRuleCount")
     ] = pydantic.Field()
     """
-    Number of evaluation rules in the project that currently use this evaluator version.
+    Number of evaluation rules in the project that currently use this evaluator.
     """
 
     created_at: typing_extensions.Annotated[

@@ -6,12 +6,14 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawDashboardWidgetsClient, RawDashboardWidgetsClient
 from .types.dashboard_widget import DashboardWidget
-from .types.dashboard_widget_chart_config import DashboardWidgetChartConfig
+from .types.dashboard_widget_chart_config_input import DashboardWidgetChartConfigInput
 from .types.dashboard_widget_chart_type import DashboardWidgetChartType
 from .types.dashboard_widget_dimension import DashboardWidgetDimension
 from .types.dashboard_widget_filter import DashboardWidgetFilter
+from .types.dashboard_widget_list import DashboardWidgetList
 from .types.dashboard_widget_metric import DashboardWidgetMetric
 from .types.dashboard_widget_view import DashboardWidgetView
+from .types.delete_dashboard_widget_response import DeleteDashboardWidgetResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -32,27 +34,81 @@ class DashboardWidgetsClient:
         """
         return self._raw_client
 
+    def list(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DashboardWidgetList:
+        """
+        List dashboard widgets in the project, ordered by most recently
+        updated first.
+
+        Responses may include legacy `traces` widgets created before this
+        API existed. New widgets cannot be created with `view: traces`.
+
+        Parameters
+        ----------
+        page : typing.Optional[int]
+            1-based page number. Defaults to `1`.
+
+        limit : typing.Optional[int]
+            Maximum number of items per page. Defaults to `50`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DashboardWidgetList
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.unstable.dashboard_widgets.list()
+        """
+        _response = self._raw_client.list(
+            page=page, limit=limit, request_options=request_options
+        )
+        return _response.data
+
     def create(
         self,
         *,
         name: str,
-        description: str,
         view: DashboardWidgetView,
         dimensions: typing.Sequence[DashboardWidgetDimension],
         metrics: typing.Sequence[DashboardWidgetMetric],
         filters: typing.Sequence[DashboardWidgetFilter],
         chart_type: DashboardWidgetChartType,
-        chart_config: DashboardWidgetChartConfig,
-        min_version: typing.Optional[int] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DashboardWidget:
         """
-        Create a reusable dashboard widget.
+        Create a dashboard widget (a standalone chart definition you place on
+        any dashboard).
 
-        This endpoint creates the widget. It does not place the widget on a dashboard grid, this has to be done in the UI.
+        This endpoint creates the widget only; place it on a dashboard via
+        `POST /dashboards/{dashboardId}/placements`.
 
-        Supported views are `observations`, `scores-numeric`, and `scores-categorical`.
-        The legacy `traces` view is not supported by this unstable API, `minVersion` defaults to `2`; values below `2` are rejected.
+        Supported views are `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical`.
+        The legacy `traces` view is not supported by this unstable API.
+        Widgets are created as v2 internally.
+
+        `chartConfig` is optional and defaults to the plain config for
+        `chartType`; when `chartConfig.type` is given it must match
+        `chartType`.
 
         Unstable API note:
         - This surface may evolve while dashboard/widget APIs are being finalized.
@@ -60,8 +116,6 @@ class DashboardWidgetsClient:
         Parameters
         ----------
         name : str
-
-        description : str
 
         view : DashboardWidgetView
 
@@ -73,9 +127,11 @@ class DashboardWidgetsClient:
 
         chart_type : DashboardWidgetChartType
 
-        chart_config : DashboardWidgetChartConfig
+        description : typing.Optional[str]
+            Defaults to an empty string.
 
-        min_version : typing.Optional[int]
+        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
+            Defaults to the plain config for `chartType`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -88,7 +144,7 @@ class DashboardWidgetsClient:
         --------
         from langfuse import LangfuseAPI
         from langfuse.unstable.dashboard_widgets import (
-            DashboardWidgetChartConfig,
+            DashboardWidgetChartConfigInput,
             DashboardWidgetChartType,
             DashboardWidgetDimension,
             DashboardWidgetMetric,
@@ -121,14 +177,132 @@ class DashboardWidgetsClient:
             ],
             filters=[],
             chart_type=DashboardWidgetChartType.HORIZONTAL_BAR,
-            chart_config=DashboardWidgetChartConfig(
-                type=DashboardWidgetChartType.HORIZONTAL_BAR,
+            chart_config=DashboardWidgetChartConfigInput(
                 row_limit=10,
             ),
-            min_version=2,
         )
         """
         _response = self._raw_client.create(
+            name=name,
+            view=view,
+            dimensions=dimensions,
+            metrics=metrics,
+            filters=filters,
+            chart_type=chart_type,
+            description=description,
+            chart_config=chart_config,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def get(
+        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DashboardWidget:
+        """
+        Get a dashboard widget by id.
+
+        The response may use `view: traces` for legacy widgets.
+
+        Parameters
+        ----------
+        widget_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DashboardWidget
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.unstable.dashboard_widgets.get(
+            widget_id="widgetId",
+        )
+        """
+        _response = self._raw_client.get(widget_id, request_options=request_options)
+        return _response.data
+
+    def update(
+        self,
+        widget_id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        view: typing.Optional[DashboardWidgetView] = OMIT,
+        dimensions: typing.Optional[typing.Sequence[DashboardWidgetDimension]] = OMIT,
+        metrics: typing.Optional[typing.Sequence[DashboardWidgetMetric]] = OMIT,
+        filters: typing.Optional[typing.Sequence[DashboardWidgetFilter]] = OMIT,
+        chart_type: typing.Optional[DashboardWidgetChartType] = OMIT,
+        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DashboardWidget:
+        """
+        Update a dashboard widget.
+
+        All fields are optional; at least one field is required.
+        Changing `chartType` without sending `chartConfig` resets the config
+        to the new chart type's defaults. When `chartConfig.type` is given
+        it must match the widget's (possibly updated) `chartType`.
+
+        `view` cannot be changed to the legacy `traces` value. Existing
+        `traces` widgets may be updated on other fields.
+
+        Parameters
+        ----------
+        widget_id : str
+
+        name : typing.Optional[str]
+
+        description : typing.Optional[str]
+
+        view : typing.Optional[DashboardWidgetView]
+
+        dimensions : typing.Optional[typing.Sequence[DashboardWidgetDimension]]
+
+        metrics : typing.Optional[typing.Sequence[DashboardWidgetMetric]]
+
+        filters : typing.Optional[typing.Sequence[DashboardWidgetFilter]]
+
+        chart_type : typing.Optional[DashboardWidgetChartType]
+
+        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DashboardWidget
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.unstable.dashboard_widgets.update(
+            widget_id="widgetId",
+        )
+        """
+        _response = self._raw_client.update(
+            widget_id,
             name=name,
             description=description,
             view=view,
@@ -137,9 +311,47 @@ class DashboardWidgetsClient:
             filters=filters,
             chart_type=chart_type,
             chart_config=chart_config,
-            min_version=min_version,
             request_options=request_options,
         )
+        return _response.data
+
+    def delete(
+        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteDashboardWidgetResponse:
+        """
+        Delete a dashboard widget.
+
+        The API returns `409` while the widget is still placed on a dashboard.
+        Remove those placements first.
+
+        Parameters
+        ----------
+        widget_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteDashboardWidgetResponse
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.unstable.dashboard_widgets.delete(
+            widget_id="widgetId",
+        )
+        """
+        _response = self._raw_client.delete(widget_id, request_options=request_options)
         return _response.data
 
 
@@ -158,27 +370,89 @@ class AsyncDashboardWidgetsClient:
         """
         return self._raw_client
 
+    async def list(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DashboardWidgetList:
+        """
+        List dashboard widgets in the project, ordered by most recently
+        updated first.
+
+        Responses may include legacy `traces` widgets created before this
+        API existed. New widgets cannot be created with `view: traces`.
+
+        Parameters
+        ----------
+        page : typing.Optional[int]
+            1-based page number. Defaults to `1`.
+
+        limit : typing.Optional[int]
+            Maximum number of items per page. Defaults to `50`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DashboardWidgetList
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.unstable.dashboard_widgets.list()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list(
+            page=page, limit=limit, request_options=request_options
+        )
+        return _response.data
+
     async def create(
         self,
         *,
         name: str,
-        description: str,
         view: DashboardWidgetView,
         dimensions: typing.Sequence[DashboardWidgetDimension],
         metrics: typing.Sequence[DashboardWidgetMetric],
         filters: typing.Sequence[DashboardWidgetFilter],
         chart_type: DashboardWidgetChartType,
-        chart_config: DashboardWidgetChartConfig,
-        min_version: typing.Optional[int] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DashboardWidget:
         """
-        Create a reusable dashboard widget.
+        Create a dashboard widget (a standalone chart definition you place on
+        any dashboard).
 
-        This endpoint creates the widget. It does not place the widget on a dashboard grid, this has to be done in the UI.
+        This endpoint creates the widget only; place it on a dashboard via
+        `POST /dashboards/{dashboardId}/placements`.
 
-        Supported views are `observations`, `scores-numeric`, and `scores-categorical`.
-        The legacy `traces` view is not supported by this unstable API, `minVersion` defaults to `2`; values below `2` are rejected.
+        Supported views are `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical`.
+        The legacy `traces` view is not supported by this unstable API.
+        Widgets are created as v2 internally.
+
+        `chartConfig` is optional and defaults to the plain config for
+        `chartType`; when `chartConfig.type` is given it must match
+        `chartType`.
 
         Unstable API note:
         - This surface may evolve while dashboard/widget APIs are being finalized.
@@ -186,8 +460,6 @@ class AsyncDashboardWidgetsClient:
         Parameters
         ----------
         name : str
-
-        description : str
 
         view : DashboardWidgetView
 
@@ -199,9 +471,11 @@ class AsyncDashboardWidgetsClient:
 
         chart_type : DashboardWidgetChartType
 
-        chart_config : DashboardWidgetChartConfig
+        description : typing.Optional[str]
+            Defaults to an empty string.
 
-        min_version : typing.Optional[int]
+        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
+            Defaults to the plain config for `chartType`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -216,7 +490,7 @@ class AsyncDashboardWidgetsClient:
 
         from langfuse import AsyncLangfuseAPI
         from langfuse.unstable.dashboard_widgets import (
-            DashboardWidgetChartConfig,
+            DashboardWidgetChartConfigInput,
             DashboardWidgetChartType,
             DashboardWidgetDimension,
             DashboardWidgetMetric,
@@ -252,17 +526,153 @@ class AsyncDashboardWidgetsClient:
                 ],
                 filters=[],
                 chart_type=DashboardWidgetChartType.HORIZONTAL_BAR,
-                chart_config=DashboardWidgetChartConfig(
-                    type=DashboardWidgetChartType.HORIZONTAL_BAR,
+                chart_config=DashboardWidgetChartConfigInput(
                     row_limit=10,
                 ),
-                min_version=2,
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
+            name=name,
+            view=view,
+            dimensions=dimensions,
+            metrics=metrics,
+            filters=filters,
+            chart_type=chart_type,
+            description=description,
+            chart_config=chart_config,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def get(
+        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DashboardWidget:
+        """
+        Get a dashboard widget by id.
+
+        The response may use `view: traces` for legacy widgets.
+
+        Parameters
+        ----------
+        widget_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DashboardWidget
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.unstable.dashboard_widgets.get(
+                widget_id="widgetId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get(
+            widget_id, request_options=request_options
+        )
+        return _response.data
+
+    async def update(
+        self,
+        widget_id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        view: typing.Optional[DashboardWidgetView] = OMIT,
+        dimensions: typing.Optional[typing.Sequence[DashboardWidgetDimension]] = OMIT,
+        metrics: typing.Optional[typing.Sequence[DashboardWidgetMetric]] = OMIT,
+        filters: typing.Optional[typing.Sequence[DashboardWidgetFilter]] = OMIT,
+        chart_type: typing.Optional[DashboardWidgetChartType] = OMIT,
+        chart_config: typing.Optional[DashboardWidgetChartConfigInput] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DashboardWidget:
+        """
+        Update a dashboard widget.
+
+        All fields are optional; at least one field is required.
+        Changing `chartType` without sending `chartConfig` resets the config
+        to the new chart type's defaults. When `chartConfig.type` is given
+        it must match the widget's (possibly updated) `chartType`.
+
+        `view` cannot be changed to the legacy `traces` value. Existing
+        `traces` widgets may be updated on other fields.
+
+        Parameters
+        ----------
+        widget_id : str
+
+        name : typing.Optional[str]
+
+        description : typing.Optional[str]
+
+        view : typing.Optional[DashboardWidgetView]
+
+        dimensions : typing.Optional[typing.Sequence[DashboardWidgetDimension]]
+
+        metrics : typing.Optional[typing.Sequence[DashboardWidgetMetric]]
+
+        filters : typing.Optional[typing.Sequence[DashboardWidgetFilter]]
+
+        chart_type : typing.Optional[DashboardWidgetChartType]
+
+        chart_config : typing.Optional[DashboardWidgetChartConfigInput]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DashboardWidget
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.unstable.dashboard_widgets.update(
+                widget_id="widgetId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update(
+            widget_id,
             name=name,
             description=description,
             view=view,
@@ -271,7 +681,55 @@ class AsyncDashboardWidgetsClient:
             filters=filters,
             chart_type=chart_type,
             chart_config=chart_config,
-            min_version=min_version,
             request_options=request_options,
+        )
+        return _response.data
+
+    async def delete(
+        self, widget_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteDashboardWidgetResponse:
+        """
+        Delete a dashboard widget.
+
+        The API returns `409` while the widget is still placed on a dashboard.
+        Remove those placements first.
+
+        Parameters
+        ----------
+        widget_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteDashboardWidgetResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.unstable.dashboard_widgets.delete(
+                widget_id="widgetId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(
+            widget_id, request_options=request_options
         )
         return _response.data

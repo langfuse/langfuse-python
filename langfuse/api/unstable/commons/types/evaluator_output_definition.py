@@ -12,6 +12,9 @@ from .evaluator_output_field_definition import EvaluatorOutputFieldDefinition
 from .public_categorical_evaluator_output_score_definition import (
     PublicCategoricalEvaluatorOutputScoreDefinition,
 )
+from .public_numeric_evaluator_output_score_definition import (
+    PublicNumericEvaluatorOutputScoreDefinition,
+)
 
 
 class EvaluatorOutputDefinition_Numeric(UniversalBaseModel):
@@ -22,6 +25,7 @@ class EvaluatorOutputDefinition_Numeric(UniversalBaseModel):
     - `dataType` is required.
     - Do not send `version`; that is an internal storage detail and is not part of the public request contract.
     - For `NUMERIC` and `BOOLEAN`, provide `reasoning.description` and `score.description`.
+    - For `NUMERIC`, `score.minValue` and `score.maxValue` optionally define inclusive bounds. If both are set, `minValue` must not exceed `maxValue`.
     - For `CATEGORICAL`, also provide `score.categories` and `score.shouldAllowMultipleMatches`.
 
     Examples
@@ -30,6 +34,7 @@ class EvaluatorOutputDefinition_Numeric(UniversalBaseModel):
         EvaluatorOutputDataType,
         EvaluatorOutputDefinition_Numeric,
         EvaluatorOutputFieldDefinition,
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
 
     EvaluatorOutputDefinition_Numeric(
@@ -37,8 +42,10 @@ class EvaluatorOutputDefinition_Numeric(UniversalBaseModel):
         reasoning=EvaluatorOutputFieldDefinition(
             description="Explain why the answer is correct or incorrect.",
         ),
-        score=EvaluatorOutputFieldDefinition(
+        score=PublicNumericEvaluatorOutputScoreDefinition(
             description="Return a score between 0 and 1.",
+            min_value=0.0,
+            max_value=1.0,
         ),
     )
     """
@@ -47,7 +54,7 @@ class EvaluatorOutputDefinition_Numeric(UniversalBaseModel):
         typing.Literal["NUMERIC"], FieldMetadata(alias="dataType")
     ] = "NUMERIC"
     reasoning: EvaluatorOutputFieldDefinition
-    score: EvaluatorOutputFieldDefinition
+    score: PublicNumericEvaluatorOutputScoreDefinition
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -62,6 +69,7 @@ class EvaluatorOutputDefinition_Boolean(UniversalBaseModel):
     - `dataType` is required.
     - Do not send `version`; that is an internal storage detail and is not part of the public request contract.
     - For `NUMERIC` and `BOOLEAN`, provide `reasoning.description` and `score.description`.
+    - For `NUMERIC`, `score.minValue` and `score.maxValue` optionally define inclusive bounds. If both are set, `minValue` must not exceed `maxValue`.
     - For `CATEGORICAL`, also provide `score.categories` and `score.shouldAllowMultipleMatches`.
 
     Examples
@@ -70,6 +78,7 @@ class EvaluatorOutputDefinition_Boolean(UniversalBaseModel):
         EvaluatorOutputDataType,
         EvaluatorOutputDefinition_Numeric,
         EvaluatorOutputFieldDefinition,
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
 
     EvaluatorOutputDefinition_Numeric(
@@ -77,8 +86,10 @@ class EvaluatorOutputDefinition_Boolean(UniversalBaseModel):
         reasoning=EvaluatorOutputFieldDefinition(
             description="Explain why the answer is correct or incorrect.",
         ),
-        score=EvaluatorOutputFieldDefinition(
+        score=PublicNumericEvaluatorOutputScoreDefinition(
             description="Return a score between 0 and 1.",
+            min_value=0.0,
+            max_value=1.0,
         ),
     )
     """
@@ -102,6 +113,7 @@ class EvaluatorOutputDefinition_Categorical(UniversalBaseModel):
     - `dataType` is required.
     - Do not send `version`; that is an internal storage detail and is not part of the public request contract.
     - For `NUMERIC` and `BOOLEAN`, provide `reasoning.description` and `score.description`.
+    - For `NUMERIC`, `score.minValue` and `score.maxValue` optionally define inclusive bounds. If both are set, `minValue` must not exceed `maxValue`.
     - For `CATEGORICAL`, also provide `score.categories` and `score.shouldAllowMultipleMatches`.
 
     Examples
@@ -110,6 +122,7 @@ class EvaluatorOutputDefinition_Categorical(UniversalBaseModel):
         EvaluatorOutputDataType,
         EvaluatorOutputDefinition_Numeric,
         EvaluatorOutputFieldDefinition,
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
 
     EvaluatorOutputDefinition_Numeric(
@@ -117,8 +130,10 @@ class EvaluatorOutputDefinition_Categorical(UniversalBaseModel):
         reasoning=EvaluatorOutputFieldDefinition(
             description="Explain why the answer is correct or incorrect.",
         ),
-        score=EvaluatorOutputFieldDefinition(
+        score=PublicNumericEvaluatorOutputScoreDefinition(
             description="Return a score between 0 and 1.",
+            min_value=0.0,
+            max_value=1.0,
         ),
     )
     """
@@ -139,6 +154,7 @@ from langfuse.unstable.commons import (
     EvaluatorOutputDataType,
     EvaluatorOutputDefinition_Numeric,
     EvaluatorOutputFieldDefinition,
+    PublicNumericEvaluatorOutputScoreDefinition,
 )
 
 EvaluatorOutputDefinition_Numeric(
@@ -146,8 +162,10 @@ EvaluatorOutputDefinition_Numeric(
     reasoning=EvaluatorOutputFieldDefinition(
         description="Explain why the answer is correct or incorrect.",
     ),
-    score=EvaluatorOutputFieldDefinition(
+    score=PublicNumericEvaluatorOutputScoreDefinition(
         description="Return a score between 0 and 1.",
+        min_value=0.0,
+        max_value=1.0,
     ),
 )
 """

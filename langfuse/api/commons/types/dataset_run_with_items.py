@@ -7,12 +7,16 @@ import typing_extensions
 from ...core.serialization import FieldMetadata
 from .dataset_run import DatasetRun
 from .dataset_run_item import DatasetRunItem
+from .deprecation import Deprecation
 
 
 class DatasetRunWithItems(DatasetRun):
     dataset_run_items: typing_extensions.Annotated[
         typing.List[DatasetRunItem], FieldMetadata(alias="datasetRunItems")
     ]
+    deprecation: typing_extensions.Annotated[
+        typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
+    ] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
