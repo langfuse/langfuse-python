@@ -7,9 +7,11 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .create_model_request import CreateModelRequest
+    from .model_tokenizer_id import ModelTokenizerId
     from .paginated_models import PaginatedModels
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateModelRequest": ".create_model_request",
+    "ModelTokenizerId": ".model_tokenizer_id",
     "PaginatedModels": ".paginated_models",
 }
 
@@ -41,4 +43,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CreateModelRequest", "PaginatedModels"]
+__all__ = ["CreateModelRequest", "ModelTokenizerId", "PaginatedModels"]
