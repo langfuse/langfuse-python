@@ -46,6 +46,7 @@ def _create_client_from_instance(
         timeout=instance.timeout,
         flush_at=instance.flush_at,
         flush_interval=instance.flush_interval,
+        max_queue_size=instance.max_queue_size,
         release=instance.release,
         media_upload_thread_count=instance.media_upload_thread_count,
         sample_rate=instance.sample_rate,
