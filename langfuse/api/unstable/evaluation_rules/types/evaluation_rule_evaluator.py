@@ -27,7 +27,7 @@ class EvaluationRuleEvaluator(UniversalBaseModel):
 
     type: EvaluatorType = pydantic.Field()
     """
-    Evaluator engine type.
+    Evaluator type.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

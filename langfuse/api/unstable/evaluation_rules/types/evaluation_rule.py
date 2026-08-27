@@ -4,8 +4,8 @@ import typing
 
 import pydantic
 from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
-from ...commons.types.evaluation_rule_read_mapping import EvaluationRuleReadMapping
 from ...commons.types.evaluation_rule_target import EvaluationRuleTarget
+from ...commons.types.prompt_variable_mapping_read import PromptVariableMappingRead
 from .evaluation_rule_base import EvaluationRuleBase
 from .evaluation_rule_evaluator_assignment import EvaluationRuleEvaluatorAssignment
 
@@ -18,12 +18,12 @@ class EvaluationRule(EvaluationRuleBase):
 
     from langfuse.unstable.commons import (
         EvaluationRuleFilter_StringOptions,
-        EvaluationRuleMappingSource,
         EvaluationRuleOptionsFilterOperator,
-        EvaluationRuleReadMapping,
         EvaluationRuleStatus,
         EvaluationRuleTarget,
         EvaluatorType,
+        PromptVariableMappingRead,
+        PromptVariableMappingSource,
     )
     from langfuse.unstable.evaluation_rules import (
         EvaluationRule,
@@ -47,13 +47,13 @@ class EvaluationRule(EvaluationRuleBase):
                     type=EvaluatorType.LLM_AS_JUDGE,
                 ),
                 mapping=[
-                    EvaluationRuleReadMapping(
+                    PromptVariableMappingRead(
                         variable="input",
-                        source=EvaluationRuleMappingSource.INPUT,
+                        source=PromptVariableMappingSource.INPUT,
                     ),
-                    EvaluationRuleReadMapping(
+                    PromptVariableMappingRead(
                         variable="output",
-                        source=EvaluationRuleMappingSource.OUTPUT,
+                        source=PromptVariableMappingSource.OUTPUT,
                     ),
                 ],
             )
@@ -70,13 +70,13 @@ class EvaluationRule(EvaluationRuleBase):
             )
         ],
         mapping=[
-            EvaluationRuleReadMapping(
+            PromptVariableMappingRead(
                 variable="input",
-                source=EvaluationRuleMappingSource.INPUT,
+                source=PromptVariableMappingSource.INPUT,
             ),
-            EvaluationRuleReadMapping(
+            PromptVariableMappingRead(
                 variable="output",
-                source=EvaluationRuleMappingSource.OUTPUT,
+                source=PromptVariableMappingSource.OUTPUT,
             ),
         ],
         created_at=datetime.datetime.fromisoformat(
@@ -103,7 +103,7 @@ class EvaluationRule(EvaluationRuleBase):
     List of filter conditions used to decide whether a target should be evaluated.
     """
 
-    mapping: typing.List[EvaluationRuleReadMapping] = pydantic.Field()
+    mapping: typing.List[PromptVariableMappingRead] = pydantic.Field()
     """
     Deprecated compatibility alias containing the effective mapping for `evaluators[0]`.
     """

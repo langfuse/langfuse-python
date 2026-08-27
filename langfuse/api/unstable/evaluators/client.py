@@ -2,6 +2,7 @@
 
 import typing
 
+import typing_extensions
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawEvaluatorsClient, RawEvaluatorsClient
@@ -29,6 +30,10 @@ class EvaluatorsClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def create(
         self,
         *,
@@ -82,12 +87,12 @@ class EvaluatorsClient:
         --------
         from langfuse import LangfuseAPI
         from langfuse.unstable.commons import (
-            EvaluationRuleMapping,
-            EvaluationRuleMappingSource,
             EvaluatorModelConfig,
             EvaluatorOutputDataType,
             EvaluatorOutputDefinition_Numeric,
             EvaluatorOutputFieldDefinition,
+            PromptVariableMappingInput,
+            PromptVariableMappingSource,
             PublicNumericEvaluatorOutputScoreDefinition,
         )
         from langfuse.unstable.evaluators import CreateEvaluatorRequest_LlmAsJudge
@@ -118,13 +123,13 @@ class EvaluatorsClient:
                     model="gpt-4.1-mini",
                 ),
                 mapping=[
-                    EvaluationRuleMapping(
+                    PromptVariableMappingInput(
                         variable="input",
-                        source=EvaluationRuleMappingSource.INPUT,
+                        source=PromptVariableMappingSource.INPUT,
                     ),
-                    EvaluationRuleMapping(
+                    PromptVariableMappingInput(
                         variable="output",
-                        source=EvaluationRuleMappingSource.OUTPUT,
+                        source=PromptVariableMappingSource.OUTPUT,
                     ),
                 ],
             ),
@@ -135,6 +140,10 @@ class EvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def list(
         self,
         *,
@@ -183,6 +192,10 @@ class EvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         evaluator_id: str,
@@ -225,6 +238,10 @@ class EvaluatorsClient:
         _response = self._raw_client.get(evaluator_id, request_options=request_options)
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def delete(
         self,
         evaluator_id: str,
@@ -288,6 +305,10 @@ class AsyncEvaluatorsClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def create(
         self,
         *,
@@ -343,12 +364,12 @@ class AsyncEvaluatorsClient:
 
         from langfuse import AsyncLangfuseAPI
         from langfuse.unstable.commons import (
-            EvaluationRuleMapping,
-            EvaluationRuleMappingSource,
             EvaluatorModelConfig,
             EvaluatorOutputDataType,
             EvaluatorOutputDefinition_Numeric,
             EvaluatorOutputFieldDefinition,
+            PromptVariableMappingInput,
+            PromptVariableMappingSource,
             PublicNumericEvaluatorOutputScoreDefinition,
         )
         from langfuse.unstable.evaluators import CreateEvaluatorRequest_LlmAsJudge
@@ -382,13 +403,13 @@ class AsyncEvaluatorsClient:
                         model="gpt-4.1-mini",
                     ),
                     mapping=[
-                        EvaluationRuleMapping(
+                        PromptVariableMappingInput(
                             variable="input",
-                            source=EvaluationRuleMappingSource.INPUT,
+                            source=PromptVariableMappingSource.INPUT,
                         ),
-                        EvaluationRuleMapping(
+                        PromptVariableMappingInput(
                             variable="output",
-                            source=EvaluationRuleMappingSource.OUTPUT,
+                            source=PromptVariableMappingSource.OUTPUT,
                         ),
                     ],
                 ),
@@ -402,6 +423,10 @@ class AsyncEvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def list(
         self,
         *,
@@ -458,6 +483,10 @@ class AsyncEvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         evaluator_id: str,
@@ -510,6 +539,10 @@ class AsyncEvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def delete(
         self,
         evaluator_id: str,

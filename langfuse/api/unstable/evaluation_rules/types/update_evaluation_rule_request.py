@@ -5,8 +5,8 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
 from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
-from ...commons.types.evaluation_rule_mapping import EvaluationRuleMapping
 from ...commons.types.evaluation_rule_target import EvaluationRuleTarget
+from ...commons.types.prompt_variable_mapping_input import PromptVariableMappingInput
 from .create_evaluation_rule_evaluator_assignment import (
     CreateEvaluationRuleEvaluatorAssignment,
 )
@@ -24,7 +24,7 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
     - If you only want to rename the rule or change sampling, send just those fields.
     - To add, remove, or remap evaluators, send `evaluators`. It replaces the whole assignment set, so include every evaluator the rule should keep.
     - `evaluators` cannot be combined with the deprecated `evaluator`/`mapping` pair, which only ever addressed the first assignment.
-    - If you change to an LLM-as-judge `evaluator`, send a fresh `mapping` unless you are certain the existing mapping still matches the evaluator variables.
+    - If you change to an LLM-as-judge `evaluator`, send a fresh `mapping` unless you are certain the existing mapping still matches the prompt variables.
     - If you change `target` for an LLM-as-judge rule, usually send both `filter` and `mapping` in the same request.
     - For code evaluator rules, omit `mapping`; Langfuse stores the fixed code runtime mapping automatically.
     - If you change an experiment `datasetId` filter, call `GET /api/public/v2/datasets` and use dataset `id` values from that response.
@@ -79,7 +79,7 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
     For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
     """
 
-    mapping: typing.Optional[typing.List[EvaluationRuleMapping]] = pydantic.Field(
+    mapping: typing.Optional[typing.List[PromptVariableMappingInput]] = pydantic.Field(
         default=None
     )
     """

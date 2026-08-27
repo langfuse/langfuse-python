@@ -12,8 +12,8 @@ from ....core.serialization import FieldMetadata
 from ...commons.types.code_evaluator_source_code_language import (
     CodeEvaluatorSourceCodeLanguage,
 )
-from ...commons.types.evaluation_rule_read_mapping import EvaluationRuleReadMapping
 from ...commons.types.evaluator_model_config import EvaluatorModelConfig
+from ...commons.types.prompt_variable_mapping_read import PromptVariableMappingRead
 from ...commons.types.public_evaluator_output_definition import (
     PublicEvaluatorOutputDefinition,
 )
@@ -50,7 +50,7 @@ class Evaluator_LlmAsJudge(UniversalBaseModel):
     name: str
     version: int
     variables: typing.List[str]
-    mapping: typing.Optional[typing.List[EvaluationRuleReadMapping]] = None
+    mapping: typing.Optional[typing.List[PromptVariableMappingRead]] = None
     evaluation_rule_count: typing_extensions.Annotated[
         int, FieldMetadata(alias="evaluationRuleCount")
     ]
@@ -94,7 +94,7 @@ class Evaluator_Code(UniversalBaseModel):
     name: str
     version: int
     variables: typing.List[str]
-    mapping: typing.Optional[typing.List[EvaluationRuleReadMapping]] = None
+    mapping: typing.Optional[typing.List[PromptVariableMappingRead]] = None
     evaluation_rule_count: typing_extensions.Annotated[
         int, FieldMetadata(alias="evaluationRuleCount")
     ]

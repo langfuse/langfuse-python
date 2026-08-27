@@ -8,6 +8,10 @@ T_Result = typing.TypeVar("T_Result")
 
 
 class LegacyEvaluationObject(enum.StrEnum):
+    """
+    **Deprecated:** Legacy Langfuse object used by a trace or dataset evaluation rule.
+    """
+
     TRACE = "trace"
     SPAN = "span"
     GENERATION = "generation"

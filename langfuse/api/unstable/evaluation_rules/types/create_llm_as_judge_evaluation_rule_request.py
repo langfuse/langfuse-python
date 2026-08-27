@@ -5,8 +5,8 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
 from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
-from ...commons.types.evaluation_rule_mapping import EvaluationRuleMapping
 from ...commons.types.evaluation_rule_target import EvaluationRuleTarget
+from ...commons.types.prompt_variable_mapping_input import PromptVariableMappingInput
 from .llm_as_judge_evaluation_rule_evaluator_reference import (
     LlmAsJudgeEvaluationRuleEvaluatorReference,
 )
@@ -52,12 +52,12 @@ class CreateLlmAsJudgeEvaluationRuleRequest(UniversalBaseModel):
     For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
     """
 
-    mapping: typing.List[EvaluationRuleMapping] = pydantic.Field()
+    mapping: typing.List[PromptVariableMappingInput] = pydantic.Field()
     """
     LLM-as-judge variable mappings.
     
-    Every evaluator variable must appear exactly once.
-    Build this list from the evaluator `variables` array returned by the evaluator endpoints.
+    Every prompt variable must appear exactly once.
+    Build this list from the evaluator's `variables` array.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
