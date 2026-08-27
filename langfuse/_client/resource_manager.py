@@ -134,10 +134,10 @@ class LangfuseResourceManager:
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
     ) -> "LangfuseResourceManager":
-        if public_key in cls._instances:
-            return cls._instances[public_key]
-
         with cls._lock:
+            if public_key in cls._instances:
+                return cls._instances[public_key]
+
             if public_key not in cls._instances:
                 instance = super(LangfuseResourceManager, cls).__new__(cls)
 
@@ -209,6 +209,8 @@ class LangfuseResourceManager:
         self.mask_otel_spans = mask_otel_spans
         self.environment = environment
         self._shutdown = False
+        self._shutdown_event = threading.Event()
+        self._admission_lock = threading.Lock()
 
         # Store additional client settings for get_client() to use
         self.timeout = timeout
@@ -420,6 +422,18 @@ class LangfuseResourceManager:
         # the lock is class-level state needed by the child (e.g. to create a new client)
         # even if this particular instance was already shut down.
         LangfuseResourceManager._lock = threading.RLock()
+        # Recreate shutdown event and admission lock for child process
+        if hasattr(self, "_shutdown_event"):
+            self._shutdown_event = threading.Event()
+            if self._shutdown:
+                self._shutdown_event.set()
+        if hasattr(self, "_admission_lock"):
+            self._admission_lock = threading.Lock()
+        # Recreate media manager state lock if held at fork
+        if hasattr(self, "_media_manager") and hasattr(
+            self._media_manager, "_state_lock"
+        ):
+            self._media_manager._state_lock = threading.Lock()
 
         if self._shutdown:
             return
@@ -508,10 +522,16 @@ class LangfuseResourceManager:
             )
 
             if should_sample:
-                langfuse_logger.debug(
-                    f"Score: Enqueuing event type={event['type']} for trace_id={event['body'].trace_id} name={event['body'].name} value={event['body'].value}"
-                )
-                self._score_ingestion_queue.put(event, block=False)
+                with self._admission_lock:
+                    if self._shutdown:
+                        langfuse_logger.warning(
+                            "Score: Dropping event because the Langfuse client has already been shut down."
+                        )
+                        return
+                    langfuse_logger.debug(
+                        f"Score: Enqueuing event type={event['type']} for trace_id={event['body'].trace_id} name={event['body'].name} value={event['body'].value}"
+                    )
+                    self._score_ingestion_queue.put(event, block=False)
 
         except Full:
             langfuse_logger.warning(
@@ -531,10 +551,16 @@ class LangfuseResourceManager:
         event: dict,
     ) -> None:
         try:
-            langfuse_logger.debug(
-                f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
-            )
-            self._score_ingestion_queue.put(event, block=False)
+            with self._admission_lock:
+                if self._shutdown:
+                    langfuse_logger.warning(
+                        "Trace: Dropping event because the Langfuse client has already been shut down."
+                    )
+                    return
+                langfuse_logger.debug(
+                    f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
+                )
+                self._score_ingestion_queue.put(event, block=False)
 
         except Full:
             langfuse_logger.warning(
@@ -612,13 +638,40 @@ class LangfuseResourceManager:
         langfuse_logger.debug("Successfully flushed media upload queue")
 
     def shutdown(self) -> None:
-        self._shutdown = True
+        is_first = False
+        with self._admission_lock:
+            if self._shutdown:
+                # Another thread already started shutdown; wait for it
+                pass
+            else:
+                self._shutdown = True
+                is_first = True
+
+        if not is_first:
+            # Wait indefinitely for the first shutdown to complete.
+            # A timeout would hide an incomplete shutdown and violate
+            # the invariant that shutdown() only returns after resources
+            # are drained and consumers stopped.
+            self._shutdown_event.wait()
+            return
 
         # Unregister the atexit handler first
-        atexit.unregister(self.shutdown)
+        try:
+            atexit.unregister(self.shutdown)
+        except Exception:
+            pass
 
-        self.flush()
-        self._stop_and_join_consumer_threads()
+        try:
+            self.flush()
+        finally:
+            try:
+                # Block further media enqueues that could be stranded
+                # after flush but before consumers are stopped. Media discovered
+                # during the preceding force_flush() was already enqueued.
+                self._media_manager.begin_shutdown()
+                self._stop_and_join_consumer_threads()
+            finally:
+                self._shutdown_event.set()
 
 
 def _init_tracer_provider(
