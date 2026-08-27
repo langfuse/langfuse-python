@@ -9,9 +9,9 @@ from ....core.serialization import FieldMetadata
 from .legacy_evaluation_object import LegacyEvaluationObject
 
 
-class LegacyEvaluationRuleMapping(UniversalBaseModel):
+class LegacyPromptVariableMapping(UniversalBaseModel):
     """
-    Maps one evaluator variable to a trace, dataset item, or field on a named observation in a legacy rule.
+    **Deprecated:** Connects one prompt variable to data from a trace, dataset item, or named observation in a legacy rule.
     """
 
     variable: str

@@ -7,7 +7,7 @@ import pydantic
 import typing_extensions
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
-from ...commons.types.evaluation_rule_read_mapping import EvaluationRuleReadMapping
+from ...commons.types.prompt_variable_mapping_read import PromptVariableMappingRead
 
 
 class EvaluatorBase(UniversalBaseModel):
@@ -33,7 +33,7 @@ class EvaluatorBase(UniversalBaseModel):
     LLM evaluators require every variable to be mapped exactly once. Code evaluators always expose the fixed runtime payload fields and Langfuse maps them automatically.
     """
 
-    mapping: typing.Optional[typing.List[EvaluationRuleReadMapping]] = pydantic.Field(
+    mapping: typing.Optional[typing.List[PromptVariableMappingRead]] = pydantic.Field(
         default=None
     )
     """

@@ -32,8 +32,6 @@ if typing.TYPE_CHECKING:
         EvaluationRuleFilter_StringObject,
         EvaluationRuleFilter_StringOptions,
     )
-    from .evaluation_rule_mapping import EvaluationRuleMapping
-    from .evaluation_rule_mapping_source import EvaluationRuleMappingSource
     from .evaluation_rule_null_filter_operator import EvaluationRuleNullFilterOperator
     from .evaluation_rule_number_filter_operator import (
         EvaluationRuleNumberFilterOperator,
@@ -41,7 +39,6 @@ if typing.TYPE_CHECKING:
     from .evaluation_rule_options_filter_operator import (
         EvaluationRuleOptionsFilterOperator,
     )
-    from .evaluation_rule_read_mapping import EvaluationRuleReadMapping
     from .evaluation_rule_status import EvaluationRuleStatus
     from .evaluation_rule_string_filter_operator import (
         EvaluationRuleStringFilterOperator,
@@ -60,6 +57,9 @@ if typing.TYPE_CHECKING:
     from .null_evaluation_rule_filter import NullEvaluationRuleFilter
     from .number_evaluation_rule_filter import NumberEvaluationRuleFilter
     from .number_object_evaluation_rule_filter import NumberObjectEvaluationRuleFilter
+    from .prompt_variable_mapping_input import PromptVariableMappingInput
+    from .prompt_variable_mapping_read import PromptVariableMappingRead
+    from .prompt_variable_mapping_source import PromptVariableMappingSource
     from .public_boolean_evaluator_output_definition import (
         PublicBooleanEvaluatorOutputDefinition,
     )
@@ -103,12 +103,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EvaluationRuleFilter_String": ".evaluation_rule_filter",
     "EvaluationRuleFilter_StringObject": ".evaluation_rule_filter",
     "EvaluationRuleFilter_StringOptions": ".evaluation_rule_filter",
-    "EvaluationRuleMapping": ".evaluation_rule_mapping",
-    "EvaluationRuleMappingSource": ".evaluation_rule_mapping_source",
     "EvaluationRuleNullFilterOperator": ".evaluation_rule_null_filter_operator",
     "EvaluationRuleNumberFilterOperator": ".evaluation_rule_number_filter_operator",
     "EvaluationRuleOptionsFilterOperator": ".evaluation_rule_options_filter_operator",
-    "EvaluationRuleReadMapping": ".evaluation_rule_read_mapping",
     "EvaluationRuleStatus": ".evaluation_rule_status",
     "EvaluationRuleStringFilterOperator": ".evaluation_rule_string_filter_operator",
     "EvaluationRuleTarget": ".evaluation_rule_target",
@@ -123,6 +120,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NullEvaluationRuleFilter": ".null_evaluation_rule_filter",
     "NumberEvaluationRuleFilter": ".number_evaluation_rule_filter",
     "NumberObjectEvaluationRuleFilter": ".number_object_evaluation_rule_filter",
+    "PromptVariableMappingInput": ".prompt_variable_mapping_input",
+    "PromptVariableMappingRead": ".prompt_variable_mapping_read",
+    "PromptVariableMappingSource": ".prompt_variable_mapping_source",
     "PublicBooleanEvaluatorOutputDefinition": ".public_boolean_evaluator_output_definition",
     "PublicCategoricalEvaluatorOutputDefinition": ".public_categorical_evaluator_output_definition",
     "PublicCategoricalEvaluatorOutputScoreDefinition": ".public_categorical_evaluator_output_score_definition",
@@ -184,12 +184,9 @@ __all__ = [
     "EvaluationRuleFilter_String",
     "EvaluationRuleFilter_StringObject",
     "EvaluationRuleFilter_StringOptions",
-    "EvaluationRuleMapping",
-    "EvaluationRuleMappingSource",
     "EvaluationRuleNullFilterOperator",
     "EvaluationRuleNumberFilterOperator",
     "EvaluationRuleOptionsFilterOperator",
-    "EvaluationRuleReadMapping",
     "EvaluationRuleStatus",
     "EvaluationRuleStringFilterOperator",
     "EvaluationRuleTarget",
@@ -204,6 +201,9 @@ __all__ = [
     "NullEvaluationRuleFilter",
     "NumberEvaluationRuleFilter",
     "NumberObjectEvaluationRuleFilter",
+    "PromptVariableMappingInput",
+    "PromptVariableMappingRead",
+    "PromptVariableMappingSource",
     "PublicBooleanEvaluatorOutputDefinition",
     "PublicCategoricalEvaluatorOutputDefinition",
     "PublicCategoricalEvaluatorOutputScoreDefinition",

@@ -2,28 +2,24 @@
 
 import typing
 
-from ....core import enum
+from ...core import enum
 
 T_Result = typing.TypeVar("T_Result")
 
 
-class EvaluationRuleMappingSource(enum.StrEnum):
+class PromptVariableMappingSource(enum.StrEnum):
     """
     Source field used to populate a prompt variable.
 
     Use these values when mapping evaluator prompt variables to live data.
 
-    Target-specific rules:
-    - `target=observation` supports `input`, `output`, `metadata`, and `tool_calls`
-    - `target=experiment` supports `input`, `output`, `metadata`, `tool_calls`, `expected_output`, and `experiment_item_metadata`
-
     Source semantics:
-    - `input`: the observation or experiment input payload
-    - `output`: the observation or experiment output payload
-    - `metadata`: the metadata object for the target. Combine with `jsonPath` when you need one nested field instead of the whole object.
+    - `input`: the observation input payload
+    - `output`: the observation output payload
+    - `metadata`: the observation metadata object. Combine with `jsonPath` when you need one nested field instead of the whole object.
     - `tool_calls`: the tool calls recorded on the observation, as an array of `{id, name, arguments, type, index}` objects in the order the model emitted them. Combine with `jsonPath` (for example `$[*].name`) to select parts of each call.
-    - `expected_output`: the experiment item's expected output. Only valid for `target=experiment`.
-    - `experiment_item_metadata`: the experiment item's metadata object. Only valid for `target=experiment`.
+    - `expected_output`: the experiment item's expected output when the observation belongs to an experiment.
+    - `experiment_item_metadata`: the experiment item's metadata when the observation belongs to an experiment.
     """
 
     INPUT = "input"
@@ -42,15 +38,15 @@ class EvaluationRuleMappingSource(enum.StrEnum):
         expected_output: typing.Callable[[], T_Result],
         experiment_item_metadata: typing.Callable[[], T_Result],
     ) -> T_Result:
-        if self is EvaluationRuleMappingSource.INPUT:
+        if self is PromptVariableMappingSource.INPUT:
             return input()
-        if self is EvaluationRuleMappingSource.OUTPUT:
+        if self is PromptVariableMappingSource.OUTPUT:
             return output()
-        if self is EvaluationRuleMappingSource.METADATA:
+        if self is PromptVariableMappingSource.METADATA:
             return metadata()
-        if self is EvaluationRuleMappingSource.TOOL_CALLS:
+        if self is PromptVariableMappingSource.TOOL_CALLS:
             return tool_calls()
-        if self is EvaluationRuleMappingSource.EXPECTED_OUTPUT:
+        if self is PromptVariableMappingSource.EXPECTED_OUTPUT:
             return expected_output()
-        if self is EvaluationRuleMappingSource.EXPERIMENT_ITEM_METADATA:
+        if self is PromptVariableMappingSource.EXPERIMENT_ITEM_METADATA:
             return experiment_item_metadata()

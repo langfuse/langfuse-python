@@ -4,13 +4,13 @@ import typing
 
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
-from ...commons.types.evaluation_rule_read_mapping import EvaluationRuleReadMapping
+from ...commons.types.prompt_variable_mapping_read import PromptVariableMappingRead
 from .evaluation_rule_evaluator import EvaluationRuleEvaluator
 
 
 class EvaluationRuleEvaluatorAssignment(UniversalBaseModel):
     evaluator: EvaluationRuleEvaluator
-    mapping: typing.Optional[typing.List[EvaluationRuleReadMapping]] = pydantic.Field(
+    mapping: typing.Optional[typing.List[PromptVariableMappingRead]] = pydantic.Field(
         default=None
     )
     """

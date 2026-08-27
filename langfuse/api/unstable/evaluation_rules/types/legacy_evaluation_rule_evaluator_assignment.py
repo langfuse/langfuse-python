@@ -5,12 +5,16 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
 from .evaluation_rule_evaluator import EvaluationRuleEvaluator
-from .legacy_evaluation_rule_mapping import LegacyEvaluationRuleMapping
+from .legacy_prompt_variable_mapping import LegacyPromptVariableMapping
 
 
 class LegacyEvaluationRuleEvaluatorAssignment(UniversalBaseModel):
+    """
+    **Deprecated:** Evaluator assignment on a legacy trace or dataset rule.
+    """
+
     evaluator: EvaluationRuleEvaluator
-    mapping: typing.Optional[typing.List[LegacyEvaluationRuleMapping]] = None
+    mapping: typing.Optional[typing.List[LegacyPromptVariableMapping]] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

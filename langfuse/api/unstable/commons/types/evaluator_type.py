@@ -9,7 +9,7 @@ T_Result = typing.TypeVar("T_Result")
 
 class EvaluatorType(enum.StrEnum):
     """
-    The evaluator engine type.
+    The evaluator type.
 
     The unstable public API supports LLM-as-a-judge and code evaluators.
     """

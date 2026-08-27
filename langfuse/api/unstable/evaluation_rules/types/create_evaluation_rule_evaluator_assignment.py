@@ -4,7 +4,7 @@ import typing
 
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
-from ...commons.types.evaluation_rule_mapping import EvaluationRuleMapping
+from ...commons.types.prompt_variable_mapping_input import PromptVariableMappingInput
 from .create_evaluation_rule_evaluator_reference import (
     CreateEvaluationRuleEvaluatorReference,
 )
@@ -12,7 +12,7 @@ from .create_evaluation_rule_evaluator_reference import (
 
 class CreateEvaluationRuleEvaluatorAssignment(UniversalBaseModel):
     evaluator: CreateEvaluationRuleEvaluatorReference
-    mapping: typing.Optional[typing.List[EvaluationRuleMapping]] = pydantic.Field(
+    mapping: typing.Optional[typing.List[PromptVariableMappingInput]] = pydantic.Field(
         default=None
     )
     """
