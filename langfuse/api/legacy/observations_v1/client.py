@@ -3,6 +3,7 @@
 import datetime as dt
 import typing
 
+import typing_extensions
 from ...commons.types.observation_level import ObservationLevel
 from ...commons.types.observations_view_single import ObservationsViewSingle
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
@@ -26,6 +27,10 @@ class ObservationsV1Client:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         observation_id: str,
@@ -68,6 +73,10 @@ class ObservationsV1Client:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get_many(
         self,
         *,
@@ -274,6 +283,10 @@ class AsyncObservationsV1Client:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         observation_id: str,
@@ -324,6 +337,10 @@ class AsyncObservationsV1Client:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get_many(
         self,
         *,

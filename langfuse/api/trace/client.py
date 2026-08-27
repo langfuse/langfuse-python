@@ -3,6 +3,7 @@
 import datetime as dt
 import typing
 
+import typing_extensions
 from ..commons.types.trace_with_full_details import TraceWithFullDetails
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
@@ -29,6 +30,10 @@ class TraceClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         trace_id: str,
@@ -112,6 +117,10 @@ class TraceClient:
         _response = self._raw_client.delete(trace_id, request_options=request_options)
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def list(
         self,
         *,
@@ -379,6 +388,10 @@ class AsyncTraceClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         trace_id: str,
@@ -480,6 +493,10 @@ class AsyncTraceClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def list(
         self,
         *,

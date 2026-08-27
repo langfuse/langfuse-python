@@ -16,6 +16,7 @@ dependencies = [
     "opentelemetry-api>=1.33.1,<2",
     "opentelemetry-sdk>=1.33.1,<2",
     "opentelemetry-exporter-otlp-proto-http>=1.33.1,<2",
+    "typing-extensions>=4.12.2,<5",
 ]
 
 [dependency-groups]
