@@ -1327,12 +1327,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             self._log_debug_event(
                 "on_llm_end", run_id, parent_run_id, response=response, kwargs=kwargs
             )
-            response_generation = response.generations[-1][-1]
-            extracted_response = (
-                self._convert_message_to_dict(response_generation.message)
-                if isinstance(response_generation, ChatGeneration)
-                else _extract_raw_response(response_generation)
-            )
+            extracted_response = self._extract_llm_result_response(response)
 
             llm_usage = _parse_usage(response)
 
@@ -1500,6 +1495,20 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         langfuse_logger.debug(
             f"Event: {event_name}, run_id: {run_id}, parent_run_id: {parent_run_id}"
         )
+
+    def _extract_llm_result_response(self, response: LLMResult) -> Any:
+        for generation in reversed(response.generations):
+            if not generation:
+                continue
+
+            response_generation = generation[-1]
+            return (
+                self._convert_message_to_dict(response_generation.message)
+                if isinstance(response_generation, ChatGeneration)
+                else _extract_raw_response(response_generation)
+            )
+
+        return None
 
 
 def _extract_raw_response(last_response: Any) -> Any:
