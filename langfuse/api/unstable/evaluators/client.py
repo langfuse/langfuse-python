@@ -31,7 +31,7 @@ class EvaluatorsClient:
         return self._raw_client
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     def create(
@@ -141,7 +141,7 @@ class EvaluatorsClient:
         return _response.data
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     def list(
@@ -193,7 +193,7 @@ class EvaluatorsClient:
         return _response.data
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     def get(
@@ -239,7 +239,7 @@ class EvaluatorsClient:
         return _response.data
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     def delete(
@@ -306,7 +306,7 @@ class AsyncEvaluatorsClient:
         return self._raw_client
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     async def create(
@@ -424,7 +424,7 @@ class AsyncEvaluatorsClient:
         return _response.data
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     async def list(
@@ -484,7 +484,7 @@ class AsyncEvaluatorsClient:
         return _response.data
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     async def get(
@@ -540,7 +540,7 @@ class AsyncEvaluatorsClient:
         return _response.data
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
         category=None,
     )
     async def delete(
