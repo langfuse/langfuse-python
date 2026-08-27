@@ -3,6 +3,7 @@
 import datetime as dt
 import typing
 
+import typing_extensions
 from ..commons.types.create_score_value import CreateScoreValue
 from ..commons.types.score import Score
 from ..commons.types.score_data_type import ScoreDataType
@@ -134,6 +135,10 @@ class ScoresClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get_many(
         self,
         *,
@@ -275,6 +280,10 @@ class ScoresClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` with the `id` filter instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:
@@ -439,6 +448,10 @@ class AsyncScoresClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get_many(
         self,
         *,
@@ -588,6 +601,10 @@ class AsyncScoresClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` with the `id` filter instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get_by_id(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Score:

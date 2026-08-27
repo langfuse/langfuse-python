@@ -8,6 +8,10 @@ T_Result = typing.TypeVar("T_Result")
 
 
 class LegacyEvaluationRuleTarget(enum.StrEnum):
+    """
+    **Deprecated:** Legacy trace or dataset evaluation target.
+    """
+
     TRACE = "trace"
     DATASET = "dataset"
 

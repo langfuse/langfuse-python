@@ -19,7 +19,7 @@ class LlmAsJudgeEvaluationRuleEvaluatorReference(UniversalBaseModel):
 
     type: typing.Optional[LlmAsJudgeEvaluatorType] = pydantic.Field(default=None)
     """
-    Evaluator engine type. Defaults to `llm_as_judge` when omitted.
+    Evaluator type. Defaults to `llm_as_judge` when omitted.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

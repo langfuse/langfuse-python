@@ -4,14 +4,14 @@ import typing
 
 import pydantic
 import typing_extensions
-from ....core.pydantic_utilities import UniversalBaseModel
-from ....core.serialization import FieldMetadata
-from .evaluation_rule_mapping_source import EvaluationRuleMappingSource
+from ...core.pydantic_utilities import UniversalBaseModel
+from ...core.serialization import FieldMetadata
+from .prompt_variable_mapping_source import PromptVariableMappingSource
 
 
-class EvaluationRuleMapping(UniversalBaseModel):
+class PromptVariableMappingInput(UniversalBaseModel):
     """
-    Maps one evaluator variable to one source field from the target object.
+    Connects one prompt variable to data from an observation or experiment.
 
     Manual mappings are used for `llm_as_judge` evaluators. `code` evaluators use a fixed runtime mapping managed by Langfuse.
 
@@ -20,26 +20,22 @@ class EvaluationRuleMapping(UniversalBaseModel):
     2. Read the evaluator `variables` array.
     3. Add exactly one mapping object for each variable in that array.
     4. Use the variable name exactly as returned, without braces such as `{{` or `}}`.
-    5. Choose a `source` that is valid for the selected `target`.
+    5. Choose the source field that should populate the variable.
 
     `jsonPath` is optional. Use it only when the selected source is a JSON object and you want to extract one nested field before inserting it into the evaluator prompt.
 
-    Recovery guidance:
-    - `invalid_variable_mapping`: the variable name is unknown for this evaluator, or the selected `source` is not valid for the chosen `target`
-    - `missing_variable_mapping`: one or more LLM-as-judge evaluator variables are not mapped yet
-    - `duplicate_variable_mapping`: the same evaluator variable appears more than once
-    - `invalid_json_path`: the JSONPath expression is malformed. Remove it or correct it.
+    Invalid, missing, or duplicate mappings return a validation error. Malformed JSONPath expressions are also rejected.
 
     Examples
     --------
-    from langfuse.unstable.commons import (
-        EvaluationRuleMapping,
-        EvaluationRuleMappingSource,
+    from langfuse.evaluation_commons import (
+        PromptVariableMappingInput,
+        PromptVariableMappingSource,
     )
 
-    EvaluationRuleMapping(
+    PromptVariableMappingInput(
         variable="input",
-        source=EvaluationRuleMappingSource.INPUT,
+        source=PromptVariableMappingSource.INPUT,
     )
     """
 
@@ -50,13 +46,11 @@ class EvaluationRuleMapping(UniversalBaseModel):
     Example: for the prompt `Judge {{input}} against {{output}}`, use `input` and `output`.
     """
 
-    source: EvaluationRuleMappingSource = pydantic.Field()
+    source: PromptVariableMappingSource = pydantic.Field()
     """
     Source field that should populate the prompt variable.
     
-    Quick reference:
-    - `target=observation`: `input`, `output`, `metadata`, `tool_calls`
-    - `target=experiment`: `input`, `output`, `metadata`, `tool_calls`, `expected_output`, `experiment_item_metadata`
+    Available sources are `input`, `output`, `metadata`, `tool_calls`, `expected_output`, and `experiment_item_metadata`.
     """
 
     json_path: typing_extensions.Annotated[

@@ -36,8 +36,8 @@ if typing.TYPE_CHECKING:
     from .legacy_evaluation_rule_evaluator_assignment import (
         LegacyEvaluationRuleEvaluatorAssignment,
     )
-    from .legacy_evaluation_rule_mapping import LegacyEvaluationRuleMapping
     from .legacy_evaluation_rule_target import LegacyEvaluationRuleTarget
+    from .legacy_prompt_variable_mapping import LegacyPromptVariableMapping
     from .llm_as_judge_evaluation_rule_evaluator_reference import (
         LlmAsJudgeEvaluationRuleEvaluatorReference,
     )
@@ -63,8 +63,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LegacyEvaluationObject": ".legacy_evaluation_object",
     "LegacyEvaluationRule": ".legacy_evaluation_rule",
     "LegacyEvaluationRuleEvaluatorAssignment": ".legacy_evaluation_rule_evaluator_assignment",
-    "LegacyEvaluationRuleMapping": ".legacy_evaluation_rule_mapping",
     "LegacyEvaluationRuleTarget": ".legacy_evaluation_rule_target",
+    "LegacyPromptVariableMapping": ".legacy_prompt_variable_mapping",
     "LlmAsJudgeEvaluationRuleEvaluatorReference": ".llm_as_judge_evaluation_rule_evaluator_reference",
     "LlmAsJudgeEvaluatorType": ".llm_as_judge_evaluator_type",
     "ReadableEvaluationRule": ".readable_evaluation_rule",
@@ -118,8 +118,8 @@ __all__ = [
     "LegacyEvaluationObject",
     "LegacyEvaluationRule",
     "LegacyEvaluationRuleEvaluatorAssignment",
-    "LegacyEvaluationRuleMapping",
     "LegacyEvaluationRuleTarget",
+    "LegacyPromptVariableMapping",
     "LlmAsJudgeEvaluationRuleEvaluatorReference",
     "LlmAsJudgeEvaluatorType",
     "ReadableEvaluationRule",

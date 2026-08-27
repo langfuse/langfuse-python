@@ -2,11 +2,12 @@
 
 import typing
 
+import typing_extensions
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ..commons.types.evaluation_rule_filter import EvaluationRuleFilter
-from ..commons.types.evaluation_rule_mapping import EvaluationRuleMapping
 from ..commons.types.evaluation_rule_target import EvaluationRuleTarget
+from ..commons.types.prompt_variable_mapping_input import PromptVariableMappingInput
 from .raw_client import AsyncRawEvaluationRulesClient, RawEvaluationRulesClient
 from .types.create_evaluation_rule_evaluator_assignment import (
     CreateEvaluationRuleEvaluatorAssignment,
@@ -37,6 +38,10 @@ class EvaluationRulesClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def create(
         self,
         *,
@@ -99,10 +104,10 @@ class EvaluationRulesClient:
         from langfuse import LangfuseAPI
         from langfuse.unstable.commons import (
             EvaluationRuleFilter_StringOptions,
-            EvaluationRuleMapping,
-            EvaluationRuleMappingSource,
             EvaluationRuleOptionsFilterOperator,
             EvaluationRuleTarget,
+            PromptVariableMappingInput,
+            PromptVariableMappingSource,
         )
         from langfuse.unstable.evaluation_rules import (
             CreateLlmAsJudgeEvaluationRuleRequest,
@@ -136,13 +141,13 @@ class EvaluationRulesClient:
                     )
                 ],
                 mapping=[
-                    EvaluationRuleMapping(
+                    PromptVariableMappingInput(
                         variable="input",
-                        source=EvaluationRuleMappingSource.INPUT,
+                        source=PromptVariableMappingSource.INPUT,
                     ),
-                    EvaluationRuleMapping(
+                    PromptVariableMappingInput(
                         variable="output",
-                        source=EvaluationRuleMappingSource.OUTPUT,
+                        source=PromptVariableMappingSource.OUTPUT,
                     ),
                 ],
             ),
@@ -153,6 +158,10 @@ class EvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def list(
         self,
         *,
@@ -199,6 +208,10 @@ class EvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         evaluation_rule_id: str,
@@ -243,6 +256,10 @@ class EvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def update(
         self,
         evaluation_rule_id: str,
@@ -256,7 +273,7 @@ class EvaluationRulesClient:
         enabled: typing.Optional[bool] = OMIT,
         sampling: typing.Optional[float] = OMIT,
         filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
-        mapping: typing.Optional[typing.Sequence[EvaluationRuleMapping]] = OMIT,
+        mapping: typing.Optional[typing.Sequence[PromptVariableMappingInput]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> EvaluationRule:
         """
@@ -316,7 +333,7 @@ class EvaluationRulesClient:
 
             For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
 
-        mapping : typing.Optional[typing.Sequence[EvaluationRuleMapping]]
+        mapping : typing.Optional[typing.Sequence[PromptVariableMappingInput]]
             Updated LLM-as-judge variable mappings.
 
             Do not send this field for code evaluator rules. Langfuse stores the fixed code runtime mapping automatically and returns it in the response.
@@ -358,6 +375,10 @@ class EvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def delete(
         self,
         evaluation_rule_id: str,
@@ -418,6 +439,10 @@ class AsyncEvaluationRulesClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def create(
         self,
         *,
@@ -482,10 +507,10 @@ class AsyncEvaluationRulesClient:
         from langfuse import AsyncLangfuseAPI
         from langfuse.unstable.commons import (
             EvaluationRuleFilter_StringOptions,
-            EvaluationRuleMapping,
-            EvaluationRuleMappingSource,
             EvaluationRuleOptionsFilterOperator,
             EvaluationRuleTarget,
+            PromptVariableMappingInput,
+            PromptVariableMappingSource,
         )
         from langfuse.unstable.evaluation_rules import (
             CreateLlmAsJudgeEvaluationRuleRequest,
@@ -522,13 +547,13 @@ class AsyncEvaluationRulesClient:
                         )
                     ],
                     mapping=[
-                        EvaluationRuleMapping(
+                        PromptVariableMappingInput(
                             variable="input",
-                            source=EvaluationRuleMappingSource.INPUT,
+                            source=PromptVariableMappingSource.INPUT,
                         ),
-                        EvaluationRuleMapping(
+                        PromptVariableMappingInput(
                             variable="output",
-                            source=EvaluationRuleMappingSource.OUTPUT,
+                            source=PromptVariableMappingSource.OUTPUT,
                         ),
                     ],
                 ),
@@ -542,6 +567,10 @@ class AsyncEvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def list(
         self,
         *,
@@ -596,6 +625,10 @@ class AsyncEvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         evaluation_rule_id: str,
@@ -648,6 +681,10 @@ class AsyncEvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def update(
         self,
         evaluation_rule_id: str,
@@ -661,7 +698,7 @@ class AsyncEvaluationRulesClient:
         enabled: typing.Optional[bool] = OMIT,
         sampling: typing.Optional[float] = OMIT,
         filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
-        mapping: typing.Optional[typing.Sequence[EvaluationRuleMapping]] = OMIT,
+        mapping: typing.Optional[typing.Sequence[PromptVariableMappingInput]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> EvaluationRule:
         """
@@ -721,7 +758,7 @@ class AsyncEvaluationRulesClient:
 
             For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
 
-        mapping : typing.Optional[typing.Sequence[EvaluationRuleMapping]]
+        mapping : typing.Optional[typing.Sequence[PromptVariableMappingInput]]
             Updated LLM-as-judge variable mappings.
 
             Do not send this field for code evaluator rules. Langfuse stores the fixed code runtime mapping automatically and returns it in the response.
@@ -771,6 +808,10 @@ class AsyncEvaluationRulesClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on November 16, 2026. Use the stable `/api/public/v2/evaluation-rules` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def delete(
         self,
         evaluation_rule_id: str,
