@@ -723,7 +723,8 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self._otel_tracer.start_span(name=name)
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    if parent_span_id is None:
+                        otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return self._create_observation_from_otel_span(
                         otel_span=otel_span,
@@ -1099,6 +1100,7 @@ class Langfuse:
                             as_type=as_type,
                             name=name,
                             remote_parent_span=remote_parent_span,
+                            is_root=parent_span_id is None,
                             parent=None,
                             end_on_exit=end_on_exit,
                             input=input,
@@ -1164,6 +1166,7 @@ class Langfuse:
                             as_type=as_type,
                             name=name,
                             remote_parent_span=remote_parent_span,
+                            is_root=parent_span_id is None,
                             parent=None,
                             end_on_exit=end_on_exit,
                             input=input,
@@ -1270,6 +1273,15 @@ class Langfuse:
 
         return observation_type if isinstance(observation_type, str) else "span"
 
+    def _get_observation_type(
+        self,
+        span_class: Type[Any],
+    ) -> ObservationTypeLiteralNoEvent:
+        """Get the observation type string from a span class."""
+        observation_type = getattr(span_class, "_observation_type", "span")
+
+        return observation_type if isinstance(observation_type, str) else "span"
+
     @_agnosticcontextmanager
     def _create_span_with_parent_context(
         self,
@@ -1277,6 +1289,7 @@ class Langfuse:
         name: str,
         parent: Optional[otel_trace_api.Span] = None,
         remote_parent_span: Optional[otel_trace_api.Span] = None,
+        is_root: bool = False,
         as_type: ObservationTypeLiteralNoEvent,
         end_on_exit: Optional[bool] = None,
         input: Optional[Any] = None,
@@ -1312,7 +1325,7 @@ class Langfuse:
                 cost_details=cost_details,
                 prompt=prompt,
             ) as langfuse_span:
-                if remote_parent_span is not None:
+                if is_root:
                     langfuse_span._otel_span.set_attribute(
                         LangfuseOtelSpanAttributes.AS_ROOT, True
                     )
@@ -1693,7 +1706,8 @@ class Langfuse:
                     otel_span = self._otel_tracer.start_span(
                         name=name, start_time=timestamp
                     )
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    if parent_span_id is None:
+                        otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return cast(
                         LangfuseEvent,
