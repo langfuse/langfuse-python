@@ -12,6 +12,7 @@ Key features:
 """
 
 import base64
+import logging
 import os
 import threading
 from typing import Callable, Dict, List, Optional, cast
@@ -232,11 +233,13 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 )
                 return
 
-            langfuse_logger.debug(
-                "Trace: Processing span name='%s' | Full details:\n%s",
-                span._name,
-                span_formatter(span),
-            )
+            # span_formatter serializes the full span; skip it unless DEBUG is on
+            if langfuse_logger.isEnabledFor(logging.DEBUG):
+                langfuse_logger.debug(
+                    "Trace: Processing span name='%s' | Full details:\n%s",
+                    span.name,
+                    span_formatter(span),
+                )
 
             super().on_end(span)
         finally:
