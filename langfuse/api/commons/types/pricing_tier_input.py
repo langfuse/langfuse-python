@@ -6,7 +6,7 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
-from .pricing_tier_condition import PricingTierCondition
+from .pricing_tier_condition_input import PricingTierConditionInput
 
 
 class PricingTierInput(UniversalBaseModel):
@@ -29,9 +29,9 @@ class PricingTierInput(UniversalBaseModel):
     Must be unique within the model. Common patterns: "Standard", "High Volume Tier", "Extended Context"
     """
 
-    is_default: typing_extensions.Annotated[bool, FieldMetadata(alias="isDefault")] = (
-        pydantic.Field()
-    )
+    is_default: typing_extensions.Annotated[
+        typing.Optional[bool], FieldMetadata(alias="isDefault")
+    ] = pydantic.Field(default=None)
     """
     Whether this is the default tier. Exactly one tier per model must be marked as default.
     
@@ -40,7 +40,7 @@ class PricingTierInput(UniversalBaseModel):
     - Must have priority=0
     - Must have empty conditions array (conditions=[])
     
-    The default tier acts as a fallback when no conditional tiers match.
+    The default tier acts as a fallback when no conditional tiers match. Defaults to false when omitted.
     """
 
     priority: int = pydantic.Field()
@@ -51,7 +51,7 @@ class PricingTierInput(UniversalBaseModel):
     Conditional tiers should use priority 1, 2, 3, etc. based on their specificity.
     """
 
-    conditions: typing.List[PricingTierCondition] = pydantic.Field()
+    conditions: typing.List[PricingTierConditionInput] = pydantic.Field()
     """
     Array of conditions that must ALL be met for this tier to match (AND logic).
     

@@ -5,8 +5,11 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
 from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
-from ...commons.types.evaluation_rule_mapping import EvaluationRuleMapping
 from ...commons.types.evaluation_rule_target import EvaluationRuleTarget
+from ...commons.types.prompt_variable_mapping_input import PromptVariableMappingInput
+from .create_evaluation_rule_evaluator_assignment import (
+    CreateEvaluationRuleEvaluatorAssignment,
+)
 from .evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
 
 
@@ -19,7 +22,9 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
 
     Practical guidance:
     - If you only want to rename the rule or change sampling, send just those fields.
-    - If you change to an LLM-as-judge `evaluator`, send a fresh `mapping` unless you are certain the existing mapping still matches the evaluator variables.
+    - To add, remove, or remap evaluators, send `evaluators`. It replaces the whole assignment set, so include every evaluator the rule should keep.
+    - `evaluators` cannot be combined with the deprecated `evaluator`/`mapping` pair, which only ever addressed the first assignment.
+    - If you change to an LLM-as-judge `evaluator`, send a fresh `mapping` unless you are certain the existing mapping still matches the prompt variables.
     - If you change `target` for an LLM-as-judge rule, usually send both `filter` and `mapping` in the same request.
     - For code evaluator rules, omit `mapping`; Langfuse stores the fixed code runtime mapping automatically.
     - If you change an experiment `datasetId` filter, call `GET /api/public/v2/datasets` and use dataset `id` values from that response.
@@ -30,14 +35,24 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
     Updated deployment name.
     """
 
+    evaluators: typing.Optional[
+        typing.List[CreateEvaluationRuleEvaluatorAssignment]
+    ] = pydantic.Field(default=None)
+    """
+    Full replacement of the rule's evaluator assignments: entries that are
+    not listed are detached.
+    
+    Mutually exclusive with the deprecated `evaluator` and `mapping` fields.
+    """
+
     evaluator: typing.Optional[EvaluationRuleEvaluatorReference] = pydantic.Field(
         default=None
     )
     """
-    Updated evaluator family.
+    Deprecated single-evaluator alias: updates the first assignment only. Prefer `evaluators`.
     
     Langfuse resolves the provided evaluator family to its latest version before saving the rule.
-    A rule's evaluator type cannot be changed: provide `name` and `scope` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
+    A rule's evaluator type cannot be changed: provide `name` for an evaluator family of the rule's current type. To use a different evaluator type, create a new rule.
     """
 
     target: typing.Optional[EvaluationRuleTarget] = pydantic.Field(default=None)
@@ -64,7 +79,7 @@ class UpdateEvaluationRuleRequest(UniversalBaseModel):
     For `target=experiment`, `column=datasetId` expects dataset `id` values from `GET /api/public/v2/datasets`, not dataset names.
     """
 
-    mapping: typing.Optional[typing.List[EvaluationRuleMapping]] = pydantic.Field(
+    mapping: typing.Optional[typing.List[PromptVariableMappingInput]] = pydantic.Field(
         default=None
     )
     """

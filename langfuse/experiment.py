@@ -1017,7 +1017,7 @@ async def _run_evaluator(
             raise
 
         evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
-        logger.error(f"Evaluator {evaluator_name} failed: {e}")
+        logger.error("Evaluator %s failed: %s", evaluator_name, e)
         return []
 
 

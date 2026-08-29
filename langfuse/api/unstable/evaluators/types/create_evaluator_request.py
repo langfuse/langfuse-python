@@ -13,6 +13,7 @@ from ...commons.types.code_evaluator_source_code_language import (
 )
 from ...commons.types.evaluator_model_config import EvaluatorModelConfig
 from ...commons.types.evaluator_output_definition import EvaluatorOutputDefinition
+from ...commons.types.prompt_variable_mapping_input import PromptVariableMappingInput
 
 
 class CreateEvaluatorRequest_LlmAsJudge(UniversalBaseModel):
@@ -20,7 +21,7 @@ class CreateEvaluatorRequest_LlmAsJudge(UniversalBaseModel):
     Request body for creating an evaluator.
 
     If the same `name` already exists in your project, Langfuse creates the next version and returns it.
-    Existing evaluation rules in the same project are then moved to that new latest version automatically.
+    Existing evaluation rules automatically use the latest evaluator version.
     If `type` is omitted, Langfuse defaults it to `llm_as_judge` for backwards compatibility.
     """
 
@@ -33,6 +34,7 @@ class CreateEvaluatorRequest_LlmAsJudge(UniversalBaseModel):
     model_config_: typing_extensions.Annotated[
         typing.Optional[EvaluatorModelConfig], FieldMetadata(alias="modelConfig")
     ] = None
+    mapping: typing.Optional[typing.List[PromptVariableMappingInput]] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
@@ -44,7 +46,7 @@ class CreateEvaluatorRequest_Code(UniversalBaseModel):
     Request body for creating an evaluator.
 
     If the same `name` already exists in your project, Langfuse creates the next version and returns it.
-    Existing evaluation rules in the same project are then moved to that new latest version automatically.
+    Existing evaluation rules automatically use the latest evaluator version.
     If `type` is omitted, Langfuse defaults it to `llm_as_judge` for backwards compatibility.
     """
 

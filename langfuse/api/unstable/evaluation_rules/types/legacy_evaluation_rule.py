@@ -8,15 +8,23 @@ from ....core.serialization import FieldMetadata
 from ...commons.types.evaluation_rule_filter import EvaluationRuleFilter
 from .evaluation_rule_base import EvaluationRuleBase
 from .evaluation_rule_time_scope import EvaluationRuleTimeScope
-from .legacy_evaluation_rule_mapping import LegacyEvaluationRuleMapping
+from .legacy_evaluation_rule_evaluator_assignment import (
+    LegacyEvaluationRuleEvaluatorAssignment,
+)
 from .legacy_evaluation_rule_target import LegacyEvaluationRuleTarget
+from .legacy_prompt_variable_mapping import LegacyPromptVariableMapping
 
 
 class LegacyEvaluationRule(EvaluationRuleBase):
     """
-    Legacy trace- or dataset-level evaluation rule returned by list and get for migration.
+    **Deprecated:** Legacy trace- or dataset-level evaluation rule returned by list and get for migration.
 
-    This resource is read-only through the unstable public API. Its mapping preserves the trace, dataset item, or named observation that each evaluator variable previously read from. Its filters use the persisted legacy filter format so migration clients can read the configuration without losing information.
+    This resource is read-only through the unstable public API. Its mapping preserves the trace, dataset item, or named observation selected for each prompt variable.
+    """
+
+    evaluators: typing.List[LegacyEvaluationRuleEvaluatorAssignment] = pydantic.Field()
+    """
+    Evaluators attached to this rule in deterministic assignment order.
     """
 
     target: LegacyEvaluationRuleTarget
@@ -37,7 +45,7 @@ class LegacyEvaluationRule(EvaluationRuleBase):
     Stored filters used by the legacy trace or dataset rule.
     """
 
-    mapping: typing.List[LegacyEvaluationRuleMapping] = pydantic.Field()
+    mapping: typing.List[LegacyPromptVariableMapping] = pydantic.Field()
     """
     Stored variable mappings, including the trace, dataset item, or named observation selected for each variable.
     """

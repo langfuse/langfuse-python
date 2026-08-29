@@ -32,8 +32,6 @@ if typing.TYPE_CHECKING:
         EvaluationRuleFilter_StringObject,
         EvaluationRuleFilter_StringOptions,
     )
-    from .evaluation_rule_mapping import EvaluationRuleMapping
-    from .evaluation_rule_mapping_source import EvaluationRuleMappingSource
     from .evaluation_rule_null_filter_operator import EvaluationRuleNullFilterOperator
     from .evaluation_rule_number_filter_operator import (
         EvaluationRuleNumberFilterOperator,
@@ -55,11 +53,13 @@ if typing.TYPE_CHECKING:
         EvaluatorOutputDefinition_Numeric,
     )
     from .evaluator_output_field_definition import EvaluatorOutputFieldDefinition
-    from .evaluator_scope import EvaluatorScope
     from .evaluator_type import EvaluatorType
     from .null_evaluation_rule_filter import NullEvaluationRuleFilter
     from .number_evaluation_rule_filter import NumberEvaluationRuleFilter
     from .number_object_evaluation_rule_filter import NumberObjectEvaluationRuleFilter
+    from .prompt_variable_mapping_input import PromptVariableMappingInput
+    from .prompt_variable_mapping_read import PromptVariableMappingRead
+    from .prompt_variable_mapping_source import PromptVariableMappingSource
     from .public_boolean_evaluator_output_definition import (
         PublicBooleanEvaluatorOutputDefinition,
     )
@@ -77,6 +77,9 @@ if typing.TYPE_CHECKING:
     )
     from .public_numeric_evaluator_output_definition import (
         PublicNumericEvaluatorOutputDefinition,
+    )
+    from .public_numeric_evaluator_output_score_definition import (
+        PublicNumericEvaluatorOutputScoreDefinition,
     )
     from .string_evaluation_rule_filter import StringEvaluationRuleFilter
     from .string_object_evaluation_rule_filter import StringObjectEvaluationRuleFilter
@@ -100,8 +103,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EvaluationRuleFilter_String": ".evaluation_rule_filter",
     "EvaluationRuleFilter_StringObject": ".evaluation_rule_filter",
     "EvaluationRuleFilter_StringOptions": ".evaluation_rule_filter",
-    "EvaluationRuleMapping": ".evaluation_rule_mapping",
-    "EvaluationRuleMappingSource": ".evaluation_rule_mapping_source",
     "EvaluationRuleNullFilterOperator": ".evaluation_rule_null_filter_operator",
     "EvaluationRuleNumberFilterOperator": ".evaluation_rule_number_filter_operator",
     "EvaluationRuleOptionsFilterOperator": ".evaluation_rule_options_filter_operator",
@@ -115,11 +116,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EvaluatorOutputDefinition_Categorical": ".evaluator_output_definition",
     "EvaluatorOutputDefinition_Numeric": ".evaluator_output_definition",
     "EvaluatorOutputFieldDefinition": ".evaluator_output_field_definition",
-    "EvaluatorScope": ".evaluator_scope",
     "EvaluatorType": ".evaluator_type",
     "NullEvaluationRuleFilter": ".null_evaluation_rule_filter",
     "NumberEvaluationRuleFilter": ".number_evaluation_rule_filter",
     "NumberObjectEvaluationRuleFilter": ".number_object_evaluation_rule_filter",
+    "PromptVariableMappingInput": ".prompt_variable_mapping_input",
+    "PromptVariableMappingRead": ".prompt_variable_mapping_read",
+    "PromptVariableMappingSource": ".prompt_variable_mapping_source",
     "PublicBooleanEvaluatorOutputDefinition": ".public_boolean_evaluator_output_definition",
     "PublicCategoricalEvaluatorOutputDefinition": ".public_categorical_evaluator_output_definition",
     "PublicCategoricalEvaluatorOutputScoreDefinition": ".public_categorical_evaluator_output_score_definition",
@@ -128,6 +131,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PublicEvaluatorOutputDefinition_Categorical": ".public_evaluator_output_definition",
     "PublicEvaluatorOutputDefinition_Numeric": ".public_evaluator_output_definition",
     "PublicNumericEvaluatorOutputDefinition": ".public_numeric_evaluator_output_definition",
+    "PublicNumericEvaluatorOutputScoreDefinition": ".public_numeric_evaluator_output_score_definition",
     "StringEvaluationRuleFilter": ".string_evaluation_rule_filter",
     "StringObjectEvaluationRuleFilter": ".string_object_evaluation_rule_filter",
     "StringOptionsEvaluationRuleFilter": ".string_options_evaluation_rule_filter",
@@ -180,8 +184,6 @@ __all__ = [
     "EvaluationRuleFilter_String",
     "EvaluationRuleFilter_StringObject",
     "EvaluationRuleFilter_StringOptions",
-    "EvaluationRuleMapping",
-    "EvaluationRuleMappingSource",
     "EvaluationRuleNullFilterOperator",
     "EvaluationRuleNumberFilterOperator",
     "EvaluationRuleOptionsFilterOperator",
@@ -195,11 +197,13 @@ __all__ = [
     "EvaluatorOutputDefinition_Categorical",
     "EvaluatorOutputDefinition_Numeric",
     "EvaluatorOutputFieldDefinition",
-    "EvaluatorScope",
     "EvaluatorType",
     "NullEvaluationRuleFilter",
     "NumberEvaluationRuleFilter",
     "NumberObjectEvaluationRuleFilter",
+    "PromptVariableMappingInput",
+    "PromptVariableMappingRead",
+    "PromptVariableMappingSource",
     "PublicBooleanEvaluatorOutputDefinition",
     "PublicCategoricalEvaluatorOutputDefinition",
     "PublicCategoricalEvaluatorOutputScoreDefinition",
@@ -208,6 +212,7 @@ __all__ = [
     "PublicEvaluatorOutputDefinition_Categorical",
     "PublicEvaluatorOutputDefinition_Numeric",
     "PublicNumericEvaluatorOutputDefinition",
+    "PublicNumericEvaluatorOutputScoreDefinition",
     "StringEvaluationRuleFilter",
     "StringObjectEvaluationRuleFilter",
     "StringOptionsEvaluationRuleFilter",

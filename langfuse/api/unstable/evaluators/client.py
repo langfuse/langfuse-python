@@ -2,6 +2,7 @@
 
 import typing
 
+import typing_extensions
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawEvaluatorsClient, RawEvaluatorsClient
@@ -29,6 +30,10 @@ class EvaluatorsClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def create(
         self,
         *,
@@ -45,13 +50,14 @@ class EvaluatorsClient:
         Naming behavior:
         - If this is a new evaluator name in your project, Langfuse creates version `1`.
         - If the name already exists in your project, Langfuse creates the next version and returns it.
-        - When a new project version is created, existing evaluation rules in that project automatically move to the newest version for that evaluator name.
+        - The evaluator `id` remains stable across versions.
+        - Existing evaluation rules automatically use the latest evaluator version; no rule update is required.
 
         Recommended workflow:
         1. Create the evaluator.
         2. Read the returned `variables` array.
         3. Read the returned `outputDefinition.dataType` so the client knows whether future scores will be numeric, boolean, or categorical.
-        4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `scope`.
+        4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `type`.
 
         Code evaluator validation:
         - At creation, Langfuse only validates the request shape
@@ -85,6 +91,9 @@ class EvaluatorsClient:
             EvaluatorOutputDataType,
             EvaluatorOutputDefinition_Numeric,
             EvaluatorOutputFieldDefinition,
+            PromptVariableMappingInput,
+            PromptVariableMappingSource,
+            PublicNumericEvaluatorOutputScoreDefinition,
         )
         from langfuse.unstable.evaluators import CreateEvaluatorRequest_LlmAsJudge
 
@@ -105,7 +114,7 @@ class EvaluatorsClient:
                     reasoning=EvaluatorOutputFieldDefinition(
                         description="Explain why the score was assigned.",
                     ),
-                    score=EvaluatorOutputFieldDefinition(
+                    score=PublicNumericEvaluatorOutputScoreDefinition(
                         description="Correctness score between 0 and 1.",
                     ),
                 ),
@@ -113,6 +122,16 @@ class EvaluatorsClient:
                     provider="openai",
                     model="gpt-4.1-mini",
                 ),
+                mapping=[
+                    PromptVariableMappingInput(
+                        variable="input",
+                        source=PromptVariableMappingSource.INPUT,
+                    ),
+                    PromptVariableMappingInput(
+                        variable="output",
+                        source=PromptVariableMappingSource.OUTPUT,
+                    ),
+                ],
             ),
         )
         """
@@ -121,6 +140,10 @@ class EvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def list(
         self,
         *,
@@ -133,8 +156,7 @@ class EvaluatorsClient:
 
         Important behavior:
         - This endpoint returns the latest version of each available evaluator.
-        - Results can include evaluators from your project and Langfuse-managed evaluators.
-        - If the same evaluator name exists in both places, both are returned as separate items with different `scope` values.
+        - Every evaluator is owned by the authenticated project.
 
         Parameters
         ----------
@@ -170,6 +192,10 @@ class EvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         evaluator_id: str,
@@ -179,7 +205,7 @@ class EvaluatorsClient:
         """
         Get one evaluator by `id`.
 
-        Use this endpoint when you want the prompt, output definition, model configuration, and derived variables for the evaluator you plan to use in an evaluation rule.
+        This endpoint always returns the evaluator's latest version. Use it when you want the current prompt, output definition, model configuration, and derived variables for the evaluator you plan to use in an evaluation rule.
 
         Parameters
         ----------
@@ -212,6 +238,10 @@ class EvaluatorsClient:
         _response = self._raw_client.get(evaluator_id, request_options=request_options)
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def delete(
         self,
         evaluator_id: str,
@@ -222,9 +252,8 @@ class EvaluatorsClient:
         Delete an evaluator.
 
         Important behavior:
-        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
-        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
-        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - This deletes the evaluator including all of its stored versions.
+        - Evaluation rule assignments referencing the evaluator are also deleted.
         - Scores already produced by the evaluator are not deleted.
 
         Parameters
@@ -276,6 +305,10 @@ class AsyncEvaluatorsClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def create(
         self,
         *,
@@ -292,13 +325,14 @@ class AsyncEvaluatorsClient:
         Naming behavior:
         - If this is a new evaluator name in your project, Langfuse creates version `1`.
         - If the name already exists in your project, Langfuse creates the next version and returns it.
-        - When a new project version is created, existing evaluation rules in that project automatically move to the newest version for that evaluator name.
+        - The evaluator `id` remains stable across versions.
+        - Existing evaluation rules automatically use the latest evaluator version; no rule update is required.
 
         Recommended workflow:
         1. Create the evaluator.
         2. Read the returned `variables` array.
         3. Read the returned `outputDefinition.dataType` so the client knows whether future scores will be numeric, boolean, or categorical.
-        4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `scope`.
+        4. Create one or more evaluation rules that reference the returned evaluator family using `name` and `type`.
 
         Code evaluator validation:
         - At creation, Langfuse only validates the request shape
@@ -334,6 +368,9 @@ class AsyncEvaluatorsClient:
             EvaluatorOutputDataType,
             EvaluatorOutputDefinition_Numeric,
             EvaluatorOutputFieldDefinition,
+            PromptVariableMappingInput,
+            PromptVariableMappingSource,
+            PublicNumericEvaluatorOutputScoreDefinition,
         )
         from langfuse.unstable.evaluators import CreateEvaluatorRequest_LlmAsJudge
 
@@ -357,7 +394,7 @@ class AsyncEvaluatorsClient:
                         reasoning=EvaluatorOutputFieldDefinition(
                             description="Explain why the score was assigned.",
                         ),
-                        score=EvaluatorOutputFieldDefinition(
+                        score=PublicNumericEvaluatorOutputScoreDefinition(
                             description="Correctness score between 0 and 1.",
                         ),
                     ),
@@ -365,6 +402,16 @@ class AsyncEvaluatorsClient:
                         provider="openai",
                         model="gpt-4.1-mini",
                     ),
+                    mapping=[
+                        PromptVariableMappingInput(
+                            variable="input",
+                            source=PromptVariableMappingSource.INPUT,
+                        ),
+                        PromptVariableMappingInput(
+                            variable="output",
+                            source=PromptVariableMappingSource.OUTPUT,
+                        ),
+                    ],
                 ),
             )
 
@@ -376,6 +423,10 @@ class AsyncEvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def list(
         self,
         *,
@@ -388,8 +439,7 @@ class AsyncEvaluatorsClient:
 
         Important behavior:
         - This endpoint returns the latest version of each available evaluator.
-        - Results can include evaluators from your project and Langfuse-managed evaluators.
-        - If the same evaluator name exists in both places, both are returned as separate items with different `scope` values.
+        - Every evaluator is owned by the authenticated project.
 
         Parameters
         ----------
@@ -433,6 +483,10 @@ class AsyncEvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         evaluator_id: str,
@@ -442,7 +496,7 @@ class AsyncEvaluatorsClient:
         """
         Get one evaluator by `id`.
 
-        Use this endpoint when you want the prompt, output definition, model configuration, and derived variables for the evaluator you plan to use in an evaluation rule.
+        This endpoint always returns the evaluator's latest version. Use it when you want the current prompt, output definition, model configuration, and derived variables for the evaluator you plan to use in an evaluation rule.
 
         Parameters
         ----------
@@ -485,6 +539,10 @@ class AsyncEvaluatorsClient:
         )
         return _response.data
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, this unstable endpoint is deprecated and will be removed on September 4, 2026. Use the stable `/api/public/v2/evaluators` API instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def delete(
         self,
         evaluator_id: str,
@@ -495,9 +553,8 @@ class AsyncEvaluatorsClient:
         Delete an evaluator.
 
         Important behavior:
-        - This deletes the evaluator including all of its stored versions; `evaluatorId` may reference any version.
-        - The API returns `409` while evaluation rules still reference the evaluator. Delete those evaluation rules first.
-        - Langfuse-managed evaluators (`scope=managed`) cannot be deleted; the API returns `403`.
+        - This deletes the evaluator including all of its stored versions.
+        - Evaluation rule assignments referencing the evaluator are also deleted.
         - Scores already produced by the evaluator are not deleted.
 
         Parameters

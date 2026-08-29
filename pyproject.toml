@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "4.14.4"
+version = "4.15.1"
 description = "Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
@@ -16,6 +16,7 @@ dependencies = [
     "opentelemetry-api>=1.33.1,<2",
     "opentelemetry-sdk>=1.33.1,<2",
     "opentelemetry-exporter-otlp-proto-http>=1.33.1,<2",
+    "typing-extensions>=4.12.2,<5",
 ]
 
 [dependency-groups]
@@ -118,6 +119,7 @@ target-version = "py310"
 [tool.ruff.lint]
 extend-select = [
     "I", # Import formatting
+    "G004", # No f-strings in logging calls; pass lazy %-style args instead
     # These used to be enabled in the "local ruff.toml",
     # which was never enforced; hence, enabling these will
     # cause a large number of linting errors.
@@ -126,6 +128,8 @@ extend-select = [
     # "D401", # Enforce imperative mood in docstrings
 ]
 exclude = ["langfuse/api/**/*.py"]
+# Let G004 see the shared logger, which is re-exported rather than built per module
+logger-objects = ["langfuse.logger.langfuse_logger"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
