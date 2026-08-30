@@ -147,6 +147,7 @@ If you change CI bootstrap:
 ## Python-Specific Notes
 
 - Exception messages should not inline f-string literals in the `raise` statement. Build the message in a variable first.
+- Logging calls must not use f-strings; pass lazy `%`-style args (`langfuse_logger.debug("span=%s", name)`), enforced by ruff `G004`. Arguments are still evaluated eagerly, so guard an expensive one with `langfuse_logger.isEnabledFor(logging.DEBUG)`.
 - Prefer ASCII-only edits unless the file already uses Unicode or Unicode is clearly required.
 
 ## Release And Docs

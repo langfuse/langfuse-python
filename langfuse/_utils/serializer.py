@@ -184,7 +184,8 @@ class EventSerializer(JSONEncoder):
 
         except Exception as e:
             logger.debug(
-                f"Serialization failed for object of type {type(obj).__name__}",
+                "Serialization failed for object of type %s",
+                type(obj).__name__,
                 exc_info=e,
             )
             return f'"<not serializable object of type: {type(obj).__name__}>"'
