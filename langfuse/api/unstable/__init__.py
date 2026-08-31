@@ -143,6 +143,7 @@ if typing.TYPE_CHECKING:
         LlmAsJudgeEvaluationRuleEvaluatorReference,
         LlmAsJudgeEvaluatorType,
         ReadableEvaluationRule,
+        ReadableV2EvaluationRule,
         UpdateEvaluationRuleRequest,
     )
     from .evaluators import (
@@ -284,6 +285,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PublicNumericEvaluatorOutputDefinition": ".commons",
     "PublicNumericEvaluatorOutputScoreDefinition": ".commons",
     "ReadableEvaluationRule": ".evaluation_rules",
+    "ReadableV2EvaluationRule": ".evaluation_rules",
     "StringEvaluationRuleFilter": ".commons",
     "StringObjectEvaluationRuleFilter": ".commons",
     "StringOptionsEvaluationRuleFilter": ".commons",
@@ -455,6 +457,7 @@ __all__ = [
     "PublicNumericEvaluatorOutputDefinition",
     "PublicNumericEvaluatorOutputScoreDefinition",
     "ReadableEvaluationRule",
+    "ReadableV2EvaluationRule",
     "StringEvaluationRuleFilter",
     "StringObjectEvaluationRuleFilter",
     "StringOptionsEvaluationRuleFilter",

@@ -43,6 +43,7 @@ if typing.TYPE_CHECKING:
     )
     from .llm_as_judge_evaluator_type import LlmAsJudgeEvaluatorType
     from .readable_evaluation_rule import ReadableEvaluationRule
+    from .readable_v2evaluation_rule import ReadableV2EvaluationRule
     from .update_evaluation_rule_request import UpdateEvaluationRuleRequest
 _dynamic_imports: typing.Dict[str, str] = {
     "CodeEvaluationRuleEvaluatorReference": ".code_evaluation_rule_evaluator_reference",
@@ -68,6 +69,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LlmAsJudgeEvaluationRuleEvaluatorReference": ".llm_as_judge_evaluation_rule_evaluator_reference",
     "LlmAsJudgeEvaluatorType": ".llm_as_judge_evaluator_type",
     "ReadableEvaluationRule": ".readable_evaluation_rule",
+    "ReadableV2EvaluationRule": ".readable_v2evaluation_rule",
     "UpdateEvaluationRuleRequest": ".update_evaluation_rule_request",
 }
 
@@ -123,5 +125,6 @@ __all__ = [
     "LlmAsJudgeEvaluationRuleEvaluatorReference",
     "LlmAsJudgeEvaluatorType",
     "ReadableEvaluationRule",
+    "ReadableV2EvaluationRule",
     "UpdateEvaluationRuleRequest",
 ]
