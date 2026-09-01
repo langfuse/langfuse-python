@@ -22,6 +22,7 @@ if typing.TYPE_CHECKING:
     from .evaluator import Evaluator, Evaluator_Code, Evaluator_LlmAsJudge
     from .evaluator_base import EvaluatorBase
     from .evaluator_chat_message import EvaluatorChatMessage
+    from .evaluator_chat_message_role import EvaluatorChatMessageRole
     from .evaluator_chat_prompt import EvaluatorChatPrompt
     from .evaluator_chat_prompt_input import EvaluatorChatPromptInput
     from .evaluator_model_config import EvaluatorModelConfig
@@ -55,6 +56,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Evaluator": ".evaluator",
     "EvaluatorBase": ".evaluator_base",
     "EvaluatorChatMessage": ".evaluator_chat_message",
+    "EvaluatorChatMessageRole": ".evaluator_chat_message_role",
     "EvaluatorChatPrompt": ".evaluator_chat_prompt",
     "EvaluatorChatPromptInput": ".evaluator_chat_prompt_input",
     "EvaluatorModelConfig": ".evaluator_model_config",
@@ -118,6 +120,7 @@ __all__ = [
     "Evaluator",
     "EvaluatorBase",
     "EvaluatorChatMessage",
+    "EvaluatorChatMessageRole",
     "EvaluatorChatPrompt",
     "EvaluatorChatPromptInput",
     "EvaluatorModelConfig",

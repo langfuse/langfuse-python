@@ -24,7 +24,7 @@ class LlmAsJudgeEvaluator(EvaluatorBase):
 
     prompt: EvaluatorChatPrompt = pydantic.Field()
     """
-    The single user chat message used by the latest evaluator version.
+    Ordered chat messages used by the latest evaluator version.
     """
 
     variables: typing.List[str] = pydantic.Field()

@@ -4,14 +4,15 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
+from .evaluator_chat_message_role import EvaluatorChatMessageRole
 
 
 class EvaluatorChatMessage(UniversalBaseModel):
     """
-    One user chat message in an evaluator prompt.
+    One chat message in an evaluator prompt.
     """
 
-    role: typing.Literal["user"] = "user"
+    role: EvaluatorChatMessageRole
     content: str = pydantic.Field()
     """
     Message content. Evaluator variables use `{{variable}}` syntax.
