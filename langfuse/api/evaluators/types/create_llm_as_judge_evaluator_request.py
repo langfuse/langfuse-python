@@ -34,7 +34,7 @@ class CreateLlmAsJudgeEvaluatorRequest(UniversalBaseModel):
 
     prompt: EvaluatorChatPromptInput = pydantic.Field()
     """
-    User prompt string shortcut or a list containing exactly one user chat message.
+    User prompt string shortcut or an ordered list of chat messages.
     """
 
     model_config_: typing_extensions.Annotated[

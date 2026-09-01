@@ -34,7 +34,7 @@ class UpdateLlmAsJudgeEvaluatorRequest(UniversalBaseModel):
 
     prompt: EvaluatorChatPromptInput = pydantic.Field()
     """
-    Complete replacement user prompt string or a list containing exactly one user chat message.
+    Complete replacement user prompt string or an ordered list of chat messages.
     """
 
     model_config_: typing_extensions.Annotated[
