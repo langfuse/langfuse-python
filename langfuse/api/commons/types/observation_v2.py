@@ -157,9 +157,7 @@ class ObservationV2(UniversalBaseModel):
     Additional metadata of the observation
     """
 
-    provided_model_name: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="providedModelName")
-    ] = pydantic.Field(default=None)
+    model: typing.Optional[str] = pydantic.Field(default=None)
     """
     The model name as provided by the user
     """
