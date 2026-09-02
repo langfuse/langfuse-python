@@ -38,9 +38,15 @@ from langfuse.logger import langfuse_logger
 from langfuse.types import TraceContext
 
 try:
-    import langchain
+    # Use langchain_core as the version sentinel instead of the langchain
+    # umbrella package: langchain_core is the common runtime dependency of
+    # langchain, langgraph, and every langchain-* provider package, so it
+    # is present on every install that needs this handler. Importing the
+    # umbrella here previously forced langchain itself to be installed
+    # even for the v1 branch, which never uses any langchain.* import.
+    import langchain_core
 
-    if langchain.__version__.startswith("1"):
+    if langchain_core.__version__.startswith("1"):
         # Langchain v1
         from langchain_core.agents import AgentAction, AgentFinish
         from langchain_core.callbacks import (
@@ -59,7 +65,7 @@ try:
         from langchain_core.outputs import ChatGeneration, LLMResult
 
     else:
-        # Langchain v0
+        # Langchain v0 — these symbols only exist in the umbrella package
         from langchain.callbacks.base import (  # type: ignore
             BaseCallbackHandler as LangchainBaseCallbackHandler,
         )
@@ -81,7 +87,7 @@ try:
 
 except ImportError:
     raise ModuleNotFoundError(
-        "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
+        "Please install langchain_core to use the Langfuse langchain integration: 'pip install langchain-core'"
     )
 
 LANGSMITH_TAG_HIDDEN: str = "langsmith:hidden"
