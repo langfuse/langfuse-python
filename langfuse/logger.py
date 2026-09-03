@@ -22,7 +22,10 @@ httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
 
 # Add console handler if no handlers exist
-console_handler = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-console_handler.setFormatter(formatter)
-httpx_logger.addHandler(console_handler)
+if not httpx_logger.handlers:
+    console_handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_handler.setFormatter(formatter)
+    httpx_logger.addHandler(console_handler)
