@@ -171,7 +171,7 @@ class BasePromptClient(ABC):
 
         A curly brace is considered “JSON-related” when, after skipping any
         immediate whitespace, the next non-whitespace character is a single
-        or double quote.
+        quote, double quote, or the matching closing brace of an empty object.
 
         Braces that are already doubled (e.g. {{variable}} placeholders) are
         left untouched.
@@ -206,7 +206,7 @@ class BasePromptClient(ABC):
                 while j < n and text[j].isspace():
                     j += 1
 
-                is_json = j < n and text[j] in {"'", '"'}
+                is_json = j < n and text[j] in {"'", '"', "}"}
                 out.append("{{" if is_json else "{")
                 stack.append(is_json)  # remember how this “{” was treated
                 i += 1
