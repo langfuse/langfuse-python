@@ -309,6 +309,18 @@ class ChatPromptClient(BasePromptClient):
             Dict[str, Any], ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder
         ]
     ]:
+        return self._compile(warn_on_unresolved_placeholders=True, **kwargs)
+
+    def _compile(
+        self,
+        *,
+        warn_on_unresolved_placeholders: bool,
+        **kwargs: Union[str, Any],
+    ) -> Sequence[
+        Union[
+            Dict[str, Any], ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder
+        ]
+    ]:
         """Compile the prompt with placeholders and variables.
 
         Args:
@@ -381,7 +393,7 @@ class ChatPromptClient(BasePromptClient):
                     compiled_messages.append(chat_message)
                     unresolved_placeholders.append(chat_message["name"])  # type: ignore
 
-        if unresolved_placeholders:
+        if warn_on_unresolved_placeholders and unresolved_placeholders:
             unresolved_placeholders_message = f"Placeholders {unresolved_placeholders} have not been resolved. Pass them as keyword arguments to compile()."
             langfuse_logger.warning(unresolved_placeholders_message)
 
@@ -446,7 +458,10 @@ class ChatPromptClient(BasePromptClient):
             List of messages in the format expected by Langchain's ChatPromptTemplate:
             (role, content) tuples for regular messages or MessagesPlaceholder objects for unresolved placeholders.
         """
-        compiled_messages = self.compile(**kwargs)
+        compiled_messages = self._compile(
+            warn_on_unresolved_placeholders=False,
+            **kwargs,
+        )
         langchain_messages: List[Union[Tuple[str, str], Any]] = []
 
         for msg in compiled_messages:
