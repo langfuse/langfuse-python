@@ -800,6 +800,20 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         else completion["content"] + delta.get("content", None)
                     )
 
+                # Handle streaming audio delta
+                audio_delta = delta.get("audio", None)
+                if audio_delta is not None:
+                    if hasattr(audio_delta, "__dict__"):
+                        audio_delta = audio_delta.__dict__
+                    
+                    transcript_chunk = _get_attr_or_item(audio_delta, "transcript", None)
+                    if transcript_chunk is not None:
+                        completion["content"] = (
+                            transcript_chunk
+                            if completion["content"] is None
+                            else completion["content"] + transcript_chunk
+                        )
+
                 if delta.get("function_call", None) is not None:
                     curr = completion["function_call"]
                     tool_call_chunk = delta.get("function_call", None)
