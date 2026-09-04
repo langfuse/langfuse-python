@@ -133,15 +133,6 @@ To build the reference into `docs/`, run:
 bash scripts/build_reference_docs.sh
 ```
 
-Build it through the script rather than calling pdoc directly. The script applies the template overrides in `pdoc-templates/` and copies the 404 page, both of which the hosted site needs:
-
-- `pdoc-templates/index.html.jinja2` replaces pdoc's default `index.html`, which is a bare `<meta http-equiv="refresh">` stub with no title, no links and no canonical URL, with a real landing page.
-- `pdoc-templates/module.html.jinja2` adds a self-referencing canonical URL to every module page. The `.html` suffix is dropped on purpose: the site is served with clean URLs, so `/langfuse.html` 308-redirects to `/langfuse`.
-- `pdoc-templates/404.html` is copied into the output because the host serves the landing page with a `200` for any unmatched path when no `404.html` is present, which makes every stale URL an indexable duplicate.
-- `--no-show-source` keeps `langfuse.html` at roughly 480 KB instead of 2.7 MB. `--edit-url` puts a link to the module's source on GitHub on each page instead.
-
-Set `PDOC_CANONICAL_BASE_URL` to build for an origin other than `https://python.reference.langfuse.com/`.
-
 To browse the reference locally with live reload, run pdoc's dev server:
 
 ```sh
