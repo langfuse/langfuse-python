@@ -1,0 +1,15 @@
+{#
+Adds a self-referencing canonical URL to every module page.
+
+The `.html` suffix is deliberately dropped: Cloudflare Pages serves this site
+with clean URLs and 308-redirects `/langfuse.html` to `/langfuse`, so a
+canonical pointing at the `.html` path would point at a redirect.
+#}
+{% set canonical_base_url = env.get("PDOC_CANONICAL_BASE_URL", "https://python.reference.langfuse.com/") %}
+{% extends "default/module.html.jinja2" %}
+
+{% block head %}
+    {{ super() }}
+    <link rel="canonical"
+          href="{{ canonical_base_url }}{{ module.modulename.replace('.', '/') }}"/>
+{% endblock %}

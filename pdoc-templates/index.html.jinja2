@@ -1,0 +1,62 @@
+{#
+Root page of https://python.reference.langfuse.com.
+
+pdoc's default index is a bare `<meta http-equiv="refresh">` stub with no
+title, no links and no canonical URL, because a single root module makes
+`langfuse.html` the entry point. Search engines read that stub as a
+soft-redirecting duplicate of `/index.html`. Setting `root_module_name` to
+false -- the escape hatch the default template documents -- renders the real
+module list instead, and the `content` block below gives that page something
+to say, since pdoc's own version leaves the main column empty.
+#}
+{% set canonical_base_url = env.get("PDOC_CANONICAL_BASE_URL", "https://python.reference.langfuse.com/") %}
+{% set root_module_name = false %}
+{% extends "default/index.html.jinja2" %}
+
+{% block title %}Langfuse Python SDK API reference{% endblock %}
+
+{% block head %}
+    <link rel="canonical" href="{{ canonical_base_url }}"/>
+    <meta name="description"
+          content="Generated API reference for the Langfuse Python SDK: clients, tracing, prompt management, datasets, evaluation and the underlying API models."/>
+{% endblock %}
+
+{% block content %}
+    <header class="pdoc">
+        {{ self.logo() }}
+        {% if search %}
+            <input type="search" placeholder="Search API Documentation..." aria-label="search box">
+        {% endif %}
+    </header>
+    <main class="pdoc">
+        <section>
+            <h1>Langfuse Python SDK API reference</h1>
+            <p>
+                Generated reference for the <code>langfuse</code> package. It documents
+                every public symbol; the hand-written guides on
+                <a href="https://langfuse.com/docs">langfuse.com/docs</a> are the better
+                starting point if you are setting Langfuse up for the first time.
+            </p>
+            <h2>Start here</h2>
+            <ul>
+                <li><a href="langfuse.html"><code>langfuse</code></a> &mdash; the
+                    <code>Langfuse</code> client, tracing decorators and context helpers.
+                    Most code only needs this module.</li>
+                <li><a href="langfuse/experiment.html"><code>langfuse.experiment</code></a>
+                    &mdash; running experiments over datasets and scoring the results.</li>
+                <li><a href="langfuse/api.html"><code>langfuse.api</code></a> &mdash; the
+                    generated low-level API client and its request and response models.</li>
+            </ul>
+            <h2>Elsewhere</h2>
+            <ul>
+                <li><a href="https://langfuse.com/docs/observability/sdk/python/overview">Python SDK documentation</a></li>
+                <li><a href="https://github.com/langfuse/langfuse-python">langfuse-python on GitHub</a></li>
+                <li><a href="https://pypi.org/project/langfuse/">langfuse on PyPI</a></li>
+            </ul>
+            <p>Every module is listed in the sidebar, and the search box covers all of them.</p>
+        </section>
+    </main>
+    {% if search %}
+        {% include "search.html.jinja2" %}
+    {% endif %}
+{% endblock %}
