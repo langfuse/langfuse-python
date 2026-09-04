@@ -9,7 +9,7 @@ false -- the escape hatch the default template documents -- renders the real
 module list instead, and the `content` block below gives that page something
 to say, since pdoc's own version leaves the main column empty.
 #}
-{% set canonical_base_url = env.get("PDOC_CANONICAL_BASE_URL", "https://python.reference.langfuse.com/") %}
+{% set canonical_base_url = env.get("PDOC_CANONICAL_BASE_URL", "https://python.reference.langfuse.com/").rstrip("/") ~ "/" %}
 {% set root_module_name = false %}
 {% extends "default/index.html.jinja2" %}
 
@@ -38,6 +38,14 @@ to say, since pdoc's own version leaves the main column empty.
                 starting point if you are setting Langfuse up for the first time.
             </p>
             <h2>Start here</h2>
+            {#
+            These keep the `.html` suffix even though the hosted site serves
+            clean URLs. pdoc generates its own sidebar links that way, and
+            extensionless paths 404 both under pdoc's dev server and when the
+            built output is served locally, so the one 308 hop in production is
+            the cheaper trade. Canonical URLs are a different case -- those must
+            not point at a redirect, which is why they drop the suffix.
+            #}
             <ul>
                 <li><a href="langfuse.html"><code>langfuse</code></a> &mdash; the
                     <code>Langfuse</code> client, tracing decorators and context helpers.

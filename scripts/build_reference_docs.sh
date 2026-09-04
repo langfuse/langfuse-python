@@ -8,6 +8,14 @@ set -euo pipefail
 
 OUT_DIR="${1:-docs}"
 
+# Resolve a relative output path against the caller's working directory before
+# cd'ing to the repo root, so `build_reference_docs.sh out` from elsewhere does
+# not silently write to <repo>/out.
+case "$OUT_DIR" in
+  /*) ;;
+  *) OUT_DIR="$PWD/$OUT_DIR" ;;
+esac
+
 cd "$(dirname "$0")/.."
 
 uv run --group docs pdoc \
