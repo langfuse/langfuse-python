@@ -23,7 +23,10 @@ import weakref
 from queue import Full, Queue
 from typing import Any, Callable, Dict, List, Optional, cast
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider

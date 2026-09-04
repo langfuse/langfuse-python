@@ -2,7 +2,10 @@
 
 import typing
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 from .http_client import AsyncHttpClient, HttpClient
 
 

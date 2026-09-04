@@ -4,7 +4,10 @@ from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
 
 import backoff
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED

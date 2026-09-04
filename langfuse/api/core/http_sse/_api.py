@@ -4,7 +4,10 @@ import re
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, AsyncGenerator, AsyncIterator, Iterator, cast
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 from ._decoders import SSEDecoder
 from ._exceptions import SSEError
 from ._models import ServerSentEvent
