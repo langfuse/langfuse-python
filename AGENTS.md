@@ -154,8 +154,10 @@ If you change CI bootstrap:
 
 ```bash
 uv build --no-sources
-uv run --group docs pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+bash scripts/build_reference_docs.sh
 ```
+
+Build the reference through that script, not by calling pdoc directly -- it applies the `pdoc-templates/` overrides and the 404 page that the hosted site needs. See "SDK Reference" in `CONTRIBUTING.md`.
 
 Releases are handled by GitHub Actions. Do not build an ad hoc local release flow into repository instructions.
 

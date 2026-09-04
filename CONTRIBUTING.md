@@ -125,18 +125,18 @@ The workflow will automatically:
 
 Note: The generated SDK reference is currently work in progress.
 
-The SDK reference is generated via pdoc. The docs dependency group is installed on demand when you run the documentation commands.
+The SDK reference is generated via pdoc and published at [python.reference.langfuse.com](https://python.reference.langfuse.com). The docs dependency group is installed on demand when you run the documentation commands.
 
-To update the reference, run the following command:
+To build the reference into `docs/`, run:
 
 ```sh
-uv run --group docs pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+bash scripts/build_reference_docs.sh
 ```
 
-To run the reference locally, you can use the following command:
+To browse the reference locally with live reload, run pdoc's dev server:
 
 ```sh
-uv run --group docs pdoc --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+uv run --group docs pdoc --docformat google --logo "https://langfuse.com/langfuse_logo.svg" --template-directory pdoc-templates langfuse
 ```
 
 ## Credits
