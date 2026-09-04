@@ -1,7 +1,9 @@
 import asyncio
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
+import httpx
 import pytest
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
 from pydantic import BaseModel
@@ -1399,3 +1401,77 @@ def test_with_raw_response_streaming_passes_through_untraced(
         span.name != "OpenAI-generation"
         for span in memory_exporter.get_finished_spans()
     )
+
+
+def test_streaming_chat_completion_keeps_multiple_choices_separate(
+    langfuse_memory_client: Any, get_span: Any, json_attr: Any
+) -> None:
+    body = (
+        'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
+        '"created":1700000000,"model":"gpt-4o-mini",'
+        '"choices":[{"index":0,"delta":{"role":"assistant","content":"A"},'
+        '"finish_reason":null},{"index":1,"delta":{"role":"assistant","content":"B"},'
+        '"finish_reason":null}]}\n\n'
+        'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
+        '"created":1700000000,"model":"gpt-4o-mini",'
+        '"choices":[{"index":1,"delta":{"content":"1","tool_calls":[{"index":0,'
+        '"id":"call-1","type":"function","function":{"name":"lookup",'
+        '"arguments":"{\\"value\\":\\"B"}}]},"finish_reason":null},{"index":0,'
+        '"delta":{"content":"0","tool_calls":[{"index":0,"id":"call-0",'
+        '"type":"function","function":{"name":"lookup",'
+        '"arguments":"{\\"value\\":\\"A"}}]},"finish_reason":null}]}\n\n'
+        'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
+        '"created":1700000000,"model":"gpt-4o-mini",'
+        '"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,'
+        '"function":{"arguments":"0\\"}"}}]},"finish_reason":"tool_calls"},'
+        '{"index":1,"delta":{"tool_calls":[{"index":0,'
+        '"function":{"arguments":"1\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            status_code=200,
+            content=body.encode(),
+            headers={"content-type": "text/event-stream"},
+        )
+
+    openai_client = lf_openai.OpenAI(
+        api_key="test",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    chunks = list(
+        openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "choose"}],
+            n=2,
+            stream=True,
+        )
+    )
+
+    assert [[choice.index for choice in chunk.choices] for chunk in chunks] == [
+        [0, 1],
+        [1, 0],
+        [0, 1],
+    ]
+    assert [
+        (choice.index, tool_call.index)
+        for chunk in chunks
+        for choice in chunk.choices
+        for tool_call in choice.delta.tool_calls or []
+    ] == [(1, 0), (0, 0), (0, 0), (1, 0)]
+
+    langfuse_memory_client.flush()
+    span = get_span("OpenAI-generation")
+    output = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT)
+
+    assert [choice["content"] for choice in output] == ["A0", "B1"]
+    assert [
+        (tool_call["id"], tool_call["function"]["arguments"])
+        for choice in output
+        for tool_call in choice["tool_calls"]
+    ] == [
+        ("call-0", '{"value":"A0"}'),
+        ("call-1", '{"value":"B1"}'),
+    ]
