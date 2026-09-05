@@ -760,7 +760,10 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
 
 
 def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
-    completion: Any = defaultdict(lambda: None) if resource.type == "chat" else ""
+    # Streamed chunks of an n > 1 completion interleave choices, so every choice
+    # accumulates into its own completion keyed by its choice index instead of
+    # merging into a single corrupted output.
+    completions: dict[int, Any] = {}
     model, usage, finish_reason, service_tier = None, None, None, None
 
     for chunk in chunks:
@@ -778,7 +781,15 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
         for choice in choices:
             if _is_openai_v1():
                 choice = choice.__dict__
+
+            choice_index = choice.get("index", None)
+            if not isinstance(choice_index, int):
+                choice_index = 0
+
             if resource.type == "chat":
+                completion = completions.setdefault(
+                    choice_index, defaultdict(lambda: None)
+                )
                 delta = choice.get("delta", None)
                 choice_finish_reason = choice.get("finish_reason", None)
                 if choice_finish_reason is not None:
@@ -868,9 +879,10 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                             ) + tool_arguments
 
             if resource.type == "completion":
-                completion += choice.get("text", "")
+                completions.setdefault(choice_index, "")
+                completions[choice_index] += choice.get("text", "")
 
-    def get_response_for_chat() -> Any:
+    def get_response_for_chat(completion: Any) -> Any:
         content = completion["content"]
 
         if completion["tool_calls"]:
@@ -897,9 +909,25 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
         return content or None
 
+    # Match the non-streaming behavior: a single choice keeps its scalar
+    # output shape, multiple choices are returned as a list in choice order.
+    if len(completions) > 1:
+        ordered = [completions[index] for index in sorted(completions)]
+        completion = (
+            [get_response_for_chat(item) for item in ordered]
+            if resource.type == "chat"
+            else ordered
+        )
+    elif resource.type == "chat":
+        completion = get_response_for_chat(
+            next(iter(completions.values()), defaultdict(lambda: None))
+        )
+    else:
+        completion = next(iter(completions.values()), "")
+
     return (
         model,
-        get_response_for_chat() if resource.type == "chat" else completion,
+        completion,
         usage,
         {"finish_reason": finish_reason} if finish_reason is not None else None,
         service_tier,
