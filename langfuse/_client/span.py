@@ -121,6 +121,8 @@ class LangfuseObservationWrapper:
             cost_details: Cost information for the model call
             prompt: Associated prompt template from Langfuse prompt management
         """
+        if isinstance(metadata, dict):
+            metadata = {k: v for k, v in metadata.items() if k is not None and k != ""}
         self._otel_span = otel_span
         self._otel_span.set_attribute(
             LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
