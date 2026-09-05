@@ -401,6 +401,141 @@ def test_streaming_chat_completion_preserves_tool_calls_after_content():
     assert metadata == {"finish_reason": "tool_calls"}
 
 
+def _make_multi_choice_stream_chunks():
+    def choice(index, delta=None, finish_reason=None):
+        return SimpleNamespace(index=index, delta=delta, finish_reason=finish_reason)
+
+    return [
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            usage=None,
+            choices=[
+                choice(0, delta=SimpleNamespace(content="A", tool_calls=None)),
+                choice(1, delta=SimpleNamespace(content="B", tool_calls=None)),
+            ],
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            usage=None,
+            choices=[
+                choice(
+                    1,
+                    delta=SimpleNamespace(
+                        content=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id="call_paris",
+                                type="function",
+                                function=SimpleNamespace(
+                                    name="get_weather",
+                                    arguments='{"city": "Par',
+                                ),
+                            )
+                        ],
+                    ),
+                ),
+                choice(
+                    0,
+                    delta=SimpleNamespace(
+                        content=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id="call_berlin",
+                                type="function",
+                                function=SimpleNamespace(
+                                    name="get_weather",
+                                    arguments='{"city": "Berli',
+                                ),
+                            )
+                        ],
+                    ),
+                ),
+            ],
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            usage=None,
+            choices=[
+                choice(
+                    0,
+                    delta=SimpleNamespace(
+                        content=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id="call_berlin",
+                                type="function",
+                                function=SimpleNamespace(name=None, arguments='n"}'),
+                            )
+                        ],
+                    ),
+                    finish_reason="tool_calls",
+                ),
+                choice(
+                    1,
+                    delta=SimpleNamespace(
+                        content=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id="call_paris",
+                                type="function",
+                                function=SimpleNamespace(name=None, arguments='is"}'),
+                            )
+                        ],
+                    ),
+                    finish_reason="tool_calls",
+                ),
+            ],
+        ),
+    ]
+
+
+def test_streaming_chat_completion_keeps_interleaved_choices_separate():
+    model, completion, usage, metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            _make_multi_choice_stream_chunks(),
+        )
+    )
+
+    assert model == "gpt-4o-mini"
+    assert completion == [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_berlin",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city": "Berlin"}',
+                    },
+                }
+            ],
+            "content": "A",
+        },
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_paris",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city": "Paris"}',
+                    },
+                }
+            ],
+            "content": "B",
+        },
+    ]
+    assert usage is None
+    assert metadata == {"finish_reason": "tool_calls"}
+
+
 def test_response_api_output_serializes_openai_parsed_response_objects():
     class ParsedOutput(BaseModel):
         name: str
