@@ -1339,12 +1339,20 @@ class Langfuse:
         cost_details: Optional[Dict[str, float]] = None,
         prompt: Optional[PromptClient] = None,
     ) -> Any:
-        with self._otel_tracer.start_as_current_span(
-            name=name,
-            end_on_exit=end_on_exit if end_on_exit is not None else True,
-        ) as otel_span:
-            baggage_token = None
+        # We manage span-context activation ourselves instead of using
+        # otel_tracer.start_as_current_span so that the context detach runs
+        # through _detach_context_token_safely. OTel's own detach is unguarded
+        # and logs "Failed to detach context" whenever __enter__ and __exit__
+        # straddle different async contexts (e.g. end_on_exit=False with a
+        # manual close), even though the observation is already complete.
+        otel_span = self._otel_tracer.start_span(name=name)
+        end_span = end_on_exit if end_on_exit is not None else True
+        span_context_token = otel_context_api.attach(
+            otel_trace_api.set_span_in_context(otel_span)
+        )
+        baggage_token = None
 
+        try:
             if otel_span.is_recording():
                 context_with_app_root_claim = _set_langfuse_trace_id_in_baggage(
                     trace_id=self._get_otel_trace_id(otel_span),
@@ -1356,41 +1364,54 @@ class Langfuse:
                 as_type or "generation"
             )  # default was "generation"
 
-            try:
-                common_args = {
-                    "otel_span": otel_span,
-                    "langfuse_client": self,
-                    "environment": self._environment,
-                    "release": self._release,
-                    "input": input,
-                    "output": output,
-                    "metadata": metadata,
-                    "version": version,
-                    "level": level,
-                    "status_message": status_message,
-                }
+            common_args = {
+                "otel_span": otel_span,
+                "langfuse_client": self,
+                "environment": self._environment,
+                "release": self._release,
+                "input": input,
+                "output": output,
+                "metadata": metadata,
+                "version": version,
+                "level": level,
+                "status_message": status_message,
+            }
 
-                if span_class in [
-                    LangfuseGeneration,
-                    LangfuseEmbedding,
-                ]:
-                    common_args.update(
-                        {
-                            "completion_start_time": completion_start_time,
-                            "model": model,
-                            "model_parameters": model_parameters,
-                            "usage_details": usage_details,
-                            "cost_details": cost_details,
-                            "prompt": prompt,
-                        }
+            if span_class in [
+                LangfuseGeneration,
+                LangfuseEmbedding,
+            ]:
+                common_args.update(
+                    {
+                        "completion_start_time": completion_start_time,
+                        "model": model,
+                        "model_parameters": model_parameters,
+                        "usage_details": usage_details,
+                        "cost_details": cost_details,
+                        "prompt": prompt,
+                    }
+                )
+            # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+
+            yield span_class(**common_args)  # type: ignore[arg-type]
+
+        except Exception as exc:
+            if otel_span.is_recording():
+                otel_span.record_exception(exc)
+                otel_span.set_status(
+                    otel_trace_api.Status(
+                        status_code=otel_trace_api.StatusCode.ERROR,
+                        description=f"{type(exc).__name__}: {exc}",
                     )
-                # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+                )
+            raise
 
-                yield span_class(**common_args)  # type: ignore[arg-type]
-
-            finally:
-                if baggage_token is not None:
-                    _detach_context_token_safely(baggage_token)
+        finally:
+            if baggage_token is not None:
+                _detach_context_token_safely(baggage_token)
+            _detach_context_token_safely(span_context_token)
+            if end_span:
+                otel_span.end()
 
     def _get_current_otel_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
