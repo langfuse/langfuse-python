@@ -251,6 +251,55 @@ def _make_single_chunk_stream():
     )
 
 
+def _make_chat_stream_chunks_two_choices():
+    # Interleaved n=2 stream: choice indexes arrive as [0, 1], [1, 0], [0, 1].
+    # Choice 0 streams content "A" then "0"; choice 1 streams "B" then "1".
+    # Each choice carries one tool call at tool index 0.
+    def _choice(index, content, tool_args, finish_reason=None):
+        return SimpleNamespace(
+            index=index,
+            delta=SimpleNamespace(
+                role="assistant" if content is not None else None,
+                content=content,
+                function_call=None,
+                tool_calls=[
+                    SimpleNamespace(
+                        index=0,
+                        id=f"call_{index}",
+                        type="function",
+                        function=SimpleNamespace(
+                            name=f"tool_{index}", arguments=tool_args
+                        ),
+                    )
+                ]
+                if tool_args is not None
+                else None,
+            ),
+            finish_reason=finish_reason,
+        )
+
+    return [
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[_choice(0, "A", '{"x":'), _choice(1, "B", '{"y":')],
+            usage=None,
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[_choice(1, "1", "1}"), _choice(0, "0", "0}")],
+            usage=None,
+        ),
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                _choice(0, None, None, finish_reason="stop"),
+                _choice(1, None, None, finish_reason="stop"),
+            ],
+            usage=SimpleNamespace(prompt_tokens=3, completion_tokens=2, total_tokens=5),
+        ),
+    ]
+
+
 def test_chat_completion_exports_generation_span(
     langfuse_memory_client, get_span, json_attr
 ):
@@ -399,6 +448,57 @@ def test_streaming_chat_completion_preserves_tool_calls_after_content():
     }
     assert usage.prompt_tokens == 10
     assert metadata == {"finish_reason": "tool_calls"}
+
+
+def test_streaming_chat_completion_multiple_choices_are_not_merged():
+    model, completion, usage, metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            _make_chat_stream_chunks_two_choices(),
+        )
+    )
+
+    assert model == "gpt-4o-mini"
+    assert completion == [
+        {
+            "role": "assistant",
+            "content": "A0",
+            "tool_calls": [
+                {
+                    "id": "call_0",
+                    "type": "function",
+                    "function": {"name": "tool_0", "arguments": '{"x":0}'},
+                }
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": "B1",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "tool_1", "arguments": '{"y":1}'},
+                }
+            ],
+        },
+    ]
+    assert usage.total_tokens == 5
+    assert metadata == {"finish_reason": "stop"}
+
+
+def test_streaming_chat_completion_single_choice_output_unchanged():
+    model, completion, usage, metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            _make_chat_stream_chunks(),
+        )
+    )
+
+    assert model == "gpt-4o-mini"
+    assert completion == "2"
+    assert usage.total_tokens == 4
+    assert metadata == {"finish_reason": "stop"}
 
 
 def test_response_api_output_serializes_openai_parsed_response_objects():
