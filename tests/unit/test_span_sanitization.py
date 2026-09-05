@@ -10,8 +10,8 @@ def test_langfuse_observation_wrapper_metadata_sanitization(mock_process):
     
     mock_client = MagicMock()
     
-    # Input with empty string key and None key
-    bad_metadata = {"valid_key": "value", "": "bad_value", None: "another_bad"}
+    # Input with empty string value and None value
+    bad_metadata = {"valid_key": "value", "bad_empty": "", "bad_none": None}
     
     wrapper = LangfuseObservationWrapper(
         otel_span=mock_otel_span,
@@ -22,4 +22,10 @@ def test_langfuse_observation_wrapper_metadata_sanitization(mock_process):
     
     # Check that _process_media_and_apply_mask was called for metadata with the sanitized dict
     mock_process.assert_any_call(data={"valid_key": "value"}, field="metadata", span=mock_otel_span)
-
+    
+    # Reset mock and test update method
+    mock_process.reset_mock()
+    bad_metadata_update = {"another_valid": "value2", "another_bad": "", "another_none": None}
+    
+    wrapper.update(metadata=bad_metadata_update)
+    mock_process.assert_any_call(data={"another_valid": "value2"}, field="metadata", span=mock_otel_span)

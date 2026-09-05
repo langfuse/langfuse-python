@@ -122,7 +122,7 @@ class LangfuseObservationWrapper:
             prompt: Associated prompt template from Langfuse prompt management
         """
         if isinstance(metadata, dict):
-            metadata = {k: v for k, v in metadata.items() if k is not None and k != ""}
+            metadata = {k: v for k, v in metadata.items() if v is not None and v != ""}
         self._otel_span = otel_span
         self._otel_span.set_attribute(
             LangfuseOtelSpanAttributes.OBSERVATION_TYPE, as_type
@@ -677,6 +677,9 @@ class LangfuseObservationWrapper:
         """
         if not self._otel_span.is_recording():
             return self
+
+        if isinstance(metadata, dict):
+            metadata = {k: v for k, v in metadata.items() if v is not None and v != ""}
 
         processed_input = self._process_media_and_apply_mask(
             data=input, field="input", span=self._otel_span
