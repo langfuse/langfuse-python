@@ -918,15 +918,17 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                 get_response_for_chat(chat_completions[index])
                 for index in sorted(chat_completions)
             ]
+        elif chat_completions:
+            response = get_response_for_chat(next(iter(chat_completions.values())))
         else:
-            response = get_response_for_chat(
-                chat_completions.get(0, defaultdict(lambda: None))
-            )
+            response = get_response_for_chat(defaultdict(lambda: None))
     else:
         if len(completion_texts) > 1:
             response = [completion_texts[index] for index in sorted(completion_texts)]
+        elif completion_texts:
+            response = next(iter(completion_texts.values()))
         else:
-            response = completion_texts.get(0, "")
+            response = ""
 
     return (
         model,

@@ -501,6 +501,41 @@ def test_streaming_chat_completion_single_choice_output_unchanged():
     assert metadata == {"finish_reason": "stop"}
 
 
+def test_streaming_chat_completion_single_nonzero_choice_index_not_lost():
+    # An n>1 stream that only ever yields output for choice 1 (for example
+    # after partial consumption) must still record that choice's response
+    # instead of reading index 0 and recording None.
+    chunks = _make_chat_stream_chunks_two_choices()
+    only_choice_one = [
+        SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[choice for choice in chunk.choices if choice.index == 1],
+            usage=chunk.usage,
+        )
+        for chunk in chunks
+    ]
+
+    model, completion, _usage, _metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            only_choice_one,
+        )
+    )
+
+    assert model == "gpt-4o-mini"
+    assert completion == {
+        "role": "assistant",
+        "content": "B1",
+        "tool_calls": [
+            {
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "tool_1", "arguments": '{"y":1}'},
+            }
+        ],
+    }
+
+
 def test_response_api_output_serializes_openai_parsed_response_objects():
     class ParsedOutput(BaseModel):
         name: str
