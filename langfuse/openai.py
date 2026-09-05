@@ -760,7 +760,11 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
 
 
 def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
-    completion: Any = defaultdict(lambda: None) if resource.type == "chat" else ""
+    # Per-choice accumulators keyed by the provider's choice index: n>1
+    # streams interleave choices within a single chunk, so a shared
+    # accumulator would merge content and tool calls across choices.
+    chat_completions: dict[int, defaultdict] = {}
+    completion_texts: dict[int, str] = {}
     model, usage, finish_reason, service_tier = None, None, None, None
 
     for chunk in chunks:
@@ -778,7 +782,15 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
         for choice in choices:
             if _is_openai_v1():
                 choice = choice.__dict__
+
+            choice_index = choice.get("index", None)
+            if not isinstance(choice_index, int):
+                choice_index = 0
+
             if resource.type == "chat":
+                completion = chat_completions.setdefault(
+                    choice_index, defaultdict(lambda: None)
+                )
                 delta = choice.get("delta", None)
                 choice_finish_reason = choice.get("finish_reason", None)
                 if choice_finish_reason is not None:
@@ -868,9 +880,11 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                             ) + tool_arguments
 
             if resource.type == "completion":
-                completion += choice.get("text", "")
+                completion_texts[choice_index] = completion_texts.get(
+                    choice_index, ""
+                ) + (choice.get("text", "") or "")
 
-    def get_response_for_chat() -> Any:
+    def get_response_for_chat(completion: Any) -> Any:
         content = completion["content"]
 
         if completion["tool_calls"]:
@@ -897,9 +911,28 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
         return content or None
 
+    response: Any
+    if resource.type == "chat":
+        if len(chat_completions) > 1:
+            response = [
+                get_response_for_chat(chat_completions[index])
+                for index in sorted(chat_completions)
+            ]
+        elif chat_completions:
+            response = get_response_for_chat(next(iter(chat_completions.values())))
+        else:
+            response = get_response_for_chat(defaultdict(lambda: None))
+    else:
+        if len(completion_texts) > 1:
+            response = [completion_texts[index] for index in sorted(completion_texts)]
+        elif completion_texts:
+            response = next(iter(completion_texts.values()))
+        else:
+            response = ""
+
     return (
         model,
-        get_response_for_chat() if resource.type == "chat" else completion,
+        response,
         usage,
         {"finish_reason": finish_reason} if finish_reason is not None else None,
         service_tier,
