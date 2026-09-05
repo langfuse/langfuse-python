@@ -8,7 +8,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 
 from langfuse.api import MediaContentType
 from langfuse.logger import langfuse_logger as logger

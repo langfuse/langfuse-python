@@ -28,7 +28,10 @@ from typing import (
 )
 
 import backoff
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider

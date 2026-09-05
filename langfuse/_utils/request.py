@@ -4,7 +4,10 @@ import json
 from base64 import b64encode
 from typing import Any, List, Union
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger as logger

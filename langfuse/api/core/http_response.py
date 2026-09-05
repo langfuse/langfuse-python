@@ -2,7 +2,10 @@
 
 from typing import Dict, Generic, TypeVar
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 
 # Generic to represent the underlying type of the data wrapped by the HTTP response.
 T = TypeVar("T")

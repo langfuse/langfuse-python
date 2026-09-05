@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import typing
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 
 if typing.TYPE_CHECKING:

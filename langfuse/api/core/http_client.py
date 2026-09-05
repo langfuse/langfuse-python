@@ -9,7 +9,10 @@ import urllib.parse
 from contextlib import asynccontextmanager, contextmanager
 from random import random
 
-import httpx
+try:
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 from .file import File, convert_file_dict_to_httpx_tuples
 from .force_multipart import FORCE_MULTIPART
 from .jsonable_encoder import jsonable_encoder
