@@ -5,7 +5,7 @@ import enum
 import math
 from asyncio import Queue
 from collections.abc import Sequence
-from dataclasses import asdict, is_dataclass
+from dataclasses import fields, is_dataclass
 from datetime import date, datetime
 from json import JSONEncoder
 from logging import getLogger
@@ -127,7 +127,19 @@ class EventSerializer(JSONEncoder):
                 return f"<{type(obj).__name__}>"
 
             if is_dataclass(obj):
-                return asdict(obj)  # type: ignore
+                obj_id = id(obj)
+
+                if obj_id in self.seen:
+                    return type(obj).__name__
+
+                self.seen.add(obj_id)
+                try:
+                    return {
+                        field.name: self.default(getattr(obj, field.name))
+                        for field in fields(obj)
+                    }
+                finally:
+                    self.seen.remove(obj_id)
 
             if isinstance(obj, BaseModel):
                 obj.model_rebuild()
