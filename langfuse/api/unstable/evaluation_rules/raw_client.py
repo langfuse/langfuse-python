@@ -54,6 +54,7 @@ from .types.evaluation_rule import EvaluationRule
 from .types.evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
 from .types.evaluation_rules import EvaluationRules
 from .types.readable_evaluation_rule import ReadableEvaluationRule
+from .types.readable_v2evaluation_rule import ReadableV2EvaluationRule
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -702,7 +703,7 @@ class RawEvaluationRulesClient:
         filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
         mapping: typing.Optional[typing.Sequence[PromptVariableMappingInput]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[EvaluationRule]:
+    ) -> HttpResponse[ReadableV2EvaluationRule]:
         """
         Update an evaluation rule.
 
@@ -770,7 +771,7 @@ class RawEvaluationRulesClient:
 
         Returns
         -------
-        HttpResponse[EvaluationRule]
+        HttpResponse[ReadableV2EvaluationRule]
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/unstable/evaluation-rules/{jsonable_encoder(evaluation_rule_id)}",
@@ -807,9 +808,9 @@ class RawEvaluationRulesClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EvaluationRule,
+                    ReadableV2EvaluationRule,
                     parse_obj_as(
-                        type_=EvaluationRule,  # type: ignore
+                        type_=ReadableV2EvaluationRule,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1801,7 +1802,7 @@ class AsyncRawEvaluationRulesClient:
         filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
         mapping: typing.Optional[typing.Sequence[PromptVariableMappingInput]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[EvaluationRule]:
+    ) -> AsyncHttpResponse[ReadableV2EvaluationRule]:
         """
         Update an evaluation rule.
 
@@ -1869,7 +1870,7 @@ class AsyncRawEvaluationRulesClient:
 
         Returns
         -------
-        AsyncHttpResponse[EvaluationRule]
+        AsyncHttpResponse[ReadableV2EvaluationRule]
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/unstable/evaluation-rules/{jsonable_encoder(evaluation_rule_id)}",
@@ -1906,9 +1907,9 @@ class AsyncRawEvaluationRulesClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EvaluationRule,
+                    ReadableV2EvaluationRule,
                     parse_obj_as(
-                        type_=EvaluationRule,  # type: ignore
+                        type_=ReadableV2EvaluationRule,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

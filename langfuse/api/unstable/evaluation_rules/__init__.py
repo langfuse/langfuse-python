@@ -30,6 +30,7 @@ if typing.TYPE_CHECKING:
         LlmAsJudgeEvaluationRuleEvaluatorReference,
         LlmAsJudgeEvaluatorType,
         ReadableEvaluationRule,
+        ReadableV2EvaluationRule,
         UpdateEvaluationRuleRequest,
     )
 _dynamic_imports: typing.Dict[str, str] = {
@@ -56,6 +57,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LlmAsJudgeEvaluationRuleEvaluatorReference": ".types",
     "LlmAsJudgeEvaluatorType": ".types",
     "ReadableEvaluationRule": ".types",
+    "ReadableV2EvaluationRule": ".types",
     "UpdateEvaluationRuleRequest": ".types",
 }
 
@@ -111,5 +113,6 @@ __all__ = [
     "LlmAsJudgeEvaluationRuleEvaluatorReference",
     "LlmAsJudgeEvaluatorType",
     "ReadableEvaluationRule",
+    "ReadableV2EvaluationRule",
     "UpdateEvaluationRuleRequest",
 ]

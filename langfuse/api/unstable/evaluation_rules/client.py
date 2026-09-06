@@ -18,6 +18,7 @@ from .types.evaluation_rule import EvaluationRule
 from .types.evaluation_rule_evaluator_reference import EvaluationRuleEvaluatorReference
 from .types.evaluation_rules import EvaluationRules
 from .types.readable_evaluation_rule import ReadableEvaluationRule
+from .types.readable_v2evaluation_rule import ReadableV2EvaluationRule
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -275,7 +276,7 @@ class EvaluationRulesClient:
         filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
         mapping: typing.Optional[typing.Sequence[PromptVariableMappingInput]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EvaluationRule:
+    ) -> ReadableV2EvaluationRule:
         """
         Update an evaluation rule.
 
@@ -343,7 +344,7 @@ class EvaluationRulesClient:
 
         Returns
         -------
-        EvaluationRule
+        ReadableV2EvaluationRule
 
         Examples
         --------
@@ -700,7 +701,7 @@ class AsyncEvaluationRulesClient:
         filter: typing.Optional[typing.Sequence[EvaluationRuleFilter]] = OMIT,
         mapping: typing.Optional[typing.Sequence[PromptVariableMappingInput]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EvaluationRule:
+    ) -> ReadableV2EvaluationRule:
         """
         Update an evaluation rule.
 
@@ -768,7 +769,7 @@ class AsyncEvaluationRulesClient:
 
         Returns
         -------
-        EvaluationRule
+        ReadableV2EvaluationRule
 
         Examples
         --------

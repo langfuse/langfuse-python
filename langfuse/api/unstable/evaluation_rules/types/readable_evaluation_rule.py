@@ -2,7 +2,7 @@
 
 import typing
 
-from .evaluation_rule import EvaluationRule
 from .legacy_evaluation_rule import LegacyEvaluationRule
+from .readable_v2evaluation_rule import ReadableV2EvaluationRule
 
-ReadableEvaluationRule = typing.Union[EvaluationRule, LegacyEvaluationRule]
+ReadableEvaluationRule = typing.Union[ReadableV2EvaluationRule, LegacyEvaluationRule]
