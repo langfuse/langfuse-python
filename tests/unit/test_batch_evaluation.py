@@ -108,7 +108,7 @@ async def test_fetches_observations_via_v2_api() -> None:
 
     items, cursor = await runner._fetch_batch_with_retry(
         scope="observations",
-        filter='[{"type":"datetime","column":"startTime","operator":">","value":"2026-01-01"}]',
+        filter=None,
         page=1,
         cursor="current-cursor",
         limit=25,
@@ -151,7 +151,7 @@ async def test_falls_back_to_v3_read_api_when_v2_is_unavailable() -> None:
 
     items, cursor = await runner._fetch_batch_with_retry(
         scope="observations",
-        filter=None,
+        filter='[{"type":"datetime","column":"startTime","operator":">","value":"2026-01-01"}]',
         page=1,
         cursor=None,
         limit=1,
