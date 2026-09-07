@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from langfuse.api import (
-    NotFoundError,
     ObservationsView,
     ObservationV2,
     TraceWithFullDetails,
@@ -59,6 +58,7 @@ async def test_fetches_traces_as_root_observations_via_v2_api() -> None:
         limit=10,
         max_retries=2,
         fields="io",
+        observation_read_api="v2",
     )
 
     assert cursor == "next-cursor"
@@ -114,6 +114,7 @@ async def test_fetches_observations_via_v2_api() -> None:
         limit=25,
         max_retries=3,
         fields=None,
+        observation_read_api="v2",
     )
 
     assert cursor is None
@@ -131,18 +132,24 @@ async def test_fetches_observations_via_v2_api() -> None:
     assert "io" in kwargs["fields"].split(",")
 
 
-def test_resume_filter_uses_v2_start_time_column() -> None:
-    assert BatchEvaluationRunner._get_timestamp_field_for_scope("traces") == "startTime"
+def test_resume_filter_uses_read_api_timestamp_column() -> None:
     assert (
-        BatchEvaluationRunner._get_timestamp_field_for_scope("observations")
+        BatchEvaluationRunner._get_timestamp_field_for_scope("traces", "v2")
         == "startTime"
+    )
+    assert (
+        BatchEvaluationRunner._get_timestamp_field_for_scope("traces", "legacy")
+        == "timestamp"
+    )
+    assert (
+        BatchEvaluationRunner._get_timestamp_field_for_scope("observations", "legacy")
+        == "start_time"
     )
 
 
 @pytest.mark.asyncio
-async def test_falls_back_to_v3_read_api_when_v2_is_unavailable() -> None:
+async def test_legacy_read_api_uses_page_pagination() -> None:
     client = MagicMock()
-    client.api.observations.get_many.side_effect = NotFoundError(body="not found")
     legacy_observation = MagicMock(spec=ObservationsView)
     client.api.legacy.observations_v1.get_many.return_value = SimpleNamespace(
         data=[legacy_observation]
@@ -151,36 +158,55 @@ async def test_falls_back_to_v3_read_api_when_v2_is_unavailable() -> None:
 
     items, cursor = await runner._fetch_batch_with_retry(
         scope="observations",
-        filter='[{"type":"datetime","column":"startTime","operator":">","value":"2026-01-01"}]',
+        filter='[{"type":"datetime","column":"start_time","operator":">","value":"2026-01-01"}]',
         page=1,
         cursor=None,
         limit=1,
         max_retries=3,
         fields=None,
+        observation_read_api="legacy",
     )
 
     assert items == [legacy_observation]
-    assert cursor == runner._LEGACY_PAGINATION_CURSOR
-    assert (
-        json.loads(
-            client.api.legacy.observations_v1.get_many.call_args.kwargs["filter"]
-        )[0]["column"]
-        == "start_time"
-    )
+    assert cursor == runner._LEGACY_NEXT_PAGE
+    client.api.observations.get_many.assert_not_called()
 
-    client.api.observations.get_many.reset_mock()
     await runner._fetch_batch_with_retry(
         scope="observations",
-        filter='[{"type":"datetime","column":"startTime","operator":">","value":"2026-01-01"}]',
+        filter=None,
         page=2,
         cursor=cursor,
         limit=1,
         max_retries=3,
         fields=None,
+        observation_read_api="legacy",
     )
 
     client.api.observations.get_many.assert_not_called()
     assert client.api.legacy.observations_v1.get_many.call_args.kwargs["page"] == 2
+
+
+@pytest.mark.asyncio
+async def test_run_defaults_to_legacy_read_api() -> None:
+    client = MagicMock()
+    runner = BatchEvaluationRunner(client)
+    legacy_observation = runner._observation_to_legacy_view(_observation())
+    client.api.legacy.observations_v1.get_many.return_value = SimpleNamespace(
+        data=[legacy_observation]
+    )
+
+    result = await runner.run_async(
+        scope="observations",
+        mapper=lambda *, item: EvaluatorInputs(
+            input=item.input,
+            output=item.output,
+        ),
+        evaluators=[],
+    )
+
+    assert result.total_items_processed == 1
+    client.api.observations.get_many.assert_not_called()
+    client.api.legacy.observations_v1.get_many.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -208,6 +234,7 @@ async def test_run_uses_v2_cursor_for_next_batch() -> None:
             lambda **kwargs: Evaluation(name="quality", value=1.0),
         ],
         fetch_batch_size=1,
+        observation_read_api="v2",
     )
 
     assert result.total_items_processed == 2
@@ -216,3 +243,48 @@ async def test_run_uses_v2_cursor_for_next_batch() -> None:
         call.kwargs["cursor"]
         for call in client.api.observations.get_many.call_args_list
     ] == [None, "next-cursor"]
+
+
+@pytest.mark.asyncio
+async def test_v2_trace_scope_deduplicates_logical_roots() -> None:
+    client = MagicMock()
+    client.api.observations.get_many.return_value = SimpleNamespace(
+        data=[
+            _observation(observation_id="first-root", is_root=True),
+            _observation(observation_id="second-root", is_root=True),
+        ],
+        meta=SimpleNamespace(cursor=None),
+    )
+    runner = BatchEvaluationRunner(client)
+
+    result = await runner.run_async(
+        scope="traces",
+        mapper=lambda *, item: EvaluatorInputs(
+            input=item.input,
+            output=item.output,
+        ),
+        evaluators=[
+            lambda **kwargs: Evaluation(name="quality", value=1.0),
+        ],
+        observation_read_api="v2",
+    )
+
+    assert result.total_items_processed == 1
+    client.create_score.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_v2_trace_scope_rejects_unsupported_field_groups() -> None:
+    runner = BatchEvaluationRunner(MagicMock())
+
+    with pytest.raises(
+        ValueError,
+        match="does not support legacy trace field groups: observations, scores",
+    ):
+        await runner.run_async(
+            scope="traces",
+            mapper=lambda *, item: EvaluatorInputs(input=None, output=None),
+            evaluators=[],
+            fetch_trace_fields="core,scores,observations",
+            observation_read_api="v2",
+        )

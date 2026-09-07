@@ -3261,6 +3261,7 @@ class Langfuse:
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
         fetch_trace_fields: Optional[str] = None,
+        observation_read_api: Literal["legacy", "v2"] = "legacy",
         max_items: Optional[int] = None,
         max_retries: int = 3,
         evaluators: List[EvaluatorFunction],
@@ -3305,7 +3306,22 @@ class Langfuse:
                 Default: None (fetches all items).
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Default: 50.
-            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'.
+            fetch_trace_fields: Comma-separated list of fields to include when
+                fetching traces. With `observation_read_api="legacy"`, available
+                groups are 'core' (always included), 'io', 'scores',
+                'observations', and 'metrics'; if omitted, all groups are
+                returned. With `observation_read_api="v2"`, only 'core' and
+                'io' are supported and omitting this option selects both.
+            observation_read_api: Observation Read API used to fetch items.
+                - "legacy" (default) calls `GET /api/public/traces` for
+                  `scope="traces"` and the legacy
+                  `GET /api/public/observations` endpoint for
+                  `scope="observations"`. Use this with Langfuse platform v3.
+                - "v2" calls `GET /api/public/v2/observations` for both
+                  scopes. Use this with Langfuse platform v4 `events_only`
+                  deployments. Trace scope derives trace-shaped mapper items
+                  from root observations and supports only the `core` and `io`
+                  trace field groups.
             max_items: Maximum total number of items to process. If None, processes all
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).
@@ -3475,6 +3491,7 @@ class Langfuse:
                     filter=filter,
                     fetch_batch_size=fetch_batch_size,
                     fetch_trace_fields=fetch_trace_fields,
+                    observation_read_api=observation_read_api,
                     max_items=max_items,
                     max_concurrency=max_concurrency,
                     composite_evaluator=composite_evaluator,
