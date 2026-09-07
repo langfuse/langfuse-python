@@ -5,7 +5,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from langfuse.api import ObservationsView, ObservationV2, TraceWithFullDetails
+from langfuse.api import (
+    NotFoundError,
+    ObservationsView,
+    ObservationV2,
+    TraceWithFullDetails,
+)
 from langfuse.batch_evaluation import (
     BatchEvaluationRunner,
     EvaluatorInputs,
@@ -49,6 +54,7 @@ async def test_fetches_traces_as_root_observations_via_v2_api() -> None:
     items, cursor = await runner._fetch_batch_with_retry(
         scope="traces",
         filter='[{"type":"string","column":"user_id","operator":"=","value":"user"}]',
+        page=1,
         cursor=None,
         limit=10,
         max_retries=2,
@@ -103,6 +109,7 @@ async def test_fetches_observations_via_v2_api() -> None:
     items, cursor = await runner._fetch_batch_with_retry(
         scope="observations",
         filter=None,
+        page=1,
         cursor="current-cursor",
         limit=25,
         max_retries=3,
@@ -130,6 +137,44 @@ def test_resume_filter_uses_v2_start_time_column() -> None:
         BatchEvaluationRunner._get_timestamp_field_for_scope("observations")
         == "startTime"
     )
+
+
+@pytest.mark.asyncio
+async def test_falls_back_to_v3_read_api_when_v2_is_unavailable() -> None:
+    client = MagicMock()
+    client.api.observations.get_many.side_effect = NotFoundError(body="not found")
+    legacy_observation = MagicMock(spec=ObservationsView)
+    client.api.legacy.observations_v1.get_many.return_value = SimpleNamespace(
+        data=[legacy_observation]
+    )
+    runner = BatchEvaluationRunner(client)
+
+    items, cursor = await runner._fetch_batch_with_retry(
+        scope="observations",
+        filter=None,
+        page=1,
+        cursor=None,
+        limit=1,
+        max_retries=3,
+        fields=None,
+    )
+
+    assert items == [legacy_observation]
+    assert cursor == runner._LEGACY_PAGINATION_CURSOR
+
+    client.api.observations.get_many.reset_mock()
+    await runner._fetch_batch_with_retry(
+        scope="observations",
+        filter=None,
+        page=2,
+        cursor=cursor,
+        limit=1,
+        max_retries=3,
+        fields=None,
+    )
+
+    client.api.observations.get_many.assert_not_called()
+    assert client.api.legacy.observations_v1.get_many.call_args.kwargs["page"] == 2
 
 
 @pytest.mark.asyncio

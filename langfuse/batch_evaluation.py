@@ -24,6 +24,7 @@ from typing import (
 )
 
 from langfuse.api import (
+    NotFoundError,
     ObservationLevel,
     ObservationsView,
     ObservationV2,
@@ -831,6 +832,8 @@ class BatchEvaluationRunner:
         client: The Langfuse client instance used for API calls and score creation.
     """
 
+    _LEGACY_PAGINATION_CURSOR = "__langfuse_batch_evaluation_legacy__"
+
     def __init__(self, client: "Langfuse"):
         """Initialize the batch evaluation runner.
 
@@ -951,6 +954,7 @@ class BatchEvaluationRunner:
                 items, next_cursor = await self._fetch_batch_with_retry(
                     scope=scope,
                     filter=effective_filter,
+                    page=page,
                     cursor=cursor,
                     limit=fetch_batch_size,
                     max_retries=max_retries,
@@ -1152,6 +1156,7 @@ class BatchEvaluationRunner:
         *,
         scope: str,
         filter: Optional[str],
+        page: int,
         cursor: Optional[str],
         limit: int,
         max_retries: int,
@@ -1162,6 +1167,7 @@ class BatchEvaluationRunner:
         Args:
             scope: The type of items ("traces", "observations").
             filter: JSON filter string for querying.
+            page: Page number used by the v3 compatibility fallback.
             cursor: Cursor from the previous response.
             limit: Number of items per page.
             max_retries: Maximum number of retry attempts.
@@ -1178,13 +1184,35 @@ class BatchEvaluationRunner:
             error_message = f"Invalid scope: {scope}"
             raise ValueError(error_message)
 
-        response = self.client.api.observations.get_many(
-            fields=self._get_v2_observation_fields(scope=scope, trace_fields=fields),
-            cursor=cursor,
-            limit=limit,
-            filter=self._build_v2_filter(filter=filter, scope=scope),
-            request_options={"max_retries": max_retries},
-        )
+        if cursor == self._LEGACY_PAGINATION_CURSOR:
+            return self._fetch_legacy_batch(
+                scope=scope,
+                filter=filter,
+                page=page,
+                limit=limit,
+                max_retries=max_retries,
+                fields=fields,
+            )
+
+        try:
+            response = self.client.api.observations.get_many(
+                fields=self._get_v2_observation_fields(
+                    scope=scope, trace_fields=fields
+                ),
+                cursor=cursor,
+                limit=limit,
+                filter=self._build_v2_filter(filter=filter, scope=scope),
+                request_options={"max_retries": max_retries},
+            )
+        except NotFoundError:
+            return self._fetch_legacy_batch(
+                scope=scope,
+                filter=filter,
+                page=page,
+                limit=limit,
+                max_retries=max_retries,
+                fields=fields,
+            )
 
         if scope == "traces":
             items: List[Union[TraceWithFullDetails, ObservationsView]] = [
@@ -1197,6 +1225,37 @@ class BatchEvaluationRunner:
             ]
 
         return items, response.meta.cursor
+
+    def _fetch_legacy_batch(
+        self,
+        *,
+        scope: str,
+        filter: Optional[str],
+        page: int,
+        limit: int,
+        max_retries: int,
+        fields: Optional[str],
+    ) -> Tuple[List[Union[TraceWithFullDetails, ObservationsView]], Optional[str]]:
+        """Fetch from v3 read APIs when the v2 endpoint is unavailable."""
+        if scope == "traces":
+            response = self.client.api.trace.list(
+                page=page,
+                limit=limit,
+                filter=filter,
+                request_options={"max_retries": max_retries},
+                fields=fields,
+            )
+        else:
+            response = self.client.api.legacy.observations_v1.get_many(
+                page=page,
+                limit=limit,
+                filter=filter,
+                request_options={"max_retries": max_retries},
+            )
+
+        items = list(response.data)
+        next_cursor = self._LEGACY_PAGINATION_CURSOR if len(items) == limit else None
+        return items, next_cursor
 
     @staticmethod
     def _get_v2_observation_fields(*, scope: str, trace_fields: Optional[str]) -> str:
