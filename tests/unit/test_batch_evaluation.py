@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -8,7 +7,6 @@ import pytest
 from langfuse.api import (
     ObservationsView,
     ObservationV2,
-    TraceWithFullDetails,
 )
 from langfuse.batch_evaluation import (
     BatchEvaluationRunner,
@@ -21,7 +19,6 @@ def _observation(
     *,
     observation_id: str = "observation-id",
     trace_id: str = "trace-id",
-    is_root: bool = False,
 ) -> ObservationV2:
     return ObservationV2(
         id=observation_id,
@@ -30,7 +27,6 @@ def _observation(
         project_id="project-id",
         parent_observation_id=None,
         type="SPAN",
-        is_root_observation=is_root,
         name="root-span",
         trace_name="trace-name",
         input='{"question": "hello"}',
@@ -39,62 +35,6 @@ def _observation(
         tags=["production"],
         environment="production",
     )
-
-
-@pytest.mark.asyncio
-async def test_fetches_traces_as_root_observations_via_v2_api() -> None:
-    client = MagicMock()
-    client.api.observations.get_many.return_value = SimpleNamespace(
-        data=[_observation(is_root=True)],
-        meta=SimpleNamespace(cursor="next-cursor"),
-    )
-    runner = BatchEvaluationRunner(client)
-
-    items, cursor = await runner._fetch_batch_with_retry(
-        scope="traces",
-        filter='[{"type":"string","column":"user_id","operator":"=","value":"user"}]',
-        page=1,
-        cursor=None,
-        limit=10,
-        max_retries=2,
-        fields="io",
-        observation_read_api="v2",
-    )
-
-    assert cursor == "next-cursor"
-    assert len(items) == 1
-    trace = items[0]
-    assert isinstance(trace, TraceWithFullDetails)
-    assert trace.id == "trace-id"
-    assert trace.timestamp == datetime(2026, 1, 2, tzinfo=timezone.utc)
-    assert trace.name == "trace-name"
-    assert trace.input == {"question": "hello"}
-    assert trace.output == "answer"
-
-    kwargs = client.api.observations.get_many.call_args.kwargs
-    assert kwargs["cursor"] is None
-    assert kwargs["request_options"] == {"max_retries": 2}
-    assert set(kwargs["fields"].split(",")) == {
-        "basic",
-        "io",
-        "metadata",
-        "time",
-        "trace_context",
-    }
-    assert json.loads(kwargs["filter"]) == [
-        {
-            "type": "string",
-            "column": "userId",
-            "operator": "=",
-            "value": "user",
-        },
-        {
-            "type": "boolean",
-            "column": "isRootObservation",
-            "operator": "=",
-            "value": True,
-        },
-    ]
 
 
 @pytest.mark.asyncio
@@ -134,7 +74,7 @@ async def test_fetches_observations_via_v2_api() -> None:
 
 def test_resume_filter_uses_read_api_timestamp_column() -> None:
     assert (
-        BatchEvaluationRunner._get_timestamp_field_for_scope("traces", "v2")
+        BatchEvaluationRunner._get_timestamp_field_for_scope("observations", "v2")
         == "startTime"
     )
     assert (
@@ -246,45 +186,16 @@ async def test_run_uses_v2_cursor_for_next_batch() -> None:
 
 
 @pytest.mark.asyncio
-async def test_v2_trace_scope_deduplicates_logical_roots() -> None:
-    client = MagicMock()
-    client.api.observations.get_many.return_value = SimpleNamespace(
-        data=[
-            _observation(observation_id="first-root", is_root=True),
-            _observation(observation_id="second-root", is_root=True),
-        ],
-        meta=SimpleNamespace(cursor=None),
-    )
-    runner = BatchEvaluationRunner(client)
-
-    result = await runner.run_async(
-        scope="traces",
-        mapper=lambda *, item: EvaluatorInputs(
-            input=item.input,
-            output=item.output,
-        ),
-        evaluators=[
-            lambda **kwargs: Evaluation(name="quality", value=1.0),
-        ],
-        observation_read_api="v2",
-    )
-
-    assert result.total_items_processed == 1
-    client.create_score.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_v2_trace_scope_rejects_unsupported_field_groups() -> None:
+async def test_v2_read_api_rejects_trace_scope() -> None:
     runner = BatchEvaluationRunner(MagicMock())
 
     with pytest.raises(
         ValueError,
-        match="does not support legacy trace field groups: observations, scores",
+        match="is only supported with scope='observations'",
     ):
         await runner.run_async(
             scope="traces",
             mapper=lambda *, item: EvaluatorInputs(input=None, output=None),
             evaluators=[],
-            fetch_trace_fields="core,scores,observations",
             observation_read_api="v2",
         )

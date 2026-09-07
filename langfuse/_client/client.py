@@ -3307,21 +3307,17 @@ class Langfuse:
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Default: 50.
             fetch_trace_fields: Comma-separated list of fields to include when
-                fetching traces. With `observation_read_api="legacy"`, available
-                groups are 'core' (always included), 'io', 'scores',
-                'observations', and 'metrics'; if omitted, all groups are
-                returned. With `observation_read_api="v2"`, only 'core' and
-                'io' are supported and omitting this option selects both.
+                fetching traces through the legacy API. Available groups are
+                'core' (always included), 'io', 'scores', 'observations', and
+                'metrics'; if omitted, all groups are returned.
             observation_read_api: Observation Read API used to fetch items.
                 - "legacy" (default) calls `GET /api/public/traces` for
                   `scope="traces"` and the legacy
                   `GET /api/public/observations` endpoint for
                   `scope="observations"`. Use this with Langfuse platform v3.
-                - "v2" calls `GET /api/public/v2/observations` for both
-                  scopes. Use this with Langfuse platform v4 `events_only`
-                  deployments. Trace scope derives trace-shaped mapper items
-                  from root observations and supports only the `core` and `io`
-                  trace field groups.
+                - "v2" calls `GET /api/public/v2/observations` and is only
+                  supported with `scope="observations"`. Use this with Langfuse
+                  platform v4 `events_only` deployments.
             max_items: Maximum total number of items to process. If None, processes all
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).

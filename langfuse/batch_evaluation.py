@@ -876,16 +876,14 @@ class BatchEvaluationRunner:
             fetch_batch_size: Number of items to fetch per API call.
             fetch_trace_fields: Comma-separated trace field groups. The legacy
                 API supports 'core', 'io', 'scores', 'observations', and
-                'metrics'. The v2 API supports only 'core' and 'io'.
+                'metrics'. Only relevant to the legacy trace scope.
             observation_read_api: Observation Read API used to fetch items.
                 - "legacy" (default) uses `GET /api/public/traces` for trace
                   scope and `GET /api/public/observations` for observation
                   scope. This is compatible with Langfuse platform v3.
-                - "v2" uses `GET /api/public/v2/observations` for both scopes.
-                  This is compatible with Langfuse platform v4 `events_only`
-                  deployments. For trace scope, root observations are adapted
-                  to trace-shaped objects; legacy trace-specific fields and
-                  filters are not all available.
+                - "v2" uses `GET /api/public/v2/observations`. It is only
+                  supported with observation scope and is compatible with
+                  Langfuse platform v4 `events_only` deployments.
             max_items: Maximum number of items to process (None = all).
             max_concurrency: Maximum number of concurrent evaluations.
             composite_evaluator: Optional function to create composite scores.
@@ -904,7 +902,6 @@ class BatchEvaluationRunner:
         self._validate_read_options(
             scope=scope,
             observation_read_api=observation_read_api,
-            fetch_trace_fields=fetch_trace_fields,
         )
         start_time = time.time()
 
@@ -937,7 +934,6 @@ class BatchEvaluationRunner:
             else []
         )
         updated_trace_ids: Set[str] = set()
-        fetched_trace_ids: Set[str] = set()
 
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
@@ -1011,15 +1007,7 @@ class BatchEvaluationRunner:
                     item_evaluations=item_evaluations,
                 )
 
-            if scope == "traces" and observation_read_api == "v2":
-                unique_items = []
-                for item in items:
-                    if item.id not in fetched_trace_ids:
-                        unique_items.append(item)
-                        fetched_trace_ids.add(item.id)
-                items = unique_items
-
-            # Check if we got any new items
+            # Check if we got any items
             if not items:
                 if next_cursor is None:
                     has_more = False
@@ -1231,22 +1219,17 @@ class BatchEvaluationRunner:
             )
 
         response = self.client.api.observations.get_many(
-            fields=self._get_v2_observation_fields(scope=scope, trace_fields=fields),
+            fields=self._get_v2_observation_fields(),
             cursor=cursor,
             limit=limit,
-            filter=self._build_v2_filter(filter=filter, scope=scope),
+            filter=self._build_v2_filter(filter=filter),
             request_options={"max_retries": max_retries},
         )
 
-        if scope == "traces":
-            items: List[Union[TraceWithFullDetails, ObservationsView]] = [
-                self._observation_to_trace(observation) for observation in response.data
-            ]
-        else:
-            items = [
-                self._observation_to_legacy_view(observation)
-                for observation in response.data
-            ]
+        items: List[Union[TraceWithFullDetails, ObservationsView]] = [
+            self._observation_to_legacy_view(observation)
+            for observation in response.data
+        ]
 
         return items, response.meta.cursor
 
@@ -1286,7 +1269,6 @@ class BatchEvaluationRunner:
         *,
         scope: str,
         observation_read_api: str,
-        fetch_trace_fields: Optional[str],
     ) -> None:
         """Validate options that differ between observation read APIs."""
         if observation_read_api not in {"legacy", "v2"}:
@@ -1296,29 +1278,18 @@ class BatchEvaluationRunner:
             )
             raise ValueError(message)
 
-        if observation_read_api == "v2" and scope == "traces" and fetch_trace_fields:
-            requested_fields = {
-                field.strip()
-                for field in fetch_trace_fields.split(",")
-                if field.strip()
-            }
-            unsupported_fields = requested_fields & {
-                "metrics",
-                "observations",
-                "scores",
-            }
-            if unsupported_fields:
-                unsupported = ", ".join(sorted(unsupported_fields))
-                message = (
-                    "observation_read_api='v2' does not support legacy trace "
-                    f"field groups: {unsupported}. Use 'core' and/or 'io'."
-                )
-                raise ValueError(message)
+        if observation_read_api == "v2" and scope != "observations":
+            message = (
+                "observation_read_api='v2' is only supported with "
+                "scope='observations'. Use observation_read_api='legacy' "
+                "for scope='traces'."
+            )
+            raise ValueError(message)
 
     @staticmethod
-    def _get_v2_observation_fields(*, scope: str, trace_fields: Optional[str]) -> str:
-        """Map legacy trace field groups to v2 observation field groups."""
-        all_fields = {
+    def _get_v2_observation_fields() -> str:
+        """Return all v2 observation field groups needed by mappers."""
+        fields = {
             "basic",
             "time",
             "io",
@@ -1329,25 +1300,11 @@ class BatchEvaluationRunner:
             "metrics",
             "trace_context",
         }
-        if scope == "observations":
-            selected_fields = all_fields
-        else:
-            requested_fields = {
-                field.strip()
-                for field in (trace_fields or "core,io").split(",")
-                if field.strip()
-            }
-            selected_fields = {"basic", "time", "trace_context"}
-            if "io" in requested_fields:
-                selected_fields.update({"io", "metadata"})
-            if "metrics" in requested_fields:
-                selected_fields.update({"metrics", "usage"})
-
-        return ",".join(sorted(selected_fields))
+        return ",".join(sorted(fields))
 
     @staticmethod
-    def _build_v2_filter(*, filter: Optional[str], scope: str) -> Optional[str]:
-        """Adapt legacy filter columns and select root observations for traces."""
+    def _build_v2_filter(*, filter: Optional[str]) -> Optional[str]:
+        """Adapt legacy observation filter columns to v2 names."""
         try:
             filters = json.loads(filter) if filter else []
         except json.JSONDecodeError:
@@ -1369,42 +1326,7 @@ class BatchEvaluationRunner:
             ):
                 condition["column"] = column_aliases[condition["column"]]
 
-        if scope == "traces":
-            filters.append(
-                {
-                    "type": "boolean",
-                    "column": "isRootObservation",
-                    "operator": "=",
-                    "value": True,
-                }
-            )
-
         return json.dumps(filters)
-
-    @classmethod
-    def _observation_to_trace(cls, observation: ObservationV2) -> TraceWithFullDetails:
-        """Adapt a v2 root observation to the established trace mapper contract."""
-        trace_id = observation.trace_id or observation.id
-        return TraceWithFullDetails.model_construct(
-            id=trace_id,
-            timestamp=observation.start_time,
-            name=observation.trace_name or observation.name,
-            input=cls._parse_io_value(observation.input),
-            output=cls._parse_io_value(observation.output),
-            session_id=observation.session_id,
-            release=observation.release,
-            version=observation.version,
-            user_id=observation.user_id,
-            metadata=observation.metadata,
-            tags=observation.tags or [],
-            public=observation.public or False,
-            environment=observation.environment or "default",
-            html_path="",
-            latency=observation.latency,
-            total_cost=observation.total_cost,
-            observations=[],
-            scores=[],
-        )
 
     @classmethod
     def _observation_to_legacy_view(
