@@ -24,8 +24,11 @@ from typing import (
 )
 
 from langfuse.api import (
+    ObservationLevel,
     ObservationsView,
+    ObservationV2,
     TraceWithFullDetails,
+    Usage,
 )
 from langfuse.experiment import Evaluation, EvaluatorFunction
 from langfuse.logger import langfuse_logger as logger
@@ -918,6 +921,7 @@ class BatchEvaluationRunner:
 
         # Pagination state
         page = 1
+        cursor: Optional[str] = None
         has_more = True
         last_item_timestamp: Optional[str] = None
         last_item_id: Optional[str] = None
@@ -944,10 +948,10 @@ class BatchEvaluationRunner:
 
             # Fetch next batch with retry logic
             try:
-                items = await self._fetch_batch_with_retry(
+                items, next_cursor = await self._fetch_batch_with_retry(
                     scope=scope,
                     filter=effective_filter,
-                    page=page,
+                    cursor=cursor,
                     limit=fetch_batch_size,
                     max_retries=max_retries,
                     fields=fetch_trace_fields,
@@ -1091,10 +1095,10 @@ class BatchEvaluationRunner:
                     )
 
             # Check if we should continue to next page
-            if len(items) < fetch_batch_size:
-                # Last page - no more items available
+            if next_cursor is None:
                 has_more = False
             else:
+                cursor = next_cursor
                 page += 1
 
                 # Check max_items again before next fetch
@@ -1148,48 +1152,190 @@ class BatchEvaluationRunner:
         *,
         scope: str,
         filter: Optional[str],
-        page: int,
+        cursor: Optional[str],
         limit: int,
         max_retries: int,
         fields: Optional[str],
-    ) -> List[Union[TraceWithFullDetails, ObservationsView]]:
+    ) -> Tuple[List[Union[TraceWithFullDetails, ObservationsView]], Optional[str]]:
         """Fetch a batch of items with retry logic.
 
         Args:
             scope: The type of items ("traces", "observations").
             filter: JSON filter string for querying.
-            page: Page number (1-indexed).
+            cursor: Cursor from the previous response.
             limit: Number of items per page.
             max_retries: Maximum number of retry attempts.
             verbose: Whether to log retry attempts.
             fields: Trace fields to fetch
 
         Returns:
-            List of items from the API.
+            A tuple containing the items and the next-page cursor.
 
         Raises:
             Exception: If all retry attempts fail.
         """
-        if scope == "traces":
-            response = self.client.api.trace.list(
-                page=page,
-                limit=limit,
-                filter=filter,
-                request_options={"max_retries": max_retries},
-                fields=fields,
-            )  # type: ignore
-            return list(response.data)  # type: ignore
-        elif scope == "observations":
-            response = self.client.api.legacy.observations_v1.get_many(
-                page=page,
-                limit=limit,
-                filter=filter,
-                request_options={"max_retries": max_retries},
-            )  # type: ignore
-            return list(response.data)  # type: ignore
-        else:
+        if scope not in {"traces", "observations"}:
             error_message = f"Invalid scope: {scope}"
             raise ValueError(error_message)
+
+        response = self.client.api.observations.get_many(
+            fields=self._get_v2_observation_fields(scope=scope, trace_fields=fields),
+            cursor=cursor,
+            limit=limit,
+            filter=self._build_v2_filter(filter=filter, scope=scope),
+            request_options={"max_retries": max_retries},
+        )
+
+        if scope == "traces":
+            items: List[Union[TraceWithFullDetails, ObservationsView]] = [
+                self._observation_to_trace(observation) for observation in response.data
+            ]
+        else:
+            items = [
+                self._observation_to_legacy_view(observation)
+                for observation in response.data
+            ]
+
+        return items, response.meta.cursor
+
+    @staticmethod
+    def _get_v2_observation_fields(*, scope: str, trace_fields: Optional[str]) -> str:
+        """Map legacy trace field groups to v2 observation field groups."""
+        all_fields = {
+            "basic",
+            "time",
+            "io",
+            "metadata",
+            "model",
+            "usage",
+            "prompt",
+            "metrics",
+            "trace_context",
+        }
+        if scope == "observations" or trace_fields is None:
+            selected_fields = all_fields
+        else:
+            requested_fields = {
+                field.strip() for field in trace_fields.split(",") if field.strip()
+            }
+            selected_fields = {"basic", "time", "trace_context"}
+            if "io" in requested_fields:
+                selected_fields.update({"io", "metadata"})
+            if "metrics" in requested_fields:
+                selected_fields.update({"metrics", "usage"})
+
+        return ",".join(sorted(selected_fields))
+
+    @staticmethod
+    def _build_v2_filter(*, filter: Optional[str], scope: str) -> Optional[str]:
+        """Adapt legacy filter columns and select root observations for traces."""
+        try:
+            filters = json.loads(filter) if filter else []
+        except json.JSONDecodeError:
+            return filter
+
+        if not isinstance(filters, list):
+            return filter
+
+        column_aliases = {
+            "timestamp": "startTime",
+            "start_time": "startTime",
+            "user_id": "userId",
+            "session_id": "sessionId",
+        }
+        for condition in filters:
+            if (
+                isinstance(condition, dict)
+                and condition.get("column") in column_aliases
+            ):
+                condition["column"] = column_aliases[condition["column"]]
+
+        if scope == "traces":
+            filters.append(
+                {
+                    "type": "boolean",
+                    "column": "isRootObservation",
+                    "operator": "=",
+                    "value": True,
+                }
+            )
+
+        return json.dumps(filters)
+
+    @classmethod
+    def _observation_to_trace(cls, observation: ObservationV2) -> TraceWithFullDetails:
+        """Adapt a v2 root observation to the established trace mapper contract."""
+        trace_id = observation.trace_id or observation.id
+        return TraceWithFullDetails.model_construct(
+            id=trace_id,
+            timestamp=observation.start_time,
+            name=observation.trace_name or observation.name,
+            input=cls._parse_io_value(observation.input),
+            output=cls._parse_io_value(observation.output),
+            session_id=observation.session_id,
+            release=observation.release,
+            version=observation.version,
+            user_id=observation.user_id,
+            metadata=observation.metadata,
+            tags=observation.tags or [],
+            public=observation.public or False,
+            environment=observation.environment or "default",
+            html_path="",
+            latency=observation.latency,
+            total_cost=observation.total_cost,
+            observations=[],
+            scores=[],
+        )
+
+    @classmethod
+    def _observation_to_legacy_view(
+        cls, observation: ObservationV2
+    ) -> ObservationsView:
+        """Adapt a v2 observation to the established observation mapper contract."""
+        usage_details = observation.usage_details or {}
+        return ObservationsView.model_construct(
+            id=observation.id,
+            trace_id=observation.trace_id,
+            type=observation.type,
+            name=observation.name,
+            start_time=observation.start_time,
+            end_time=observation.end_time,
+            completion_start_time=observation.completion_start_time,
+            model=observation.model,
+            model_parameters=observation.model_parameters or {},
+            input=cls._parse_io_value(observation.input),
+            version=observation.version,
+            metadata=observation.metadata,
+            output=cls._parse_io_value(observation.output),
+            usage=Usage(
+                input=usage_details.get("input", 0),
+                output=usage_details.get("output", 0),
+                total=usage_details.get("total", 0),
+            ),
+            level=observation.level or ObservationLevel.DEFAULT,
+            status_message=observation.status_message,
+            parent_observation_id=observation.parent_observation_id,
+            prompt_id=observation.prompt_id,
+            usage_details=usage_details,
+            cost_details=observation.cost_details or {},
+            environment=observation.environment or "default",
+            prompt_name=observation.prompt_name,
+            prompt_version=observation.prompt_version,
+            model_id=observation.model_id,
+            latency=observation.latency,
+            time_to_first_token=observation.time_to_first_token,
+        )
+
+    @staticmethod
+    def _parse_io_value(value: Any) -> Any:
+        """Restore the parsed JSON behavior of the legacy read endpoints."""
+        if not isinstance(value, str):
+            return value
+
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
 
     async def _process_batch_evaluation_item(
         self,
@@ -1573,11 +1719,7 @@ class BatchEvaluationRunner:
         Returns:
             The field name to use in filters.
         """
-        if scope == "traces":
-            return "timestamp"
-        elif scope == "observations":
-            return "start_time"
-        return "timestamp"  # Default
+        return "startTime"
 
     @staticmethod
     def _dedupe_tags(tags: Optional[List[str]]) -> List[str]:
