@@ -1237,11 +1237,12 @@ class BatchEvaluationRunner:
         fields: Optional[str],
     ) -> Tuple[List[Union[TraceWithFullDetails, ObservationsView]], Optional[str]]:
         """Fetch from v3 read APIs when the v2 endpoint is unavailable."""
+        legacy_filter = self._build_legacy_filter(filter=filter, scope=scope)
         if scope == "traces":
             response = self.client.api.trace.list(
                 page=page,
                 limit=limit,
-                filter=filter,
+                filter=legacy_filter,
                 request_options={"max_retries": max_retries},
                 fields=fields,
             )
@@ -1249,7 +1250,7 @@ class BatchEvaluationRunner:
             response = self.client.api.legacy.observations_v1.get_many(
                 page=page,
                 limit=limit,
-                filter=filter,
+                filter=legacy_filter,
                 request_options={"max_retries": max_retries},
             )
 
@@ -1318,6 +1319,24 @@ class BatchEvaluationRunner:
                     "value": True,
                 }
             )
+
+        return json.dumps(filters)
+
+    @staticmethod
+    def _build_legacy_filter(*, filter: Optional[str], scope: str) -> Optional[str]:
+        """Restore the v3 timestamp column when a resumed run falls back."""
+        try:
+            filters = json.loads(filter) if filter else []
+        except json.JSONDecodeError:
+            return filter
+
+        if not isinstance(filters, list):
+            return filter
+
+        timestamp_column = "timestamp" if scope == "traces" else "start_time"
+        for condition in filters:
+            if isinstance(condition, dict) and condition.get("column") == "startTime":
+                condition["column"] = timestamp_column
 
         return json.dumps(filters)
 
