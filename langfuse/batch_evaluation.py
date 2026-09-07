@@ -15,7 +15,6 @@ from typing import (
     Awaitable,
     Dict,
     List,
-    Literal,
     Optional,
     Protocol,
     Set,
@@ -25,11 +24,8 @@ from typing import (
 )
 
 from langfuse.api import (
-    ObservationLevel,
     ObservationsView,
-    ObservationV2,
     TraceWithFullDetails,
-    Usage,
 )
 from langfuse.experiment import Evaluation, EvaluatorFunction
 from langfuse.logger import langfuse_logger as logger
@@ -832,8 +828,6 @@ class BatchEvaluationRunner:
         client: The Langfuse client instance used for API calls and score creation.
     """
 
-    _LEGACY_NEXT_PAGE = "__langfuse_batch_evaluation_legacy__"
-
     def __init__(self, client: "Langfuse"):
         """Initialize the batch evaluation runner.
 
@@ -851,7 +845,6 @@ class BatchEvaluationRunner:
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
         fetch_trace_fields: Optional[str] = "io",
-        observation_read_api: Literal["legacy", "v2"] = "legacy",
         max_items: Optional[int] = None,
         max_concurrency: int = 5,
         composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
@@ -862,11 +855,15 @@ class BatchEvaluationRunner:
         verbose: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
     ) -> BatchEvaluationResult:
-        """Run batch evaluation asynchronously.
+        """Run batch evaluation asynchronously using legacy read APIs.
 
         This is the main implementation method that orchestrates the entire batch
         evaluation process: fetching items, mapping, evaluating, creating scores,
         and tracking statistics.
+
+        This runner reads traces from `GET /api/public/traces` and observations
+        from the legacy `GET /api/public/observations` endpoint. It is supported
+        with Langfuse platform v3 and is not yet supported with platform v4.
 
         Args:
             scope: The type of items to evaluate ("traces", "observations").
@@ -874,16 +871,7 @@ class BatchEvaluationRunner:
             evaluators: List of evaluation functions to run on each item.
             filter: JSON filter string for querying items.
             fetch_batch_size: Number of items to fetch per API call.
-            fetch_trace_fields: Comma-separated trace field groups. The legacy
-                API supports 'core', 'io', 'scores', 'observations', and
-                'metrics'. Only relevant to the legacy trace scope.
-            observation_read_api: Observation Read API used to fetch items.
-                - "legacy" (default) uses `GET /api/public/traces` for trace
-                  scope and `GET /api/public/observations` for observation
-                  scope. This is compatible with Langfuse platform v3.
-                - "v2" uses `GET /api/public/v2/observations`. It is only
-                  supported with observation scope and is compatible with
-                  Langfuse platform v4 `events_only` deployments.
+            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'. Default: 'io'
             max_items: Maximum number of items to process (None = all).
             max_concurrency: Maximum number of concurrent evaluations.
             composite_evaluator: Optional function to create composite scores.
@@ -899,10 +887,6 @@ class BatchEvaluationRunner:
         Returns:
             BatchEvaluationResult with comprehensive statistics.
         """
-        self._validate_read_options(
-            scope=scope,
-            observation_read_api=observation_read_api,
-        )
         start_time = time.time()
 
         # Initialize tracking variables
@@ -925,9 +909,7 @@ class BatchEvaluationRunner:
         }
 
         # Handle resume token by modifying filter
-        effective_filter = self._build_timestamp_filter(
-            filter, resume_from, observation_read_api
-        )
+        effective_filter = self._build_timestamp_filter(filter, resume_from)
         normalized_additional_trace_tags = (
             self._dedupe_tags(_additional_trace_tags)
             if _additional_trace_tags is not None
@@ -940,7 +922,6 @@ class BatchEvaluationRunner:
 
         # Pagination state
         page = 1
-        cursor: Optional[str] = None
         has_more = True
         last_item_timestamp: Optional[str] = None
         last_item_id: Optional[str] = None
@@ -967,15 +948,13 @@ class BatchEvaluationRunner:
 
             # Fetch next batch with retry logic
             try:
-                items, next_cursor = await self._fetch_batch_with_retry(
+                items = await self._fetch_batch_with_retry(
                     scope=scope,
                     filter=effective_filter,
                     page=page,
-                    cursor=cursor,
                     limit=fetch_batch_size,
                     max_retries=max_retries,
                     fields=fetch_trace_fields,
-                    observation_read_api=observation_read_api,
                 )
             except Exception as e:
                 # Failed after max_retries - create resume token and return
@@ -1009,15 +988,10 @@ class BatchEvaluationRunner:
 
             # Check if we got any items
             if not items:
-                if next_cursor is None:
-                    has_more = False
-                    if verbose:
-                        logger.info("No more items to fetch")
-                    break
-
-                cursor = next_cursor
-                page += 1
-                continue
+                has_more = False
+                if verbose:
+                    logger.info("No more items to fetch")
+                break
 
             total_items_fetched += len(items)
 
@@ -1121,10 +1095,10 @@ class BatchEvaluationRunner:
                     )
 
             # Check if we should continue to next page
-            if next_cursor is None:
+            if len(items) < fetch_batch_size:
+                # Last page - no more items available
                 has_more = False
             else:
-                cursor = next_cursor
                 page += 1
 
                 # Check max_items again before next fetch
@@ -1179,71 +1153,27 @@ class BatchEvaluationRunner:
         scope: str,
         filter: Optional[str],
         page: int,
-        cursor: Optional[str],
         limit: int,
         max_retries: int,
         fields: Optional[str],
-        observation_read_api: Literal["legacy", "v2"],
-    ) -> Tuple[List[Union[TraceWithFullDetails, ObservationsView]], Optional[str]]:
+    ) -> List[Union[TraceWithFullDetails, ObservationsView]]:
         """Fetch a batch of items with retry logic.
 
         Args:
             scope: The type of items ("traces", "observations").
             filter: JSON filter string for querying.
-            page: Page number used by the v3 compatibility fallback.
-            cursor: Cursor from the previous response.
+            page: Page number (1-indexed).
             limit: Number of items per page.
             max_retries: Maximum number of retry attempts.
             verbose: Whether to log retry attempts.
             fields: Trace fields to fetch
-            observation_read_api: Read API selected by the caller.
 
         Returns:
-            A tuple containing the items and the next-page cursor.
+            List of items from the API.
 
         Raises:
             Exception: If all retry attempts fail.
         """
-        if scope not in {"traces", "observations"}:
-            error_message = f"Invalid scope: {scope}"
-            raise ValueError(error_message)
-
-        if observation_read_api == "legacy":
-            return self._fetch_legacy_batch(
-                scope=scope,
-                filter=filter,
-                page=page,
-                limit=limit,
-                max_retries=max_retries,
-                fields=fields,
-            )
-
-        response = self.client.api.observations.get_many(
-            fields=self._get_v2_observation_fields(),
-            cursor=cursor,
-            limit=limit,
-            filter=self._build_v2_filter(filter=filter),
-            request_options={"max_retries": max_retries},
-        )
-
-        items: List[Union[TraceWithFullDetails, ObservationsView]] = [
-            self._observation_to_legacy_view(observation)
-            for observation in response.data
-        ]
-
-        return items, response.meta.cursor
-
-    def _fetch_legacy_batch(
-        self,
-        *,
-        scope: str,
-        filter: Optional[str],
-        page: int,
-        limit: int,
-        max_retries: int,
-        fields: Optional[str],
-    ) -> Tuple[List[Union[TraceWithFullDetails, ObservationsView]], Optional[str]]:
-        """Fetch from the legacy trace or observation read API."""
         if scope == "traces":
             response = self.client.api.trace.list(
                 page=page,
@@ -1251,132 +1181,19 @@ class BatchEvaluationRunner:
                 filter=filter,
                 request_options={"max_retries": max_retries},
                 fields=fields,
-            )
-        else:
+            )  # type: ignore
+            return list(response.data)  # type: ignore
+        elif scope == "observations":
             response = self.client.api.legacy.observations_v1.get_many(
                 page=page,
                 limit=limit,
                 filter=filter,
                 request_options={"max_retries": max_retries},
-            )
-
-        items = list(response.data)
-        next_cursor = self._LEGACY_NEXT_PAGE if len(items) == limit else None
-        return items, next_cursor
-
-    @staticmethod
-    def _validate_read_options(
-        *,
-        scope: str,
-        observation_read_api: str,
-    ) -> None:
-        """Validate options that differ between observation read APIs."""
-        if observation_read_api not in {"legacy", "v2"}:
-            message = (
-                "Invalid observation_read_api: "
-                f"{observation_read_api}. Expected 'legacy' or 'v2'."
-            )
-            raise ValueError(message)
-
-        if observation_read_api == "v2" and scope != "observations":
-            message = (
-                "observation_read_api='v2' is only supported with "
-                "scope='observations'. Use observation_read_api='legacy' "
-                "for scope='traces'."
-            )
-            raise ValueError(message)
-
-    @staticmethod
-    def _get_v2_observation_fields() -> str:
-        """Return all v2 observation field groups needed by mappers."""
-        fields = {
-            "basic",
-            "time",
-            "io",
-            "metadata",
-            "model",
-            "usage",
-            "prompt",
-            "metrics",
-            "trace_context",
-        }
-        return ",".join(sorted(fields))
-
-    @staticmethod
-    def _build_v2_filter(*, filter: Optional[str]) -> Optional[str]:
-        """Adapt legacy observation filter columns to v2 names."""
-        try:
-            filters = json.loads(filter) if filter else []
-        except json.JSONDecodeError:
-            return filter
-
-        if not isinstance(filters, list):
-            return filter
-
-        column_aliases = {
-            "timestamp": "startTime",
-            "start_time": "startTime",
-            "user_id": "userId",
-            "session_id": "sessionId",
-        }
-        for condition in filters:
-            if (
-                isinstance(condition, dict)
-                and condition.get("column") in column_aliases
-            ):
-                condition["column"] = column_aliases[condition["column"]]
-
-        return json.dumps(filters)
-
-    @classmethod
-    def _observation_to_legacy_view(
-        cls, observation: ObservationV2
-    ) -> ObservationsView:
-        """Adapt a v2 observation to the established observation mapper contract."""
-        usage_details = observation.usage_details or {}
-        return ObservationsView.model_construct(
-            id=observation.id,
-            trace_id=observation.trace_id,
-            type=observation.type,
-            name=observation.name,
-            start_time=observation.start_time,
-            end_time=observation.end_time,
-            completion_start_time=observation.completion_start_time,
-            model=observation.model,
-            model_parameters=observation.model_parameters or {},
-            input=cls._parse_io_value(observation.input),
-            version=observation.version,
-            metadata=observation.metadata,
-            output=cls._parse_io_value(observation.output),
-            usage=Usage(
-                input=usage_details.get("input", 0),
-                output=usage_details.get("output", 0),
-                total=usage_details.get("total", 0),
-            ),
-            level=observation.level or ObservationLevel.DEFAULT,
-            status_message=observation.status_message,
-            parent_observation_id=observation.parent_observation_id,
-            prompt_id=observation.prompt_id,
-            usage_details=usage_details,
-            cost_details=observation.cost_details or {},
-            environment=observation.environment or "default",
-            prompt_name=observation.prompt_name,
-            prompt_version=observation.prompt_version,
-            model_id=observation.model_id,
-            latency=observation.latency,
-            time_to_first_token=observation.time_to_first_token,
-        )
-
-    @staticmethod
-    def _parse_io_value(value: Any) -> Any:
-        """Restore the parsed JSON behavior of the legacy read endpoints."""
-        if not isinstance(value, str):
-            return value
-
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError:
-            return value
+            )  # type: ignore
+            return list(response.data)  # type: ignore
+        else:
+            error_message = f"Invalid scope: {scope}"
+            raise ValueError(error_message)
 
     async def _process_batch_evaluation_item(
         self,
@@ -1671,14 +1488,12 @@ class BatchEvaluationRunner:
         self,
         original_filter: Optional[str],
         resume_from: Optional[BatchEvaluationResumeToken],
-        observation_read_api: Literal["legacy", "v2"],
     ) -> Optional[str]:
         """Build filter with timestamp constraint for resume capability.
 
         Args:
             original_filter: The original JSON filter string.
             resume_from: Optional resume token with timestamp information.
-            observation_read_api: Read API selected by the caller.
 
         Returns:
             Modified filter string with timestamp constraint, or original filter.
@@ -1701,9 +1516,7 @@ class BatchEvaluationRunner:
             filter_list = []
 
         # Add timestamp constraint to filter array
-        timestamp_field = self._get_timestamp_field_for_scope(
-            resume_from.scope, observation_read_api
-        )
+        timestamp_field = self._get_timestamp_field_for_scope(resume_from.scope)
         timestamp_filter = {
             "type": "datetime",
             "column": timestamp_field,
@@ -1755,21 +1568,20 @@ class BatchEvaluationRunner:
         return ""
 
     @staticmethod
-    def _get_timestamp_field_for_scope(
-        scope: str, observation_read_api: Literal["legacy", "v2"]
-    ) -> str:
+    def _get_timestamp_field_for_scope(scope: str) -> str:
         """Get the timestamp field name for filtering based on scope.
 
         Args:
             scope: The type of items.
-            observation_read_api: Read API selected by the caller.
 
         Returns:
             The field name to use in filters.
         """
-        if observation_read_api == "v2":
-            return "startTime"
-        return "timestamp" if scope == "traces" else "start_time"
+        if scope == "traces":
+            return "timestamp"
+        elif scope == "observations":
+            return "start_time"
+        return "timestamp"  # Default
 
     @staticmethod
     def _dedupe_tags(tags: Optional[List[str]]) -> List[str]:

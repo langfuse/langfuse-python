@@ -3261,7 +3261,6 @@ class Langfuse:
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
         fetch_trace_fields: Optional[str] = None,
-        observation_read_api: Literal["legacy", "v2"] = "legacy",
         max_items: Optional[int] = None,
         max_retries: int = 3,
         evaluators: List[EvaluatorFunction],
@@ -3273,7 +3272,7 @@ class Langfuse:
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
-        """Fetch traces or observations and run evaluations on each item.
+        """Fetch traces or observations using legacy read APIs and evaluate each item.
 
         This method provides a powerful way to evaluate existing data in Langfuse at scale.
         It fetches items based on filters, transforms them using a mapper function, runs
@@ -3288,6 +3287,11 @@ class Langfuse:
         The method uses a streaming/pipeline approach to process items in batches, making
         it memory-efficient for large datasets. It includes comprehensive error handling,
         retry logic, and resume capability for long-running evaluations.
+
+        Legacy platform compatibility:
+            This method reads traces from `GET /api/public/traces` and observations
+            from the legacy `GET /api/public/observations` endpoint. It is supported
+            with Langfuse platform v3 and is not yet supported with platform v4.
 
         Args:
             scope: The type of items to evaluate. Must be one of:
@@ -3306,18 +3310,7 @@ class Langfuse:
                 Default: None (fetches all items).
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Default: 50.
-            fetch_trace_fields: Comma-separated list of fields to include when
-                fetching traces through the legacy API. Available groups are
-                'core' (always included), 'io', 'scores', 'observations', and
-                'metrics'; if omitted, all groups are returned.
-            observation_read_api: Observation Read API used to fetch items.
-                - "legacy" (default) calls `GET /api/public/traces` for
-                  `scope="traces"` and the legacy
-                  `GET /api/public/observations` endpoint for
-                  `scope="observations"`. Use this with Langfuse platform v3.
-                - "v2" calls `GET /api/public/v2/observations` and is only
-                  supported with `scope="observations"`. Use this with Langfuse
-                  platform v4 `events_only` deployments.
+            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'.
             max_items: Maximum total number of items to process. If None, processes all
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).
@@ -3487,7 +3480,6 @@ class Langfuse:
                     filter=filter,
                     fetch_batch_size=fetch_batch_size,
                     fetch_trace_fields=fetch_trace_fields,
-                    observation_read_api=observation_read_api,
                     max_items=max_items,
                     max_concurrency=max_concurrency,
                     composite_evaluator=composite_evaluator,
