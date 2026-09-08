@@ -34,6 +34,7 @@ class RawObservationsV1Client:
         self,
         observation_id: str,
         *,
+        start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ObservationsViewSingle]:
         """
@@ -43,6 +44,9 @@ class RawObservationsV1Client:
         ----------
         observation_id : str
             The unique langfuse identifier of an observation, can be an event, span or generation
+
+        start_time : typing.Optional[dt.datetime]
+            The start time of the observation (ISO 8601 with offset, e.g. 2024-01-01T00:00:00Z). When provided, the lookup is restricted to the observation's start day, which makes the request substantially faster. Omit it to look up the observation without a time bound.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -54,6 +58,11 @@ class RawObservationsV1Client:
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/observations/{jsonable_encoder(observation_id)}",
             method="GET",
+            params={
+                "startTime": serialize_datetime(start_time)
+                if start_time is not None
+                else None,
+            },
             request_options=request_options,
         )
         try:
@@ -411,6 +420,7 @@ class AsyncRawObservationsV1Client:
         self,
         observation_id: str,
         *,
+        start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ObservationsViewSingle]:
         """
@@ -420,6 +430,9 @@ class AsyncRawObservationsV1Client:
         ----------
         observation_id : str
             The unique langfuse identifier of an observation, can be an event, span or generation
+
+        start_time : typing.Optional[dt.datetime]
+            The start time of the observation (ISO 8601 with offset, e.g. 2024-01-01T00:00:00Z). When provided, the lookup is restricted to the observation's start day, which makes the request substantially faster. Omit it to look up the observation without a time bound.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -431,6 +444,11 @@ class AsyncRawObservationsV1Client:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/observations/{jsonable_encoder(observation_id)}",
             method="GET",
+            params={
+                "startTime": serialize_datetime(start_time)
+                if start_time is not None
+                else None,
+            },
             request_options=request_options,
         )
         try:

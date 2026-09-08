@@ -35,6 +35,7 @@ class ObservationsV1Client:
         self,
         observation_id: str,
         *,
+        start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViewSingle:
         """
@@ -44,6 +45,9 @@ class ObservationsV1Client:
         ----------
         observation_id : str
             The unique langfuse identifier of an observation, can be an event, span or generation
+
+        start_time : typing.Optional[dt.datetime]
+            The start time of the observation (ISO 8601 with offset, e.g. 2024-01-01T00:00:00Z). When provided, the lookup is restricted to the observation's start day, which makes the request substantially faster. Omit it to look up the observation without a time bound.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -69,7 +73,7 @@ class ObservationsV1Client:
         )
         """
         _response = self._raw_client.get(
-            observation_id, request_options=request_options
+            observation_id, start_time=start_time, request_options=request_options
         )
         return _response.data
 
@@ -291,6 +295,7 @@ class AsyncObservationsV1Client:
         self,
         observation_id: str,
         *,
+        start_time: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ObservationsViewSingle:
         """
@@ -300,6 +305,9 @@ class AsyncObservationsV1Client:
         ----------
         observation_id : str
             The unique langfuse identifier of an observation, can be an event, span or generation
+
+        start_time : typing.Optional[dt.datetime]
+            The start time of the observation (ISO 8601 with offset, e.g. 2024-01-01T00:00:00Z). When provided, the lookup is restricted to the observation's start day, which makes the request substantially faster. Omit it to look up the observation without a time bound.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -333,7 +341,7 @@ class AsyncObservationsV1Client:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(
-            observation_id, request_options=request_options
+            observation_id, start_time=start_time, request_options=request_options
         )
         return _response.data
 
