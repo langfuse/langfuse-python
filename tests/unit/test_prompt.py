@@ -748,3 +748,41 @@ def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
+
+
+def test_prompt_cache_invalidate_exact_prefix_match(langfuse: Langfuse):
+    cache = PromptCache()
+    prompt1 = Prompt_Text(
+        name="summary",
+        version=1,
+        prompt="Summarize this",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt2 = Prompt_Text(
+        name="summary-detailed",
+        version=1,
+        prompt="Summarize in detail",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    key1 = PromptCache.generate_cache_key("summary", version=1, label=None)
+    key2 = PromptCache.generate_cache_key("summary-detailed", version=1, label=None)
+
+    cache.set(key1, TextPromptClient(prompt1), ttl_seconds=60)
+    cache.set(key2, TextPromptClient(prompt2), ttl_seconds=60)
+
+    assert cache.get(key1) is not None
+    assert cache.get(key2) is not None
+
+    cache.invalidate("summary")
+
+    # summary should be invalidated, but summary-detailed must be preserved
+    assert cache.get(key1) is None
+    assert cache.get(key2) is not None
+
