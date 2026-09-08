@@ -855,11 +855,15 @@ class BatchEvaluationRunner:
         verbose: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
     ) -> BatchEvaluationResult:
-        """Run batch evaluation asynchronously.
+        """Run batch evaluation asynchronously using legacy read APIs.
 
         This is the main implementation method that orchestrates the entire batch
         evaluation process: fetching items, mapping, evaluating, creating scores,
         and tracking statistics.
+
+        This runner reads traces from `GET /api/public/traces` and observations
+        from the legacy `GET /api/public/observations` endpoint. It is supported
+        with Langfuse platform v3 and is not yet supported with platform v4.
 
         Args:
             scope: The type of items to evaluate ("traces", "observations").
