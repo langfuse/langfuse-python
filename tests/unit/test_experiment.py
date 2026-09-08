@@ -1,5 +1,6 @@
 """Tests for ``langfuse.experiment`` — ``RunnerContext`` and ``RegressionError``."""
 
+import asyncio
 import inspect
 import typing
 from datetime import datetime
@@ -13,6 +14,70 @@ from langfuse import Evaluation, RegressionError, RunnerContext
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
+
+
+@pytest.fixture(params=["value", "coroutine", "future", "task", "awaitable"])
+def wrap_result(request):
+    """Return equivalent results through each supported awaitable shape."""
+
+    def wrap(value):
+        async def resolve():
+            return value
+
+        class CustomAwaitable:
+            def __await__(self):
+                return resolve().__await__()
+
+        if request.param == "value":
+            return value
+        if request.param == "coroutine":
+            return resolve()
+        if request.param == "task":
+            return asyncio.create_task(resolve())
+        if request.param == "awaitable":
+            return CustomAwaitable()
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        loop.call_soon(future.set_result, value)
+        return future
+
+    return wrap
+
+
+class TestExperimentAwaitableResults:
+    def test_task_output_is_resolved(self, langfuse_memory_client, wrap_result):
+        def task(*, item):
+            return wrap_result("answer")
+
+        result = langfuse_memory_client.run_experiment(
+            name="awaitable-task", data=[{"input": "question"}], task=task
+        )
+
+        assert result.item_results[0].output == "answer"
+
+    def test_item_and_run_evaluations_are_resolved(
+        self, langfuse_memory_client, wrap_result, monkeypatch
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+
+        def task(*, item):
+            return "answer"
+
+        def evaluator(**kwargs):
+            return wrap_result({"name": "quality", "value": 1.0})
+
+        result = langfuse_memory_client.run_experiment(
+            name="awaitable-evaluators",
+            data=[{"input": "question"}],
+            task=task,
+            evaluators=[evaluator],
+            run_evaluators=[evaluator],
+        )
+
+        assert [(e.name, e.value) for e in result.item_results[0].evaluations] == [
+            ("quality", 1.0)
+        ]
+        assert [(e.name, e.value) for e in result.run_evaluations] == [("quality", 1.0)]
 
 
 def _noop_task(*, item, **kwargs):  # pragma: no cover - never invoked via mock
