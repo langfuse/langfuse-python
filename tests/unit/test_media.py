@@ -275,3 +275,28 @@ def test_init_with_urlsafe_base64_data_uri():
     assert media._content_type == "application/octet-stream"
     assert media._content_bytes == original_bytes
 
+
+def test_parse_reference_string_skips_segment_without_equals():
+    ref = "@@@langfuseMedia:type=image/jpeg|badpair|id=x|source=y@@@"
+    result = LangfuseMedia.parse_reference_string(ref)
+
+    assert result["media_id"] == "x"
+    assert result["content_type"] == "image/jpeg"
+    assert result["source"] == "y"
+
+
+def test_parse_reference_string_skips_trailing_empty_segment():
+    ref = "@@@langfuseMedia:type=image/jpeg|id=x|source=y|@@@"
+    result = LangfuseMedia.parse_reference_string(ref)
+
+    assert result["media_id"] == "x"
+    assert result["content_type"] == "image/jpeg"
+    assert result["source"] == "y"
+
+
+def test_parse_reference_string_missing_required_fields_after_skipping_malformed_pair():
+    with pytest.raises(ValueError, match="Missing required fields in reference string"):
+        LangfuseMedia.parse_reference_string(
+            "@@@langfuseMedia:type=image/jpeg|badpair@@@"
+        )
+
