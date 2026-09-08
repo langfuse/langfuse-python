@@ -106,12 +106,14 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         self._mask_otel_spans = mask_otel_spans
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        enqueued_media_ids: set[str] = set()
         span_attributes = [
             (
                 span,
                 self._process_media_attributes(
                     span=span,
                     attributes=dict(span.attributes or {}),
+                    enqueued_media_ids=enqueued_media_ids,
                 ),
             )
             for span in spans
@@ -123,6 +125,14 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             )
 
             if masked_span_attributes is None:
+                # The mask hook dropped the whole batch. The media bytes were
+                # already queued for upload during attribute processing, so
+                # cancel those uploads too -- "drops the whole export batch"
+                # must mean all of it, including the media behind the spans.
+                if enqueued_media_ids and self._media_manager is not None:
+                    self._media_manager.cancel_pending_uploads(
+                        media_ids=enqueued_media_ids
+                    )
                 return SpanExportResult.SUCCESS
 
             span_attributes = masked_span_attributes
@@ -144,7 +154,11 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         return self._exporter.force_flush(timeout_millis=timeout_millis)
 
     def _process_media_attributes(
-        self, *, span: ReadableSpan, attributes: Dict[str, AttributeValue]
+        self,
+        *,
+        span: ReadableSpan,
+        attributes: Dict[str, AttributeValue],
+        enqueued_media_ids: Optional[set[str]] = None,
     ) -> Dict[str, AttributeValue]:
         if self._media_manager is None:
             return attributes
@@ -157,6 +171,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
                     span=span,
                     attribute_key=key,
                     value=value,
+                    enqueued_media_ids=enqueued_media_ids,
                 )
             except Exception as error:
                 langfuse_logger.warning(
@@ -179,12 +194,14 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         span: ReadableSpan,
         attribute_key: str,
         value: AttributeValue,
+        enqueued_media_ids: Optional[set[str]] = None,
     ) -> AttributeValue:
         if isinstance(value, str):
             return self._process_media_string(
                 span=span,
                 attribute_key=attribute_key,
                 value=value,
+                enqueued_media_ids=enqueued_media_ids,
             )
 
         if _is_attribute_sequence(value):
@@ -197,6 +214,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
                         span=span,
                         attribute_key=attribute_key,
                         value=item,
+                        enqueued_media_ids=enqueued_media_ids,
                     )
                     if isinstance(item, str)
                     else item
@@ -212,6 +230,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         span: ReadableSpan,
         attribute_key: str,
         value: str,
+        enqueued_media_ids: Optional[set[str]] = None,
     ) -> str:
         media_manager = cast(MediaManager, self._media_manager)
         field = _media_field_for_attribute(attribute_key)
@@ -223,6 +242,11 @@ class LangfuseTransformingSpanExporter(SpanExporter):
                 trace_id=trace_id,
                 observation_id=observation_id,
                 field=field,
+            )
+
+            _collect_enqueued_media_ids(
+                value=processed_direct_value,
+                media_ids=enqueued_media_ids,
             )
 
             direct_reference = _media_reference_string(processed_direct_value)
@@ -255,6 +279,11 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             trace_id=trace_id,
             observation_id=observation_id,
             field=field,
+        )
+
+        _collect_enqueued_media_ids(
+            value=processed_json_value,
+            media_ids=enqueued_media_ids,
         )
 
         if processed_json_value == parsed_value:
@@ -583,6 +612,32 @@ def _media_reference_string(value: Any) -> Optional[str]:
         return None
 
     return value._reference_string
+
+
+def _collect_enqueued_media_ids(value: Any, media_ids: Optional[set[str]]) -> None:
+    """Collect media IDs enqueued for upload from a processed attribute value.
+
+    _find_and_process_media enqueues an upload job for every LangfuseMedia it
+    builds, but the processed value it returns is what the attribute becomes.
+    Walk it so the exporter knows which media uploads a batch triggered, and can
+    cancel them if the mask hook later drops the batch.
+    """
+    if media_ids is None:
+        return
+
+    if isinstance(value, LangfuseMedia):
+        if value._media_id is not None:
+            media_ids.add(value._media_id)
+        return
+
+    if isinstance(value, dict):
+        for item in value.values():
+            _collect_enqueued_media_ids(item, media_ids)
+        return
+
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            _collect_enqueued_media_ids(item, media_ids)
 
 
 def _media_upload_failed_marker(content_type: Any) -> str:

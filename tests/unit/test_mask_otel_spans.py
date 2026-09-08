@@ -196,6 +196,50 @@ def test_mask_otel_spans_receives_post_media_batch_and_applies_sparse_patch():
     assert not media_queue.empty()
 
 
+def test_mask_otel_spans_drop_batch_cancels_enqueued_media_uploads():
+    # Media attributes are processed before the mask hook runs, so upload jobs
+    # are already queued when the hook drops the batch. The dropped batch must
+    # not upload the media behind it -- the consumer should skip those jobs.
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+    uploads_processed: list[str] = []
+
+    def mask_otel_spans(*, params):
+        # The fail-closed pattern: a hook error drops the whole export batch.
+        raise RuntimeError("masking function blew up")
+
+    original_process_upload = media_manager._process_upload_media_job
+
+    def recording_process_upload(*, data):
+        uploads_processed.append(data["media_id"])
+
+    media_manager._process_upload_media_job = recording_process_upload
+
+    provider = _tracer_provider(
+        exporter=exporter,
+        media_manager=media_manager,
+        mask_otel_spans=mask_otel_spans,
+    )
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    with tracer.start_as_current_span("third-party-media-span") as span:
+        span.set_attribute("gen_ai.prompt", f"data:image/jpeg;base64,{image_base64}")
+
+    provider.force_flush()
+
+    assert exporter.get_finished_spans() == []
+    assert not media_queue.empty()
+
+    # The consumer must skip the cancelled upload: drain the queue and verify
+    # nothing was actually uploaded.
+    media_manager.process_next_media_upload()
+    assert uploads_processed == []
+    assert media_queue.empty()
+
+    media_manager._process_upload_media_job = original_process_upload
+
+
 def test_export_stage_media_prefilter_skips_json_without_media_hints(monkeypatch):
     exporter = InMemorySpanExporter()
     media_manager, media_queue = _media_manager()
