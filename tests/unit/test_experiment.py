@@ -79,6 +79,38 @@ class TestExperimentAwaitableResults:
         ]
         assert [(e.name, e.value) for e in result.run_evaluations] == [("quality", 1.0)]
 
+    def test_composite_evaluation_is_resolved_and_scored(
+        self, langfuse_memory_client, wrap_result, monkeypatch
+    ):
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+
+        def task(*, item):
+            return "answer"
+
+        def evaluator(**kwargs):
+            return {"name": "quality", "value": 1.0}
+
+        def composite_evaluator(*, evaluations, **kwargs):
+            return wrap_result({"name": "aggregate", "value": evaluations[0].value})
+
+        result = langfuse_memory_client.run_experiment(
+            name="awaitable-composite",
+            data=[{"input": "question"}],
+            task=task,
+            evaluators=[evaluator],
+            composite_evaluator=composite_evaluator,
+        )
+
+        assert [(e.name, e.value) for e in result.item_results[0].evaluations] == [
+            ("quality", 1.0),
+            ("aggregate", 1.0),
+        ]
+        assert [
+            (call.kwargs["name"], call.kwargs["value"])
+            for call in create_score.call_args_list
+        ] == [("quality", 1.0), ("aggregate", 1.0)]
+
 
 def _noop_task(*, item, **kwargs):  # pragma: no cover - never invoked via mock
     return None
