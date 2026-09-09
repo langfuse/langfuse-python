@@ -9,11 +9,7 @@ if typing.TYPE_CHECKING:
     from . import metrics_v1, observations_v1, score_v1
     from .metrics_v1 import MetricsResponse
     from .observations_v1 import Observations, ObservationsViews
-    from .score_v1 import CreateScoreRequest, CreateScoreResponse, CreateScoreSource
 _dynamic_imports: typing.Dict[str, str] = {
-    "CreateScoreRequest": ".score_v1",
-    "CreateScoreResponse": ".score_v1",
-    "CreateScoreSource": ".score_v1",
     "MetricsResponse": ".metrics_v1",
     "Observations": ".observations_v1",
     "ObservationsViews": ".observations_v1",
@@ -51,9 +47,6 @@ def __dir__():
 
 
 __all__ = [
-    "CreateScoreRequest",
-    "CreateScoreResponse",
-    "CreateScoreSource",
     "MetricsResponse",
     "Observations",
     "ObservationsViews",
@@ -61,3 +54,10 @@ __all__ = [
     "observations_v1",
     "score_v1",
 ]
+
+# Score-create compatibility aliases (LFE-10397).
+from .score_v1 import CreateScoreRequest
+from .score_v1 import CreateScoreResponse
+from .score_v1 import CreateScoreSource
+
+__all__ = [*__all__, "CreateScoreRequest", "CreateScoreResponse", "CreateScoreSource"]

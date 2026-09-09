@@ -31,7 +31,9 @@ class MediaUploadConsumer(threading.Thread):
     def run(self) -> None:
         """Run the media upload consumer."""
         logger.debug(
-            f"Thread: Media upload consumer thread #{self._identifier} started and actively processing queue items"
+            "Thread: Media upload consumer thread #%s started and actively processing "
+            "queue items",
+            self._identifier,
         )
         while self.running:
             self._media_manager.process_next_media_upload()
@@ -39,6 +41,6 @@ class MediaUploadConsumer(threading.Thread):
     def pause(self) -> None:
         """Pause the media upload consumer."""
         logger.debug(
-            f"Thread: Pausing media upload consumer thread #{self._identifier}"
+            "Thread: Pausing media upload consumer thread #%s", self._identifier
         )
         self.running = False

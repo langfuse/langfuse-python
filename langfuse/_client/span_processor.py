@@ -12,6 +12,7 @@ Key features:
 """
 
 import base64
+import logging
 import os
 import threading
 from typing import Callable, Dict, List, Optional, cast
@@ -34,7 +35,11 @@ from langfuse._client.propagation import (
     _get_propagated_attributes_from_context,
 )
 from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
-from langfuse._client.span_filter import is_default_export_span, is_langfuse_span
+from langfuse._client.span_filter import (
+    is_app_root_eligible,
+    is_default_export_span,
+    is_langfuse_span,
+)
 from langfuse._client.utils import span_formatter
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
@@ -144,20 +149,37 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         context = parent_context or context_api.get_current()
         propagated_attributes = _get_propagated_attributes_from_context(context)
 
+        # An explicit prompt set at span creation takes precedence over a propagated one
+        existing_attributes = span.attributes or {}
+        if LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME in existing_attributes:
+            propagated_attributes = {
+                key: value
+                for key, value in propagated_attributes.items()
+                if key
+                not in (
+                    LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+                    LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+                )
+            }
+
         if propagated_attributes:
             span.set_attributes(propagated_attributes)
 
             langfuse_logger.debug(
-                f"Propagated {len(propagated_attributes)} attributes to span '{format_span_id(span.context.span_id)}': {propagated_attributes}"
+                "Propagated %s attributes to span '%s': %s",
+                len(propagated_attributes),
+                format_span_id(span.context.span_id),
+                propagated_attributes,
             )
 
         try:
             self._mark_app_root_candidate(span=span, parent_context=context)
         except Exception as error:
             langfuse_logger.debug(
-                "Trace: app-root start-time check failed. Span will not be marked as app root | "
-                f"span_name='{getattr(span, 'name', '<unknown>')}' | "
-                f"Error: {error}"
+                "Trace: app-root start-time check failed. Span will not be marked as app "
+                "root | span_name='%s' | Error: %s",
+                getattr(span, "name", "<unknown>"),
+                error,
             )
 
         return super().on_start(span, parent_context)
@@ -168,8 +190,14 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             # This is important to not send spans to wrong project in multi-project setups
             if is_langfuse_span(span) and not self._is_langfuse_project_span(span):
                 langfuse_logger.debug(
-                    f"Security: Span rejected - belongs to project '{span.instrumentation_scope.attributes.get('public_key') if span.instrumentation_scope and span.instrumentation_scope.attributes else None}' but processor is for '{self.public_key}'. "
-                    f"This prevents cross-project data leakage in multi-project environments."
+                    "Security: Span rejected - belongs to project '%s' but processor is for "
+                    "'%s'. This prevents cross-project data leakage in multi-project "
+                    "environments.",
+                    span.instrumentation_scope.attributes.get("public_key")
+                    if span.instrumentation_scope
+                    and span.instrumentation_scope.attributes
+                    else None,
+                    self.public_key,
                 )
                 return
 
@@ -177,8 +205,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             if self._is_blocked_instrumentation_scope(span):
                 langfuse_logger.debug(
                     "Trace: Dropping span due to blocked instrumentation scope | "
-                    f"span_name='{span.name}' | "
-                    f"instrumentation_scope='{self._get_scope_name(span)}'"
+                    "span_name='%s' | instrumentation_scope='%s'",
+                    span.name,
+                    self._get_scope_name(span),
                 )
                 return
 
@@ -187,23 +216,30 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 should_export = self._should_export_span(span)
             except Exception as error:
                 langfuse_logger.error(
-                    "Trace: should_export_span callback raised an error. "
-                    f"Dropping span name='{span.name}' scope='{self._get_scope_name(span)}'. "
-                    f"Error: {error}"
+                    "Trace: should_export_span callback raised an error. Dropping span "
+                    "name='%s' scope='%s'. Error: %s",
+                    span.name,
+                    self._get_scope_name(span),
+                    error,
                 )
                 return
 
             if not should_export:
                 langfuse_logger.debug(
-                    "Trace: Dropping span due to should_export_span filter | "
-                    f"span_name='{span.name}' | "
-                    f"instrumentation_scope='{self._get_scope_name(span)}'"
+                    "Trace: Dropping span due to should_export_span filter | span_name='%s' | "
+                    "instrumentation_scope='%s'",
+                    span.name,
+                    self._get_scope_name(span),
                 )
                 return
 
-            langfuse_logger.debug(
-                f"Trace: Processing span name='{span._name}' | Full details:\n{span_formatter(span)}"
-            )
+            # span_formatter serializes the full span; skip it unless DEBUG is on
+            if langfuse_logger.isEnabledFor(logging.DEBUG):
+                langfuse_logger.debug(
+                    "Trace: Processing span name='%s' | Full details:\n%s",
+                    span.name,
+                    span_formatter(span),
+                )
 
             super().on_end(span)
         finally:
@@ -227,6 +263,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
             mark_app_root = (
                 expected_exported
+                and is_app_root_eligible(cast(ReadableSpan, span))
                 and not parent_expected_exported
                 and not suppressed_by_parent_claim
             )
@@ -255,11 +292,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             return bool(self._should_export_span(readable_span))
         except Exception as error:
             langfuse_logger.debug(
-                "Trace: should_export_span callback raised during app-root "
-                f"start-time check. Span will not be marked as app root | "
-                f"span_name='{readable_span.name}' | "
-                f"instrumentation_scope='{self._get_scope_name(readable_span)}' | "
-                f"Error: {error}"
+                "Trace: should_export_span callback raised during app-root start-time "
+                "check. Span will not be marked as app root | span_name='%s' | "
+                "instrumentation_scope='%s' | Error: %s",
+                readable_span.name,
+                self._get_scope_name(readable_span),
+                error,
             )
 
             return False

@@ -8,19 +8,19 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .raw_client import AsyncRawUnstableClient, RawUnstableClient
 
 if typing.TYPE_CHECKING:
-    from .evaluation_rules.client import (
-        AsyncEvaluationRulesClient,
-        EvaluationRulesClient,
+    from .dashboard_widgets.client import (
+        AsyncDashboardWidgetsClient,
+        DashboardWidgetsClient,
     )
-    from .evaluators.client import AsyncEvaluatorsClient, EvaluatorsClient
+    from .dashboards.client import AsyncDashboardsClient, DashboardsClient
 
 
 class UnstableClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawUnstableClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
-        self._evaluation_rules: typing.Optional[EvaluationRulesClient] = None
-        self._evaluators: typing.Optional[EvaluatorsClient] = None
+        self._dashboard_widgets: typing.Optional[DashboardWidgetsClient] = None
+        self._dashboards: typing.Optional[DashboardsClient] = None
 
     @property
     def with_raw_response(self) -> RawUnstableClient:
@@ -34,30 +34,30 @@ class UnstableClient:
         return self._raw_client
 
     @property
-    def evaluation_rules(self):
-        if self._evaluation_rules is None:
-            from .evaluation_rules.client import EvaluationRulesClient  # noqa: E402
+    def dashboard_widgets(self):
+        if self._dashboard_widgets is None:
+            from .dashboard_widgets.client import DashboardWidgetsClient  # noqa: E402
 
-            self._evaluation_rules = EvaluationRulesClient(
+            self._dashboard_widgets = DashboardWidgetsClient(
                 client_wrapper=self._client_wrapper
             )
-        return self._evaluation_rules
+        return self._dashboard_widgets
 
     @property
-    def evaluators(self):
-        if self._evaluators is None:
-            from .evaluators.client import EvaluatorsClient  # noqa: E402
+    def dashboards(self):
+        if self._dashboards is None:
+            from .dashboards.client import DashboardsClient  # noqa: E402
 
-            self._evaluators = EvaluatorsClient(client_wrapper=self._client_wrapper)
-        return self._evaluators
+            self._dashboards = DashboardsClient(client_wrapper=self._client_wrapper)
+        return self._dashboards
 
 
 class AsyncUnstableClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawUnstableClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
-        self._evaluation_rules: typing.Optional[AsyncEvaluationRulesClient] = None
-        self._evaluators: typing.Optional[AsyncEvaluatorsClient] = None
+        self._dashboard_widgets: typing.Optional[AsyncDashboardWidgetsClient] = None
+        self._dashboards: typing.Optional[AsyncDashboardsClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawUnstableClient:
@@ -71,21 +71,21 @@ class AsyncUnstableClient:
         return self._raw_client
 
     @property
-    def evaluation_rules(self):
-        if self._evaluation_rules is None:
-            from .evaluation_rules.client import AsyncEvaluationRulesClient  # noqa: E402
+    def dashboard_widgets(self):
+        if self._dashboard_widgets is None:
+            from .dashboard_widgets.client import AsyncDashboardWidgetsClient  # noqa: E402
 
-            self._evaluation_rules = AsyncEvaluationRulesClient(
+            self._dashboard_widgets = AsyncDashboardWidgetsClient(
                 client_wrapper=self._client_wrapper
             )
-        return self._evaluation_rules
+        return self._dashboard_widgets
 
     @property
-    def evaluators(self):
-        if self._evaluators is None:
-            from .evaluators.client import AsyncEvaluatorsClient  # noqa: E402
+    def dashboards(self):
+        if self._dashboards is None:
+            from .dashboards.client import AsyncDashboardsClient  # noqa: E402
 
-            self._evaluators = AsyncEvaluatorsClient(
+            self._dashboards = AsyncDashboardsClient(
                 client_wrapper=self._client_wrapper
             )
-        return self._evaluators
+        return self._dashboards

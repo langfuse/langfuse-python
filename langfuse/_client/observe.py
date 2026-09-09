@@ -6,6 +6,7 @@ from functools import wraps
 from typing import (
     Any,
     AsyncGenerator,
+    Awaitable,
     Callable,
     Dict,
     Generator,
@@ -109,8 +110,18 @@ class LangfuseDecorator:
             as_type (Optional[Literal]): Set the observation type. Supported values:
                     "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
                     Observation types are highlighted in the Langfuse UI for filtering and visualization.
-                    The types "generation" and "embedding" create a span on which additional attributes such as model metrics
-                    can be set.
+                    The types "generation" and "embedding" create a span on which additional attributes such as model,
+                    usage_details, and cost_details can be set — use `as_type="generation"` for LLM calls and update the
+                    observation via `langfuse.update_current_generation(...)` inside the function.
+            capture_input (Optional[bool]): Whether to capture the function's arguments as the observation's input.
+                    Defaults to the LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED environment variable (True if unset).
+                    Set to False for sensitive or very large inputs, then set input explicitly via
+                    `langfuse.update_current_span(input=...)` if needed.
+            capture_output (Optional[bool]): Whether to capture the function's return value as the observation's output.
+                    Same default and override mechanism as capture_input.
+            transform_to_string (Optional[Callable[[Iterable], str]]): For functions returning generators, joins the
+                    yielded chunks into the string stored as output. Without it, chunks are concatenated if all are
+                    strings, otherwise stored as a list.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -126,14 +137,23 @@ class LangfuseDecorator:
 
             For language model generation tracking:
             ```python
+            from langfuse import get_client, observe
+
             @observe(name="answer-generation", as_type="generation")
             async def generate_answer(query):
-                # Creates a generation-type span with extended LLM metrics
+                # Creates a generation-type observation with extended LLM metrics
                 response = await openai.chat.completions.create(
                     model="gpt-4",
                     messages=[{"role": "user", "content": query}]
                 )
                 return response.choices[0].message.content
+            ```
+
+            Disabling input/output capture (e.g. for sensitive or large payloads):
+            ```python
+            @observe(capture_input=False, capture_output=False)
+            def handle_pii(user_record):
+                return process(user_record)
             ```
 
             For trace context propagation between functions:
@@ -165,7 +185,9 @@ class LangfuseDecorator:
         valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:
             logger.warning(
-                f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(valid_types))}. Defaulting to 'span'."
+                "Invalid as_type '%s'. Valid types are: %s. Defaulting to 'span'.",
+                as_type,
+                ", ".join(sorted(valid_types)),
             )
             as_type = "span"
 
@@ -597,6 +619,8 @@ class _ContextPreservedSyncGeneratorWrapper:
 
     def close(self) -> None:
         if self._span_ended:
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
+            self.context.run(self.generator.close)
             return
 
         try:
@@ -631,18 +655,39 @@ class _ContextPreservedSyncGeneratorWrapper:
             raise
 
 
-class _ContextPreservedAsyncGeneratorWrapper:
-    """Async generator wrapper that ensures each iteration runs in preserved context.
+class _ContextPreservedAwaitable:
+    """Advance an awaitable in a preserved context without changing its task.
 
-    .. note::
-        The wrapper snapshots the caller's contextvars once at construction time
-        and re-applies those values before each ``__anext__`` call.  This means
-        mutations issued by the generator body *across* ``yield`` points are
-        discarded between iterations.  For Langfuse's own tracing this is fine
-        because child spans are opened and closed within a single ``__anext__``
-        call, but user generators that rely on context-var state persisting
-        across yields will not see those changes.
+    Each send, throw, and close runs in the same Context, so context-variable
+    values and tokens survive suspension without leaking into the caller.
+    Delegating yielded awaitables to the caller keeps asyncio.timeout bound to
+    the task that is actually consuming the generator.
     """
+
+    def __init__(self, awaitable: Awaitable[Any], context: contextvars.Context) -> None:
+        self.awaitable = awaitable
+        self.context = context
+
+    def __await__(self) -> Generator[Any, Any, Any]:
+        iterator = self.context.run(self.awaitable.__await__)
+        try:
+            value = self.context.run(next, iterator)
+            while True:
+                try:
+                    sent = yield value
+                except GeneratorExit:
+                    self.context.run(iterator.close)
+                    raise
+                except BaseException as error:
+                    value = self.context.run(iterator.throw, error)
+                else:
+                    value = self.context.run(iterator.send, sent)
+        except StopIteration as result:
+            return result.value
+
+
+class _ContextPreservedAsyncGeneratorWrapper:
+    """Async generator wrapper that ensures each iteration runs in preserved context."""
 
     def __init__(
         self,
@@ -669,9 +714,22 @@ class _ContextPreservedAsyncGeneratorWrapper:
         self.capture_output = capture_output
         self.transform_fn = transform_fn
         self._span_ended = False
+        self._pending_error: Optional[BaseException] = None
 
     def __aiter__(self) -> "_ContextPreservedAsyncGeneratorWrapper":
         return self
+
+    def _generator_never_resumed(self) -> bool:
+        try:
+            state = inspect.getasyncgenstate(self.generator)
+        except (AttributeError, TypeError):
+            # getasyncgenstate is Python 3.12+; fall back to the attributes it reads.
+            frame = getattr(self.generator, "ag_frame", None)
+            return frame is not None and not getattr(
+                self.generator, "ag_running", False
+            )
+
+        return state in ("AGEN_CREATED", "AGEN_SUSPENDED")
 
     def _finalize(self) -> None:
         if self._span_ended:
@@ -702,47 +760,38 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def aclose(self) -> None:
         if self._span_ended:
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
+            await self._close_generator()
             return
 
-        # Apply preserved context to current task without creating a new
-        # task, so that asyncio.timeout / asyncio.current_task() bindings
-        # remain intact (see langfuse/langfuse#13349).
-        tokens: list[tuple[contextvars.ContextVar[Any], contextvars.Token[Any]]] = []
-        for var in list(self.context.keys()):
-            val = self.context.get(var)
-            tokens.append((var, var.set(val)))
         try:
-            try:
-                await self.generator.aclose()
-            except (Exception, asyncio.CancelledError) as error:
-                self._finalize_with_error(error)
-                raise
+            await self._close_generator()
+        except (Exception, asyncio.CancelledError) as error:
+            self._finalize_with_error(error)
+            raise
+        else:
+            if self._pending_error is not None:
+                self._finalize_with_error(self._pending_error)
             else:
                 self._finalize()
-        finally:
-            for var, token in reversed(tokens):
-                var.reset(token)
+
+    async def _close_generator(self) -> None:
+        await _ContextPreservedAwaitable(self.generator.aclose(), self.context)
 
     async def close(self) -> None:
         await self.aclose()
 
     def __del__(self) -> None:
-        self._finalize()
+        if self._pending_error is not None:
+            self._finalize_with_error(self._pending_error)
+        else:
+            self._finalize()
 
     async def __anext__(self) -> Any:
         try:
-            # Apply preserved context to current task without creating a new
-            # task, so that asyncio.timeout / asyncio.current_task() bindings
-            # remain intact (see langfuse/langfuse#13349).
-            tokens: list[tuple[contextvars.ContextVar[Any], contextvars.Token[Any]]] = []
-            for var in list(self.context.keys()):
-                val = self.context.get(var)
-                tokens.append((var, var.set(val)))
-            try:
-                item = await self.generator.__anext__()  # type: ignore
-            finally:
-                for var, token in reversed(tokens):
-                    var.reset(token)
+            item = await _ContextPreservedAwaitable(
+                self.generator.__anext__(), self.context
+            )
 
             if self.capture_output:
                 self.items.append(item)
@@ -752,6 +801,13 @@ class _ContextPreservedAsyncGeneratorWrapper:
         except StopAsyncIteration:
             self._finalize()
             raise  # Re-raise StopAsyncIteration
-        except (Exception, asyncio.CancelledError) as e:
+        except asyncio.CancelledError as e:
+            if self._generator_never_resumed():
+                # Defer span end so aclose() can run the generator's cleanup first.
+                self._pending_error = e
+                raise
+            self._finalize_with_error(e)
+            raise
+        except Exception as e:
             self._finalize_with_error(e)
             raise

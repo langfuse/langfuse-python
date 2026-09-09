@@ -66,7 +66,9 @@ class MediaManager:
                 return
 
             logger.debug(
-                f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
+                "Media: Processing upload for media_id=%s in trace_id=%s",
+                upload_job["media_id"],
+                upload_job["trace_id"],
             )
             self._process_upload_media_job(data=upload_job)
 
@@ -75,7 +77,9 @@ class MediaManager:
             pass
         except Exception as e:
             logger.error(
-                f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
+                "Media upload error: Failed to upload media due to unexpected error. "
+                "Queue item marked as done. Error: %s",
+                e,
             )
             self._queue.task_done()
 
@@ -103,10 +107,8 @@ class MediaManager:
         max_levels = 10
 
         def _process_data_recursively(data: Any, level: int) -> Any:
-            if id(data) in seen or level > max_levels:
+            if level > max_levels:
                 return data
-
-            seen.add(id(data))
 
             if isinstance(data, LangfuseMedia):
                 self._process_media(
@@ -233,13 +235,71 @@ class MediaManager:
                     return copied
 
             if isinstance(data, list):
-                return [_process_data_recursively(item, level + 1) for item in data]
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return [_process_data_recursively(item, level + 1) for item in data]
+                finally:
+                    seen.discard(id(data))
 
             if isinstance(data, dict):
-                return {
-                    key: _process_data_recursively(value, level + 1)
-                    for key, value in data.items()
-                }
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return {
+                        key: _process_data_recursively(value, level + 1)
+                        for key, value in data.items()
+                    }
+                finally:
+                    seen.discard(id(data))
+
+            if (
+                hasattr(data, "__pydantic_fields__")
+                and hasattr(data, "model_dump")
+                and callable(data.model_dump)
+            ):
+                # Pydantic v2 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    try:
+                        dumped = data.model_dump()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
+                finally:
+                    seen.discard(id(data))
+
+            if (
+                hasattr(data, "dict")
+                and callable(data.dict)
+                and hasattr(data, "__fields__")
+            ):
+                # Pydantic v1 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    try:
+                        dumped = data.dict()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
+                finally:
+                    seen.discard(id(data))
 
             return data
 
@@ -284,17 +344,28 @@ class MediaManager:
                 block=False,
             )
             logger.debug(
-                f"Queue: Enqueued media ID {media._media_id} for upload processing | trace_id={trace_id} | field={field}"
+                "Queue: Enqueued media ID %s for upload processing | trace_id=%s | "
+                "field=%s",
+                media._media_id,
+                trace_id,
+                field,
             )
 
         except Full:
             logger.warning(
-                f"Queue capacity: Media queue is full. Failed to process media_id={media._media_id} for trace_id={trace_id}. Consider increasing queue capacity."
+                "Queue capacity: Media queue is full. Failed to process media_id=%s for "
+                "trace_id=%s. Consider increasing queue capacity.",
+                media._media_id,
+                trace_id,
             )
 
         except Exception as e:
             logger.error(
-                f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
+                "Media processing error: Failed to process media_id=%s for trace_id=%s. "
+                "Error: %s",
+                media._media_id,
+                trace_id,
+                str(e),
             )
 
     def _upload_media_sync(
@@ -357,14 +428,19 @@ class MediaManager:
 
         if not upload_url:
             logger.debug(
-                f"Media status: Media with ID {data['media_id']} already uploaded. Skipping duplicate upload."
+                "Media status: Media with ID %s already uploaded. Skipping duplicate "
+                "upload.",
+                data["media_id"],
             )
 
             return
 
         if upload_url_response.media_id != data["media_id"]:
             logger.error(
-                f"Media integrity error: Media ID mismatch between SDK ({data['media_id']}) and Server ({upload_url_response.media_id}). Upload cancelled. Please check media ID generation logic."
+                "Media integrity error: Media ID mismatch between SDK (%s) and Server "
+                "(%s). Upload cancelled. Please check media ID generation logic.",
+                data["media_id"],
+                upload_url_response.media_id,
             )
 
             return
@@ -420,7 +496,13 @@ class MediaManager:
         )
 
         logger.debug(
-            f"Media upload: Successfully uploaded media_id={data['media_id']} for trace_id={data['trace_id']} | status_code={upload_response.status_code} | duration={upload_time_ms}ms | size={data['content_length']} bytes"
+            "Media upload: Successfully uploaded media_id=%s for trace_id=%s | "
+            "status_code=%s | duration=%sms | size=%s bytes",
+            data["media_id"],
+            data["trace_id"],
+            upload_response.status_code,
+            upload_time_ms,
+            data["content_length"],
         )
 
     def _request_with_backoff(

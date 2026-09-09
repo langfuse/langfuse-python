@@ -19,6 +19,7 @@ from ..core.jsonable_encoder import jsonable_encoder
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
+from .types.model_tokenizer_id import ModelTokenizerId
 from .types.paginated_models import PaginatedModels
 
 # this is used as the default value for optional parameters
@@ -34,13 +35,13 @@ class RawModelsClient:
         *,
         model_name: str,
         match_pattern: str,
+        unit: ModelUsageUnit,
         start_date: typing.Optional[dt.datetime] = OMIT,
-        unit: typing.Optional[ModelUsageUnit] = OMIT,
         input_price: typing.Optional[float] = OMIT,
         output_price: typing.Optional[float] = OMIT,
         total_price: typing.Optional[float] = OMIT,
         pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
-        tokenizer_id: typing.Optional[str] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
         tokenizer_config: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Model]:
@@ -55,11 +56,11 @@ class RawModelsClient:
         match_pattern : str
             Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
 
+        unit : ModelUsageUnit
+            Unit used by this model.
+
         start_date : typing.Optional[dt.datetime]
             Apply only to generations which are newer than this ISO date.
-
-        unit : typing.Optional[ModelUsageUnit]
-            Unit used by this model.
 
         input_price : typing.Optional[float]
             Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
@@ -90,7 +91,7 @@ class RawModelsClient:
             If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
             which will automatically create a single default tier named "Standard".
 
-        tokenizer_id : typing.Optional[str]
+        tokenizer_id : typing.Optional[ModelTokenizerId]
             Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
 
         tokenizer_config : typing.Optional[typing.Any]
@@ -116,7 +117,184 @@ class RawModelsClient:
                 "totalPrice": total_price,
                 "pricingTiers": convert_and_respect_annotation_metadata(
                     object_=pricing_tiers,
-                    annotation=typing.Sequence[PricingTierInput],
+                    annotation=typing.Optional[typing.Sequence[PricingTierInput]],
+                    direction="write",
+                ),
+                "tokenizerId": tokenizer_id,
+                "tokenizerConfig": tokenizer_config,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Model,
+                    parse_obj_as(
+                        type_=Model,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    def upsert(
+        self,
+        id: str,
+        *,
+        model_name: str,
+        match_pattern: str,
+        unit: ModelUsageUnit,
+        start_date: typing.Optional[dt.datetime] = OMIT,
+        input_price: typing.Optional[float] = OMIT,
+        output_price: typing.Optional[float] = OMIT,
+        total_price: typing.Optional[float] = OMIT,
+        pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
+        tokenizer_config: typing.Optional[typing.Any] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[Model]:
+        """
+        Create or replace a project-owned model using its id. Built-in models cannot be modified.
+
+        Parameters
+        ----------
+        id : str
+
+        model_name : str
+            Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
+
+        match_pattern : str
+            Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
+
+        unit : ModelUsageUnit
+            Unit used by this model.
+
+        start_date : typing.Optional[dt.datetime]
+            Apply only to generations which are newer than this ISO date.
+
+        input_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
+
+        output_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per output unit. Creates a default tier if pricingTiers not provided.
+
+        total_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per total units. Cannot be set if input or output price is set. Creates a default tier if pricingTiers not provided.
+
+        pricing_tiers : typing.Optional[typing.Sequence[PricingTierInput]]
+            Optional. Array of pricing tiers for this model.
+
+            Use pricing tiers for all models - both those with threshold-based pricing variations and those with simple flat pricing:
+
+            - For models with standard flat pricing: Create a single default tier with your prices
+              (e.g., one tier with isDefault=true, priority=0, conditions=[], and your standard prices)
+
+            - For models with threshold-based pricing: Create a default tier plus additional conditional tiers
+              (e.g., default tier for standard usage + high-volume tier for usage above certain thresholds)
+
+            Requirements:
+            - Cannot be provided with flat prices (inputPrice/outputPrice/totalPrice) - use one approach or the other
+            - Must include exactly one default tier with isDefault=true, priority=0, and conditions=[]
+            - All tier names and priorities must be unique within the model
+            - Each tier must define at least one price
+
+            If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
+            which will automatically create a single default tier named "Standard".
+
+        tokenizer_id : typing.Optional[ModelTokenizerId]
+            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+
+        tokenizer_config : typing.Optional[typing.Any]
+            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Model]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/models/{jsonable_encoder(id)}",
+            method="PUT",
+            json={
+                "modelName": model_name,
+                "matchPattern": match_pattern,
+                "startDate": start_date,
+                "unit": unit,
+                "inputPrice": input_price,
+                "outputPrice": output_price,
+                "totalPrice": total_price,
+                "pricingTiers": convert_and_respect_annotation_metadata(
+                    object_=pricing_tiers,
+                    annotation=typing.Optional[typing.Sequence[PricingTierInput]],
                     direction="write",
                 ),
                 "tokenizerId": tokenizer_id,
@@ -518,13 +696,13 @@ class AsyncRawModelsClient:
         *,
         model_name: str,
         match_pattern: str,
+        unit: ModelUsageUnit,
         start_date: typing.Optional[dt.datetime] = OMIT,
-        unit: typing.Optional[ModelUsageUnit] = OMIT,
         input_price: typing.Optional[float] = OMIT,
         output_price: typing.Optional[float] = OMIT,
         total_price: typing.Optional[float] = OMIT,
         pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
-        tokenizer_id: typing.Optional[str] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
         tokenizer_config: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Model]:
@@ -539,11 +717,11 @@ class AsyncRawModelsClient:
         match_pattern : str
             Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
 
+        unit : ModelUsageUnit
+            Unit used by this model.
+
         start_date : typing.Optional[dt.datetime]
             Apply only to generations which are newer than this ISO date.
-
-        unit : typing.Optional[ModelUsageUnit]
-            Unit used by this model.
 
         input_price : typing.Optional[float]
             Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
@@ -574,7 +752,7 @@ class AsyncRawModelsClient:
             If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
             which will automatically create a single default tier named "Standard".
 
-        tokenizer_id : typing.Optional[str]
+        tokenizer_id : typing.Optional[ModelTokenizerId]
             Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
 
         tokenizer_config : typing.Optional[typing.Any]
@@ -600,7 +778,184 @@ class AsyncRawModelsClient:
                 "totalPrice": total_price,
                 "pricingTiers": convert_and_respect_annotation_metadata(
                     object_=pricing_tiers,
-                    annotation=typing.Sequence[PricingTierInput],
+                    annotation=typing.Optional[typing.Sequence[PricingTierInput]],
+                    direction="write",
+                ),
+                "tokenizerId": tokenizer_id,
+                "tokenizerConfig": tokenizer_config,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Model,
+                    parse_obj_as(
+                        type_=Model,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def upsert(
+        self,
+        id: str,
+        *,
+        model_name: str,
+        match_pattern: str,
+        unit: ModelUsageUnit,
+        start_date: typing.Optional[dt.datetime] = OMIT,
+        input_price: typing.Optional[float] = OMIT,
+        output_price: typing.Optional[float] = OMIT,
+        total_price: typing.Optional[float] = OMIT,
+        pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
+        tokenizer_config: typing.Optional[typing.Any] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[Model]:
+        """
+        Create or replace a project-owned model using its id. Built-in models cannot be modified.
+
+        Parameters
+        ----------
+        id : str
+
+        model_name : str
+            Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
+
+        match_pattern : str
+            Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
+
+        unit : ModelUsageUnit
+            Unit used by this model.
+
+        start_date : typing.Optional[dt.datetime]
+            Apply only to generations which are newer than this ISO date.
+
+        input_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
+
+        output_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per output unit. Creates a default tier if pricingTiers not provided.
+
+        total_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per total units. Cannot be set if input or output price is set. Creates a default tier if pricingTiers not provided.
+
+        pricing_tiers : typing.Optional[typing.Sequence[PricingTierInput]]
+            Optional. Array of pricing tiers for this model.
+
+            Use pricing tiers for all models - both those with threshold-based pricing variations and those with simple flat pricing:
+
+            - For models with standard flat pricing: Create a single default tier with your prices
+              (e.g., one tier with isDefault=true, priority=0, conditions=[], and your standard prices)
+
+            - For models with threshold-based pricing: Create a default tier plus additional conditional tiers
+              (e.g., default tier for standard usage + high-volume tier for usage above certain thresholds)
+
+            Requirements:
+            - Cannot be provided with flat prices (inputPrice/outputPrice/totalPrice) - use one approach or the other
+            - Must include exactly one default tier with isDefault=true, priority=0, and conditions=[]
+            - All tier names and priorities must be unique within the model
+            - Each tier must define at least one price
+
+            If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
+            which will automatically create a single default tier named "Standard".
+
+        tokenizer_id : typing.Optional[ModelTokenizerId]
+            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+
+        tokenizer_config : typing.Optional[typing.Any]
+            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Model]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/models/{jsonable_encoder(id)}",
+            method="PUT",
+            json={
+                "modelName": model_name,
+                "matchPattern": match_pattern,
+                "startDate": start_date,
+                "unit": unit,
+                "inputPrice": input_price,
+                "outputPrice": output_price,
+                "totalPrice": total_price,
+                "pricingTiers": convert_and_respect_annotation_metadata(
+                    object_=pricing_tiers,
+                    annotation=typing.Optional[typing.Sequence[PricingTierInput]],
                     direction="write",
                 ),
                 "tokenizerId": tokenizer_id,

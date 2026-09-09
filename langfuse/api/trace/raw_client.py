@@ -2,6 +2,7 @@
 
 import datetime as dt
 import typing
+import typing_extensions
 from json.decoder import JSONDecodeError
 
 from ..commons.errors.access_denied_error import AccessDeniedError
@@ -28,6 +29,10 @@ class RawTraceClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         trace_id: str,
@@ -240,6 +245,10 @@ class RawTraceClient:
             body=_response_json,
         )
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def list(
         self,
         *,
@@ -308,7 +317,7 @@ class RawTraceClient:
             ```json
             [
               {
-                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "booleanObject", "boolean", "null"
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
@@ -319,10 +328,11 @@ class RawTraceClient:
                                           // - number: "=", ">", "<", ">=", "<="
                                           // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
                                           // - numberObject: "=", ">", "<", ">=", "<="
+                                          // - booleanObject: "=", "<>"
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
                 "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
-                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+                "key": string             // Required only for stringObject, numberObject, booleanObject, and categoryOptions types when filtering on nested fields like metadata or score names
               }
             ]
             ```
@@ -365,6 +375,7 @@ class RawTraceClient:
             ### Scores (requires join with scores table)
             - `scores_avg` (number) - Average of numeric scores (alias: `scores`)
             - `score_categories` (categoryOptions) - Categorical score values
+            - `score_booleans` (booleanObject) - Boolean score values. Use `key` for the score name and a boolean `value`, e.g. `{"type": "booleanObject", "column": "score_booleans", "key": "is_correct", "operator": "=", "value": true}`. The `<>` operator also matches traces without a score of that name.
 
             ## Filter Examples
             ```json
@@ -630,6 +641,10 @@ class AsyncRawTraceClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         trace_id: str,
@@ -842,6 +857,10 @@ class AsyncRawTraceClient:
             body=_response_json,
         )
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read span and trace data via `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def list(
         self,
         *,
@@ -910,7 +929,7 @@ class AsyncRawTraceClient:
             ```json
             [
               {
-                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "categoryOptions", "arrayOptions", "stringObject", "numberObject", "booleanObject", "boolean", "null"
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
@@ -921,10 +940,11 @@ class AsyncRawTraceClient:
                                           // - number: "=", ">", "<", ">=", "<="
                                           // - stringObject: "=", "contains", "does not contain", "starts with", "ends with"
                                           // - numberObject: "=", ">", "<", ">=", "<="
+                                          // - booleanObject: "=", "<>"
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
                 "value": any,             // Required (except for null type). Value to compare against. Type depends on filter type
-                "key": string             // Required only for stringObject, numberObject, and categoryOptions types when filtering on nested fields like metadata
+                "key": string             // Required only for stringObject, numberObject, booleanObject, and categoryOptions types when filtering on nested fields like metadata or score names
               }
             ]
             ```
@@ -967,6 +987,7 @@ class AsyncRawTraceClient:
             ### Scores (requires join with scores table)
             - `scores_avg` (number) - Average of numeric scores (alias: `scores`)
             - `score_categories` (categoryOptions) - Categorical score values
+            - `score_booleans` (booleanObject) - Boolean score values. Use `key` for the score name and a boolean `value`, e.g. `{"type": "booleanObject", "column": "score_booleans", "key": "is_correct", "operator": "=", "value": true}`. The `<>` operator also matches traces without a score of that name.
 
             ## Filter Examples
             ```json

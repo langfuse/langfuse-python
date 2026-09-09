@@ -210,7 +210,7 @@ class ScimClient:
             Whether the user is active
 
         password : typing.Optional[str]
-            Initial password for the user
+            Ignored. Accepted only for compatibility with identity providers that always send a password on user creation (Okta sends a placeholder value even when password sync is disabled). No credential is created for the user; provisioned users authenticate via SSO or set a password themselves through the password reset flow.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -548,7 +548,7 @@ class AsyncScimClient:
             Whether the user is active
 
         password : typing.Optional[str]
-            Initial password for the user
+            Ignored. Accepted only for compatibility with identity providers that always send a password on user creation (Okta sends a placeholder value even when password sync is disabled). No credential is created for the user; provisioned users authenticate via SSO or set a password themselves through the password reset flow.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

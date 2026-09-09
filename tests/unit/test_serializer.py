@@ -196,6 +196,39 @@ def test_infinity_floats():
     assert serializer.encode(float("-inf")) == '"-Infinity"'
 
 
+def test_pydantic_model_with_non_finite_floats():
+    # Non-finite floats nested inside a pydantic model must be converted to
+    # safe string tokens rather than emitted as bare NaN/Infinity, which are
+    # invalid JSON and are rejected by the ingestion server's strict parser.
+    class ModelWithFloats(BaseModel):
+        nan: float
+        inf: float
+        neg_inf: float
+        finite: float
+
+    model = ModelWithFloats(
+        nan=float("nan"),
+        inf=float("inf"),
+        neg_inf=float("-inf"),
+        finite=1.5,
+    )
+    serializer = EventSerializer()
+    encoded = serializer.encode(model)
+
+    # Must be strict JSON: json.loads accepts bare NaN/Infinity by default, so
+    # use parse_constant to reject them the way the ingestion server does.
+    def _reject(token):
+        raise ValueError(f"invalid JSON constant emitted: {token}")
+
+    parsed = json.loads(encoded, parse_constant=_reject)
+    assert parsed == {
+        "nan": "NaN",
+        "inf": "Infinity",
+        "neg_inf": "-Infinity",
+        "finite": 1.5,
+    }
+
+
 def test_slots():
     class SlotClass:
         __slots__ = ["field"]

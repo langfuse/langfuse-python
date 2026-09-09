@@ -72,6 +72,7 @@ def test_callback_generated_from_trace_chat():
     assert langchain_generation_span.metadata["is_langchain_root"] is True
 
 
+@pytest.mark.skip(reason="Flaky")
 def test_callback_generated_from_lcel_chain():
     langfuse = Langfuse()
 

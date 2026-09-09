@@ -9,6 +9,7 @@ from ...commons.types.model_usage_unit import ModelUsageUnit
 from ...commons.types.pricing_tier_input import PricingTierInput
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
+from .model_tokenizer_id import ModelTokenizerId
 
 
 class CreateModelRequest(UniversalBaseModel):
@@ -33,7 +34,7 @@ class CreateModelRequest(UniversalBaseModel):
     Apply only to generations which are newer than this ISO date.
     """
 
-    unit: typing.Optional[ModelUsageUnit] = pydantic.Field(default=None)
+    unit: ModelUsageUnit = pydantic.Field()
     """
     Unit used by this model.
     """
@@ -85,7 +86,7 @@ class CreateModelRequest(UniversalBaseModel):
     """
 
     tokenizer_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="tokenizerId")
+        typing.Optional[ModelTokenizerId], FieldMetadata(alias="tokenizerId")
     ] = pydantic.Field(default=None)
     """
     Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.

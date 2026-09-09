@@ -178,7 +178,7 @@ class LangfuseMedia:
             with open(file_path, "rb") as file:
                 return file.read()
         except Exception as e:
-            logger.error(f"Error reading file at path {file_path}", exc_info=e)
+            logger.error("Error reading file at path %s", file_path, exc_info=e)
 
             return None
 
@@ -291,7 +291,10 @@ class LangfuseMedia:
             if not content_type:
                 raise ValueError("Content type is empty")
 
-            return base64.b64decode(actual_data), cast(MediaContentType, content_type)
+            translation_table = str.maketrans("-_", "+/")
+            decoded_data = base64.b64decode(actual_data.translate(translation_table))
+
+            return decoded_data, cast(MediaContentType, content_type)
 
         except Exception as e:
             logger.error("Error parsing base64 data URI", exc_info=e)
@@ -396,7 +399,9 @@ class LangfuseMedia:
                         )
                     except Exception as e:
                         logger.warning(
-                            f"Error fetching media content for reference string {reference_string}: {e}"
+                            "Error fetching media content for reference string %s: %s",
+                            reference_string,
+                            e,
                         )
                         # Do not replace the reference string if there's an error
                         continue

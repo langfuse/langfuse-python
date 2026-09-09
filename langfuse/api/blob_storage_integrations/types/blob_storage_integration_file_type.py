@@ -8,15 +8,21 @@ T_Result = typing.TypeVar("T_Result")
 
 
 class BlobStorageIntegrationFileType(enum.StrEnum):
+    """
+    File format for exported data. `PARQUET` is a columnar binary format encoded and compressed by the storage engine; gzip compression does not apply to it. Note that the model-price columns (`input_price`, `output_price`, `total_price`) are not included in Parquet observation exports.
+    """
+
     JSON = "JSON"
     CSV = "CSV"
     JSONL = "JSONL"
+    PARQUET = "PARQUET"
 
     def visit(
         self,
         json: typing.Callable[[], T_Result],
         csv: typing.Callable[[], T_Result],
         jsonl: typing.Callable[[], T_Result],
+        parquet: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is BlobStorageIntegrationFileType.JSON:
             return json()
@@ -24,3 +30,5 @@ class BlobStorageIntegrationFileType(enum.StrEnum):
             return csv()
         if self is BlobStorageIntegrationFileType.JSONL:
             return jsonl()
+        if self is BlobStorageIntegrationFileType.PARQUET:
+            return parquet()

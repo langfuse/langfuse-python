@@ -5,6 +5,7 @@ import typing
 import pydantic
 import typing_extensions
 from ...core.serialization import FieldMetadata
+from .deprecation import Deprecation
 from .observations_view import ObservationsView
 from .score_v1 import ScoreV1
 from .trace import Trace
@@ -39,6 +40,10 @@ class TraceWithFullDetails(Trace):
     """
     List of scores
     """
+
+    deprecation: typing_extensions.Annotated[
+        typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
+    ] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

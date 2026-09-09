@@ -147,14 +147,17 @@ If you change CI bootstrap:
 ## Python-Specific Notes
 
 - Exception messages should not inline f-string literals in the `raise` statement. Build the message in a variable first.
+- Logging calls must not use f-strings; pass lazy `%`-style args (`langfuse_logger.debug("span=%s", name)`), enforced by ruff `G004`. Arguments are still evaluated eagerly, so guard an expensive one with `langfuse_logger.isEnabledFor(logging.DEBUG)`.
 - Prefer ASCII-only edits unless the file already uses Unicode or Unicode is clearly required.
 
 ## Release And Docs
 
 ```bash
 uv build --no-sources
-uv run --group docs pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+bash scripts/build_reference_docs.sh
 ```
+
+Build the reference through that script, not by calling pdoc directly -- it applies the `pdoc-templates/` overrides and the 404 page that the hosted site needs. See "SDK Reference" in `CONTRIBUTING.md`.
 
 Releases are handled by GitHub Actions. Do not build an ad hoc local release flow into repository instructions.
 

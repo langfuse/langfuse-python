@@ -245,7 +245,7 @@ class LangfuseObservationWrapper:
             evaluators). It will be removed in a future major version.
 
             For setting other trace attributes (user_id, session_id, metadata, tags, version),
-            use :meth:`Langfuse.propagate_attributes` instead.
+            use :func:`langfuse.propagate_attributes` (top-level import) instead.
 
         Args:
             input: Input data to associate with the trace.
@@ -574,7 +574,9 @@ class LangfuseObservationWrapper:
             return self._langfuse_client._mask(data=data)
         except Exception as e:
             langfuse_logger.error(
-                f"Masking error: Custom mask function threw exception when processing data. Using fallback masking. Error: {e}"
+                "Masking error: Custom mask function threw exception when processing "
+                "data. Using fallback masking. Error: %s",
+                e,
             )
 
             return "<fully masked due to failed mask function>"
@@ -963,7 +965,7 @@ class LangfuseObservationWrapper:
         observation_class = _OBSERVATION_CLASS_MAP.get(as_type)
         if not observation_class:
             langfuse_logger.warning(
-                f"Unknown observation type: {as_type}, falling back to LangfuseSpan"
+                "Unknown observation type: %s, falling back to LangfuseSpan", as_type
             )
             observation_class = LangfuseSpan
 

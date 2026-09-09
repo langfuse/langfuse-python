@@ -54,14 +54,17 @@ class PromptCacheRefreshConsumer(Thread):
                 break
 
             logger.debug(
-                f"PromptCacheRefreshConsumer processing task, {self._identifier}"
+                "PromptCacheRefreshConsumer processing task, %s", self._identifier
             )
             try:
                 task()
             # Task failed, but we still consider it processed
             except Exception as e:
                 logger.warning(
-                    f"PromptCacheRefreshConsumer encountered an error, cache was not refreshed: {self._identifier}, {e}"
+                    "PromptCacheRefreshConsumer encountered an error, cache was not "
+                    "refreshed: %s, %s",
+                    self._identifier,
+                    e,
                 )
 
             self._queue.task_done()
@@ -95,13 +98,13 @@ class PromptCacheTaskManager(object):
     def add_task(self, key: str, task: Callable[[], None]) -> None:
         with self._lock:
             if key not in self._processing_keys:
-                logger.debug(f"Adding prompt cache refresh task for key: {key}")
+                logger.debug("Adding prompt cache refresh task for key: %s", key)
                 self._processing_keys.add(key)
                 wrapped_task = self._wrap_task(key, task)
                 self._queue.put((wrapped_task))
             else:
                 logger.debug(
-                    f"Prompt cache refresh task already submitted for key: {key}"
+                    "Prompt cache refresh task already submitted for key: %s", key
                 )
 
     def active_tasks(self) -> int:
@@ -113,19 +116,20 @@ class PromptCacheTaskManager(object):
 
     def _wrap_task(self, key: str, task: Callable[[], None]) -> Callable[[], None]:
         def wrapped() -> None:
-            logger.debug(f"Refreshing prompt cache for key: {key}")
+            logger.debug("Refreshing prompt cache for key: %s", key)
             try:
                 task()
             finally:
                 with self._lock:
                     self._processing_keys.remove(key)
-                logger.debug(f"Refreshed prompt cache for key: {key}")
+                logger.debug("Refreshed prompt cache for key: %s", key)
 
         return wrapped
 
     def shutdown(self) -> None:
         logger.debug(
-            f"Shutting down prompt refresh task manager, {len(self._consumers)} consumers,..."
+            "Shutting down prompt refresh task manager, %s consumers,...",
+            len(self._consumers),
         )
 
         atexit.unregister(self.shutdown)
@@ -184,7 +188,7 @@ class PromptCache:
                     del self._cache[key]
 
     def add_refresh_prompt_task(self, key: str, fetch_func: Callable[[], None]) -> None:
-        logger.debug(f"Submitting refresh task for key: {key}")
+        logger.debug("Submitting refresh task for key: %s", key)
         self._task_manager.add_task(key, fetch_func)
 
     def add_refresh_prompt_task_if_current(
@@ -201,7 +205,8 @@ class PromptCache:
                 and not current_item.is_expired()
             ):
                 logger.debug(
-                    f"Skipping refresh task for key: {key} because cache is already fresh."
+                    "Skipping refresh task for key: %s because cache is already fresh.",
+                    key,
                 )
                 return
 

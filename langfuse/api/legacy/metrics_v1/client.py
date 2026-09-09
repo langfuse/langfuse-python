@@ -2,6 +2,7 @@
 
 import typing
 
+import typing_extensions
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawMetricsV1Client, RawMetricsV1Client
@@ -23,6 +24,10 @@ class MetricsV1Client:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/metrics?query=<urlencoded json query>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def metrics(
         self, *, query: str, request_options: typing.Optional[RequestOptions] = None
     ) -> MetricsResponse:
@@ -39,7 +44,7 @@ class MetricsV1Client:
             JSON string containing the query parameters with the following structure:
             ```json
             {
-              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-categorical"
+              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-boolean", "scores-categorical"
               "dimensions": [           // Optional. Default: []
                 {
                   "field": string       // Field to group by, e.g. "name", "userId", "sessionId"
@@ -122,6 +127,10 @@ class AsyncMetricsV1Client:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/metrics?query=<urlencoded json query>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def metrics(
         self, *, query: str, request_options: typing.Optional[RequestOptions] = None
     ) -> MetricsResponse:
@@ -138,7 +147,7 @@ class AsyncMetricsV1Client:
             JSON string containing the query parameters with the following structure:
             ```json
             {
-              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-categorical"
+              "view": string,           // Required. One of "traces", "observations", "scores-numeric", "scores-boolean", "scores-categorical"
               "dimensions": [           // Optional. Default: []
                 {
                   "field": string       // Field to group by, e.g. "name", "userId", "sessionId"

@@ -53,12 +53,21 @@ class ObservationV2(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="parentObservationId")
     ] = pydantic.Field(default=None)
     """
-    The parent observation ID
+    The physical parent observation ID, if present.
+    Observations marked as app roots by the SDK may retain a non-null parent ID.
     """
 
     type: str = pydantic.Field()
     """
     The type of the observation (e.g. GENERATION, SPAN, EVENT)
+    """
+
+    is_root_observation: typing_extensions.Annotated[
+        typing.Optional[bool], FieldMetadata(alias="isRootObservation")
+    ] = pydantic.Field(default=None)
+    """
+    Whether this observation is a logical root.
+    This is true for observations without a physical parent and observations marked as app roots by the SDK.
     """
 
     name: typing.Optional[str] = pydantic.Field(default=None)
@@ -148,9 +157,7 @@ class ObservationV2(UniversalBaseModel):
     Additional metadata of the observation
     """
 
-    provided_model_name: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="providedModelName")
-    ] = pydantic.Field(default=None)
+    model: typing.Optional[str] = pydantic.Field(default=None)
     """
     The model name as provided by the user
     """

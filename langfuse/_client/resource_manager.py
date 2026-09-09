@@ -302,12 +302,13 @@ class LangfuseResourceManager:
             )
 
         langfuse_logger.info(
-            f"Startup: Langfuse tracer successfully initialized | "
-            f"public_key={self.public_key} | "
-            f"base_url={base_url} | "
-            f"environment={environment or 'default'} | "
-            f"sample_rate={sample_rate if sample_rate is not None else 1.0} | "
-            f"media_threads={self._media_upload_thread_count}"
+            "Startup: Langfuse tracer successfully initialized | public_key=%s | "
+            "base_url=%s | environment=%s | sample_rate=%s | media_threads=%s",
+            self.public_key,
+            base_url,
+            environment or "default",
+            sample_rate if sample_rate is not None else 1.0,
+            self._media_upload_thread_count,
         )
 
     def _init_media_manager(self) -> None:
@@ -435,7 +436,8 @@ class LangfuseResourceManager:
             os.environ["NO_PROXY"] = "*"
 
         langfuse_logger.debug(
-            f"[PID {os.getpid()}] Fork detected: reinitializing Langfuse consumer threads."
+            "[PID %s] Fork detected: reinitializing Langfuse consumer threads.",
+            os.getpid(),
         )
 
         # Queues are intentionally recreated after fork. Items enqueued before fork
@@ -455,8 +457,10 @@ class LangfuseResourceManager:
             self._init_api_clients()
         except Exception as e:
             langfuse_logger.error(
-                f"[PID {os.getpid()}] Failed to recreate HTTP clients after fork: {e}. "
-                f"Network requests may fail in this worker."
+                "[PID %s] Failed to recreate HTTP clients after fork: %s. Network "
+                "requests may fail in this worker.",
+                os.getpid(),
+                e,
             )
 
         try:
@@ -465,12 +469,17 @@ class LangfuseResourceManager:
             self.prompt_cache = PromptCache()
         except Exception as e:
             langfuse_logger.error(
-                f"[PID {os.getpid()}] Failed to reinitialize consumer threads after fork: {e}. "
-                f"Media upload, score ingestion, and prompt cache refresh will be unavailable in this worker."
+                "[PID %s] Failed to reinitialize consumer threads after fork: %s. Media "
+                "upload, score ingestion, and prompt cache refresh will be unavailable in "
+                "this worker.",
+                os.getpid(),
+                e,
             )
 
         langfuse_logger.debug(
-            f"[PID {os.getpid()}] Langfuse consumer threads and prompt cache reinitialized after fork"
+            "[PID %s] Langfuse consumer threads and prompt cache reinitialized after "
+            "fork",
+            os.getpid(),
         )
 
     @classmethod
@@ -509,7 +518,11 @@ class LangfuseResourceManager:
 
             if should_sample:
                 langfuse_logger.debug(
-                    f"Score: Enqueuing event type={event['type']} for trace_id={event['body'].trace_id} name={event['body'].name} value={event['body'].value}"
+                    "Score: Enqueuing event type=%s for trace_id=%s name=%s value=%s",
+                    event["type"],
+                    event["body"].trace_id,
+                    event["body"].name,
+                    event["body"].value,
                 )
                 self._score_ingestion_queue.put(event, block=False)
 
@@ -521,7 +534,9 @@ class LangfuseResourceManager:
             return
         except Exception as e:
             langfuse_logger.error(
-                f"Unexpected error: Failed to process score event. The score will be dropped. Error details: {e}"
+                "Unexpected error: Failed to process score event. The score will be "
+                "dropped. Error details: %s",
+                e,
             )
 
             return
@@ -532,7 +547,9 @@ class LangfuseResourceManager:
     ) -> None:
         try:
             langfuse_logger.debug(
-                f"Trace: Enqueuing event type={event['type']} for trace_id={event['body'].id}"
+                "Trace: Enqueuing event type=%s for trace_id=%s",
+                event["type"],
+                event["body"].id,
             )
             self._score_ingestion_queue.put(event, block=False)
 
@@ -544,7 +561,9 @@ class LangfuseResourceManager:
             return
         except Exception as e:
             langfuse_logger.error(
-                f"Unexpected error: Failed to process trace event. The trace update will be dropped. Error details: {e}"
+                "Unexpected error: Failed to process trace event. The trace update will "
+                "be dropped. Error details: %s",
+                e,
             )
 
             return
@@ -563,7 +582,8 @@ class LangfuseResourceManager:
         Blocks execution until finished
         """
         langfuse_logger.debug(
-            f"Shutdown: Waiting for {len(self._media_upload_consumers)} media upload thread(s) to complete processing"
+            "Shutdown: Waiting for %s media upload thread(s) to complete processing",
+            len(self._media_upload_consumers),
         )
         for media_upload_consumer in self._media_upload_consumers:
             media_upload_consumer.pause()
@@ -578,11 +598,13 @@ class LangfuseResourceManager:
                 pass
 
             langfuse_logger.debug(
-                f"Shutdown: Media upload thread #{media_upload_consumer._identifier} successfully terminated"
+                "Shutdown: Media upload thread #%s successfully terminated",
+                media_upload_consumer._identifier,
             )
 
         langfuse_logger.debug(
-            f"Shutdown: Waiting for {len(self._ingestion_consumers)} score ingestion thread(s) to complete processing"
+            "Shutdown: Waiting for %s score ingestion thread(s) to complete processing",
+            len(self._ingestion_consumers),
         )
         for score_ingestion_consumer in self._ingestion_consumers:
             score_ingestion_consumer.pause()
@@ -595,7 +617,8 @@ class LangfuseResourceManager:
                 pass
 
             langfuse_logger.debug(
-                f"Shutdown: Score ingestion thread #{score_ingestion_consumer._identifier} successfully terminated"
+                "Shutdown: Score ingestion thread #%s successfully terminated",
+                score_ingestion_consumer._identifier,
             )
 
     def flush(self) -> None:

@@ -2,6 +2,7 @@
 
 import datetime as dt
 import typing
+import typing_extensions
 from json.decoder import JSONDecodeError
 
 from ...commons.errors.access_denied_error import AccessDeniedError
@@ -10,7 +11,7 @@ from ...commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ...commons.errors.not_found_error import NotFoundError
 from ...commons.errors.unauthorized_error import UnauthorizedError
 from ...commons.types.observation_level import ObservationLevel
-from ...commons.types.observations_view import ObservationsView
+from ...commons.types.observations_view_single import ObservationsViewSingle
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.datetime_utils import serialize_datetime
@@ -25,12 +26,16 @@ class RawObservationsV1Client:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         observation_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ObservationsView]:
+    ) -> HttpResponse[ObservationsViewSingle]:
         """
         Get a observation
 
@@ -44,7 +49,7 @@ class RawObservationsV1Client:
 
         Returns
         -------
-        HttpResponse[ObservationsView]
+        HttpResponse[ObservationsViewSingle]
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/observations/{jsonable_encoder(observation_id)}",
@@ -54,9 +59,9 @@ class RawObservationsV1Client:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ObservationsView,
+                    ObservationsViewSingle,
                     parse_obj_as(
-                        type_=ObservationsView,  # type: ignore
+                        type_=ObservationsViewSingle,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -129,6 +134,10 @@ class RawObservationsV1Client:
             body=_response_json,
         )
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get_many(
         self,
         *,
@@ -394,12 +403,16 @@ class AsyncRawObservationsV1Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         observation_id: str,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ObservationsView]:
+    ) -> AsyncHttpResponse[ObservationsViewSingle]:
         """
         Get a observation
 
@@ -413,7 +426,7 @@ class AsyncRawObservationsV1Client:
 
         Returns
         -------
-        AsyncHttpResponse[ObservationsView]
+        AsyncHttpResponse[ObservationsViewSingle]
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/observations/{jsonable_encoder(observation_id)}",
@@ -423,9 +436,9 @@ class AsyncRawObservationsV1Client:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ObservationsView,
+                    ObservationsViewSingle,
                     parse_obj_as(
-                        type_=ObservationsView,  # type: ignore
+                        type_=ObservationsViewSingle,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -498,6 +511,10 @@ class AsyncRawObservationsV1Client:
             body=_response_json,
         )
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v2/observations?fromStartTime=<from>&toStartTime=<to>` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get_many(
         self,
         *,

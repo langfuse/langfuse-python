@@ -11,7 +11,9 @@ from .blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .blob_storage_export_frequency import BlobStorageExportFrequency
 from .blob_storage_export_mode import BlobStorageExportMode
 from .blob_storage_export_source import BlobStorageExportSource
-from .blob_storage_integration_file_type import BlobStorageIntegrationFileType
+from .blob_storage_integration_file_type_response import (
+    BlobStorageIntegrationFileTypeResponse,
+)
 from .blob_storage_integration_type import BlobStorageIntegrationType
 
 
@@ -34,7 +36,7 @@ class BlobStorageIntegrationResponse(UniversalBaseModel):
         bool, FieldMetadata(alias="forcePathStyle")
     ]
     file_type: typing_extensions.Annotated[
-        BlobStorageIntegrationFileType, FieldMetadata(alias="fileType")
+        BlobStorageIntegrationFileTypeResponse, FieldMetadata(alias="fileType")
     ]
     export_mode: typing_extensions.Annotated[
         BlobStorageExportMode, FieldMetadata(alias="exportMode")

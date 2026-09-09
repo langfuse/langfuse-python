@@ -38,7 +38,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
 
     region: str = pydantic.Field()
     """
-    Storage region
+    Storage region used by S3-compatible clients (AWS, GCS, Cloudflare R2, MinIO, Azure location IDs such as eastus, OCI). Leading and trailing whitespace is removed. The remaining value must be 1-63 letters, numbers, or hyphens, and cannot start or end with a hyphen. Examples: us-east-1, europe-west1, eastus, auto.
     """
 
     access_key_id: typing_extensions.Annotated[
@@ -85,7 +85,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
         typing.Optional[dt.datetime], FieldMetadata(alias="exportStartDate")
     ] = pydantic.Field(default=None)
     """
-    Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE)
+    Custom start date for exports (required when exportMode is FROM_CUSTOM_DATE). Must not be in the future (27 h tolerance for timezone differences).
     """
 
     compressed: typing.Optional[bool] = pydantic.Field(default=None)
@@ -97,7 +97,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
         typing.Optional[BlobStorageExportSource], FieldMetadata(alias="exportSource")
     ] = pydantic.Field(default=None)
     """
-    Data to export. When omitted on update, the existing value is preserved. When omitted on create: integrations on Langfuse Cloud default to `OBSERVATIONS_V2`; self-hosted deployments fall back to `LEGACY_TRACES_OBSERVATIONS`. Required when `exportFieldGroups` is provided.
+    Data to export. When omitted on update, the existing value is preserved. When omitted on create, the default is `OBSERVATIONS_V2` on Langfuse Cloud, and on self-hosted deployments `LEGACY_TRACES_OBSERVATIONS` — or `OBSERVATIONS_V2` where the deployment no longer populates the legacy tables. The default is never a source the deployment cannot serve. Required when `exportFieldGroups` is provided.
     
     **Cloud-only project deprecation gate (effective 2026-05-20):** For projects created on or after 2026-05-20 on Langfuse Cloud, `LEGACY_TRACES_OBSERVATIONS` and `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` for all new integrations. Self-hosted deployments are unaffected.
     

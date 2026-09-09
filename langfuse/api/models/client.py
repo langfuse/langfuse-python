@@ -9,6 +9,7 @@ from ..commons.types.pricing_tier_input import PricingTierInput
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawModelsClient, RawModelsClient
+from .types.model_tokenizer_id import ModelTokenizerId
 from .types.paginated_models import PaginatedModels
 
 # this is used as the default value for optional parameters
@@ -35,13 +36,13 @@ class ModelsClient:
         *,
         model_name: str,
         match_pattern: str,
+        unit: ModelUsageUnit,
         start_date: typing.Optional[dt.datetime] = OMIT,
-        unit: typing.Optional[ModelUsageUnit] = OMIT,
         input_price: typing.Optional[float] = OMIT,
         output_price: typing.Optional[float] = OMIT,
         total_price: typing.Optional[float] = OMIT,
         pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
-        tokenizer_id: typing.Optional[str] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
         tokenizer_config: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
@@ -56,11 +57,11 @@ class ModelsClient:
         match_pattern : str
             Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
 
+        unit : ModelUsageUnit
+            Unit used by this model.
+
         start_date : typing.Optional[dt.datetime]
             Apply only to generations which are newer than this ISO date.
-
-        unit : typing.Optional[ModelUsageUnit]
-            Unit used by this model.
 
         input_price : typing.Optional[float]
             Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
@@ -91,7 +92,7 @@ class ModelsClient:
             If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
             which will automatically create a single default tier named "Standard".
 
-        tokenizer_id : typing.Optional[str]
+        tokenizer_id : typing.Optional[ModelTokenizerId]
             Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
 
         tokenizer_config : typing.Optional[typing.Any]
@@ -107,6 +108,7 @@ class ModelsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.commons import ModelUsageUnit
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -119,13 +121,127 @@ class ModelsClient:
         client.models.create(
             model_name="modelName",
             match_pattern="matchPattern",
+            unit=ModelUsageUnit.CHARACTERS,
         )
         """
         _response = self._raw_client.create(
             model_name=model_name,
             match_pattern=match_pattern,
-            start_date=start_date,
             unit=unit,
+            start_date=start_date,
+            input_price=input_price,
+            output_price=output_price,
+            total_price=total_price,
+            pricing_tiers=pricing_tiers,
+            tokenizer_id=tokenizer_id,
+            tokenizer_config=tokenizer_config,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def upsert(
+        self,
+        id: str,
+        *,
+        model_name: str,
+        match_pattern: str,
+        unit: ModelUsageUnit,
+        start_date: typing.Optional[dt.datetime] = OMIT,
+        input_price: typing.Optional[float] = OMIT,
+        output_price: typing.Optional[float] = OMIT,
+        total_price: typing.Optional[float] = OMIT,
+        pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
+        tokenizer_config: typing.Optional[typing.Any] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Model:
+        """
+        Create or replace a project-owned model using its id. Built-in models cannot be modified.
+
+        Parameters
+        ----------
+        id : str
+
+        model_name : str
+            Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
+
+        match_pattern : str
+            Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
+
+        unit : ModelUsageUnit
+            Unit used by this model.
+
+        start_date : typing.Optional[dt.datetime]
+            Apply only to generations which are newer than this ISO date.
+
+        input_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
+
+        output_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per output unit. Creates a default tier if pricingTiers not provided.
+
+        total_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per total units. Cannot be set if input or output price is set. Creates a default tier if pricingTiers not provided.
+
+        pricing_tiers : typing.Optional[typing.Sequence[PricingTierInput]]
+            Optional. Array of pricing tiers for this model.
+
+            Use pricing tiers for all models - both those with threshold-based pricing variations and those with simple flat pricing:
+
+            - For models with standard flat pricing: Create a single default tier with your prices
+              (e.g., one tier with isDefault=true, priority=0, conditions=[], and your standard prices)
+
+            - For models with threshold-based pricing: Create a default tier plus additional conditional tiers
+              (e.g., default tier for standard usage + high-volume tier for usage above certain thresholds)
+
+            Requirements:
+            - Cannot be provided with flat prices (inputPrice/outputPrice/totalPrice) - use one approach or the other
+            - Must include exactly one default tier with isDefault=true, priority=0, and conditions=[]
+            - All tier names and priorities must be unique within the model
+            - Each tier must define at least one price
+
+            If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
+            which will automatically create a single default tier named "Standard".
+
+        tokenizer_id : typing.Optional[ModelTokenizerId]
+            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+
+        tokenizer_config : typing.Optional[typing.Any]
+            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Model
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+        from langfuse.commons import ModelUsageUnit
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.models.upsert(
+            id="id",
+            model_name="modelName",
+            match_pattern="matchPattern",
+            unit=ModelUsageUnit.CHARACTERS,
+        )
+        """
+        _response = self._raw_client.upsert(
+            id,
+            model_name=model_name,
+            match_pattern=match_pattern,
+            unit=unit,
+            start_date=start_date,
             input_price=input_price,
             output_price=output_price,
             total_price=total_price,
@@ -273,13 +389,13 @@ class AsyncModelsClient:
         *,
         model_name: str,
         match_pattern: str,
+        unit: ModelUsageUnit,
         start_date: typing.Optional[dt.datetime] = OMIT,
-        unit: typing.Optional[ModelUsageUnit] = OMIT,
         input_price: typing.Optional[float] = OMIT,
         output_price: typing.Optional[float] = OMIT,
         total_price: typing.Optional[float] = OMIT,
         pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
-        tokenizer_id: typing.Optional[str] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
         tokenizer_config: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
@@ -294,11 +410,11 @@ class AsyncModelsClient:
         match_pattern : str
             Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
 
+        unit : ModelUsageUnit
+            Unit used by this model.
+
         start_date : typing.Optional[dt.datetime]
             Apply only to generations which are newer than this ISO date.
-
-        unit : typing.Optional[ModelUsageUnit]
-            Unit used by this model.
 
         input_price : typing.Optional[float]
             Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
@@ -329,7 +445,7 @@ class AsyncModelsClient:
             If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
             which will automatically create a single default tier named "Standard".
 
-        tokenizer_id : typing.Optional[str]
+        tokenizer_id : typing.Optional[ModelTokenizerId]
             Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
 
         tokenizer_config : typing.Optional[typing.Any]
@@ -347,6 +463,7 @@ class AsyncModelsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.commons import ModelUsageUnit
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -362,6 +479,7 @@ class AsyncModelsClient:
             await client.models.create(
                 model_name="modelName",
                 match_pattern="matchPattern",
+                unit=ModelUsageUnit.CHARACTERS,
             )
 
 
@@ -370,8 +488,129 @@ class AsyncModelsClient:
         _response = await self._raw_client.create(
             model_name=model_name,
             match_pattern=match_pattern,
-            start_date=start_date,
             unit=unit,
+            start_date=start_date,
+            input_price=input_price,
+            output_price=output_price,
+            total_price=total_price,
+            pricing_tiers=pricing_tiers,
+            tokenizer_id=tokenizer_id,
+            tokenizer_config=tokenizer_config,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def upsert(
+        self,
+        id: str,
+        *,
+        model_name: str,
+        match_pattern: str,
+        unit: ModelUsageUnit,
+        start_date: typing.Optional[dt.datetime] = OMIT,
+        input_price: typing.Optional[float] = OMIT,
+        output_price: typing.Optional[float] = OMIT,
+        total_price: typing.Optional[float] = OMIT,
+        pricing_tiers: typing.Optional[typing.Sequence[PricingTierInput]] = OMIT,
+        tokenizer_id: typing.Optional[ModelTokenizerId] = OMIT,
+        tokenizer_config: typing.Optional[typing.Any] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Model:
+        """
+        Create or replace a project-owned model using its id. Built-in models cannot be modified.
+
+        Parameters
+        ----------
+        id : str
+
+        model_name : str
+            Name of the model definition. If multiple with the same name exist, they are applied in the following order: (1) custom over built-in, (2) newest according to startTime where model.startTime<observation.startTime
+
+        match_pattern : str
+            Regex pattern which matches this model definition to generation.model. Useful in case of fine-tuned models. If you want to exact match, use `(?i)^modelname$`
+
+        unit : ModelUsageUnit
+            Unit used by this model.
+
+        start_date : typing.Optional[dt.datetime]
+            Apply only to generations which are newer than this ISO date.
+
+        input_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per input unit. Creates a default tier if pricingTiers not provided.
+
+        output_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per output unit. Creates a default tier if pricingTiers not provided.
+
+        total_price : typing.Optional[float]
+            Deprecated. Use 'pricingTiers' instead. Price (USD) per total units. Cannot be set if input or output price is set. Creates a default tier if pricingTiers not provided.
+
+        pricing_tiers : typing.Optional[typing.Sequence[PricingTierInput]]
+            Optional. Array of pricing tiers for this model.
+
+            Use pricing tiers for all models - both those with threshold-based pricing variations and those with simple flat pricing:
+
+            - For models with standard flat pricing: Create a single default tier with your prices
+              (e.g., one tier with isDefault=true, priority=0, conditions=[], and your standard prices)
+
+            - For models with threshold-based pricing: Create a default tier plus additional conditional tiers
+              (e.g., default tier for standard usage + high-volume tier for usage above certain thresholds)
+
+            Requirements:
+            - Cannot be provided with flat prices (inputPrice/outputPrice/totalPrice) - use one approach or the other
+            - Must include exactly one default tier with isDefault=true, priority=0, and conditions=[]
+            - All tier names and priorities must be unique within the model
+            - Each tier must define at least one price
+
+            If omitted, you must provide flat prices instead (inputPrice/outputPrice/totalPrice),
+            which will automatically create a single default tier named "Standard".
+
+        tokenizer_id : typing.Optional[ModelTokenizerId]
+            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+
+        tokenizer_config : typing.Optional[typing.Any]
+            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Model
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+        from langfuse.commons import ModelUsageUnit
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.models.upsert(
+                id="id",
+                model_name="modelName",
+                match_pattern="matchPattern",
+                unit=ModelUsageUnit.CHARACTERS,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.upsert(
+            id,
+            model_name=model_name,
+            match_pattern=match_pattern,
+            unit=unit,
+            start_date=start_date,
             input_price=input_price,
             output_price=output_price,
             total_price=total_price,
