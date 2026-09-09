@@ -2,11 +2,11 @@ import asyncio
 import contextvars
 import inspect
 import os
-import sys
 from functools import wraps
 from typing import (
     Any,
     AsyncGenerator,
+    Awaitable,
     Callable,
     Dict,
     Generator,
@@ -48,8 +48,6 @@ from langfuse.types import TraceContext
 F = TypeVar("F", bound=Callable[..., Any])
 P = ParamSpec("P")
 R = TypeVar("R")
-
-_ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT = sys.version_info >= (3, 11)
 
 
 class LangfuseDecorator:
@@ -657,6 +655,37 @@ class _ContextPreservedSyncGeneratorWrapper:
             raise
 
 
+class _ContextPreservedAwaitable:
+    """Advance an awaitable in a preserved context without changing its task.
+
+    Each send, throw, and close runs in the same Context, so context-variable
+    values and tokens survive suspension without leaking into the caller.
+    Delegating yielded awaitables to the caller keeps asyncio.timeout bound to
+    the task that is actually consuming the generator.
+    """
+
+    def __init__(self, awaitable: Awaitable[Any], context: contextvars.Context) -> None:
+        self.awaitable = awaitable
+        self.context = context
+
+    def __await__(self) -> Generator[Any, Any, Any]:
+        iterator = self.context.run(self.awaitable.__await__)
+        try:
+            value = self.context.run(next, iterator)
+            while True:
+                try:
+                    sent = yield value
+                except GeneratorExit:
+                    self.context.run(iterator.close)
+                    raise
+                except BaseException as error:
+                    value = self.context.run(iterator.throw, error)
+                else:
+                    value = self.context.run(iterator.send, sent)
+        except StopIteration as result:
+            return result.value
+
+
 class _ContextPreservedAsyncGeneratorWrapper:
     """Async generator wrapper that ensures each iteration runs in preserved context."""
 
@@ -747,15 +776,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
                 self._finalize()
 
     async def _close_generator(self) -> None:
-        if _ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT:
-            close_task = asyncio.create_task(
-                self.generator.aclose(),
-                context=self.context,
-            )  # type: ignore
-        else:
-            close_task = self.context.run(asyncio.create_task, self.generator.aclose())
-
-        await close_task
+        await _ContextPreservedAwaitable(self.generator.aclose(), self.context)
 
     async def close(self) -> None:
         await self.aclose()
@@ -768,17 +789,9 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     async def __anext__(self) -> Any:
         try:
-            # Run the generator's __anext__ in the preserved context
-            if _ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT:
-                item = await asyncio.create_task(
-                    self.generator.__anext__(),  # type: ignore
-                    context=self.context,
-                )  # type: ignore
-            else:
-                item = await self.context.run(
-                    asyncio.create_task,
-                    self.generator.__anext__(),  # type: ignore
-                )
+            item = await _ContextPreservedAwaitable(
+                self.generator.__anext__(), self.context
+            )
 
             if self.capture_output:
                 self.items.append(item)
