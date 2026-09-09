@@ -1,4 +1,5 @@
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 from langfuse.api import ChatMessage, Prompt_Chat
@@ -932,3 +933,34 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+
+def test_langchain_messages_in_message_placeholder_are_preserved():
+    prompt_client = ChatPromptClient(
+        Prompt_Chat(
+            type="chat",
+            name="langchain_message_placeholder_test",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=[
+                {"type": "placeholder", "name": "history"},
+                {"role": "user", "content": "Question for {{name}}"},
+            ],
+        )
+    )
+
+    compiled_messages = prompt_client.compile(
+        name="Ada",
+        history=[
+            HumanMessage(content="Hello {{name}}"),
+            AIMessage(content="Hi {{name}}"),
+        ],
+    )
+
+    assert compiled_messages == [
+        {"role": "user", "content": "Hello Ada"},
+        {"role": "assistant", "content": "Hi Ada"},
+        {"role": "user", "content": "Question for Ada"},
+    ]
