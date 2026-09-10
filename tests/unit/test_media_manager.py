@@ -2,16 +2,16 @@ from queue import Queue
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-import httpx
+import httpx2
 import pytest
 
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse.media import LangfuseMedia
 
 
-def _upload_response(status_code: int, text: str = "") -> httpx.Response:
-    request = httpx.Request("PUT", "https://example.com/upload")
-    return httpx.Response(status_code=status_code, request=request, text=text)
+def _upload_response(status_code: int, text: str = "") -> httpx2.Response:
+    request = httpx2.Request("PUT", "https://example.com/upload")
+    return httpx2.Response(status_code=status_code, request=request, text=text)
 
 
 def _upload_job() -> dict:
@@ -75,7 +75,7 @@ def test_media_upload_gives_up_on_non_retryable_http_status():
         max_retries=3,
     )
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         manager._process_upload_media_job(data=_upload_job())
 
     assert httpx_client.put.call_count == 1

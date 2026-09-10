@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
-import httpx
+import httpx2
 
 from langfuse.api import MediaContentType
 from langfuse.logger import langfuse_logger as logger
@@ -49,18 +49,18 @@ class LangfuseMediaReference:
         return expiry_datetime <= datetime.now(timezone.utc)
 
     def fetch_bytes(
-        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+        self, *, timeout: float = 30.0, client: Optional[httpx2.Client] = None
     ) -> bytes:
         """Fetch the media content from the signed URL.
 
         Args:
             timeout: Request timeout in seconds.
-            client: Optional httpx client to use for the request. Pass this to
+            client: Optional httpx2 client to use for the request. Pass this to
                 honor custom transport settings (proxy, CA bundle, mTLS) — in
                 particular when multiple Langfuse clients are configured, since
                 the SDK cannot otherwise tell which client produced this
                 reference. When omitted, the single configured client is used,
-                falling back to a default httpx client.
+                falling back to a default httpx2 client.
         """
         from langfuse._client.resource_manager import LangfuseResourceManager
 
@@ -68,14 +68,14 @@ class LangfuseMediaReference:
         response = (
             httpx_client.get(self.url, timeout=timeout)
             if httpx_client is not None
-            else httpx.get(self.url, timeout=timeout)
+            else httpx2.get(self.url, timeout=timeout)
         )
         response.raise_for_status()
 
         return response.content
 
     def fetch_base64(
-        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+        self, *, timeout: float = 30.0, client: Optional[httpx2.Client] = None
     ) -> str:
         """Fetch media and return raw base64 without a data URI prefix.
 
@@ -86,7 +86,7 @@ class LangfuseMediaReference:
         ).decode()
 
     def fetch_data_uri(
-        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+        self, *, timeout: float = 30.0, client: Optional[httpx2.Client] = None
     ) -> str:
         """Fetch media and return it as a data URI.
 
@@ -383,7 +383,7 @@ class LangfuseMedia:
                                 timeout=content_fetch_timeout_seconds,
                             )
                             if httpx_client is not None
-                            else httpx.get(
+                            else httpx2.get(
                                 media_data.url, timeout=content_fetch_timeout_seconds
                             )
                         )
