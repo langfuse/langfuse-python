@@ -3272,7 +3272,7 @@ class Langfuse:
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
-        """Fetch traces or observations and run evaluations on each item.
+        """Fetch traces or observations using legacy read APIs and evaluate each item.
 
         This method provides a powerful way to evaluate existing data in Langfuse at scale.
         It fetches items based on filters, transforms them using a mapper function, runs
@@ -3287,6 +3287,11 @@ class Langfuse:
         The method uses a streaming/pipeline approach to process items in batches, making
         it memory-efficient for large datasets. It includes comprehensive error handling,
         retry logic, and resume capability for long-running evaluations.
+
+        Legacy platform compatibility:
+            This method reads traces from `GET /api/public/traces` and observations
+            from the legacy `GET /api/public/observations` endpoint. It is supported
+            with Langfuse platform v3 and is not yet supported with platform v4.
 
         Args:
             scope: The type of items to evaluate. Must be one of:
