@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import typing
 
-try:
-    import httpx2 as httpx
-except ImportError:
-    import httpx
+import httpx2
 from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 
 if typing.TYPE_CHECKING:
@@ -73,13 +70,13 @@ class LangfuseAPI:
         Additional headers to send with every request.
 
     timeout : typing.Optional[float]
-        The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx client is used, in which case this default is not enforced.
+        The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx2 client is used, in which case this default is not enforced.
 
     follow_redirects : typing.Optional[bool]
-        Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
+        Whether the default httpx2 client follows redirects or not, this is irrelevant if a custom httpx2 client is passed in.
 
-    httpx_client : typing.Optional[httpx.Client]
-        The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
+    httpx_client : typing.Optional[httpx2.Client]
+        The httpx2 client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx2 configuration.
 
     Examples
     --------
@@ -107,7 +104,7 @@ class LangfuseAPI:
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
         follow_redirects: typing.Optional[bool] = True,
-        httpx_client: typing.Optional[httpx.Client] = None,
+        httpx_client: typing.Optional[httpx2.Client] = None,
     ):
         _defaulted_timeout = (
             timeout
@@ -126,11 +123,11 @@ class LangfuseAPI:
             headers=headers,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.Client(
+            else httpx2.Client(
                 timeout=_defaulted_timeout, follow_redirects=follow_redirects
             )
             if follow_redirects is not None
-            else httpx.Client(timeout=_defaulted_timeout),
+            else httpx2.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
         self._annotation_queues: typing.Optional[AnnotationQueuesClient] = None
@@ -445,13 +442,13 @@ class AsyncLangfuseAPI:
         Additional headers to send with every request.
 
     timeout : typing.Optional[float]
-        The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx client is used, in which case this default is not enforced.
+        The timeout to be used, in seconds, for requests. By default the timeout is 60 seconds, unless a custom httpx2 client is used, in which case this default is not enforced.
 
     follow_redirects : typing.Optional[bool]
-        Whether the default httpx client follows redirects or not, this is irrelevant if a custom httpx client is passed in.
+        Whether the default httpx2 client follows redirects or not, this is irrelevant if a custom httpx2 client is passed in.
 
-    httpx_client : typing.Optional[httpx.AsyncClient]
-        The httpx client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx configuration.
+    httpx_client : typing.Optional[httpx2.AsyncClient]
+        The httpx2 client to use for making requests, a preconfigured client is used by default, however this is useful should you want to pass in any custom httpx2 configuration.
 
     Examples
     --------
@@ -479,7 +476,7 @@ class AsyncLangfuseAPI:
         headers: typing.Optional[typing.Dict[str, str]] = None,
         timeout: typing.Optional[float] = None,
         follow_redirects: typing.Optional[bool] = True,
-        httpx_client: typing.Optional[httpx.AsyncClient] = None,
+        httpx_client: typing.Optional[httpx2.AsyncClient] = None,
     ):
         _defaulted_timeout = (
             timeout
@@ -498,11 +495,11 @@ class AsyncLangfuseAPI:
             headers=headers,
             httpx_client=httpx_client
             if httpx_client is not None
-            else httpx.AsyncClient(
+            else httpx2.AsyncClient(
                 timeout=_defaulted_timeout, follow_redirects=follow_redirects
             )
             if follow_redirects is not None
-            else httpx.AsyncClient(timeout=_defaulted_timeout),
+            else httpx2.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
         self._annotation_queues: typing.Optional[AsyncAnnotationQueuesClient] = None

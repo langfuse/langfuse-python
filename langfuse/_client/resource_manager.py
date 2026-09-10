@@ -23,10 +23,7 @@ import weakref
 from queue import Full, Queue
 from typing import Any, Callable, Dict, List, Optional, cast
 
-try:
-    import httpx2 as httpx
-except ImportError:
-    import httpx
+import httpx2
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -91,7 +88,7 @@ class LangfuseResourceManager:
     _ingestion_consumers: List[ScoreIngestionConsumer]
 
     @classmethod
-    def get_singleton_httpx_client(cls) -> Optional[httpx.Client]:
+    def get_singleton_httpx_client(cls) -> Optional[httpx2.Client]:
         with cls._lock:
             instances = list(cls._instances.values())
 
@@ -101,11 +98,11 @@ class LangfuseResourceManager:
             if len(instances) > 1:
                 # Mirror get_client's safety stance: with multiple clients we
                 # cannot tell which one produced a given reference, so fall back
-                # to a default httpx client rather than silently using an
+                # to a default httpx2 client rather than silently using an
                 # arbitrary instance's transport config (proxy / CA / mTLS).
                 langfuse_logger.warning(
                     "Multiple Langfuse clients are instantiated; falling back to a "
-                    "default httpx client for LangfuseMediaReference fetches. Pass an "
+                    "default httpx2 client for LangfuseMediaReference fetches. Pass an "
                     "explicit `client` to fetch_bytes/fetch_base64/fetch_data_uri to "
                     "honor per-client transport settings."
                 )
@@ -124,7 +121,7 @@ class LangfuseResourceManager:
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
-        httpx_client: Optional[httpx.Client] = None,
+        httpx_client: Optional[httpx2.Client] = None,
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
@@ -192,7 +189,7 @@ class LangfuseResourceManager:
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
         media_upload_thread_count: Optional[int] = None,
-        httpx_client: Optional[httpx.Client] = None,
+        httpx_client: Optional[httpx2.Client] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
@@ -336,7 +333,7 @@ class LangfuseResourceManager:
     def _init_api_clients(self) -> None:
         """Initialize HTTP-backed API clients.
 
-        Internally-managed httpx clients are recreated when this method is
+        Internally-managed httpx2 clients are recreated when this method is
         called after fork. Caller-provided clients are preserved because their
         lifecycle belongs to the caller.
         """
@@ -344,7 +341,7 @@ class LangfuseResourceManager:
             self.httpx_client = self._custom_httpx_client
         else:
             client_headers = self.additional_headers if self.additional_headers else {}
-            self.httpx_client = httpx.Client(
+            self.httpx_client = httpx2.Client(
                 timeout=self.timeout, headers=client_headers
             )
 
@@ -430,7 +427,7 @@ class LangfuseResourceManager:
 
         if sys.platform == "darwin" and not urllib.request.getproxies_environment():
             # urllib proxy discovery falls back to macOS SystemConfiguration APIs that
-            # are not safe to invoke after fork(). Setting no_proxy="*" makes httpx and
+            # are not safe to invoke after fork(). Setting no_proxy="*" makes httpx2 and
             # requests skip that lookup entirely in this child process. Skipped when
             # proxies are configured via environment variables: urllib then never touches
             # SystemConfiguration (no segfault risk), and overriding no_proxy would
@@ -447,13 +444,13 @@ class LangfuseResourceManager:
         # belong to the preloaded parent process and must not be processed by every
         # worker — otherwise uploads/scores would be duplicated across workers.
         #
-        # Internally-managed httpx clients must also be recreated: fork() duplicates the
+        # Internally-managed httpx2 clients must also be recreated: fork() duplicates the
         # parent's connection pool (TCP socket file descriptors) into the child. Both
         # processes then share the same underlying sockets, causing data corruption and
         # SSL/TLS state mismatch under concurrent use. Fresh clients start with an empty
         # pool owned solely by this child process.
         #
-        # Custom httpx clients provided by the caller are NOT recreated. The fork-inherited
+        # Custom httpx2 clients provided by the caller are NOT recreated. The fork-inherited
         # copy is reused as-is, giving the caller the opportunity to handle process-safety
         # themselves (e.g. by registering their own os.register_at_fork handler).
         try:

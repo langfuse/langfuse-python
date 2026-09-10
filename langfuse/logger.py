@@ -1,7 +1,7 @@
 """Logger configuration for Langfuse OpenTelemetry integration.
 
 This module initializes and configures loggers used by the Langfuse OpenTelemetry integration.
-It sets up the main 'langfuse' logger and configures the httpx logger to reduce noise.
+It sets up the main 'langfuse' logger and configures the httpx2 logger to reduce noise.
 
 Log levels used throughout Langfuse:
 - DEBUG: Detailed tracing information useful for development and diagnostics
@@ -17,8 +17,8 @@ import logging
 langfuse_logger = logging.getLogger("langfuse")
 langfuse_logger.setLevel(logging.WARNING)
 
-# Configure httpx logger to reduce noise from HTTP requests
-httpx_logger = logging.getLogger("httpx")
+# Configure httpx2 logger to reduce noise from HTTP requests
+httpx_logger = logging.getLogger("httpx2")
 httpx_logger.setLevel(logging.WARNING)
 
 # Add console handler if no handlers exist

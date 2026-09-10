@@ -2,10 +2,7 @@
 
 import typing
 
-try:
-    import httpx2 as httpx
-except ImportError:
-    import httpx
+import httpx2
 from .http_client import AsyncHttpClient, HttpClient
 
 
@@ -39,7 +36,7 @@ class BaseClientWrapper:
         username = self._get_username()
         password = self._get_password()
         if username is not None and password is not None:
-            headers["Authorization"] = httpx.BasicAuth(username, password)._auth_header
+            headers["Authorization"] = httpx2.BasicAuth(username, password)._auth_header
         if self._x_langfuse_sdk_name is not None:
             headers["X-Langfuse-Sdk-Name"] = self._x_langfuse_sdk_name
         if self._x_langfuse_sdk_version is not None:
@@ -82,7 +79,7 @@ class SyncClientWrapper(BaseClientWrapper):
         headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
-        httpx_client: httpx.Client,
+        httpx_client: httpx2.Client,
     ):
         super().__init__(
             x_langfuse_sdk_name=x_langfuse_sdk_name,
@@ -115,7 +112,7 @@ class AsyncClientWrapper(BaseClientWrapper):
         base_url: str,
         timeout: typing.Optional[float] = None,
         async_token: typing.Optional[typing.Callable[[], typing.Awaitable[str]]] = None,
-        httpx_client: httpx.AsyncClient,
+        httpx_client: httpx2.AsyncClient,
     ):
         super().__init__(
             x_langfuse_sdk_name=x_langfuse_sdk_name,

@@ -4,10 +4,7 @@ import json
 from base64 import b64encode
 from typing import Any, List, Union
 
-try:
-    import httpx2 as httpx
-except ImportError:
-    import httpx
+import httpx2
 
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger as logger
@@ -19,7 +16,7 @@ class LangfuseClient:
     _base_url: str
     _version: str
     _timeout: int
-    _session: httpx.Client
+    _session: httpx2.Client
 
     def __init__(
         self,
@@ -28,7 +25,7 @@ class LangfuseClient:
         base_url: str,
         version: str,
         timeout: int,
-        session: httpx.Client,
+        session: httpx2.Client,
     ):
         self._public_key = public_key
         self._secret_key = secret_key
@@ -49,7 +46,7 @@ class LangfuseClient:
             "x-langfuse-public-key": self._public_key,
         }
 
-    def batch_post(self, **kwargs: Any) -> httpx.Response:
+    def batch_post(self, **kwargs: Any) -> httpx2.Response:
         """Post the `kwargs` to the batch API endpoint for events"""
         res = self.post(**kwargs)
 
@@ -57,7 +54,7 @@ class LangfuseClient:
             res, success_message="data uploaded successfully", return_json=False
         )
 
-    def post(self, **kwargs: Any) -> httpx.Response:
+    def post(self, **kwargs: Any) -> httpx2.Response:
         """Post the `kwargs` to the API"""
         url = self._remove_trailing_slash(self._base_url) + "/api/public/ingestion"
         data = json.dumps(kwargs, cls=EventSerializer)
@@ -79,8 +76,8 @@ class LangfuseClient:
         return url
 
     def _process_response(
-        self, res: httpx.Response, success_message: str, *, return_json: bool = True
-    ) -> Union[httpx.Response, Any]:
+        self, res: httpx2.Response, success_message: str, *, return_json: bool = True
+    ) -> Union[httpx2.Response, Any]:
         logger.debug("received response: %s", res.text)
         if res.status_code in (200, 201):
             logger.debug(success_message)

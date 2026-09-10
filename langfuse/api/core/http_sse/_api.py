@@ -4,17 +4,14 @@ import re
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, AsyncGenerator, AsyncIterator, Iterator, cast
 
-try:
-    import httpx2 as httpx
-except ImportError:
-    import httpx
+import httpx2
 from ._decoders import SSEDecoder
 from ._exceptions import SSEError
 from ._models import ServerSentEvent
 
 
 class EventSource:
-    def __init__(self, response: httpx.Response) -> None:
+    def __init__(self, response: httpx2.Response) -> None:
         self._response = response
 
     def _check_content_type(self) -> None:
@@ -45,7 +42,7 @@ class EventSource:
         return "utf-8"
 
     @property
-    def response(self) -> httpx.Response:
+    def response(self) -> httpx2.Response:
         return self._response
 
     def iter_sse(self) -> Iterator[ServerSentEvent]:
@@ -92,7 +89,7 @@ class EventSource:
 
 @contextmanager
 def connect_sse(
-    client: httpx.Client, method: str, url: str, **kwargs: Any
+    client: httpx2.Client, method: str, url: str, **kwargs: Any
 ) -> Iterator[EventSource]:
     headers = kwargs.pop("headers", {})
     headers["Accept"] = "text/event-stream"
@@ -104,7 +101,7 @@ def connect_sse(
 
 @asynccontextmanager
 async def aconnect_sse(
-    client: httpx.AsyncClient,
+    client: httpx2.AsyncClient,
     method: str,
     url: str,
     **kwargs: Any,

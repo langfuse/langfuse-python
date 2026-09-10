@@ -2,10 +2,7 @@
 
 from typing import Dict, Generic, TypeVar
 
-try:
-    import httpx2 as httpx
-except ImportError:
-    import httpx
+import httpx2
 
 # Generic to represent the underlying type of the data wrapped by the HTTP response.
 T = TypeVar("T")
@@ -14,9 +11,9 @@ T = TypeVar("T")
 class BaseHttpResponse:
     """Minimalist HTTP response wrapper that exposes response headers."""
 
-    _response: httpx.Response
+    _response: httpx2.Response
 
-    def __init__(self, response: httpx.Response):
+    def __init__(self, response: httpx2.Response):
         self._response = response
 
     @property
@@ -29,7 +26,7 @@ class HttpResponse(Generic[T], BaseHttpResponse):
 
     _data: T
 
-    def __init__(self, response: httpx.Response, data: T):
+    def __init__(self, response: httpx2.Response, data: T):
         super().__init__(response)
         self._data = data
 
@@ -46,7 +43,7 @@ class AsyncHttpResponse(Generic[T], BaseHttpResponse):
 
     _data: T
 
-    def __init__(self, response: httpx.Response, data: T):
+    def __init__(self, response: httpx2.Response, data: T):
         super().__init__(response)
         self._data = data
 

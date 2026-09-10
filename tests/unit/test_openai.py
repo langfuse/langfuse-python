@@ -1272,27 +1272,27 @@ def _chat_completion_chunk_sse_body():
 
 
 def _mock_transport_openai_client(async_client: bool = False):
-    import httpx
+    import httpx2
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         if b'"stream": true' in request.content or b'"stream":true' in request.content:
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 content=_chat_completion_chunk_sse_body().encode(),
                 headers={"content-type": "text/event-stream"},
             )
 
-        return httpx.Response(200, json=_chat_completion_payload())
+        return httpx2.Response(200, json=_chat_completion_payload())
 
     if async_client:
         return lf_openai.AsyncOpenAI(
             api_key="test",
-            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+            http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
         )
 
     return lf_openai.OpenAI(
         api_key="test",
-        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(handler)),
     )
 
 
