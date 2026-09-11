@@ -1549,3 +1549,14 @@ async def test_streaming_chat_completion_keeps_multiple_choices_separate(
         json.loads(attributes[LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS])
         == chunks[-1].usage.model_dump()
     )
+    print(
+        json.dumps(
+            {
+                "output": output,
+                "usage": json.loads(
+                    attributes[LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS]
+                ),
+            },
+            separators=(",", ":"),
+        )
+    )
