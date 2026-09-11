@@ -760,7 +760,10 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
 
 
 def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
-    completion: Any = defaultdict(lambda: None) if resource.type == "chat" else ""
+    chat_completions: defaultdict[int, defaultdict[str, Any]] = defaultdict(
+        lambda: defaultdict(lambda: None)
+    )
+    completion: Any = ""
     model, usage, finish_reason, service_tier = None, None, None, None
 
     for chunk in chunks:
@@ -775,10 +778,12 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
         choices = chunk.get("choices") or []
 
-        for choice in choices:
+        for choice_position, choice in enumerate(choices):
             if _is_openai_v1():
                 choice = choice.__dict__
             if resource.type == "chat":
+                choice_index = cast(int, choice.get("index", choice_position))
+                completion = chat_completions[choice_index]
                 delta = choice.get("delta", None)
                 choice_finish_reason = choice.get("finish_reason", None)
                 if choice_finish_reason is not None:
@@ -870,13 +875,13 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
             if resource.type == "completion":
                 completion += choice.get("text", "")
 
-    def get_response_for_chat() -> Any:
-        content = completion["content"]
+    def get_response_for_chat(chat_completion: Any) -> Any:
+        content = chat_completion["content"]
 
-        if completion["tool_calls"]:
+        if chat_completion["tool_calls"]:
             response = {
                 "role": "assistant",
-                "tool_calls": completion["tool_calls"],
+                "tool_calls": chat_completion["tool_calls"],
             }
 
             if content is not None:
@@ -884,10 +889,10 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
             return response
 
-        if completion["function_call"]:
+        if chat_completion["function_call"]:
             response = {
                 "role": "assistant",
-                "function_call": completion["function_call"],
+                "function_call": chat_completion["function_call"],
             }
 
             if content is not None:
@@ -897,9 +902,15 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
         return content or None
 
+    chat_outputs = [
+        get_response_for_chat(chat_completion)
+        for _, chat_completion in sorted(chat_completions.items())
+    ]
+    chat_output = chat_outputs[0] if len(chat_outputs) == 1 else chat_outputs or None
+
     return (
         model,
-        get_response_for_chat() if resource.type == "chat" else completion,
+        chat_output if resource.type == "chat" else completion,
         usage,
         {"finish_reason": finish_reason} if finish_reason is not None else None,
         service_tier,
