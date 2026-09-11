@@ -1,14 +1,24 @@
 import asyncio
+import json
+from collections.abc import Iterator
+from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-import httpx
 import pytest
+from openai.types.chat import ChatCompletionChunk
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+    ExportTraceServiceRequest,
+)
+from opentelemetry.sdk.trace import TracerProvider
 from pydantic import BaseModel
+from pytest_httpserver import HTTPServer
+from pytest_httpserver.httpserver import RequestMatcher
 
 import langfuse.openai as lf_openai_module
+from langfuse import Langfuse
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse.openai import openai as lf_openai
 
@@ -1403,14 +1413,35 @@ def test_with_raw_response_streaming_passes_through_untraced(
     )
 
 
-def test_streaming_chat_completion_keeps_multiple_choices_separate(
-    langfuse_memory_client: Any, get_span: Any, json_attr: Any
+@pytest.fixture
+def langfuse_http_client(
+    monkeypatch: pytest.MonkeyPatch, httpserver: HTTPServer
+) -> Iterator[Langfuse]:
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "test-public-key")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test-secret-key")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", httpserver.url_for("").rstrip("/"))
+    httpserver.expect_request(
+        "/api/public/otel/v1/traces", method="POST"
+    ).respond_with_data(response_data=b"", content_type="application/x-protobuf")
+    tracer_provider = TracerProvider()
+    client = Langfuse(tracer_provider=tracer_provider, timeout=5)
+    yield client
+    client.shutdown()
+    tracer_provider.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_client", [False, True], ids=["sync", "async"])
+async def test_streaming_chat_completion_keeps_multiple_choices_separate(
+    langfuse_http_client: Langfuse,
+    httpserver: HTTPServer,
+    async_client: bool,
 ) -> None:
     body = (
         'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
         '"created":1700000000,"model":"gpt-4o-mini",'
-        '"choices":[{"index":0,"delta":{"role":"assistant","content":"A"},'
-        '"finish_reason":null},{"index":1,"delta":{"role":"assistant","content":"B"},'
+        '"choices":[{"index":1,"delta":{"role":"assistant","content":"B"},'
+        '"finish_reason":null},{"index":0,"delta":{"role":"assistant","content":"A"},'
         '"finish_reason":null}]}\n\n'
         'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
         '"created":1700000000,"model":"gpt-4o-mini",'
@@ -1426,34 +1457,46 @@ def test_streaming_chat_completion_keeps_multiple_choices_separate(
         '"function":{"arguments":"0\\"}"}}]},"finish_reason":"tool_calls"},'
         '{"index":1,"delta":{"tool_calls":[{"index":0,'
         '"function":{"arguments":"1\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n'
+        'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
+        '"created":1700000000,"model":"gpt-4o-mini","choices":[],'
+        '"usage":{"prompt_tokens":7,"completion_tokens":5,"total_tokens":12}}\n\n'
         "data: [DONE]\n\n"
     )
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            status_code=200,
-            content=body.encode(),
-            headers={"content-type": "text/event-stream"},
-        )
-
-    openai_client = lf_openai.OpenAI(
-        api_key="test",
-        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    args: dict[str, Any] = {
+        "model": "gpt-4o-mini",
+        "messages": [{"role": "user", "content": "choose"}],
+        "n": 2,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    httpserver.expect_request(
+        "/v1/chat/completions", method="POST", json=args
+    ).respond_with_data(
+        response_data=body,
+        content_type="text/event-stream",
     )
 
-    chunks = list(
-        openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "choose"}],
-            n=2,
-            stream=True,
-        )
-    )
+    chunks: list[ChatCompletionChunk]
+    if async_client:
+        async with lf_openai.AsyncOpenAI(
+            api_key="test", base_url=httpserver.url_for("/v1")
+        ) as async_provider:
+            async with await async_provider.chat.completions.create(
+                **args
+            ) as async_stream:
+                chunks = [chunk async for chunk in async_stream]
+    else:
+        with lf_openai.OpenAI(
+            api_key="test", base_url=httpserver.url_for("/v1")
+        ) as provider:
+            with provider.chat.completions.create(**args) as stream:
+                chunks = list(stream)
 
     assert [[choice.index for choice in chunk.choices] for chunk in chunks] == [
-        [0, 1],
+        [1, 0],
         [1, 0],
         [0, 1],
+        [],
     ]
     assert [
         (choice.index, tool_call.index)
@@ -1462,10 +1505,30 @@ def test_streaming_chat_completion_keeps_multiple_choices_separate(
         for tool_call in choice.delta.tool_calls or []
     ] == [(1, 0), (0, 0), (0, 0), (1, 0)]
 
-    langfuse_memory_client.flush()
-    span = get_span("OpenAI-generation")
-    output = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT)
+    langfuse_http_client.flush()
+    ingestion = list(
+        httpserver.iter_matching_requests(
+            RequestMatcher(uri="/api/public/otel/v1/traces", method="POST")
+        )
+    )
+    assert len(ingestion) == 1
+    ingestion_request, ingestion_response = ingestion[0]
+    assert ingestion_response.status_code == HTTPStatus.OK
+    assert ingestion_request.content_type == "application/x-protobuf"
+    payload = ExportTraceServiceRequest.FromString(ingestion_request.get_data())
+    spans = [
+        span
+        for resource in payload.resource_spans
+        for scope in resource.scope_spans
+        for span in scope.spans
+    ]
+    assert len(spans) == 1
+    attributes = {
+        attribute.key: attribute.value.string_value for attribute in spans[0].attributes
+    }
+    output = json.loads(attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT])
 
+    assert isinstance(output, list), output
     assert [choice["content"] for choice in output] == ["A0", "B1"]
     assert [
         (tool_call["id"], tool_call["function"]["arguments"])
@@ -1475,3 +1538,14 @@ def test_streaming_chat_completion_keeps_multiple_choices_separate(
         ("call-0", '{"value":"A0"}'),
         ("call-1", '{"value":"B1"}'),
     ]
+    assert attributes["langfuse.observation.metadata.finish_reason"] == "tool_calls"
+    assert chunks[-1].usage is not None
+    assert chunks[-1].usage.model_dump(exclude_none=True) == {
+        "prompt_tokens": 7,
+        "completion_tokens": 5,
+        "total_tokens": 12,
+    }
+    assert (
+        json.loads(attributes[LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS])
+        == chunks[-1].usage.model_dump()
+    )
