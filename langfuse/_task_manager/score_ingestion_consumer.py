@@ -187,7 +187,10 @@ class ScoreIngestionConsumer(threading.Thread):
                     and 400 <= int(e.status) < 500
                     and int(e.status) != 429  # retry if rate-limited
                 ):
-                    return
+                    # Non-retryable 4xx: the batch is permanently lost.
+                    # Raise so handle_exception logs the loss instead of
+                    # silently pretending the batch was delivered.
+                    raise e
 
                 raise e
 
