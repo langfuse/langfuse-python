@@ -747,6 +747,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseSpan": ...
 
     @overload
@@ -761,6 +762,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
         completion_start_time: Optional[datetime] = None,
         model: Optional[str] = None,
         model_parameters: Optional[Dict[str, MapValue]] = None,
@@ -781,6 +783,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseAgent": ...
 
     @overload
@@ -795,6 +798,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseTool": ...
 
     @overload
@@ -809,6 +813,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseChain": ...
 
     @overload
@@ -823,6 +828,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseRetriever": ...
 
     @overload
@@ -837,6 +843,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseEvaluator": ...
 
     @overload
@@ -851,6 +858,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
         completion_start_time: Optional[datetime] = None,
         model: Optional[str] = None,
         model_parameters: Optional[Dict[str, MapValue]] = None,
@@ -871,6 +879,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseGuardrail": ...
 
     @overload
@@ -885,6 +894,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> "LangfuseEvent": ...
 
     def start_observation(
@@ -898,6 +908,7 @@ class LangfuseObservationWrapper:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
         completion_start_time: Optional[datetime] = None,
         model: Optional[str] = None,
         model_parameters: Optional[Dict[str, MapValue]] = None,
@@ -931,6 +942,7 @@ class LangfuseObservationWrapper:
             version: Version identifier for the code or component
             level: Importance level of the observation (info, warning, error)
             status_message: Optional status message for the observation
+            start_time: Optional explicit start time in nanoseconds since epoch
             completion_start_time: When the model started generating (for generation types)
             model: Name/identifier of the AI model used (for generation types)
             model_parameters: Parameters used for the model (for generation types)
@@ -942,7 +954,7 @@ class LangfuseObservationWrapper:
             A new observation of the specified type that must be ended with .end()
         """
         if as_type == "event":
-            timestamp = time_ns()
+            timestamp = start_time if start_time is not None else time_ns()
             event_span = self._langfuse_client._otel_tracer.start_span(
                 name=name, start_time=timestamp
             )
@@ -970,7 +982,9 @@ class LangfuseObservationWrapper:
             observation_class = LangfuseSpan
 
         with otel_trace_api.use_span(self._otel_span):
-            new_otel_span = self._langfuse_client._otel_tracer.start_span(name=name)
+            new_otel_span = self._langfuse_client._otel_tracer.start_span(
+                name=name, start_time=start_time
+            )
 
         common_args = {
             "otel_span": new_otel_span,
