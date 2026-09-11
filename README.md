@@ -52,3 +52,7 @@ langfuse.flush()
 - Full documentation: https://langfuse.com/docs
 - Machine-readable docs index (for AI agents): https://langfuse.com/llms.txt
 - API reference of this package: https://python.reference.langfuse.com
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, quality checks, and the test suite layout.
