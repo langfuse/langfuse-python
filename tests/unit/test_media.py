@@ -91,6 +91,61 @@ def test_parse_invalid_reference_string():
         )  # Missing fields
 
 
+def test_parse_reference_string_with_empty_field_values_raises_missing_fields_error():
+    # All three required keys present, but with empty values, used to pass
+    # the "key in parsed_data" check and return a reference with an empty
+    # media_id -- which would then reach a real api.media.get("") network
+    # call in LangfuseMedia.resolve_media_references.
+    with pytest.raises(ValueError, match="Missing required fields"):
+        LangfuseMedia.parse_reference_string("@@@langfuseMedia:type=|id=|source=@@@")
+
+
+def test_parse_reference_string_with_whitespace_only_field_value_raises_missing_fields_error():
+    # A whitespace-only value (e.g. "id=   ") is non-empty as a raw string,
+    # so it would pass a plain truthiness check on the parsed value, and the
+    # resulting whitespace-only media_id would still reach a real
+    # api.media.get() call in LangfuseMedia.resolve_media_references.
+    with pytest.raises(ValueError, match="Missing required fields"):
+        LangfuseMedia.parse_reference_string(
+            "@@@langfuseMedia:type=image/jpeg|id=   |source=bytes@@@"
+        )
+
+
+def test_parse_reference_string_with_malformed_pair_raises_missing_fields_error():
+    # A pipe-separated segment with no "=" (here, a typo dropping the "="
+    # from "id=") used to crash with a raw "not enough values to unpack"
+    # ValueError from the key/value split, instead of the intended
+    # "Missing required fields" validation error.
+    with pytest.raises(ValueError, match="Missing required fields"):
+        LangfuseMedia.parse_reference_string(
+            "@@@langfuseMedia:type=image/jpeg|idtest-id|source=bytes@@@"
+        )
+
+
+def test_parse_reference_string_ignores_malformed_pair_when_fields_still_present():
+    # A malformed segment alongside all three required fields elsewhere in
+    # the string should be ignored, not crash the whole parse.
+    result = LangfuseMedia.parse_reference_string(
+        "@@@langfuseMedia:type=image/jpeg|badpair|id=test-id|source=bytes@@@"
+    )
+
+    assert result["media_id"] == "test-id"
+    assert result["content_type"] == "image/jpeg"
+    assert result["source"] == "bytes"
+
+
+def test_parse_reference_string_ignores_trailing_empty_pair():
+    # A trailing "|" produces an empty segment with no "=", which should be
+    # ignored rather than crash, as long as the required fields are present.
+    result = LangfuseMedia.parse_reference_string(
+        "@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes|@@@"
+    )
+
+    assert result["media_id"] == "test-id"
+    assert result["content_type"] == "image/jpeg"
+    assert result["source"] == "bytes"
+
+
 @pytest.mark.parametrize(
     ("url_expiry", "expected"),
     [

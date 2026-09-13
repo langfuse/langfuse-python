@@ -253,11 +253,19 @@ class LangfuseMedia:
         parsed_data = {}
 
         for pair in pairs:
+            if "=" not in pair:
+                continue
             key, value = pair.split("=", 1)
             parsed_data[key] = value
 
-        # Verify all required fields are present
-        if not all(key in parsed_data for key in ["type", "id", "source"]):
+        # Verify all required fields are present and non-blank. An empty or
+        # whitespace-only value (e.g. "id=" or "id=   ") would otherwise pass
+        # this check and later reach a real API call
+        # (LangfuseMedia.resolve_media_references -> api.media.get) with a
+        # blank media_id.
+        if not all(
+            parsed_data.get(key, "").strip() for key in ["type", "id", "source"]
+        ):
             raise ValueError("Missing required fields in reference string")
 
         return ParsedMediaReference(
