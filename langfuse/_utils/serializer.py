@@ -71,12 +71,12 @@ class EventSerializer(JSONEncoder):
             # Check if numpy is available and if the object is a numpy scalar
             # If so, convert it to a Python scalar using the item() method
             if np is not None and isinstance(obj, np.generic):
-                return obj.item()
+                return self.default(obj.item())
 
             # Check if numpy is available and if the object is a numpy array
             # If so, convert it to a Python list using the tolist() method
             if np is not None and isinstance(obj, np.ndarray):
-                return obj.tolist()
+                return self.default(obj.tolist())
 
             if isinstance(obj, float) and math.isnan(obj):
                 return "NaN"
@@ -93,7 +93,7 @@ class EventSerializer(JSONEncoder):
                 return str(obj)
 
             if isinstance(obj, enum.Enum):
-                return obj.value
+                return self.default(obj.value)
 
             if isinstance(obj, Queue):
                 return type(obj).__name__
@@ -127,7 +127,7 @@ class EventSerializer(JSONEncoder):
                 return f"<{type(obj).__name__}>"
 
             if is_dataclass(obj):
-                return asdict(obj)  # type: ignore
+                return self.default(asdict(obj))  # type: ignore
 
             if isinstance(obj, BaseModel):
                 obj.model_rebuild()
@@ -144,10 +144,10 @@ class EventSerializer(JSONEncoder):
 
             # if langchain is not available, the Serializable type is NoneType
             if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
-                return obj.to_json()
+                return self.default(obj.to_json())
 
             if isinstance(obj, (tuple, set, frozenset)):
-                return list(obj)
+                return [self.default(item) for item in obj]
 
             if isinstance(obj, dict):
                 return {self.default(k): self.default(v) for k, v in obj.items()}
