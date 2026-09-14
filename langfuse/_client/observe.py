@@ -187,7 +187,9 @@ class LangfuseDecorator:
         valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:
             logger.warning(
-                f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(valid_types))}. Defaulting to 'span'."
+                "Invalid as_type '%s'. Valid types are: %s. Defaulting to 'span'.",
+                as_type,
+                ", ".join(sorted(valid_types)),
             )
             as_type = "span"
 

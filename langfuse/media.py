@@ -178,7 +178,7 @@ class LangfuseMedia:
             with open(file_path, "rb") as file:
                 return file.read()
         except Exception as e:
-            logger.error(f"Error reading file at path {file_path}", exc_info=e)
+            logger.error("Error reading file at path %s", file_path, exc_info=e)
 
             return None
 
@@ -399,7 +399,9 @@ class LangfuseMedia:
                         )
                     except Exception as e:
                         logger.warning(
-                            f"Error fetching media content for reference string {reference_string}: {e}"
+                            "Error fetching media content for reference string %s: %s",
+                            reference_string,
+                            e,
                         )
                         # Do not replace the reference string if there's an error
                         continue

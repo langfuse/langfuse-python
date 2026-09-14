@@ -1204,7 +1204,7 @@ class Langfuse:
 
         # This should never be reached since all valid types are handled above
         langfuse_logger.warning(
-            f"Unknown observation type: {as_type}, falling back to span"
+            "Unknown observation type: %s, falling back to span", as_type
         )
         return self._start_as_current_otel_span_with_processed_media(
             as_type="span",
@@ -1738,12 +1738,16 @@ class Langfuse:
     ) -> Any:
         if not self._is_valid_trace_id(trace_id):
             langfuse_logger.warning(
-                f"Passed trace ID '{trace_id}' is not a valid 32 lowercase hex char Langfuse trace id. Ignoring trace ID."
+                "Passed trace ID '%s' is not a valid 32 lowercase hex char Langfuse trace "
+                "id. Ignoring trace ID.",
+                trace_id,
             )
 
         if parent_span_id and not self._is_valid_span_id(parent_span_id):
             langfuse_logger.warning(
-                f"Passed span ID '{parent_span_id}' is not a valid 16 lowercase hex char Langfuse span id. Ignoring parent span ID."
+                "Passed span ID '%s' is not a valid 16 lowercase hex char Langfuse span "
+                "id. Ignoring parent span ID.",
+                parent_span_id,
             )
 
         int_trace_id = int(trace_id, 16)
@@ -2055,7 +2059,11 @@ class Langfuse:
 
         except Exception as e:
             langfuse_logger.exception(
-                f"Error creating score: Failed to process score event for trace_id={trace_id}, name={name}. Error: {e}"
+                "Error creating score: Failed to process score event for trace_id=%s, "
+                "name=%s. Error: %s",
+                trace_id,
+                name,
+                e,
             )
 
     def _create_trace_tags_via_ingestion(
@@ -2088,7 +2096,10 @@ class Langfuse:
                 self._resources.add_trace_task(event)
         except Exception as e:
             langfuse_logger.exception(
-                f"Error updating trace tags: Failed to process trace update event for trace_id={trace_id}. Error: {e}"
+                "Error updating trace tags: Failed to process trace update event for "
+                "trace_id=%s. Error: %s",
+                trace_id,
+                e,
             )
 
     @overload
@@ -2171,7 +2182,12 @@ class Langfuse:
             observation_id = self._get_otel_span_id(current_span)
 
             langfuse_logger.info(
-                f"Score: Creating score name='{name}' value={value} for current span ({observation_id}) in trace {trace_id}"
+                "Score: Creating score name='%s' value=%s for current span (%s) in trace "
+                "%s",
+                name,
+                value,
+                observation_id,
+                trace_id,
             )
 
             self.create_score(
@@ -2269,7 +2285,10 @@ class Langfuse:
             trace_id = self._get_otel_trace_id(current_span)
 
             langfuse_logger.info(
-                f"Score: Creating score name='{name}' value={value} for entire trace {trace_id}"
+                "Score: Creating score name='%s' value=%s for entire trace %s",
+                name,
+                value,
+                trace_id,
             )
 
             self.create_score(
@@ -2480,7 +2499,7 @@ class Langfuse:
             DatasetClient: The dataset with the given name.
         """
         try:
-            langfuse_logger.debug(f"Getting datasets {name}")
+            langfuse_logger.debug("Getting datasets %s", name)
             dataset = self.api.datasets.get(dataset_name=self._url_encode(name))
 
             dataset_items: List[DatasetItem] = []
@@ -2808,7 +2827,7 @@ class Langfuse:
         dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         langfuse_logger.debug(
-            f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
+            "Starting experiment '%s' run '%s' with %s items", name, run_name, len(data)
         )
 
         shared_fallback_experiment_id = self._create_observation_id()
@@ -2840,7 +2859,7 @@ class Langfuse:
         valid_results: List[ExperimentItemResult] = []
         for i, result in enumerate(item_results):
             if isinstance(result, Exception):
-                langfuse_logger.error(f"Item {i} failed: {result}")
+                langfuse_logger.error("Item %s failed: %s", i, result)
             elif isinstance(result, ExperimentItemResult):
                 valid_results.append(result)  # type: ignore
 
@@ -2853,7 +2872,7 @@ class Langfuse:
                 )
                 run_evaluations.extend(evaluations)
             except Exception as e:
-                langfuse_logger.error(f"Run evaluator failed: {e}")
+                langfuse_logger.error("Run evaluator failed: %s", e)
 
         # Generate dataset run URL if applicable
         dataset_run_id = next(
@@ -2898,7 +2917,7 @@ class Langfuse:
                     )
 
             except Exception as e:
-                langfuse_logger.error(f"Failed to store run evaluation: {e}")
+                langfuse_logger.error("Failed to store run evaluation: %s", e)
 
         # Flush scores and traces
         self.flush()
@@ -3020,7 +3039,7 @@ class Langfuse:
 
                         except Exception as e:
                             langfuse_logger.error(
-                                f"Failed to create dataset run item: {e}"
+                                "Failed to create dataset run item: %s", e
                             )
 
                     experiment_id = dataset_run_id or fallback_experiment_id
@@ -3119,7 +3138,7 @@ class Langfuse:
                                         level="ERROR",
                                         status_message=str(e),
                                     )
-                                    langfuse_logger.error(f"Evaluator failed: {e}")
+                                    langfuse_logger.error("Evaluator failed: %s", e)
                                     continue
 
                             evaluations.extend(eval_results)
@@ -3138,7 +3157,7 @@ class Langfuse:
                                     )
                                 except Exception as e:
                                     langfuse_logger.error(
-                                        f"Failed to store evaluation: {e}"
+                                        "Failed to store evaluation: %s", e
                                     )
 
                         if composite_evaluator and evaluations:
@@ -3186,7 +3205,7 @@ class Langfuse:
                                         status_message=str(e),
                                     )
                                     langfuse_logger.error(
-                                        f"Composite evaluator failed: {e}"
+                                        "Composite evaluator failed: %s", e
                                     )
                                     composite_evals = []
 
@@ -3205,7 +3224,7 @@ class Langfuse:
                                     )
                                 except Exception as e:
                                     langfuse_logger.error(
-                                        f"Failed to store composite evaluation: {e}"
+                                        "Failed to store composite evaluation: %s", e
                                     )
 
                         evaluation_span.update(
@@ -3257,7 +3276,7 @@ class Langfuse:
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
-        """Fetch traces or observations and run evaluations on each item.
+        """Fetch traces or observations using legacy read APIs and evaluate each item.
 
         This method provides a powerful way to evaluate existing data in Langfuse at scale.
         It fetches items based on filters, transforms them using a mapper function, runs
@@ -3272,6 +3291,11 @@ class Langfuse:
         The method uses a streaming/pipeline approach to process items in batches, making
         it memory-efficient for large datasets. It includes comprehensive error handling,
         retry logic, and resume capability for long-running evaluations.
+
+        Legacy platform compatibility:
+            This method reads traces from `GET /api/public/traces` and observations
+            from the legacy `GET /api/public/observations` endpoint. It is supported
+            with Langfuse platform v3 and is not yet supported with platform v4.
 
         Args:
             scope: The type of items to evaluate. Must be one of:
@@ -3485,7 +3509,7 @@ class Langfuse:
         try:
             projects = self.api.projects.get()
             langfuse_logger.debug(
-                f"Auth check successful, found {len(projects.data)} projects"
+                "Auth check successful, found %s projects", len(projects.data)
             )
             if len(projects.data) == 0:
                 no_project_message = (
@@ -3496,7 +3520,7 @@ class Langfuse:
 
         except AttributeError as e:
             langfuse_logger.warning(
-                f"Auth check failed: Client not properly initialized. Error: {e}"
+                "Auth check failed: Client not properly initialized. Error: %s", e
             )
             return False
 
@@ -3526,7 +3550,7 @@ class Langfuse:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
-            langfuse_logger.debug(f"Creating datasets {name}")
+            langfuse_logger.debug("Creating datasets %s", name)
 
             result = self.api.datasets.create(
                 name=name,
@@ -3587,7 +3611,7 @@ class Langfuse:
             ```
         """
         try:
-            langfuse_logger.debug(f"Creating dataset item for dataset {dataset_name}")
+            langfuse_logger.debug("Creating dataset item for dataset %s", dataset_name)
 
             # Media uploads must reference the (dataset, item) they belong to, and
             # the item need not exist yet — so settle on the item id up front and
@@ -3762,7 +3786,8 @@ class Langfuse:
             return json_path.set_value_at_path(value, path, replacement)
         except Exception as e:
             langfuse_logger.warning(
-                f"Failed to hydrate dataset media reference at JSONPath {path}",
+                "Failed to hydrate dataset media reference at JSONPath %s",
+                path,
                 exc_info=e,
             )
 
@@ -3907,12 +3932,12 @@ class Langfuse:
             max_retries, default_max_retries=2, max_retries_upper_bound=4
         )
 
-        langfuse_logger.debug(f"Getting prompt '{cache_key}'")
+        langfuse_logger.debug("Getting prompt '%s'", cache_key)
         cached_prompt = self._resources.prompt_cache.get(cache_key)
 
         if cached_prompt is None or cache_ttl_seconds == 0:
             langfuse_logger.debug(
-                f"Prompt '{cache_key}' not found in cache or caching disabled."
+                "Prompt '%s' not found in cache or caching disabled.", cache_key
             )
             try:
                 return self._fetch_prompt_and_update_cache(
@@ -3926,7 +3951,9 @@ class Langfuse:
             except Exception as e:
                 if fallback:
                     langfuse_logger.warning(
-                        f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
+                        "Returning fallback prompt for '%s' due to fetch error: %s",
+                        cache_key,
+                        e,
                     )
 
                     fallback_client_args: Dict[str, Any] = {
@@ -3954,10 +3981,12 @@ class Langfuse:
                 raise e
 
         if cached_prompt.is_expired():
-            langfuse_logger.debug(f"Stale prompt '{cache_key}' found in cache.")
+            langfuse_logger.debug("Stale prompt '%s' found in cache.", cache_key)
             try:
                 # refresh prompt in background thread, refresh_prompt deduplicates tasks
-                langfuse_logger.debug(f"Refreshing prompt '{cache_key}' in background.")
+                langfuse_logger.debug(
+                    "Refreshing prompt '%s' in background.", cache_key
+                )
 
                 def refresh_task() -> None:
                     self._fetch_prompt_and_update_cache(
@@ -3975,14 +4004,17 @@ class Langfuse:
                     refresh_task,
                 )
                 langfuse_logger.debug(
-                    f"Returning stale prompt '{cache_key}' from cache."
+                    "Returning stale prompt '%s' from cache.", cache_key
                 )
                 # return stale prompt
                 return cached_prompt.value
 
             except Exception as e:
                 langfuse_logger.warning(
-                    f"Error when refreshing cached prompt '{cache_key}', returning cached version. Error: {e}"
+                    "Error when refreshing cached prompt '%s', returning cached version. "
+                    "Error: %s",
+                    cache_key,
+                    e,
                 )
                 # creation of refresh prompt task failed, return stale prompt
                 return cached_prompt.value
@@ -4000,7 +4032,7 @@ class Langfuse:
         fetch_timeout_seconds: Optional[int],
     ) -> PromptClient:
         cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
-        langfuse_logger.debug(f"Fetching prompt '{cache_key}' from server...")
+        langfuse_logger.debug("Fetching prompt '%s' from server...", cache_key)
 
         try:
 
@@ -4034,7 +4066,7 @@ class Langfuse:
 
         except NotFoundError as not_found_error:
             langfuse_logger.warning(
-                f"Prompt '{cache_key}' not found during refresh, evicting from cache."
+                "Prompt '%s' not found during refresh, evicting from cache.", cache_key
             )
             if self._resources is not None:
                 self._resources.prompt_cache.delete(cache_key)
@@ -4042,7 +4074,7 @@ class Langfuse:
 
         except Exception as e:
             langfuse_logger.error(
-                f"Error while fetching prompt '{cache_key}': {str(e)}"
+                "Error while fetching prompt '%s': %s", cache_key, str(e)
             )
             raise e
 
@@ -4119,7 +4151,7 @@ class Langfuse:
             ChatPromptClient: The prompt if type argument is 'chat'.
         """
         try:
-            langfuse_logger.debug(f"Creating prompt {name=}, {labels=}")
+            langfuse_logger.debug("Creating prompt name=%r, labels=%r", name, labels)
 
             if type == "chat":
                 if not isinstance(prompt, list):

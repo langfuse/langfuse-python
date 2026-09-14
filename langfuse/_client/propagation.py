@@ -625,13 +625,16 @@ def _validate_propagated_value(
 
     if not isinstance(value, str):
         langfuse_logger.warning(  # type: ignore
-            f"Propagated attribute '{key}' value is not a string. Dropping value."
+            "Propagated attribute '%s' value is not a string. Dropping value.", key
         )
         return None
 
     if len(value) > 200:
         langfuse_logger.warning(
-            f"Propagated attribute '{key}' value is over 200 characters ({len(value)} chars). Dropping value."
+            "Propagated attribute '%s' value is over 200 characters (%s chars). "
+            "Dropping value.",
+            key,
+            len(value),
         )
         return None
 
@@ -641,13 +644,16 @@ def _validate_propagated_value(
 def _validate_string_value(*, value: str, key: str) -> bool:
     if not isinstance(value, str):
         langfuse_logger.warning(  # type: ignore
-            f"Propagated attribute '{key}' value is not a string. Dropping value."
+            "Propagated attribute '%s' value is not a string. Dropping value.", key
         )
         return False
 
     if len(value) > 200:
         langfuse_logger.warning(
-            f"Propagated attribute '{key}' value is over 200 characters ({len(value)} chars). Dropping value."
+            "Propagated attribute '%s' value is over 200 characters (%s chars). "
+            "Dropping value.",
+            key,
+            len(value),
         )
         return False
 
@@ -662,13 +668,16 @@ def _validate_environment_value(*, value: Any) -> Optional[str]:
 
     if not isinstance(value, str):
         langfuse_logger.warning(  # type: ignore
-            f"Propagated attribute '{key}' value is not a string. Dropping value."
+            "Propagated attribute '%s' value is not a string. Dropping value.", key
         )
         return None
 
     if len(value) > 40:
         langfuse_logger.warning(
-            f"Propagated attribute '{key}' value is over 40 characters ({len(value)} chars). Dropping value."
+            "Propagated attribute '%s' value is over 40 characters (%s chars). "
+            "Dropping value.",
+            key,
+            len(value),
         )
         return None
 

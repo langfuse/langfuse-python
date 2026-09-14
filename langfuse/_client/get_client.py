@@ -142,7 +142,9 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
             if target_instance is None:
                 # No instance found with this key - client not initialized properly
                 langfuse_logger.warning(
-                    f"No Langfuse client with public key {public_key} has been initialized. Skipping tracing for decorated function."
+                    "No Langfuse client with public key %s has been initialized. Skipping "
+                    "tracing for decorated function.",
+                    public_key,
                 )
                 return Langfuse(
                     tracing_enabled=False, public_key="fake", secret_key="fake"

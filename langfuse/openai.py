@@ -1242,7 +1242,7 @@ def _unwrap_raw_response(openai_response: Any) -> Any:
         if isinstance(openai_response, (LegacyAPIResponse, APIResponse)):
             return openai_response.parse()
     except Exception as e:
-        logger.debug(f"Failed to parse raw OpenAI response for tracing: {e}")
+        logger.debug("Failed to parse raw OpenAI response for tracing: %s", e)
 
     return openai_response
 
