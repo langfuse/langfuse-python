@@ -20,7 +20,7 @@
 
 ## Installation
 
-This branch is the **legacy v2** SDK, in maintenance mode with critical bug fixes only. For new work, install the current v4 (`pip install langfuse`). To pin this legacy major: `pip install "langfuse>=2,<3"`.
+This branch is the **legacy v2** SDK, in maintenance mode with critical bug fixes only. For new work, install the current v4 (`pip install langfuse`).
 
 ## Docs
 
