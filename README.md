@@ -10,7 +10,9 @@
 [![YC W23](https://img.shields.io/badge/Y%20Combinator-W23-orange?style=flat-square)](https://www.ycombinator.com/companies/langfuse)
 
 > [!IMPORTANT]
-> **This is the latest Langfuse Python SDK (v4, OpenTelemetry).** The legacy v2 client API (`Langfuse()`, `trace()`, `span()`, `generation()`, `api.trace.list`) is **deprecated**. Do **not** use it for new instrumentation.
+> The SDK was rewritten in v4 and released in March 2026. Refer to the [v4 migration guide](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4) for instructions on updating your code.
+>
+> **This is the latest Langfuse Python SDK (v4, OpenTelemetry).** The legacy v2 client API (`trace()`, `span()`, `generation()`, `api.trace.list`) is **deprecated**. Do **not** use it for new instrumentation.
 >
 > **Latest Python SDK (OpenTelemetry):** `pip install langfuse`. Use `get_client()` + `start_as_current_observation` / `@observe`. Prompts/datasets/scores: the same `langfuse` package. Docs: https://langfuse.com/docs/observability/sdk/overview. Upgrade: [v2 to v3](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v2-to-v3), [v3 to v4](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4).
 >
