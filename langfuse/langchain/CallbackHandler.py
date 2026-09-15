@@ -201,7 +201,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     ) -> Any:
         """Run on new LLM token. Only available when streaming is enabled."""
         langfuse_logger.debug(
-            f"on llm new token: run_id: {run_id} parent_run_id: {parent_run_id}"
+            "on llm new token: run_id: %s parent_run_id: %s", run_id, parent_run_id
         )
         if (
             run_id in self._runs
@@ -1498,7 +1498,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         langfuse_logger.debug(
-            f"Event: {event_name}, run_id: {run_id}, parent_run_id: {parent_run_id}"
+            "Event: %s, run_id: %s, parent_run_id: %s",
+            event_name,
+            run_id,
+            parent_run_id,
         )
 
 

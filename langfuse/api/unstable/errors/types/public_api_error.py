@@ -10,32 +10,7 @@ from .public_api_error_details import PublicApiErrorDetails
 
 class PublicApiError(UniversalBaseModel):
     """
-    Standard error envelope for the unstable evaluators API.
-
-    Response handling guidance:
-    - Use the HTTP status code for the broad class of failure.
-    - Use `code` for precise branching in SDKs, CLIs, or agents.
-    - Inspect `details` for field-level validation context such as invalid filter values, malformed JSONPath expressions, or missing variable mappings.
-    - Retry only after fixing the specific issue described by `code` and `details`.
-
-    Examples
-    --------
-    from langfuse.unstable.errors import (
-        PublicApiError,
-        PublicApiErrorCode,
-        PublicApiErrorDetails,
-    )
-
-    PublicApiError(
-        message='Filter column "type" contains unsupported value(s): INVALID',
-        code=PublicApiErrorCode.INVALID_FILTER_VALUE,
-        details=PublicApiErrorDetails(
-            field="filter[0].value",
-            column="type",
-            invalid_values=["INVALID"],
-            allowed_values=["GENERATION", "SPAN", "EVENT"],
-        ),
-    )
+    Standard error envelope for unstable public API endpoints.
     """
 
     message: str = pydantic.Field()
@@ -45,12 +20,12 @@ class PublicApiError(UniversalBaseModel):
 
     code: PublicApiErrorCode = pydantic.Field()
     """
-    Stable machine-readable error code.
+    Machine-readable error code.
     """
 
     details: typing.Optional[PublicApiErrorDetails] = pydantic.Field(default=None)
     """
-    Optional structured error context. Inspect the populated fields based on `code`.
+    Optional structured error context.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
