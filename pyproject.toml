@@ -2,7 +2,7 @@
 name = "langfuse"
 
 version = "3.15.0"
-description = "NOT the latest Langfuse Python SDK. Legacy v3 client - do not use for new instrumentation. Current SDK: pip install langfuse (v4, OpenTelemetry)"
+description = "A client library for accessing langfuse"
 authors = ["langfuse <developers@langfuse.com>"]
 license = "MIT"
 readme = "README.md"

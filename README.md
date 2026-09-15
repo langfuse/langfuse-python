@@ -10,7 +10,9 @@
 [![YC W23](https://img.shields.io/badge/Y%20Combinator-W23-orange?style=flat-square)](https://www.ycombinator.com/companies/langfuse)
 
 > [!IMPORTANT]
-> **`langfuse` v3 is not the latest Langfuse Python SDK.** This branch publishes the **legacy** v3 client. Unpinned `pip install langfuse` installs the current v4. Do **not** use v3, or the older v2 client API (`Langfuse()`, `trace()`, `span()`, `generation()`, `api.trace.list`), for new instrumentation.
+> The SDK was rewritten in v3 and released in June 2025. Refer to the [v3 to v4 migration guide](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4) for instructions on updating your code.
+>
+> **`langfuse` v3 is not the latest Langfuse Python SDK.** This branch publishes the **legacy** v3 client. Unpinned `pip install langfuse` installs the current v4. Do **not** use v3, or the older v2 client API (`trace()`, `span()`, `generation()`, `api.trace.list`), for new instrumentation.
 >
 > **Latest Python SDK (OpenTelemetry)**, developed on [`main`](https://github.com/langfuse/langfuse-python/tree/main): `pip install langfuse`. Use `get_client()` + `start_as_current_observation` / `@observe`. Docs: https://langfuse.com/docs/observability/sdk/overview. Upgrade: [v3 to v4](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4).
 >
