@@ -35,6 +35,32 @@ def test_generate_error_message_api_errors():
     assert expected_message in generate_error_message(exception)
 
 
+def test_generate_error_message_handles_non_numeric_api_status():
+    exception = APIError(message="Test API error", status="failed")
+
+    assert generate_error_message(exception) == (
+        "API error occurred: Unexpected error occurred. Please check your request "
+        "and contact support: https://langfuse.com/support."
+    )
+
+
+def test_generate_error_message_handles_non_numeric_batch_api_status():
+    exception = APIErrors(
+        [
+            APIError(status="failed", message="First failure"),
+            APIError(status="401", message="Unauthorized"),
+        ]
+    )
+
+    assert generate_error_message(exception) == (
+        "API errors occurred: Unexpected error occurred. Please check your request "
+        "and contact support: https://langfuse.com/support.\n"
+        "Unauthorized. Please check your public/private host settings. Refer to our "
+        "installation and setup guide: https://langfuse.com/docs/sdk/typescript/guide "
+        "for details on SDK configuration."
+    )
+
+
 def test_generate_error_message_generic_exception():
     exception = Exception("Generic error")
     expected_message = "Unexpected error occurred. Please check your request and contact support: https://langfuse.com/support."
