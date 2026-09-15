@@ -350,7 +350,6 @@ class Langfuse:
             or os.environ.get(LANGFUSE_RELEASE, None)
             or get_common_release_envs()
         )
-        self._project_id: Optional[str] = None
         if sample_rate is None:
             sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
@@ -2427,15 +2426,22 @@ class Langfuse:
         return self._get_otel_span_id(current_otel_span) if current_otel_span else None
 
     def _get_project_id(self) -> Optional[str]:
-        """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys."""
-        if not self._project_id:
-            proj = self.api.projects.get()
-            if not proj.data or not proj.data[0].id:
-                return None
+        """Fetch and return the current project id. Returns None if no project id is found for api keys.
 
-            self._project_id = proj.data[0].id
+        Delegates to the resource manager, which caches the outcome. The cache
+        cannot live here: `get_client()` constructs a new `Langfuse` on every
+        call, so anything memoized on this object dies with it, and a caller
+        generating one URL per row would issue one blocking lookup per row. The
+        resource manager is a singleton keyed by public key, which is the
+        granularity a project id has.
+        """
+        if self._resources is None:
+            langfuse_logger.debug(
+                "Operation skipped: _get_project_id - Client is not initialized."
+            )
+            return None
 
-        return self._project_id
+        return self._resources.get_project_id()
 
     def get_trace_url(self, *, trace_id: Optional[str] = None) -> Optional[str]:
         """Get the URL to view a trace in the Langfuse UI.
