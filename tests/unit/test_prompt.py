@@ -222,6 +222,19 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
     assert "Prompt not found" in str(exc_info.value)
 
 
+def test_returns_empty_text_fallback_when_fetch_fails(langfuse):
+    prompt_name = "test_returns_empty_text_fallback_when_fetch_fails"
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.side_effect = Exception("Prompt not found")
+
+    result = langfuse.get_prompt(prompt_name, fallback="", max_retries=0)
+
+    assert result.is_fallback
+    assert result.prompt == ""
+    mock_server_call.assert_called_once()
+
+
 def test_using_custom_prompt_timeouts(langfuse):
     prompt_name = "test_using_custom_prompt_timeouts"
     prompt = Prompt_Text(
