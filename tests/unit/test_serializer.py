@@ -165,6 +165,23 @@ def test_circular_reference():
     assert result == {"next": {"next": "Node"}}
 
 
+def test_circular_dataclass_reference():
+    @dataclass
+    class Node:
+        name: str
+        next: "Node | None" = None
+
+    node1 = Node("first")
+    node2 = Node("second")
+    node1.next = node2
+    node2.next = node1
+
+    serializer = EventSerializer()
+    result = json.loads(serializer.encode(node1))
+
+    assert result == {"name": "first", "next": {"name": "second", "next": "Node"}}
+
+
 def test_not_serializable():
     class NotSerializable:
         def __init__(self):
