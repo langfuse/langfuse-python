@@ -27,7 +27,7 @@ class RawIngestionClient:
         self._client_wrapper = client_wrapper
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Send data via the OpenTelemetry endpoint at `POST /api/public/otel/v1/traces` instead, see the [OpenTelemetry integration docs](https://langfuse.com/integrations/native/opentelemetry). Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this is the deprecated Langfuse v3 ingestion API and it is shut down on November 16, 2026, except for score events: from that date it accepts only `score-create` events and rejects all other event types. To write scores, prefer `POST /api/public/scores`; see the [Scores API docs](https://langfuse.com/docs/api-and-data-platform/features/scores-api). To write traces and observations, always prefer upgrading to the current Python and JS SDKs; if you use custom auto-instrumentation, send them to the OpenTelemetry endpoint at `POST /api/public/otel/v1/traces` (for example with curl); see the [OpenTelemetry integration docs](https://langfuse.com/integrations/native/opentelemetry). To read data back, use the v4 read APIs; see the [Observations API docs](https://langfuse.com/docs/api-and-data-platform/features/observations-api) and the [Metrics API docs](https://langfuse.com/docs/metrics/features/metrics-api). The only path to live data is OpenTelemetry ingestion combined with `GET /api/public/v2/observations` and `GET /api/public/v2/metrics`; all other public APIs may have data delays of several minutes. Self-hosted deployments are unaffected by the November 16 date; this behavior begins only when they enable v4-only write mode.",
         category=None,
     )
     def batch(
@@ -40,7 +40,15 @@ class RawIngestionClient:
         """
         **Legacy endpoint for batch ingestion for Langfuse Observability.**
 
-        -> Please use the OpenTelemetry endpoint (`/api/public/otel/v1/traces`). Learn more: https://langfuse.com/integrations/native/opentelemetry
+        This is the deprecated Langfuse v3 ingestion API. It is shut down on November 16, 2026, except for score events: from that date it accepts only `score-create` events and rejects all other event types.
+
+        To write scores, prefer `POST /api/public/scores`: https://langfuse.com/docs/api-and-data-platform/features/scores-api
+
+        To write traces and observations, always prefer upgrading to the current Python and JS SDKs. If you use custom auto-instrumentation, send them to the OpenTelemetry endpoint (`POST /api/public/otel/v1/traces`), for example with curl: https://langfuse.com/integrations/native/opentelemetry
+
+        To read data back, use the v4 read APIs: https://langfuse.com/docs/api-and-data-platform/features/observations-api and https://langfuse.com/docs/metrics/features/metrics-api
+
+        The only path to live data is OpenTelemetry ingestion combined with `GET /api/public/v2/observations` and `GET /api/public/v2/metrics`. All other public APIs may have data delays of several minutes.
 
         Within each batch, there can be multiple events.
         Each event has a type, an id, a timestamp, metadata and a body.
@@ -57,7 +65,7 @@ class RawIngestionClient:
         Parameters
         ----------
         batch : typing.Sequence[IngestionEvent]
-            Batch of tracing events to be ingested. Discriminated by attribute `type`.
+            Batch of events to be ingested, discriminated by attribute `type`. From November 16, 2026 on Langfuse Cloud, only `score-create` events are accepted; all other event types are rejected.
 
         metadata : typing.Optional[typing.Any]
             Optional. Metadata field used by the Langfuse SDKs for debugging.
@@ -167,7 +175,7 @@ class AsyncRawIngestionClient:
         self._client_wrapper = client_wrapper
 
     @typing_extensions.deprecated(
-        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Send data via the OpenTelemetry endpoint at `POST /api/public/otel/v1/traces` instead, see the [OpenTelemetry integration docs](https://langfuse.com/integrations/native/opentelemetry). Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        "On Langfuse Cloud, this is the deprecated Langfuse v3 ingestion API and it is shut down on November 16, 2026, except for score events: from that date it accepts only `score-create` events and rejects all other event types. To write scores, prefer `POST /api/public/scores`; see the [Scores API docs](https://langfuse.com/docs/api-and-data-platform/features/scores-api). To write traces and observations, always prefer upgrading to the current Python and JS SDKs; if you use custom auto-instrumentation, send them to the OpenTelemetry endpoint at `POST /api/public/otel/v1/traces` (for example with curl); see the [OpenTelemetry integration docs](https://langfuse.com/integrations/native/opentelemetry). To read data back, use the v4 read APIs; see the [Observations API docs](https://langfuse.com/docs/api-and-data-platform/features/observations-api) and the [Metrics API docs](https://langfuse.com/docs/metrics/features/metrics-api). The only path to live data is OpenTelemetry ingestion combined with `GET /api/public/v2/observations` and `GET /api/public/v2/metrics`; all other public APIs may have data delays of several minutes. Self-hosted deployments are unaffected by the November 16 date; this behavior begins only when they enable v4-only write mode.",
         category=None,
     )
     async def batch(
@@ -180,7 +188,15 @@ class AsyncRawIngestionClient:
         """
         **Legacy endpoint for batch ingestion for Langfuse Observability.**
 
-        -> Please use the OpenTelemetry endpoint (`/api/public/otel/v1/traces`). Learn more: https://langfuse.com/integrations/native/opentelemetry
+        This is the deprecated Langfuse v3 ingestion API. It is shut down on November 16, 2026, except for score events: from that date it accepts only `score-create` events and rejects all other event types.
+
+        To write scores, prefer `POST /api/public/scores`: https://langfuse.com/docs/api-and-data-platform/features/scores-api
+
+        To write traces and observations, always prefer upgrading to the current Python and JS SDKs. If you use custom auto-instrumentation, send them to the OpenTelemetry endpoint (`POST /api/public/otel/v1/traces`), for example with curl: https://langfuse.com/integrations/native/opentelemetry
+
+        To read data back, use the v4 read APIs: https://langfuse.com/docs/api-and-data-platform/features/observations-api and https://langfuse.com/docs/metrics/features/metrics-api
+
+        The only path to live data is OpenTelemetry ingestion combined with `GET /api/public/v2/observations` and `GET /api/public/v2/metrics`. All other public APIs may have data delays of several minutes.
 
         Within each batch, there can be multiple events.
         Each event has a type, an id, a timestamp, metadata and a body.
@@ -197,7 +213,7 @@ class AsyncRawIngestionClient:
         Parameters
         ----------
         batch : typing.Sequence[IngestionEvent]
-            Batch of tracing events to be ingested. Discriminated by attribute `type`.
+            Batch of events to be ingested, discriminated by attribute `type`. From November 16, 2026 on Langfuse Cloud, only `score-create` events are accepted; all other event types are rejected.
 
         metadata : typing.Optional[typing.Any]
             Optional. Metadata field used by the Langfuse SDKs for debugging.
