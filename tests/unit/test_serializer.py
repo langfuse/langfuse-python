@@ -362,3 +362,96 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     result = json.loads(EventSerializer().encode(input_obj))
 
     assert result == expected
+
+
+def _reject_json_constant(token: str) -> None:
+    # json.loads accepts bare NaN/Infinity by default, so reject them the way
+    # the ingestion server's strict JSON parser does.
+    raise ValueError(f"invalid JSON constant emitted: {token}")
+
+
+def test_non_finite_floats_in_tuple_set_frozenset():
+    # Values inside tuple/set/frozenset must be recursed through default() like
+    # list items, so non-finite floats are converted to safe string tokens
+    # instead of escaping as bare NaN/Infinity (invalid JSON).
+    serializer = EventSerializer()
+
+    assert json.loads(
+        serializer.encode((float("nan"),)),
+        parse_constant=_reject_json_constant,
+    ) == ["NaN"]
+    assert json.loads(
+        serializer.encode({float("inf")}), parse_constant=_reject_json_constant
+    ) == ["Infinity"]
+    assert json.loads(
+        serializer.encode(frozenset([float("-inf")])),
+        parse_constant=_reject_json_constant,
+    ) == ["-Infinity"]
+    assert json.loads(
+        serializer.encode({"t": (1, float("nan"))}),
+        parse_constant=_reject_json_constant,
+    ) == {"t": [1, "NaN"]}
+
+
+def test_js_unsafe_integers_in_tuple_set_frozenset():
+    # Integers outside the JavaScript safe range must be stringified even when
+    # nested in tuple/set/frozenset containers.
+    serializer = EventSerializer()
+    unsafe = 2**60
+
+    assert json.loads(serializer.encode((unsafe,))) == [str(unsafe)]
+    assert json.loads(serializer.encode({unsafe})) == [str(unsafe)]
+    assert json.loads(serializer.encode(frozenset([unsafe]))) == [str(unsafe)]
+
+
+def test_dataclass_with_non_finite_float():
+    # asdict() output must be recursed through default() so nested non-finite
+    # floats are converted to safe string tokens.
+    @dataclass
+    class WithFloats:
+        finite: float
+        nan: float
+
+    serializer = EventSerializer()
+    parsed = json.loads(
+        serializer.encode(WithFloats(finite=1.5, nan=float("nan"))),
+        parse_constant=_reject_json_constant,
+    )
+    assert parsed == {"finite": 1.5, "nan": "NaN"}
+
+
+def test_enum_with_non_finite_float_value():
+    class FloatEnum(Enum):
+        NAN = float("nan")
+
+    serializer = EventSerializer()
+    parsed = json.loads(
+        serializer.encode(FloatEnum.NAN), parse_constant=_reject_json_constant
+    )
+    assert parsed == "NaN"
+
+
+def test_numpy_types_with_non_finite_and_unsafe_values():
+    np = pytest.importorskip("numpy")
+
+    serializer = EventSerializer()
+
+    # np.generic scalar: .item() result must be recursed through default()
+    assert (
+        json.loads(
+            serializer.encode(np.float64("nan")),
+            parse_constant=_reject_json_constant,
+        )
+        == "NaN"
+    )
+    assert json.loads(serializer.encode(np.int64(2**60))) == str(2**60)
+
+    # np.ndarray: tolist() result must be recursed through default()
+    parsed = json.loads(
+        serializer.encode(np.array([float("nan"), float("inf"), 1.0])),
+        parse_constant=_reject_json_constant,
+    )
+    assert parsed == ["NaN", "Infinity", 1.0]
+    assert json.loads(serializer.encode(np.array([2**60], dtype=np.int64))) == [
+        str(2**60)
+    ]
