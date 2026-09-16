@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretBytes, SecretStr
 
 from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
@@ -52,6 +52,9 @@ class EventSerializer(JSONEncoder):
 
     def _default_inner(self, obj: Any) -> Any:
         try:
+            if isinstance(obj, (SecretStr, SecretBytes)):
+                return str(obj)
+
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
                 return serialize_datetime(obj)
