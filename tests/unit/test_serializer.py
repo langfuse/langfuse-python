@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretBytes, SecretStr
 
 from langfuse._utils.serializer import (
     EventSerializer,
@@ -27,6 +27,11 @@ class TestDataclass:
 
 class TestBaseModel(BaseModel):
     field: str
+
+
+class SecretBaseModel(BaseModel):
+    api_key: SecretStr
+    token: SecretBytes
 
 
 def test_datetime():
@@ -69,6 +74,32 @@ def test_pydantic_model():
     model = TestBaseModel(field="test")
     serializer = EventSerializer()
     assert json.loads(serializer.encode(model)) == {"field": "test"}
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [
+        SecretStr("not-a-real-api-key"),
+        SecretBytes(b"not-a-real-token"),
+    ],
+)
+def test_pydantic_secret(secret):
+    serializer = EventSerializer()
+
+    assert serializer.encode(secret) == '"<secret>"'
+
+
+def test_pydantic_model_with_secrets():
+    model = SecretBaseModel(
+        api_key=SecretStr("not-a-real-api-key"),
+        token=SecretBytes(b"not-a-real-token"),
+    )
+    serializer = EventSerializer()
+
+    assert json.loads(serializer.encode(model)) == {
+        "api_key": "<secret>",
+        "token": "<secret>",
+    }
 
 
 def test_langfuse_media_reference_serializes_to_reference_string():
