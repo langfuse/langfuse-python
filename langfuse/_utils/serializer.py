@@ -53,7 +53,7 @@ class EventSerializer(JSONEncoder):
     def _default_inner(self, obj: Any) -> Any:
         try:
             if isinstance(obj, (SecretStr, SecretBytes)):
-                return str(obj)
+                return "<secret>"
 
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check

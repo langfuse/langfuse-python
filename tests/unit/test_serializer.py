@@ -86,7 +86,7 @@ def test_pydantic_model():
 def test_pydantic_secret(secret):
     serializer = EventSerializer()
 
-    assert serializer.encode(secret) == json.dumps(str(secret))
+    assert serializer.encode(secret) == '"<secret>"'
 
 
 def test_pydantic_model_with_secrets():
@@ -97,8 +97,8 @@ def test_pydantic_model_with_secrets():
     serializer = EventSerializer()
 
     assert json.loads(serializer.encode(model)) == {
-        "api_key": "**********",
-        "token": "b'**********'",
+        "api_key": "<secret>",
+        "token": "<secret>",
     }
 
 
