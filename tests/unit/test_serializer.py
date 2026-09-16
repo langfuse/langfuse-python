@@ -29,7 +29,7 @@ class TestBaseModel(BaseModel):
     field: str
 
 
-class TestSecretBaseModel(BaseModel):
+class SecretBaseModel(BaseModel):
     api_key: SecretStr
     token: SecretBytes
 
@@ -90,7 +90,7 @@ def test_pydantic_secret(secret):
 
 
 def test_pydantic_model_with_secrets():
-    model = TestSecretBaseModel(
+    model = SecretBaseModel(
         api_key=SecretStr("not-a-real-api-key"),
         token=SecretBytes(b"not-a-real-token"),
     )
