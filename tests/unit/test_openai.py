@@ -1399,3 +1399,74 @@ def test_with_raw_response_streaming_passes_through_untraced(
         span.name != "OpenAI-generation"
         for span in memory_exporter.get_finished_spans()
     )
+
+
+def test_response_retrieve_exports_generation_span(
+    langfuse_memory_client, get_span, json_attr
+):
+    """Background responses complete through retrieve(), which must be traced."""
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = SimpleNamespace(
+        model="gpt-4o-mini",
+        output=[{"role": "assistant", "content": "2"}],
+        usage=SimpleNamespace(input_tokens=3, output_tokens=1, total_tokens=4),
+    )
+
+    with patch.object(openai_client.responses, "_get", return_value=response):
+        result = openai_client.responses.retrieve(
+            response_id="resp_123",
+            name="unit-openai-response-retrieve",
+        )
+
+    assert result is response
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-response-retrieve")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "generation"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o-mini"
+    )
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == {
+        "response_id": "resp_123"
+    }
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT) == {
+        "role": "assistant",
+        "content": "2",
+    }
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "input_tokens": 3,
+        "output_tokens": 1,
+        "total_tokens": 4,
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_response_retrieve_exports_generation_span(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.AsyncOpenAI(api_key="test")
+    response = SimpleNamespace(
+        model="gpt-4o-mini",
+        output=[{"role": "assistant", "content": "2"}],
+        usage=SimpleNamespace(input_tokens=3, output_tokens=1, total_tokens=4),
+    )
+
+    async def _get(*args, **kwargs):
+        return response
+
+    with patch.object(openai_client.responses, "_get", side_effect=_get):
+        result = await openai_client.responses.retrieve(
+            response_id="resp_123",
+            name="unit-openai-async-response-retrieve",
+        )
+
+    assert result is response
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-async-response-retrieve")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "generation"
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == {
+        "response_id": "resp_123"
+    }
