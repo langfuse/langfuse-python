@@ -311,17 +311,17 @@ def test_at_fork_reinit_new_lock_acquirable_even_if_old_lock_was_held(monkeypatc
 
 
 def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
-    """_at_fork_reinit() must create a new httpx.Client to avoid sharing
+    """_at_fork_reinit() must create a new httpx2.Client to avoid sharing
     connection-pool file descriptors (TCP sockets) across forked processes.
-    httpx.Client is thread-safe but not process-safe."""
+    httpx2.Client is thread-safe but not process-safe."""
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
 
     with LangfuseResourceManager._lock:
         LangfuseResourceManager._instances.clear()
 
     client = Langfuse(
-        public_key="pk-fork-httpx-default",
-        secret_key="sk-fork-httpx-default",
+        public_key="pk-fork-httpx2-default",
+        secret_key="sk-fork-httpx2-default",
         span_exporter=NoOpSpanExporter(),
     )
     rm = client._resources
@@ -349,20 +349,20 @@ def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
 
 
 def test_at_fork_reinit_preserves_custom_httpx_client(monkeypatch):
-    """After fork, a caller-supplied httpx.Client is reused as-is.
+    """After fork, a caller-supplied httpx2.Client is reused as-is.
     The caller is responsible for their own fork-safety (e.g. via their own
     os.register_at_fork handler). The SDK must not silently replace it."""
-    import httpx
+    import httpx2
 
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
 
     with LangfuseResourceManager._lock:
         LangfuseResourceManager._instances.clear()
 
-    custom_client = httpx.Client(timeout=99)
+    custom_client = httpx2.Client(timeout=99)
     client = Langfuse(
-        public_key="pk-fork-httpx-custom",
-        secret_key="sk-fork-httpx-custom",
+        public_key="pk-fork-httpx2-custom",
+        secret_key="sk-fork-httpx2-custom",
         httpx_client=custom_client,
         span_exporter=NoOpSpanExporter(),
     )
@@ -385,7 +385,7 @@ def test_at_fork_reinit_preserves_custom_httpx_client(monkeypatch):
 def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
     monkeypatch,
 ):
-    """After fork, the recreated httpx.Client must reflect the timeout and
+    """After fork, the recreated httpx2.Client must reflect the timeout and
     additional_headers that were set on the resource manager."""
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
 
@@ -393,8 +393,8 @@ def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
         LangfuseResourceManager._instances.clear()
 
     client = Langfuse(
-        public_key="pk-fork-httpx-settings",
-        secret_key="sk-fork-httpx-settings",
+        public_key="pk-fork-httpx2-settings",
+        secret_key="sk-fork-httpx2-settings",
         timeout=42,
         additional_headers={"X-Custom": "value"},
         span_exporter=NoOpSpanExporter(),
