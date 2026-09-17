@@ -260,6 +260,7 @@ class LangfuseResourceManager:
                 additional_headers=additional_headers,
                 span_exporter=span_exporter,
                 media_manager=self._media_manager,
+                mask=mask,
                 mask_otel_spans=mask_otel_spans,
             )
             tracer_provider.add_span_processor(langfuse_processor)
