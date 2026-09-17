@@ -96,9 +96,11 @@ from .types import (
 )
 
 Langfuse = _client_module.Langfuse
+LangfuseAuthCheckError = _client_module.LangfuseAuthCheckError
 
 __all__ = [
     "Langfuse",
+    "LangfuseAuthCheckError",
     "LangfuseMedia",
     "LangfuseMediaReference",
     "get_client",
