@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from langfuse._utils.parse_error import handle_exception
 from langfuse._utils.request import APIError, LangfuseClient
 from langfuse._utils.serializer import EventSerializer
+from langfuse.api.core.serialization import convert_and_respect_annotation_metadata
 from langfuse.logger import langfuse_logger as logger
 
 from .._version import __version__ as langfuse_version
@@ -78,7 +79,11 @@ class ScoreIngestionConsumer(threading.Thread):
 
                 # convert pydantic models to dicts
                 if "body" in event and isinstance(event["body"], BaseModel):
-                    event["body"] = event["body"].model_dump(exclude_none=True)
+                    event["body"] = convert_and_respect_annotation_metadata(
+                        object_=event["body"].model_dump(exclude_none=True),
+                        annotation=type(event["body"]),
+                        direction="write",
+                    )
 
                 item_size = self._get_item_size(event)
 
