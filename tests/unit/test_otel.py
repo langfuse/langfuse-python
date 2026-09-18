@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from hashlib import sha256
+from queue import Queue
 from typing import List, Sequence
 
 import pytest
@@ -1467,6 +1468,25 @@ class TestAdvancedSpans(TestOTelBase):
 
         # Restore the original provider
         trace_api.set_tracer_provider(original_provider)
+
+    def test_score_sampling_follows_trace_sampling(self):
+        client = Langfuse(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            base_url="http://test-host",
+            sample_rate=0.5,
+        )
+        # Detach from the consumer thread so it cannot drain the queue mid-test.
+        queue = Queue()
+        client._resources._score_ingestion_queue = queue
+
+        # The sampler keeps a trace when its low 64 bits fall below rate * 2^64.
+        client.create_score(name="sampled", value=1.0, trace_id="0" * 32)
+        client.create_score(name="dropped", value=1.0, trace_id="f" * 32)
+        client.create_score(name="session", value=1.0, session_id="session-1")
+
+        names = [queue.get_nowait()["body"].name for _ in range(queue.qsize())]
+        assert names == ["sampled", "session"]
 
     @pytest.mark.skip("Calling shutdown will pollute the global context")
     def test_shutdown_and_flush(self, langfuse_client, memory_exporter):

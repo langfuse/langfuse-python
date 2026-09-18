@@ -2022,15 +2022,15 @@ class Langfuse:
         try:
             new_body = ScoreBody(
                 id=score_id,
-                sessionId=session_id,
-                datasetRunId=dataset_run_id,
-                traceId=trace_id,
-                observationId=observation_id,
+                session_id=session_id,
+                dataset_run_id=dataset_run_id,
+                trace_id=trace_id,
+                observation_id=observation_id,
                 name=name,
                 value=value,
-                dataType=data_type,  # type: ignore
+                data_type=data_type,  # type: ignore
                 comment=comment,
-                configId=config_id,
+                config_id=config_id,
                 environment=environment or self._environment,
                 metadata=metadata,
             )

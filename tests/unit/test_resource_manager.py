@@ -14,6 +14,7 @@ from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
 from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse.api.ingestion.types.score_body import ScoreBody
 from langfuse.types import MaskOtelSpansResult
 
 
@@ -154,6 +155,32 @@ def test_score_ingestion_consumer_pause_wakes_blocked_thread():
     consumer.join(timeout=0.5)
 
     assert not consumer.is_alive()
+
+
+def test_score_ingestion_consumer_serializes_body_by_alias():
+    queue = Queue()
+    queue.put(
+        {
+            "type": "score-create",
+            "body": ScoreBody(id="s1", trace_id="t" * 32, name="quality", value=1.0),
+        }
+    )
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=queue,
+        identifier=0,
+        client=Mock(),
+        public_key="pk-test",
+        flush_interval=0.01,
+    )
+
+    batch = consumer._next()
+
+    assert batch[0]["body"] == {
+        "id": "s1",
+        "traceId": "t" * 32,
+        "name": "quality",
+        "value": 1.0,
+    }
 
 
 def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
