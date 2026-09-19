@@ -62,13 +62,18 @@ def native_memory_client(
 
 
 @pytest.mark.parametrize("suppress", [False, True])
+@pytest.mark.parametrize(
+    "error_type", [ValueError, BaseException, KeyboardInterrupt, SystemExit]
+)
 def test_observed_context_manager_preserves_exception_handling(
     native_memory_client: Langfuse,
     memory_exporter: InMemorySpanExporter,
     suppress: bool,
+    error_type: type[BaseException],
 ) -> None:
     opened_file: BinaryIO | None = None
-    caught_error: Exception | None = None
+    caught_error: BaseException | None = None
+    application_error = error_type("application failed")
 
     @contextmanager
     @observe(capture_output=False)
@@ -76,7 +81,7 @@ def test_observed_context_manager_preserves_exception_handling(
         with TemporaryFile() as handle:
             try:
                 yield handle
-            except ValueError:
+            except error_type:
                 if not suppress:
                     raise
 
@@ -85,8 +90,8 @@ def test_observed_context_manager_preserves_exception_handling(
         try:
             with manager as handle:
                 opened_file = handle
-                raise ValueError("application failed")
-        except Exception as error:
+                raise application_error
+        except BaseException as error:
             caught_error = error
 
         assert opened_file is not None
@@ -102,8 +107,7 @@ def test_observed_context_manager_preserves_exception_handling(
         if suppress:
             assert caught_error is None
         else:
-            assert isinstance(caught_error, ValueError)
-            assert str(caught_error) == "application failed"
+            assert caught_error is application_error
         assert opened_file.closed
         assert len(spans) == 1
         assert spans[0].status.status_code == (
@@ -115,13 +119,18 @@ def test_observed_context_manager_preserves_exception_handling(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("suppress", [False, True])
+@pytest.mark.parametrize(
+    "error_type", [ValueError, BaseException, KeyboardInterrupt, SystemExit]
+)
 async def test_observed_async_context_manager_preserves_exception_handling(
     native_memory_client: Langfuse,
     memory_exporter: InMemorySpanExporter,
     suppress: bool,
+    error_type: type[BaseException],
 ) -> None:
     opened_file: BinaryIO | None = None
-    caught_error: Exception | None = None
+    caught_error: BaseException | None = None
+    application_error = error_type("application failed")
 
     @asynccontextmanager
     @observe(capture_output=False)
@@ -129,7 +138,7 @@ async def test_observed_async_context_manager_preserves_exception_handling(
         with TemporaryFile() as handle:
             try:
                 yield handle
-            except ValueError:
+            except error_type:
                 if not suppress:
                     raise
 
@@ -138,8 +147,8 @@ async def test_observed_async_context_manager_preserves_exception_handling(
         try:
             async with manager as handle:
                 opened_file = handle
-                raise ValueError("application failed")
-        except Exception as error:
+                raise application_error
+        except BaseException as error:
             caught_error = error
 
         assert opened_file is not None
@@ -155,8 +164,7 @@ async def test_observed_async_context_manager_preserves_exception_handling(
         if suppress:
             assert caught_error is None
         else:
-            assert isinstance(caught_error, ValueError)
-            assert str(caught_error) == "application failed"
+            assert caught_error is application_error
         assert opened_file.closed
         assert len(spans) == 1
         assert spans[0].status.status_code == (

@@ -663,7 +663,7 @@ class _ContextPreservedSyncGeneratorWrapper:
             self._finalize()
             raise  # Re-raise StopIteration
 
-        except (Exception, asyncio.CancelledError) as e:
+        except BaseException as e:
             self._finalize_with_error(e)
             raise
 
@@ -786,6 +786,15 @@ class _ContextPreservedAsyncGeneratorWrapper:
     async def athrow(self, *args: Any) -> Any:
         return await self._advance(method=self.generator.athrow, args=args)
 
+    async def _run_operation(
+        self, operation: Coroutine[Any, Any, Any]
+    ) -> Tuple[Any, Optional[BaseException]]:
+        try:
+            return await operation, None
+        except (KeyboardInterrupt, SystemExit) as error:
+            # Tasks otherwise re-raise these before their awaiter can handle them.
+            return None, error
+
     async def _advance(
         self,
         *,
@@ -793,17 +802,24 @@ class _ContextPreservedAsyncGeneratorWrapper:
         args: Tuple[Any, ...] = (),
     ) -> Any:
         try:
-            operation: Coroutine[Any, Any, Any] = method(*args)
+            operation: Coroutine[Any, Any, Tuple[Any, Optional[BaseException]]] = (
+                self._run_operation(method(*args))
+            )
+            item: Any
+            error: Optional[BaseException]
             if _ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT:
-                item: Any = await asyncio.create_task(
+                item, error = await asyncio.create_task(
                     coro=operation,
                     context=self.context,
                 )
             else:
-                item = await self.context.run(
+                item, error = await self.context.run(
                     asyncio.create_task,
                     operation,
                 )
+
+            if error is not None:
+                raise error
 
             if self.capture_output:
                 self.items.append(item)
@@ -820,6 +836,6 @@ class _ContextPreservedAsyncGeneratorWrapper:
                 raise
             self._finalize_with_error(e)
             raise
-        except Exception as e:
+        except BaseException as e:
             self._finalize_with_error(e)
             raise
