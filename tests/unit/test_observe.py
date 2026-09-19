@@ -4,17 +4,20 @@ import gc
 import inspect
 import json
 import sys
+from contextlib import asynccontextmanager, contextmanager, nullcontext
 from typing import Any, AsyncGenerator, Generator, cast
 
 import pytest
+from opentelemetry.trace import StatusCode, get_current_span
 
-from langfuse import observe
+from langfuse import Langfuse, observe
 from langfuse._client import observe as observe_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.observe import (
     _ContextPreservedAsyncGeneratorWrapper,
     _ContextPreservedSyncGeneratorWrapper,
 )
+from tests.conftest import InMemorySpanExporter
 
 
 class SpanRecorder:
@@ -33,6 +36,168 @@ class SpanRecorder:
 
 def _finished_spans_by_name(memory_exporter: Any, name: str) -> list[Any]:
     return [span for span in memory_exporter.get_finished_spans() if span.name == name]
+
+
+@pytest.mark.parametrize("suppress", [False, True])
+def test_observed_context_manager_preserves_exception_handling(
+    langfuse_memory_client: Langfuse,
+    memory_exporter: InMemorySpanExporter,
+    suppress: bool,
+) -> None:
+    closed: list[bool] = []
+
+    @contextmanager
+    @observe(capture_output=False)
+    def resource() -> Generator[None, None, None]:
+        try:
+            yield
+        except ValueError:
+            if not suppress:
+                raise
+        finally:
+            closed.append(True)
+
+    manager = resource()
+    try:
+        with (
+            nullcontext()
+            if suppress
+            else pytest.raises(ValueError, match="application failed")
+        ):
+            with manager:
+                raise ValueError("application failed")
+
+        assert closed == [True]
+        langfuse_memory_client.flush()
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].status.status_code == (
+            StatusCode.UNSET if suppress else StatusCode.ERROR
+        )
+    finally:
+        manager.gen.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("suppress", [False, True])
+async def test_observed_async_context_manager_preserves_exception_handling(
+    langfuse_memory_client: Langfuse,
+    memory_exporter: InMemorySpanExporter,
+    suppress: bool,
+) -> None:
+    closed: list[bool] = []
+
+    @asynccontextmanager
+    @observe(capture_output=False)
+    async def resource() -> AsyncGenerator[None, None]:
+        try:
+            yield
+        except ValueError:
+            if not suppress:
+                raise
+        finally:
+            closed.append(True)
+
+    manager = resource()
+    try:
+        with (
+            nullcontext()
+            if suppress
+            else pytest.raises(ValueError, match="application failed")
+        ):
+            async with manager:
+                raise ValueError("application failed")
+
+        assert closed == [True]
+        langfuse_memory_client.flush()
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].status.status_code == (
+            StatusCode.UNSET if suppress else StatusCode.ERROR
+        )
+    finally:
+        await manager.gen.aclose()
+
+
+def test_observed_generator_send_and_throw_preserve_context_and_output(
+    langfuse_memory_client: Langfuse,
+    memory_exporter: InMemorySpanExporter,
+) -> None:
+    observation_ids: list[str | None] = []
+
+    @observe()
+    def stream() -> Generator[str, str, None]:
+        observation_ids.append(langfuse_memory_client.get_current_observation_id())
+        try:
+            value = yield "ready"
+            observation_ids.append(langfuse_memory_client.get_current_observation_id())
+            yield value
+        except ValueError:
+            observation_ids.append(langfuse_memory_client.get_current_observation_id())
+            yield "recovered"
+
+    generator = stream()
+    try:
+        assert next(generator) == "ready"
+        assert generator.send("sent") == "sent"
+        assert generator.throw(ValueError("recover")) == "recovered"
+        with pytest.raises(StopIteration):
+            next(generator)
+
+        langfuse_memory_client.flush()
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert len(observation_ids) == 3
+        assert observation_ids[0] is not None
+        assert len(set(observation_ids)) == 1
+        assert not get_current_span().get_span_context().is_valid
+        assert (
+            (spans[0].attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT])
+            == "readysentrecovered"
+        )
+    finally:
+        generator.close()
+
+
+@pytest.mark.asyncio
+async def test_observed_async_generator_send_and_throw_preserve_context_and_output(
+    langfuse_memory_client: Langfuse,
+    memory_exporter: InMemorySpanExporter,
+) -> None:
+    observation_ids: list[str | None] = []
+
+    @observe()
+    async def stream() -> AsyncGenerator[str, str]:
+        observation_ids.append(langfuse_memory_client.get_current_observation_id())
+        try:
+            value = yield "ready"
+            observation_ids.append(langfuse_memory_client.get_current_observation_id())
+            yield value
+        except ValueError:
+            observation_ids.append(langfuse_memory_client.get_current_observation_id())
+            yield "recovered"
+
+    generator = stream()
+    try:
+        assert await generator.__anext__() == "ready"
+        assert await generator.asend("sent") == "sent"
+        assert await generator.athrow(ValueError("recover")) == "recovered"
+        with pytest.raises(StopAsyncIteration):
+            await generator.__anext__()
+
+        langfuse_memory_client.flush()
+        spans = memory_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert len(observation_ids) == 3
+        assert observation_ids[0] is not None
+        assert len(set(observation_ids)) == 1
+        assert not get_current_span().get_span_context().is_valid
+        assert (
+            (spans[0].attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT])
+            == "readysentrecovered"
+        )
+    finally:
+        await generator.aclose()
 
 
 @pytest.mark.asyncio
