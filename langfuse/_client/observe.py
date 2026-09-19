@@ -787,10 +787,10 @@ class _ContextPreservedAsyncGeneratorWrapper:
         return await self._advance(method=self.generator.athrow, args=args)
 
     async def _run_operation(
-        self, operation: Coroutine[Any, Any, Any]
+        self, method: Callable[..., Coroutine[Any, Any, Any]], args: Tuple[Any, ...]
     ) -> Tuple[Any, Optional[BaseException]]:
         try:
-            return await operation, None
+            return await method(*args), None
         except (KeyboardInterrupt, SystemExit) as error:
             # Tasks otherwise re-raise these before their awaiter can handle them.
             return None, error
@@ -803,7 +803,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
     ) -> Any:
         try:
             operation: Coroutine[Any, Any, Tuple[Any, Optional[BaseException]]] = (
-                self._run_operation(method(*args))
+                self._run_operation(method=method, args=args)
             )
             item: Any
             error: Optional[BaseException]
