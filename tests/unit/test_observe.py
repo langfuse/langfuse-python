@@ -3,11 +3,14 @@ import contextvars
 import gc
 import inspect
 import json
+import logging
 import sys
-from contextlib import asynccontextmanager, contextmanager, nullcontext
-from typing import Any, AsyncGenerator, Generator, cast
+from contextlib import asynccontextmanager, contextmanager
+from tempfile import TemporaryFile
+from typing import Any, AsyncGenerator, BinaryIO, Generator, cast
 
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.trace import StatusCode, get_current_span
 
 from langfuse import Langfuse, observe
@@ -38,38 +41,70 @@ def _finished_spans_by_name(memory_exporter: Any, name: str) -> list[Any]:
     return [span for span in memory_exporter.get_finished_spans() if span.name == name]
 
 
+@pytest.fixture
+def native_memory_client(
+    monkeypatch: pytest.MonkeyPatch, memory_exporter: InMemorySpanExporter
+) -> Generator[Langfuse, None, None]:
+    monkeypatch.setenv(name="LANGFUSE_PUBLIC_KEY", value="test-generator-protocol")
+    client = Langfuse(
+        public_key="test-generator-protocol",
+        secret_key="test-secret-key",
+        base_url="http://127.0.0.1:9",
+        tracer_provider=TracerProvider(),
+        span_exporter=memory_exporter,
+        tracing_enabled=True,
+        sample_rate=1.0,
+    )
+    try:
+        yield client
+    finally:
+        client.shutdown()
+
+
 @pytest.mark.parametrize("suppress", [False, True])
 def test_observed_context_manager_preserves_exception_handling(
-    langfuse_memory_client: Langfuse,
+    native_memory_client: Langfuse,
     memory_exporter: InMemorySpanExporter,
     suppress: bool,
 ) -> None:
-    closed: list[bool] = []
+    opened_file: BinaryIO | None = None
+    caught_error: Exception | None = None
 
     @contextmanager
     @observe(capture_output=False)
-    def resource() -> Generator[None, None, None]:
-        try:
-            yield
-        except ValueError:
-            if not suppress:
-                raise
-        finally:
-            closed.append(True)
+    def resource() -> Generator[BinaryIO, None, None]:
+        with TemporaryFile() as handle:
+            try:
+                yield handle
+            except ValueError:
+                if not suppress:
+                    raise
 
     manager = resource()
     try:
-        with (
-            nullcontext()
-            if suppress
-            else pytest.raises(ValueError, match="application failed")
-        ):
-            with manager:
+        try:
+            with manager as handle:
+                opened_file = handle
                 raise ValueError("application failed")
+        except Exception as error:
+            caught_error = error
 
-        assert closed == [True]
-        langfuse_memory_client.flush()
+        assert opened_file is not None
+        native_memory_client.flush()
         spans = memory_exporter.get_finished_spans()
+        logging.getLogger(__name__).info(
+            "sync suppress=%s error=%r resource_closed=%s finished_spans=%s",
+            suppress,
+            caught_error,
+            opened_file.closed,
+            len(spans),
+        )
+        if suppress:
+            assert caught_error is None
+        else:
+            assert isinstance(caught_error, ValueError)
+            assert str(caught_error) == "application failed"
+        assert opened_file.closed
         assert len(spans) == 1
         assert spans[0].status.status_code == (
             StatusCode.UNSET if suppress else StatusCode.ERROR
@@ -81,36 +116,48 @@ def test_observed_context_manager_preserves_exception_handling(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("suppress", [False, True])
 async def test_observed_async_context_manager_preserves_exception_handling(
-    langfuse_memory_client: Langfuse,
+    native_memory_client: Langfuse,
     memory_exporter: InMemorySpanExporter,
     suppress: bool,
 ) -> None:
-    closed: list[bool] = []
+    opened_file: BinaryIO | None = None
+    caught_error: Exception | None = None
 
     @asynccontextmanager
     @observe(capture_output=False)
-    async def resource() -> AsyncGenerator[None, None]:
-        try:
-            yield
-        except ValueError:
-            if not suppress:
-                raise
-        finally:
-            closed.append(True)
+    async def resource() -> AsyncGenerator[BinaryIO, None]:
+        with TemporaryFile() as handle:
+            try:
+                yield handle
+            except ValueError:
+                if not suppress:
+                    raise
 
     manager = resource()
     try:
-        with (
-            nullcontext()
-            if suppress
-            else pytest.raises(ValueError, match="application failed")
-        ):
-            async with manager:
+        try:
+            async with manager as handle:
+                opened_file = handle
                 raise ValueError("application failed")
+        except Exception as error:
+            caught_error = error
 
-        assert closed == [True]
-        langfuse_memory_client.flush()
+        assert opened_file is not None
+        native_memory_client.flush()
         spans = memory_exporter.get_finished_spans()
+        logging.getLogger(__name__).info(
+            "async suppress=%s error=%r resource_closed=%s finished_spans=%s",
+            suppress,
+            caught_error,
+            opened_file.closed,
+            len(spans),
+        )
+        if suppress:
+            assert caught_error is None
+        else:
+            assert isinstance(caught_error, ValueError)
+            assert str(caught_error) == "application failed"
+        assert opened_file.closed
         assert len(spans) == 1
         assert spans[0].status.status_code == (
             StatusCode.UNSET if suppress else StatusCode.ERROR
