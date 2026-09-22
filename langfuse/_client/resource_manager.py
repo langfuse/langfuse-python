@@ -485,13 +485,20 @@ class LangfuseResourceManager:
     @classmethod
     def reset(cls) -> None:
         with cls._lock:
-            for key in cls._instances:
-                cls._instances[key].shutdown()
+            for key in list(cls._instances.keys()):
+                if key in cls._instances:
+                    cls._instances[key].shutdown()
 
             cls._instances.clear()
 
     def add_score_task(self, event: dict, *, force_sample: bool = False) -> None:
         try:
+            if getattr(self, "_shutdown", False):
+                langfuse_logger.warning(
+                    "Langfuse client is already shut down. Dropping score event."
+                )
+                return
+
             # Sample scores with the same sampler that is used for tracing
             tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
             should_sample = (
@@ -546,6 +553,12 @@ class LangfuseResourceManager:
         event: dict,
     ) -> None:
         try:
+            if getattr(self, "_shutdown", False):
+                langfuse_logger.warning(
+                    "Langfuse client is already shut down. Dropping trace event."
+                )
+                return
+
             langfuse_logger.debug(
                 "Trace: Enqueuing event type=%s for trace_id=%s",
                 event["type"],
@@ -635,10 +648,20 @@ class LangfuseResourceManager:
         langfuse_logger.debug("Successfully flushed media upload queue")
 
     def shutdown(self) -> None:
-        self._shutdown = True
+        with self._lock:
+            if getattr(self, "_shutdown", False):
+                return
 
-        # Unregister the atexit handler first
-        atexit.unregister(self.shutdown)
+            self._shutdown = True
+
+            # Unregister the atexit handler first
+            atexit.unregister(self.shutdown)
+
+            # Evict from singleton registry so subsequent client initializations
+            # construct a fresh, active manager instead of reusing a shut down one
+            if hasattr(self, "public_key") and self.public_key in self._instances:
+                if self._instances[self.public_key] is self:
+                    del self._instances[self.public_key]
 
         self.flush()
         self._stop_and_join_consumer_threads()
