@@ -5,7 +5,7 @@ This module tests that additional headers are properly configured in the HTTP cl
 
 from typing import Sequence
 
-import httpx
+import httpx2
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
@@ -32,7 +32,7 @@ class TestAdditionalHeadersSimple:
         LangfuseResourceManager.reset()
 
     def test_httpx_client_has_additional_headers_when_none_provided(self):
-        """Test that additional headers are set in httpx client when no custom client is provided."""
+        """Test that additional headers are set in httpx2 client when no custom client is provided."""
         additional_headers = {
             "X-Custom-Header": "custom-value",
             "X-Another-Header": "another-value",
@@ -46,7 +46,7 @@ class TestAdditionalHeadersSimple:
             tracing_enabled=False,  # Disable tracing to avoid OTEL setup
         )
 
-        # Verify the httpx client has the additional headers
+        # Verify the httpx2 client has the additional headers
         assert (
             langfuse._resources.httpx_client.headers["X-Custom-Header"]
             == "custom-value"
@@ -60,9 +60,9 @@ class TestAdditionalHeadersSimple:
         self,
     ):
         """Test that when additional headers are provided with custom client, additional headers are ignored."""
-        # Create a custom httpx client with headers
+        # Create a custom httpx2 client with headers
         existing_headers = {"X-Existing-Header": "existing-value"}
-        custom_client = httpx.Client(headers=existing_headers)
+        custom_client = httpx2.Client(headers=existing_headers)
 
         additional_headers = {
             "X-Custom-Header": "custom-value",
@@ -93,9 +93,9 @@ class TestAdditionalHeadersSimple:
 
     def test_custom_httpx_client_without_additional_headers_preserves_client(self):
         """Test that when no additional headers are provided, the custom client is preserved."""
-        # Create a custom httpx client with headers
+        # Create a custom httpx2 client with headers
         existing_headers = {"X-Existing-Header": "existing-value"}
-        custom_client = httpx.Client(headers=existing_headers)
+        custom_client = httpx2.Client(headers=existing_headers)
 
         langfuse = Langfuse(
             public_key="test-public-key",
@@ -115,8 +115,8 @@ class TestAdditionalHeadersSimple:
         )
 
     def test_media_manager_uses_custom_httpx_client(self):
-        """Test that media manager reuses the configured custom httpx client."""
-        custom_client = httpx.Client()
+        """Test that media manager reuses the configured custom httpx2 client."""
+        custom_client = httpx2.Client()
 
         langfuse = Langfuse(
             public_key="test-public-key",
