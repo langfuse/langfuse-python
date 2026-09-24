@@ -8,6 +8,7 @@ unavailable. See langfuse/langfuse#1861.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -48,6 +49,7 @@ class _StubRunner(BatchEvaluationRunner):
     is replaced so the unit test focuses on the fetch path."""
 
     def __init__(self) -> None:
+        super().__init__(client=MagicMock())
         self.client = MagicMock()
         self.client.api.trace.list.side_effect = AssertionError(
             "v3 GET /api/public/traces must not be called on v4 events_only"
@@ -242,7 +244,10 @@ async def test_fetch_batch_prefers_root_observation_regardless_of_page_order() -
 
 
 def test_v2_observations_fields_defaults() -> None:
-    assert _v2_observations_fields(None) == "core,basic,io,usage,model,trace_context"
+    assert (
+        _v2_observations_fields(None)
+        == "core,basic,io,metadata,model,usage,trace_context"
+    )
 
 
 def test_v2_observations_fields_merges_user_supplied_group_with_defaults() -> None:
@@ -250,7 +255,7 @@ def test_v2_observations_fields_merges_user_supplied_group_with_defaults() -> No
     # is preserved and the v2 default groups are added. The merged set is
     # sorted alphabetically to produce a stable comma-separated string.
     result = _v2_observations_fields("io")
-    assert result == "basic,core,io,model,trace_context,usage"
+    assert result == "basic,core,io,metadata,model,trace_context,usage"
 
 
 def test_v2_observations_fields_drops_legacy_only_groups() -> None:
@@ -258,6 +263,7 @@ def test_v2_observations_fields_drops_legacy_only_groups() -> None:
     assert "observations" not in result.split(",")
     assert "scores" not in result.split(",")
     assert "io" in result.split(",")
+    assert "metadata" in result.split(",")
 
 
 def test_v2_observations_fields_falls_back_when_user_supply_is_all_legacy() -> None:
@@ -265,4 +271,149 @@ def test_v2_observations_fields_falls_back_when_user_supply_is_all_legacy() -> N
     # v2 and we fall back to the full default set. The merged set is then
     # sorted alphabetically to produce a stable comma-separated string.
     result = _v2_observations_fields("observations,scores")
-    assert result == "basic,core,io,model,trace_context,usage"
+    assert result == "basic,core,io,metadata,model,trace_context,usage"
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_does_not_re_evaluate_traces_already_seen() -> None:
+    """When a trace's observations span cursor pages, the trace-collapse state
+    must remember it on the first page so the same trace is not evaluated
+    twice on a later page."""
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    # Page 1: trace ``ta`` appears with its root. Page 2 also returns
+    # observations on ``ta`` (e.g. via ``order_by``), but the trace has
+    # already been processed.
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(
+            items=[_obs(id="root-ta", trace_id="ta", is_root=True)],
+            cursor="c-2",
+        ),
+        _v2_response(
+            items=[_obs(id="child-ta", trace_id="ta", is_root=False)],
+            cursor=None,
+        ),
+    ]
+
+    seen: list = []
+    cursor: Any = None
+    for _ in range(3):
+        batch, cursor = await runner._fetch_batch_with_retry(
+            scope="traces",
+            filter=None,
+            cursor=cursor,
+            limit=50,
+            max_retries=1,
+            fields=None,
+        )
+        seen.extend(item.id for item in batch)
+        if cursor is None:
+            break
+
+    assert seen == ["root-ta"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_translates_trace_filter_to_v2_columns() -> None:
+    """For ``scope='traces'`` the v3 trace-level filter columns ``name`` and
+    ``timestamp`` are rewritten to ``traceName`` / ``startTime`` so the v2
+    endpoint returns the same traces."""
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(items=[_obs(id="o1", trace_id="t1")], cursor=None),
+    ]
+
+    filter_json = (
+        '[{"type":"string","column":"name","operator":"=","value":"checkout"},'
+        '{"type":"datetime","column":"timestamp","operator":">","value":"2026-01-01T00:00:00Z"}]'
+    )
+
+    await runner._fetch_batch_with_retry(
+        scope="traces",
+        filter=filter_json,
+        cursor=None,
+        limit=50,
+        max_retries=1,
+        fields=None,
+    )
+
+    kwargs = runner.client.api.observations.get_many.call_args.kwargs
+    import json as _json
+
+    sent_filter = _json.loads(kwargs["filter"])
+    columns = {c["column"] for c in sent_filter}
+    assert "traceName" in columns
+    assert "startTime" in columns
+    assert "name" not in columns
+    assert "timestamp" not in columns
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_does_not_translate_filter_for_observations_scope() -> None:
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(items=[_obs(id="o1", trace_id="t1")], cursor=None),
+    ]
+
+    filter_json = (
+        '[{"type":"string","column":"name","operator":"=","value":"checkout"}]'
+    )
+
+    await runner._fetch_batch_with_retry(
+        scope="observations",
+        filter=filter_json,
+        cursor=None,
+        limit=50,
+        max_retries=1,
+        fields=None,
+    )
+
+    kwargs = runner.client.api.observations.get_many.call_args.kwargs
+    import json as _json
+
+    sent_filter = _json.loads(kwargs["filter"])
+    assert sent_filter[0]["column"] == "name"
+
+
+def test_get_item_id_returns_trace_id_for_scope_traces() -> None:
+    """When ``scope='traces'`` the item is now an ``ObservationV2`` and its
+    ``id`` is the observation ID; downstream score-create calls need the
+    trace ID, which is ``trace_id``."""
+    obs = _obs(id="obs-id", trace_id="trace-id")
+    assert BatchEvaluationRunner._get_item_id(obs, "traces") == "trace-id"
+    assert BatchEvaluationRunner._get_item_id(obs, "observations") == "obs-id"
+
+
+def test_get_item_timestamp_uses_observation_start_time() -> None:
+    obs = _obs(id="o", trace_id="t")
+    obs.start_time = datetime(2026, 9, 24, 7, 0, 0)
+    assert BatchEvaluationRunner._get_item_timestamp(obs, "traces") == (
+        "2026-09-24T07:00:00"
+    )
+    assert BatchEvaluationRunner._get_item_timestamp(obs, "observations") == (
+        "2026-09-24T07:00:00"
+    )
+
+
+def test_get_timestamp_field_for_scope_uses_v2_start_time() -> None:
+    """The v2 observations filter column for resume-by-timestamp is
+    ``startTime``; the trace's timestamp is approximated by the root
+    observation's start time."""
+    assert BatchEvaluationRunner._get_timestamp_field_for_scope("traces") == "startTime"
+    assert (
+        BatchEvaluationRunner._get_timestamp_field_for_scope("observations")
+        == "startTime"
+    )

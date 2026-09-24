@@ -31,15 +31,50 @@ from langfuse.api import (
 from langfuse.experiment import Evaluation, EvaluatorFunction
 from langfuse.logger import langfuse_logger as logger
 
-# v2 observations field groups. ``core`` and ``basic`` carry id/trace_id
-# and the typical observation metadata; ``io`` adds the input/output/metadata
-# the mapper reads, ``usage`` carries cost and token details, ``model``
-# surfaces the model id, ``trace_context`` exposes tags/release/trace_name.
-# The legacy ``/api/public/traces`` ``io`` / ``scores`` / ``observations`` /
-# ``metrics`` field groups are not selectable on the v2 read endpoint because
-# it returns one observation at a time.
-_DEFAULT_V2_OBSERVATION_FIELDS = "core,basic,io,usage,model,trace_context"
+# v2 observations field groups. ``core`` carries id/trace_id/type/name and
+# similar observation metadata, ``basic`` adds level/status/version/etc,
+# ``io`` carries the input/output strings, ``metadata`` carries the
+# observation metadata (separate from ``io``), ``usage`` carries token and
+# cost details, ``model`` carries the model id, ``trace_context`` carries
+# tags/release/trace_name. The legacy ``/api/public/traces`` ``io`` /
+# ``scores`` / ``observations`` / ``metrics`` field groups are not selectable
+# on the v2 read endpoint because it returns one observation at a time.
+_DEFAULT_V2_OBSERVATION_FIELDS = "core,basic,io,metadata,model,usage,trace_context"
 _LEGACY_ONLY_FIELDS = frozenset({"observations", "scores"})
+
+# Trace-level filter columns are translated to their v2 observations-endpoint
+# equivalents when ``scope='traces'`` so a v3-shaped filter still selects the
+# intended traces via the v2 read path.
+_TRACE_FILTER_COLUMN_REWRITES = {
+    "name": "traceName",
+    "timestamp": "startTime",
+}
+
+
+def _translate_trace_filter(filter_json: Optional[str]) -> Optional[str]:
+    """Rewrite a v3-shaped trace filter into a v2 observations filter.
+
+    The v2 endpoint cannot filter directly on trace-level columns like ``name``
+    or ``timestamp``; it filters on observations, exposing those trace columns
+    as ``traceName`` and ``startTime``. We translate the JSON filter in place
+    for ``scope='traces'`` callers so that existing trace-level filters
+    continue to select the same set of traces.
+    """
+    if not filter_json:
+        return filter_json
+    try:
+        conditions = json.loads(filter_json)
+    except (TypeError, ValueError):
+        return filter_json
+    if not isinstance(conditions, list):
+        return filter_json
+    for cond in conditions:
+        if not isinstance(cond, dict):
+            continue
+        column = cond.get("column")
+        if column in _TRACE_FILTER_COLUMN_REWRITES:
+            cond["column"] = _TRACE_FILTER_COLUMN_REWRITES[column]
+    return json.dumps(conditions)
 
 
 def _v2_observations_fields(fetch_fields: Optional[str]) -> str:
@@ -62,19 +97,26 @@ def _v2_observations_fields(fetch_fields: Optional[str]) -> str:
 
 def _collapse_observations_to_traces(
     observations: List[ObservationV2],
+    seen_trace_ids: Optional[Set[str]] = None,
 ) -> List[ObservationV2]:
     """Collapse a flat list of observations to one observation per trace_id.
 
     The v2 observations endpoint has no trace-level read; this helper takes
     whatever observations the page returned and returns one representative
     per trace, preferring the observation that the server already marked as
-    the root (``is_root_observation=True``) and falling back to the first
-    observation seen for that trace.
+    the root (``is_root_observation=True``) regardless of its position in the
+    page.
+
+    ``seen_trace_ids``, when provided, holds the trace IDs already processed
+    in earlier pages. Observations for those traces are skipped so the same
+    trace is never evaluated twice across cursor pages.
     """
     chosen: Dict[str, ObservationV2] = {}
     for observation in observations:
         trace_id = getattr(observation, "trace_id", None)
         if not trace_id:
+            continue
+        if seen_trace_ids is not None and trace_id in seen_trace_ids:
             continue
         existing = chosen.get(trace_id)
         if existing is None or (
@@ -82,6 +124,9 @@ def _collapse_observations_to_traces(
             and not getattr(existing, "is_root_observation", False)
         ):
             chosen[trace_id] = observation
+
+    if seen_trace_ids is not None:
+        seen_trace_ids.update(chosen.keys())
 
     return list(chosen.values())
 
@@ -894,6 +939,10 @@ class BatchEvaluationRunner:
             client: The Langfuse client instance.
         """
         self.client = client
+        # Holds trace IDs already processed in earlier cursor pages so that
+        # ``scope='traces'`` never evaluates the same trace twice. Reset at
+        # the start of each ``run_async`` call.
+        self._seen_trace_ids: Set[str] = set()
 
     async def run_async(
         self,
@@ -947,6 +996,9 @@ class BatchEvaluationRunner:
             BatchEvaluationResult with comprehensive statistics.
         """
         start_time = time.time()
+
+        # Reset cross-page trace-collapse state for this run.
+        self._seen_trace_ids.clear()
 
         # Initialize tracking variables
         total_items_fetched = 0
@@ -1165,9 +1217,12 @@ class BatchEvaluationRunner:
 
             # Check if we should continue to next page. ``has_more`` is set inside
             # the fetch block above, so we only need to honour ``max_items``
-            # here.
+            # here. If the server has already reported ``cursor=None`` the
+            # call set ``has_more = False``; do not flip it back to ``True``
+            # just because ``max_items`` was reached on the last page.
             if max_items is not None and total_items_fetched >= max_items:
-                has_more = True  # More items exist but we're stopping
+                if cursor is not None:
+                    has_more = True  # More items exist but we're stopping
                 break
 
         # Flush all scores to Langfuse
@@ -1260,11 +1315,12 @@ class BatchEvaluationRunner:
             raise ValueError(error_message)
 
         v2_fields = _v2_observations_fields(fields)
+        v2_filter = _translate_trace_filter(filter) if scope == "traces" else filter
 
         response = self.client.api.observations.get_many(  # type: ignore[union-attr]
             cursor=cursor,
             limit=limit,
-            filter=filter,
+            filter=v2_filter,
             request_options={"max_retries": max_retries},
             fields=v2_fields,
         )
@@ -1276,7 +1332,10 @@ class BatchEvaluationRunner:
         if scope == "traces":
             items = cast(
                 List[Union[TraceWithFullDetails, ObservationsView, ObservationV2]],
-                _collapse_observations_to_traces(list(response.data)),  # type: ignore[arg-type]
+                _collapse_observations_to_traces(
+                    list(response.data),  # type: ignore[arg-type]
+                    seen_trace_ids=self._seen_trace_ids,
+                ),
             )
         else:
             items = cast(
@@ -1630,8 +1689,14 @@ class BatchEvaluationRunner:
             scope: The type of item.
 
         Returns:
-            The item's ID.
+            The item's ID. For ``scope='traces'`` the returned value is the
+            trace ID, not the observation ID, so downstream score-create calls
+            attach to the intended trace.
         """
+        if scope == "traces":
+            trace_id = getattr(item, "trace_id", None)
+            if trace_id:
+                return trace_id  # type: ignore[no-any-return,return-value]
         return item.id
 
     @staticmethod
@@ -1646,33 +1711,25 @@ class BatchEvaluationRunner:
             scope: The type of item.
 
         Returns:
-            ISO 8601 timestamp string.
+            ISO 8601 timestamp string. For ``scope='traces'`` we use the root
+            observation's ``start_time`` as a proxy for the trace's timestamp
+            because the v2 endpoint has no trace-level read.
         """
-        if scope == "traces":
-            # Type narrowing for traces
-            if hasattr(item, "timestamp"):
-                return item.timestamp.isoformat()  # type: ignore[attr-defined]
-        elif scope == "observations":
-            # Type narrowing for observations
-            if hasattr(item, "start_time"):
-                return item.start_time.isoformat()  # type: ignore[attr-defined]
+        start_time = getattr(item, "start_time", None)
+        if start_time is not None:
+            return start_time.isoformat()  # type: ignore[attr-defined,no-any-return]
+        timestamp = getattr(item, "timestamp", None)
+        if timestamp is not None:
+            return timestamp.isoformat()  # type: ignore[attr-defined,no-any-return]
         return ""
 
     @staticmethod
     def _get_timestamp_field_for_scope(scope: str) -> str:
-        """Get the timestamp field name for filtering based on scope.
-
-        Args:
-            scope: The type of items.
-
-        Returns:
-            The field name to use in filters.
+        """Get the v2 observations filter column for resume by last-processed
+        timestamp. The v2 endpoint filters on observation ``startTime``;
+        ``scope='traces'`` uses this as a proxy for the trace's timestamp.
         """
-        if scope == "traces":
-            return "timestamp"
-        elif scope == "observations":
-            return "start_time"
-        return "timestamp"  # Default
+        return "startTime"
 
     @staticmethod
     def _dedupe_tags(tags: Optional[List[str]]) -> List[str]:
