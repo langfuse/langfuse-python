@@ -30,7 +30,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from inspect import isawaitable, isclass
-from typing import Any, Optional, cast
+from typing import Any, Dict, Optional, cast
 
 from openai import _types as openai_types
 from openai._types import NotGiven
@@ -494,6 +494,36 @@ def _extract_chat_response(kwargs: Any) -> Any:
     return response
 
 
+def _parse_reasoning_model_parameters(
+    resource: OpenAiDefinition, kwargs: Any
+) -> Dict[str, Any]:
+    """Collect reasoning-model request params as flat model parameters.
+
+    Chat Completions accepts `reasoning_effort` and `verbosity` at the top level,
+    while the Responses API nests them under `reasoning` and `text`.
+    """
+    if resource.object in ("Responses", "AsyncResponses"):
+        reasoning = kwargs.get("reasoning", None)
+        text = kwargs.get("text", None)
+        candidates = {
+            "reasoning_effort": _get_attr_or_item(reasoning, "effort"),
+            "reasoning_summary": _get_attr_or_item(reasoning, "summary"),
+            "verbosity": _get_attr_or_item(text, "verbosity"),
+            "max_output_tokens": kwargs.get("max_output_tokens", None),
+        }
+    else:
+        candidates = {
+            "reasoning_effort": kwargs.get("reasoning_effort", None),
+            "verbosity": kwargs.get("verbosity", None),
+        }
+
+    return {
+        key: value
+        for key, value in candidates.items()
+        if value is not None and not _is_not_given(value)
+    }
+
+
 def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> Any:
     default_name = (
         "OpenAI-embedding" if resource.type == "embedding" else "OpenAI-generation"
@@ -645,6 +675,10 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
 
         if parsed_service_tier is not None:
             modelParameters["service_tier"] = parsed_service_tier
+
+        modelParameters.update(_parse_reasoning_model_parameters(resource, kwargs))
+        if "max_output_tokens" in modelParameters:
+            modelParameters.pop("max_tokens", None)
 
     langfuse_prompt = kwargs.get("langfuse_prompt", None)
 
