@@ -13,14 +13,16 @@ class CreateDatasetRequest(UniversalBaseModel):
     description: typing.Optional[str] = None
     metadata: typing.Optional[typing.Any] = None
     input_schema: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="inputSchema")
+        typing.Optional[typing.Dict[str, typing.Any]],
+        FieldMetadata(alias="inputSchema"),
     ] = pydantic.Field(default=None)
     """
     JSON Schema for validating dataset item inputs. When set, all new and existing dataset items will be validated against this schema.
     """
 
     expected_output_schema: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="expectedOutputSchema")
+        typing.Optional[typing.Dict[str, typing.Any]],
+        FieldMetadata(alias="expectedOutputSchema"),
     ] = pydantic.Field(default=None)
     """
     JSON Schema for validating dataset item expected outputs. When set, all new and existing dataset items will be validated against this schema.
