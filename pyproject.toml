@@ -7,6 +7,22 @@ authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10,<4.0"
+keywords = [
+    "langfuse",
+    "llm",
+    "observability",
+    "tracing",
+    "opentelemetry",
+    "evaluation",
+    "llm-as-a-judge",
+    "prompt-management",
+    "datasets",
+    "experiments",
+    "openai",
+    "langchain",
+    "ai-agents",
+    "monitoring",
+]
 dependencies = [
     "httpx>=0.15.4,<1.0",
     "pydantic>=2,<3",
@@ -18,6 +34,13 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.33.1,<2",
     "typing-extensions>=4.12.2,<5",
 ]
+
+[project.urls]
+Homepage = "https://langfuse.com"
+Documentation = "https://langfuse.com/docs/observability/sdk/overview"
+Repository = "https://github.com/langfuse/langfuse-python"
+Issues = "https://github.com/langfuse/langfuse/issues"
+Changelog = "https://github.com/langfuse/langfuse-python/releases"
 
 [dependency-groups]
 dev = [
