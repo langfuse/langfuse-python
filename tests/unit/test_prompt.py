@@ -130,11 +130,11 @@ def langfuse():
     from langfuse._client.resource_manager import LangfuseResourceManager
 
     langfuse_instance = Langfuse()
-    langfuse_instance.api = Mock()
-
     if langfuse_instance._resources is None:
         langfuse_instance._resources = Mock(spec=LangfuseResourceManager)
         langfuse_instance._resources.prompt_cache = PromptCache()
+
+    langfuse_instance.api = Mock()
 
     return langfuse_instance
 

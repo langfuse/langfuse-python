@@ -442,3 +442,97 @@ def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_
         ("join", 0),
         ("join", 1),
     ]
+
+
+def test_shutdown_evicts_singleton_from_instances():
+    """Test that shutdown() removes the manager from _instances to prevent stale singleton reuse."""
+    public_key = "pk-test-shutdown-evict"
+    client = Langfuse(
+        public_key=public_key,
+        secret_key="sk-test-secret",
+        base_url="http://localhost:3000",
+        span_exporter=NoOpSpanExporter(),
+    )
+
+    with LangfuseResourceManager._lock:
+        assert public_key in LangfuseResourceManager._instances
+
+    rm_first = client._resources
+    assert rm_first is not None
+    assert not rm_first._shutdown
+
+    client.shutdown()
+
+    assert rm_first._shutdown
+    with LangfuseResourceManager._lock:
+        assert public_key not in LangfuseResourceManager._instances
+
+    # Re-instantiating client with same public_key should create a fresh, active manager
+    client_new = Langfuse(
+        public_key=public_key,
+        secret_key="sk-test-secret",
+        base_url="http://localhost:3000",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm_second = client_new._resources
+    assert rm_second is not None
+    assert rm_second is not rm_first
+    assert not rm_second._shutdown
+
+    client_new.shutdown()
+
+
+def test_reinstantiation_after_shutdown_processes_scores_without_deadlock():
+    """Test that re-instantiating a client after shutdown spawns active consumer threads and does not deadlock."""
+    public_key = "pk-test-reinstantiation-deadlock"
+    client1 = Langfuse(
+        public_key=public_key,
+        secret_key="sk-test-secret",
+        base_url="http://localhost:3000",
+        span_exporter=NoOpSpanExporter(),
+    )
+    client1.shutdown()
+
+    # Create second client with same key (simulates fixture or worker lifecycle)
+    client2 = Langfuse(
+        public_key=public_key,
+        secret_key="sk-test-secret",
+        base_url="http://localhost:3000",
+        span_exporter=NoOpSpanExporter(),
+    )
+
+    rm2 = client2._resources
+    assert rm2 is not None
+    assert not rm2._shutdown
+    assert len(rm2._ingestion_consumers) > 0
+
+    # Ensure add_score_task / flush / shutdown completes immediately without blocking indefinitely
+    fake_score = {
+        "type": "score-create",
+        "body": SimpleNamespace(trace_id="0" * 32, name="test_metric", value=1.0),
+    }
+    rm2.add_score_task(fake_score, force_sample=True)
+
+    # Calling flush and shutdown must complete without hanging
+    client2.flush()
+    client2.shutdown()
+
+
+def test_shutdown_idempotency():
+    """Test that multiple calls to shutdown() are safe and idempotent."""
+    public_key = "pk-test-shutdown-idempotent"
+    client = Langfuse(
+        public_key=public_key,
+        secret_key="sk-test-secret",
+        base_url="http://localhost:3000",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    client.shutdown()
+    assert rm._shutdown
+
+    # Calling shutdown again must not raise any exceptions
+    rm.shutdown()
+    client.shutdown()
