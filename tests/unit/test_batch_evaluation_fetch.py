@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -334,7 +334,8 @@ async def test_fetch_batch_translates_trace_filter_to_v2_columns() -> None:
 
     filter_json = (
         '[{"type":"string","column":"name","operator":"=","value":"checkout"},'
-        '{"type":"datetime","column":"timestamp","operator":">","value":"2026-01-01T00:00:00Z"}]'
+        '{"type":"datetime","column":"timestamp","operator":">","value":"2026-01-01T00:00:00Z"},'
+        '{"type":"string","column":"id","operator":"=","value":"trace-abc"}]'
     )
 
     await runner._fetch_batch_with_retry(
@@ -353,8 +354,10 @@ async def test_fetch_batch_translates_trace_filter_to_v2_columns() -> None:
     columns = {c["column"] for c in sent_filter}
     assert "traceName" in columns
     assert "startTime" in columns
+    assert "traceId" in columns
     assert "name" not in columns
     assert "timestamp" not in columns
+    assert "id" not in columns
 
 
 @pytest.mark.asyncio
@@ -417,3 +420,132 @@ def test_get_timestamp_field_for_scope_uses_v2_start_time() -> None:
         BatchEvaluationRunner._get_timestamp_field_for_scope("observations")
         == "startTime"
     )
+
+
+def _loop_stub_runner(pages: list[Any]) -> _StubRunner:
+    """Runner whose fetch and process layers are stubbed so the test drives
+    the ``run_async`` pagination loop itself."""
+    runner = _StubRunner()
+
+    async def fake_fetch(**kwargs: Any) -> Any:
+        return pages.pop(0)
+
+    async def fake_process(*args: Any, **kwargs: Any) -> Any:
+        return (0, 0, 0, [])
+
+    runner._fetch_batch_with_retry = fake_fetch  # type: ignore[method-assign]
+    runner._process_batch_evaluation_item = fake_process  # type: ignore[method-assign]
+    return runner
+
+
+@pytest.mark.asyncio
+async def test_run_async_reports_done_when_max_items_reached_on_last_page() -> None:
+    """Scenario: the server returns ``cursor=None`` on the page where
+    ``max_items`` is reached. The run must report ``completed=True`` and
+    ``has_more_items=False`` — not claim more work exists."""
+
+    obs_page = [_obs(id="o1", trace_id="t1")]
+    runner = _loop_stub_runner([(obs_page, None)])
+
+    result = await runner.run_async(
+        scope="observations",
+        mapper=lambda **kw: None,
+        evaluators=[],
+        max_items=1,
+    )
+
+    assert result.total_items_fetched == 1
+    assert result.completed is True
+    assert result.has_more_items is False
+
+
+@pytest.mark.asyncio
+async def test_run_async_reports_more_when_max_items_reached_mid_stream() -> None:
+    """Scenario: ``max_items`` is reached while the server still has pages
+    (``cursor`` is set). The run reports ``has_more_items=True`` so callers
+    know there is remaining work."""
+
+    page1 = [_obs(id="o1", trace_id="t1")]
+    runner = _loop_stub_runner([(page1, "next-cursor")])
+
+    result = await runner.run_async(
+        scope="observations",
+        mapper=lambda **kw: None,
+        evaluators=[],
+        max_items=1,
+    )
+
+    assert result.completed is True
+    assert result.has_more_items is True
+
+
+@pytest.mark.asyncio
+async def test_run_async_completed_on_empty_first_page() -> None:
+    """Scenario: no items at all. The run completes with zero processed items
+    and ``completed=True``."""
+    runner = _loop_stub_runner([([], None)])
+
+    result = await runner.run_async(
+        scope="observations",
+        mapper=lambda **kw: None,
+        evaluators=[],
+    )
+
+    assert result.total_items_processed == 0
+    assert result.completed is True
+    assert result.has_more_items is False
+
+
+@pytest.mark.asyncio
+async def test_run_async_clears_seen_trace_ids_between_runs() -> None:
+    """``_seen_trace_ids`` must be reset at the start of every ``run_async``
+    call so consecutive runs on the same runner instance do not skip traces."""
+
+    runner = _loop_stub_runner(
+        [
+            ([_obs(id="root-a", trace_id="ta", is_root=True)], None),
+            ([_obs(id="root-a2", trace_id="ta", is_root=True)], None),
+        ]
+    )
+
+    first = await runner.run_async(
+        scope="traces",
+        mapper=lambda **kw: None,
+        evaluators=[],
+    )
+    assert first.total_items_fetched == 1
+
+    second = await runner.run_async(
+        scope="traces",
+        mapper=lambda **kw: None,
+        evaluators=[],
+    )
+    # The second run sees the same trace again — it must not be filtered out
+    # by state left over from the first run.
+    assert second.total_items_fetched == 1
+
+
+@pytest.mark.asyncio
+async def test_run_async_flushes_before_returning_resume_token() -> None:
+    """When a fetch fails after retries, scores already created for earlier
+    pages must be flushed before the early return, not left in the buffer."""
+
+    async def failing_fetch(**kwargs: Any) -> Any:
+        raise RuntimeError("fetch exploded")
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = (  # type: ignore[method-assign]
+        AsyncMock(return_value=(0, 0, 0, []))
+    )
+    runner._fetch_batch_with_retry = failing_fetch  # type: ignore[method-assign]
+
+    result = await runner.run_async(
+        scope="observations",
+        mapper=lambda **kw: None,
+        evaluators=[],
+        max_retries=1,
+    )
+
+    assert result.completed is False
+    assert result.resume_token is not None
+    runner.client.flush.assert_called()

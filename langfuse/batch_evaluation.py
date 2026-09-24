@@ -46,6 +46,7 @@ _LEGACY_ONLY_FIELDS = frozenset({"observations", "scores"})
 # equivalents when ``scope='traces'`` so a v3-shaped filter still selects the
 # intended traces via the v2 read path.
 _TRACE_FILTER_COLUMN_REWRITES = {
+    "id": "traceId",
     "name": "traceName",
     "timestamp": "startTime",
 }
@@ -963,15 +964,18 @@ class BatchEvaluationRunner:
         verbose: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
     ) -> BatchEvaluationResult:
-        """Run batch evaluation asynchronously using legacy read APIs.
+        """Run batch evaluation asynchronously using the v2 observations API.
 
         This is the main implementation method that orchestrates the entire batch
         evaluation process: fetching items, mapping, evaluating, creating scores,
         and tracking statistics.
 
-        This runner reads traces from `GET /api/public/traces` and observations
-        from the legacy `GET /api/public/observations` endpoint. It is supported
-        with Langfuse platform v3 and is not yet supported with platform v4.
+        This runner reads both scopes from `GET /api/public/v2/observations`
+        with cursor pagination. That endpoint is the only read path available on
+        Langfuse platform v4 events_only deployments and remains available on
+        v3. For `scope='traces'`, observations are collapsed to one
+        representative per trace (preferring the root observation), since the
+        v2 endpoint has no trace-level read.
 
         Args:
             scope: The type of items to evaluate ("traces", "observations").
@@ -979,7 +983,13 @@ class BatchEvaluationRunner:
             evaluators: List of evaluation functions to run on each item.
             filter: JSON filter string for querying items.
             fetch_batch_size: Number of items to fetch per API call.
-            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'. Default: 'io'
+            fetch_trace_fields: Comma-separated list of v2 observation field groups to
+                request (merged with the default set: 'core', 'basic', 'io', 'metadata',
+                'model', 'usage', 'trace_context'). Legacy-only groups ('observations',
+                'scores') are dropped because the v2 endpoint returns one observation
+                at a time. Example: 'io,metrics' to additionally fetch latency metrics.
+                Note: v2 metadata values are truncated to 200 characters unless expanded.
+                Default: the full default set listed above.
             max_items: Maximum number of items to process (None = all).
             max_concurrency: Maximum number of concurrent evaluations.
             composite_evaluator: Optional function to create composite scores.
@@ -1070,9 +1080,12 @@ class BatchEvaluationRunner:
                     fields=fetch_trace_fields,
                 )
             except Exception as e:
-                # Failed after max_retries - create resume token and return
+                # Failed after max_retries - flush what has been processed so
+                # far, then create a resume token and return.
                 error_msg = f"Failed to fetch batch after {max_retries} retries"
                 logger.error("%s: %s", error_msg, e)
+
+                self.client.flush()
 
                 resume_token = BatchEvaluationResumeToken(
                     scope=scope,
@@ -1110,6 +1123,7 @@ class BatchEvaluationRunner:
 
             # Check if we got any items
             if not items:
+                has_more = False
                 if verbose:
                     logger.info("No more items to fetch")
                 break
