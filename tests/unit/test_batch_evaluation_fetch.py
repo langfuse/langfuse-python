@@ -13,7 +13,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from langfuse.batch_evaluation import BatchEvaluationRunner
+from langfuse.batch_evaluation import (
+    BatchEvaluationRunner,
+    _v2_observations_fields,
+)
 
 
 def _v2_response(*, items: list[Any], cursor: str | None = None) -> MagicMock:
@@ -205,3 +208,61 @@ async def test_fetch_batch_filters_out_observations_without_trace_id() -> None:
     )
 
     assert [item.id for item in items] == ["kept"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_prefers_root_observation_regardless_of_page_order() -> None:
+    """When the root is not the first observation on the page, the helper
+    must still pick it as the trace's representative."""
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(
+            items=[
+                _obs(id="child-ta", trace_id="ta", is_root=False),
+                _obs(id="root-ta", trace_id="ta", is_root=True),
+            ],
+        )
+    ]
+
+    items, _cursor = await runner._fetch_batch_with_retry(
+        scope="traces",
+        filter=None,
+        cursor=None,
+        limit=50,
+        max_retries=1,
+        fields=None,
+    )
+
+    assert [item.id for item in items] == ["root-ta"]
+
+
+def test_v2_observations_fields_defaults() -> None:
+    assert _v2_observations_fields(None) == "core,basic,io,usage,model,trace_context"
+
+
+def test_v2_observations_fields_merges_user_supplied_group_with_defaults() -> None:
+    # ``io`` is the legacy default for ``fetch_trace_fields``; the user supply
+    # is preserved and the v2 default groups are added. The merged set is
+    # sorted alphabetically to produce a stable comma-separated string.
+    result = _v2_observations_fields("io")
+    assert result == "basic,core,io,model,trace_context,usage"
+
+
+def test_v2_observations_fields_drops_legacy_only_groups() -> None:
+    result = _v2_observations_fields("observations,scores,io")
+    assert "observations" not in result.split(",")
+    assert "scores" not in result.split(",")
+    assert "io" in result.split(",")
+
+
+def test_v2_observations_fields_falls_back_when_user_supply_is_all_legacy() -> None:
+    # If the caller passes only legacy-only groups, we cannot satisfy them on
+    # v2 and we fall back to the full default set. The merged set is then
+    # sorted alphabetically to produce a stable comma-separated string.
+    result = _v2_observations_fields("observations,scores")
+    assert result == "basic,core,io,model,trace_context,usage"

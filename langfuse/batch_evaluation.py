@@ -71,17 +71,19 @@ def _collapse_observations_to_traces(
     the root (``is_root_observation=True``) and falling back to the first
     observation seen for that trace.
     """
-    seen: Dict[str, ObservationV2] = {}
-    preferred: Dict[str, ObservationV2] = {}
+    chosen: Dict[str, ObservationV2] = {}
     for observation in observations:
         trace_id = getattr(observation, "trace_id", None)
-        if not trace_id or trace_id in seen:
+        if not trace_id:
             continue
-        seen[trace_id] = observation
-        if getattr(observation, "is_root_observation", False):
-            preferred[trace_id] = observation
+        existing = chosen.get(trace_id)
+        if existing is None or (
+            getattr(observation, "is_root_observation", False)
+            and not getattr(existing, "is_root_observation", False)
+        ):
+            chosen[trace_id] = observation
 
-    return [preferred.get(trace_id, fallback) for trace_id, fallback in seen.items()]
+    return list(chosen.values())
 
 
 if TYPE_CHECKING:
@@ -1045,9 +1047,11 @@ class BatchEvaluationRunner:
                     item_evaluations=item_evaluations,
                 )
 
-            # Advance the cursor. ``None`` means the server has no further
-            # pages; preserve the cursor on empty responses so a transient
-            # empty page does not silently stop iteration.
+            # Advance the cursor and stop when the server reports it is
+            # done. An empty page is also treated as the end of the stream:
+            # under v2 semantics an empty page typically coincides with
+            # ``cursor=None``, and breaking here matches the pre-v3 path's
+            # behaviour.
             cursor = next_cursor
             if cursor is None:
                 has_more = False
