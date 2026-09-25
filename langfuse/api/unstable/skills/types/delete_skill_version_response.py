@@ -3,11 +3,11 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import UniversalBaseModel
+from ....core.pydantic_utilities import UniversalBaseModel
 
 
-class SdkLogBody(UniversalBaseModel):
-    log: typing.Any
+class DeleteSkillVersionResponse(UniversalBaseModel):
+    deleted: bool
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

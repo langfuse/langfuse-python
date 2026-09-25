@@ -3,12 +3,14 @@
 import typing
 
 import pydantic
-from ...utils.pagination.types.cursor_meta_response import CursorMetaResponse
+from ....core.pydantic_utilities import UniversalBaseModel
 
 
-class ObservationsV2Meta(CursorMetaResponse):
+class SkillVersionFileInput(UniversalBaseModel):
+    path: str
+    content: str = pydantic.Field()
     """
-    Metadata for cursor-based pagination.
+    UTF-8 text content. The server computes the hash and byte length.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

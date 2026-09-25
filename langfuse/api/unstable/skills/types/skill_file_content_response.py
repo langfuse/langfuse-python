@@ -3,13 +3,11 @@
 import typing
 
 import pydantic
-from ...utils.pagination.types.cursor_meta_response import CursorMetaResponse
+from ....core.pydantic_utilities import UniversalBaseModel
 
 
-class ObservationsV2Meta(CursorMetaResponse):
-    """
-    Metadata for cursor-based pagination.
-    """
+class SkillFileContentResponse(UniversalBaseModel):
+    content: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
