@@ -13,11 +13,6 @@ if typing.TYPE_CHECKING:
         DashboardWidgetsClient,
     )
     from .dashboards.client import AsyncDashboardsClient, DashboardsClient
-    from .evaluation_rules.client import (
-        AsyncEvaluationRulesClient,
-        EvaluationRulesClient,
-    )
-    from .evaluators.client import AsyncEvaluatorsClient, EvaluatorsClient
 
 
 class UnstableClient:
@@ -26,8 +21,6 @@ class UnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[DashboardWidgetsClient] = None
         self._dashboards: typing.Optional[DashboardsClient] = None
-        self._evaluation_rules: typing.Optional[EvaluationRulesClient] = None
-        self._evaluators: typing.Optional[EvaluatorsClient] = None
 
     @property
     def with_raw_response(self) -> RawUnstableClient:
@@ -58,24 +51,6 @@ class UnstableClient:
             self._dashboards = DashboardsClient(client_wrapper=self._client_wrapper)
         return self._dashboards
 
-    @property
-    def evaluation_rules(self):
-        if self._evaluation_rules is None:
-            from .evaluation_rules.client import EvaluationRulesClient  # noqa: E402
-
-            self._evaluation_rules = EvaluationRulesClient(
-                client_wrapper=self._client_wrapper
-            )
-        return self._evaluation_rules
-
-    @property
-    def evaluators(self):
-        if self._evaluators is None:
-            from .evaluators.client import EvaluatorsClient  # noqa: E402
-
-            self._evaluators = EvaluatorsClient(client_wrapper=self._client_wrapper)
-        return self._evaluators
-
 
 class AsyncUnstableClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -83,8 +58,6 @@ class AsyncUnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[AsyncDashboardWidgetsClient] = None
         self._dashboards: typing.Optional[AsyncDashboardsClient] = None
-        self._evaluation_rules: typing.Optional[AsyncEvaluationRulesClient] = None
-        self._evaluators: typing.Optional[AsyncEvaluatorsClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawUnstableClient:
@@ -116,23 +89,3 @@ class AsyncUnstableClient:
                 client_wrapper=self._client_wrapper
             )
         return self._dashboards
-
-    @property
-    def evaluation_rules(self):
-        if self._evaluation_rules is None:
-            from .evaluation_rules.client import AsyncEvaluationRulesClient  # noqa: E402
-
-            self._evaluation_rules = AsyncEvaluationRulesClient(
-                client_wrapper=self._client_wrapper
-            )
-        return self._evaluation_rules
-
-    @property
-    def evaluators(self):
-        if self._evaluators is None:
-            from .evaluators.client import AsyncEvaluatorsClient  # noqa: E402
-
-            self._evaluators = AsyncEvaluatorsClient(
-                client_wrapper=self._client_wrapper
-            )
-        return self._evaluators

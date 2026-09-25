@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretBytes, SecretStr
 
 from langfuse._utils.serializer import (
     EventSerializer,
@@ -27,6 +27,11 @@ class TestDataclass:
 
 class TestBaseModel(BaseModel):
     field: str
+
+
+class SecretBaseModel(BaseModel):
+    api_key: SecretStr
+    token: SecretBytes
 
 
 def test_datetime():
@@ -69,6 +74,32 @@ def test_pydantic_model():
     model = TestBaseModel(field="test")
     serializer = EventSerializer()
     assert json.loads(serializer.encode(model)) == {"field": "test"}
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [
+        SecretStr("not-a-real-api-key"),
+        SecretBytes(b"not-a-real-token"),
+    ],
+)
+def test_pydantic_secret(secret):
+    serializer = EventSerializer()
+
+    assert serializer.encode(secret) == '"<secret>"'
+
+
+def test_pydantic_model_with_secrets():
+    model = SecretBaseModel(
+        api_key=SecretStr("not-a-real-api-key"),
+        token=SecretBytes(b"not-a-real-token"),
+    )
+    serializer = EventSerializer()
+
+    assert json.loads(serializer.encode(model)) == {
+        "api_key": "<secret>",
+        "token": "<secret>",
+    }
 
 
 def test_langfuse_media_reference_serializes_to_reference_string():
@@ -196,6 +227,16 @@ def test_infinity_floats():
     assert serializer.encode(float("-inf")) == '"-Infinity"'
 
 
+def _reject_json_constant(token):
+    # json.loads accepts bare NaN/Infinity by default; reject them the way
+    # the ingestion server's strict parser does.
+    raise ValueError(f"invalid JSON constant emitted: {token}")
+
+
+def _strict_loads(encoded: str):
+    return json.loads(encoded, parse_constant=_reject_json_constant)
+
+
 def test_pydantic_model_with_non_finite_floats():
     # Non-finite floats nested inside a pydantic model must be converted to
     # safe string tokens rather than emitted as bare NaN/Infinity, which are
@@ -213,20 +254,106 @@ def test_pydantic_model_with_non_finite_floats():
         finite=1.5,
     )
     serializer = EventSerializer()
-    encoded = serializer.encode(model)
-
-    # Must be strict JSON: json.loads accepts bare NaN/Infinity by default, so
-    # use parse_constant to reject them the way the ingestion server does.
-    def _reject(token):
-        raise ValueError(f"invalid JSON constant emitted: {token}")
-
-    parsed = json.loads(encoded, parse_constant=_reject)
+    parsed = _strict_loads(serializer.encode(model))
     assert parsed == {
         "nan": "NaN",
         "inf": "Infinity",
         "neg_inf": "-Infinity",
         "finite": 1.5,
     }
+
+
+def test_tuple_set_frozenset_with_non_finite_floats():
+    serializer = EventSerializer()
+
+    assert _strict_loads(serializer.encode((float("nan"), 1.0, float("inf")))) == [
+        "NaN",
+        1.0,
+        "Infinity",
+    ]
+    assert _strict_loads(serializer.encode({float("nan")})) == ["NaN"]
+    assert _strict_loads(serializer.encode(frozenset([float("-inf")]))) == ["-Infinity"]
+
+
+def test_dataclass_with_non_finite_floats():
+    @dataclass
+    class Point:
+        x: float
+        y: float
+
+    serializer = EventSerializer()
+    parsed = _strict_loads(serializer.encode(Point(float("nan"), float("inf"))))
+    assert parsed == {"x": "NaN", "y": "Infinity"}
+
+
+def test_enum_with_non_finite_float_value():
+    class NonFiniteEnum(Enum):
+        NAN = float("nan")
+        INF = float("inf")
+
+    serializer = EventSerializer()
+    assert _strict_loads(serializer.encode(NonFiniteEnum.NAN)) == "NaN"
+    assert _strict_loads(serializer.encode(NonFiniteEnum.INF)) == "Infinity"
+
+
+def test_numpy_array_and_generic_with_non_finite_floats(monkeypatch):
+    # Numpy is an optional runtime dependency; fake the types EventSerializer
+    # checks for so the ndarray / generic branches are covered without numpy.
+    class FakeGeneric:
+        def __init__(self, value):
+            self._value = value
+
+        def item(self):
+            return self._value
+
+    class FakeNdarray:
+        def __init__(self, data):
+            self._data = data
+
+        def tolist(self):
+            return self._data
+
+    class FakeNP:
+        generic = FakeGeneric
+        ndarray = FakeNdarray
+
+    from langfuse._utils import serializer as serializer_mod
+
+    monkeypatch.setattr(serializer_mod, "np", FakeNP)
+
+    serializer = EventSerializer()
+    assert _strict_loads(
+        serializer.encode(FakeNdarray([float("nan"), 1.0, float("inf")]))
+    ) == ["NaN", 1.0, "Infinity"]
+    assert _strict_loads(
+        serializer.encode(FakeNdarray([[float("nan"), 1.0], [float("-inf"), 2.0]]))
+    ) == [["NaN", 1.0], ["-Infinity", 2.0]]
+    assert _strict_loads(serializer.encode(FakeGeneric(float("nan")))) == "NaN"
+    assert _strict_loads(serializer.encode(FakeGeneric(float("inf")))) == "Infinity"
+
+
+def test_langchain_serializable_to_json_with_non_finite_floats(monkeypatch):
+    # langchain_core.Serializable is a BaseModel, so real messages take the
+    # pydantic path. Patch the type EventSerializer checks so the to_json()
+    # branch is covered independently.
+    class FakeSerializable:
+        def to_json(self):
+            return {"score": float("nan"), "ok": 1.5}
+
+    from langfuse._utils import serializer as serializer_mod
+
+    monkeypatch.setattr(serializer_mod, "Serializable", FakeSerializable)
+
+    parsed = _strict_loads(EventSerializer().encode(FakeSerializable()))
+    assert parsed == {"score": "NaN", "ok": 1.5}
+
+
+def test_tuple_with_js_unsafe_integer():
+    # The same conversion branches that leaked non-finite floats also skip
+    # JS-safe integer coercion unless values are routed back through default().
+    unsafe = 2**53
+    serializer = EventSerializer()
+    assert _strict_loads(serializer.encode((unsafe,))) == [str(unsafe)]
 
 
 def test_slots():

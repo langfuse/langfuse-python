@@ -2,6 +2,7 @@
 
 import typing
 
+import typing_extensions
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawIngestionClient, RawIngestionClient
@@ -27,6 +28,10 @@ class IngestionClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Send data via the OpenTelemetry endpoint at `POST /api/public/otel/v1/traces` instead, see the [OpenTelemetry integration docs](https://langfuse.com/integrations/native/opentelemetry). Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def batch(
         self,
         *,
@@ -128,6 +133,10 @@ class AsyncIngestionClient:
         """
         return self._raw_client
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Send data via the OpenTelemetry endpoint at `POST /api/public/otel/v1/traces` instead, see the [OpenTelemetry integration docs](https://langfuse.com/integrations/native/opentelemetry). Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def batch(
         self,
         *,

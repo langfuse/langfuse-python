@@ -14,7 +14,6 @@ if typing.TYPE_CHECKING:
     from .not_found_error import NotFoundError
     from .too_many_requests_error import TooManyRequestsError
     from .unauthorized_error import UnauthorizedError
-    from .unprocessable_content_error import UnprocessableContentError
 _dynamic_imports: typing.Dict[str, str] = {
     "AccessDeniedError": ".access_denied_error",
     "BadRequestError": ".bad_request_error",
@@ -24,7 +23,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NotFoundError": ".not_found_error",
     "TooManyRequestsError": ".too_many_requests_error",
     "UnauthorizedError": ".unauthorized_error",
-    "UnprocessableContentError": ".unprocessable_content_error",
 }
 
 
@@ -64,5 +62,4 @@ __all__ = [
     "NotFoundError",
     "TooManyRequestsError",
     "UnauthorizedError",
-    "UnprocessableContentError",
 ]
