@@ -35,6 +35,7 @@ class ObservationsClient:
         parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
@@ -62,7 +63,7 @@ class ObservationsClient:
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
-        - `model` - providedModelName, internalModelId, modelParameters
+        - `model` - model, internalModelId, modelParameters
         - `usage` - usageDetails, costDetails, totalCost, usagePricingTierName
         - `prompt` - promptId, promptName, promptVersion
         - `metrics` - latency, timeToFirstToken
@@ -102,6 +103,9 @@ class ObservationsClient:
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
+
+        session_id : typing.Optional[str]
+            Filter by session ID.
 
         type : typing.Optional[str]
             Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
@@ -274,6 +278,7 @@ class ObservationsClient:
             parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
+            session_id=session_id,
             type=type,
             trace_id=trace_id,
             level=level,
@@ -314,6 +319,7 @@ class AsyncObservationsClient:
         parse_io_as_json: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
         type: typing.Optional[str] = None,
         trace_id: typing.Optional[str] = None,
         level: typing.Optional[ObservationLevel] = None,
@@ -341,7 +347,7 @@ class AsyncObservationsClient:
         - `time` - completionStartTime, createdAt, updatedAt
         - `io` - input, output
         - `metadata` - metadata (truncated to 200 chars by default, use `expandMetadata` to get full values)
-        - `model` - providedModelName, internalModelId, modelParameters
+        - `model` - model, internalModelId, modelParameters
         - `usage` - usageDetails, costDetails, totalCost, usagePricingTierName
         - `prompt` - promptId, promptName, promptVersion
         - `metrics` - latency, timeToFirstToken
@@ -381,6 +387,9 @@ class AsyncObservationsClient:
         name : typing.Optional[str]
 
         user_id : typing.Optional[str]
+
+        session_id : typing.Optional[str]
+            Filter by session ID.
 
         type : typing.Optional[str]
             Filter by observation type (e.g., "GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EVALUATOR", "EMBEDDING", "GUARDRAIL")
@@ -561,6 +570,7 @@ class AsyncObservationsClient:
             parse_io_as_json=parse_io_as_json,
             name=name,
             user_id=user_id,
+            session_id=session_id,
             type=type,
             trace_id=trace_id,
             level=level,

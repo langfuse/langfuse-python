@@ -33,6 +33,7 @@ Use this checklist for `/review`, PR review, or self-review before handoff.
 ## Python Style
 
 - Exception messages should not inline f-string literals in `raise` statements; build the message in a variable first.
+- Logging calls should use lazy `%`-style args, not f-strings (ruff `G004`). Flag any logging argument that is expensive to compute and is not behind an `isEnabledFor` guard.
 - Keep edits ASCII-only unless the file already uses Unicode or Unicode is clearly required.
 - Keep changes scoped; avoid opportunistic refactors.
 - Never commit secrets or credentials.

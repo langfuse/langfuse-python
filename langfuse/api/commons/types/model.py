@@ -18,7 +18,7 @@ class Model(UniversalBaseModel):
 
     Models can have either simple flat pricing or tiered pricing:
     - Flat pricing: Single price per usage type (legacy, but still supported)
-    - Tiered pricing: Multiple pricing tiers with conditional matching based on usage patterns
+    - Tiered pricing: Multiple pricing tiers with conditional matching based on usage patterns or observation attributes
 
     The pricing tiers approach is recommended for models with usage-based pricing variations.
     When using tiered pricing, the flat price fields (inputPrice, outputPrice, prices) are populated
@@ -109,10 +109,10 @@ class Model(UniversalBaseModel):
         typing.List[PricingTier], FieldMetadata(alias="pricingTiers")
     ] = pydantic.Field()
     """
-    Array of pricing tiers with conditional pricing based on usage thresholds.
+    Array of pricing tiers with conditional pricing based on usage thresholds or observation attributes.
     
     Pricing tiers enable accurate cost tracking for models that charge different rates based on usage patterns
-    (e.g., different rates for high-volume usage, large context windows, or cached tokens).
+    or request attributes (e.g., high-volume usage, large context windows, cached tokens, or service tiers).
     
     Each model must have exactly one default tier (isDefault=true, priority=0) that serves as a fallback.
     Additional conditional tiers can be defined with specific matching criteria.

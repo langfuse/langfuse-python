@@ -2,6 +2,7 @@
 
 import datetime as dt
 import typing
+import typing_extensions
 from json.decoder import JSONDecodeError
 
 from ..commons.errors.access_denied_error import AccessDeniedError
@@ -24,6 +25,10 @@ class RawSessionsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read session data via `GET /api/public/v2/observations?filter=<urlencoded sessionId filter>&fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def list(
         self,
         *,
@@ -160,6 +165,10 @@ class RawSessionsClient:
             body=_response_json,
         )
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read session data via `GET /api/public/v2/observations?filter=<urlencoded sessionId filter>&fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     def get(
         self,
         session_id: str,
@@ -274,6 +283,10 @@ class AsyncRawSessionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read session data via `GET /api/public/v2/observations?filter=<urlencoded sessionId filter>&fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def list(
         self,
         *,
@@ -410,6 +423,10 @@ class AsyncRawSessionsClient:
             body=_response_json,
         )
 
+    @typing_extensions.deprecated(
+        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. In Langfuse v4, read session data via `GET /api/public/v2/observations?filter=<urlencoded sessionId filter>&fromStartTime=<from>&toStartTime=<to>`. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
+        category=None,
+    )
     async def get(
         self,
         session_id: str,

@@ -161,9 +161,13 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             except Exception as error:
                 langfuse_logger.warning(
                     "Media processing error: Failed to process span attribute before export. "
-                    f"Leaving attribute unchanged. span_name='{span.name}' "
-                    f"trace_id='{_get_trace_id(span)}' span_id='{_get_span_id(span)}' "
-                    f"attribute_key='{key}' error='{error}'"
+                    "Leaving attribute unchanged. span_name='%s' trace_id='%s' span_id='%s' "
+                    "attribute_key='%s' error='%s'",
+                    span.name,
+                    _get_trace_id(span),
+                    _get_span_id(span),
+                    key,
+                    error,
                 )
                 processed_attributes[key] = value
 
@@ -271,8 +275,9 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         for span, attributes in span_attributes:
             if not _has_valid_span_context(span):
                 langfuse_logger.warning(
-                    "Masking error: Dropping span from export because span context is missing or invalid. "
-                    f"span_name='{span.name}'"
+                    "Masking error: Dropping span from export because span context is missing "
+                    "or invalid. span_name='%s'",
+                    span.name,
                 )
                 continue
 
@@ -303,9 +308,10 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             )
         except Exception as error:
             langfuse_logger.error(
-                "Masking error: mask_otel_spans raised an exception. "
-                f"Dropping export batch. span_count={len(span_attributes)} "
-                f"error='{error}'"
+                "Masking error: mask_otel_spans raised an exception. Dropping export "
+                "batch. span_count=%s error='%s'",
+                len(span_attributes),
+                error,
             )
             return None
 
@@ -314,8 +320,9 @@ class LangfuseTransformingSpanExporter(SpanExporter):
 
         if not isinstance(result, MaskOtelSpansResult):
             langfuse_logger.error(
-                "Masking error: mask_otel_spans returned an invalid result. "
-                f"Dropping export batch. result_type='{type(result).__name__}'"
+                "Masking error: mask_otel_spans returned an invalid result. Dropping "
+                "export batch. result_type='%s'",
+                type(result).__name__,
             )
             return None
 
@@ -323,9 +330,9 @@ class LangfuseTransformingSpanExporter(SpanExporter):
 
         if not isinstance(span_patches, MappingCollection):
             langfuse_logger.error(
-                "Masking error: mask_otel_spans returned invalid span_patches. "
-                f"Dropping export batch. "
-                f"span_patches_type='{type(span_patches).__name__}'"
+                "Masking error: mask_otel_spans returned invalid span_patches. Dropping "
+                "export batch. span_patches_type='%s'",
+                type(span_patches).__name__,
             )
             return None
 
@@ -334,9 +341,9 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         for identifier in span_patches:
             if identifier not in span_identifiers:
                 langfuse_logger.error(
-                    "Masking error: mask_otel_spans returned a patch for an unknown "
-                    "span identifier. Dropping export batch. "
-                    f"identifier_type='{type(identifier).__name__}'"
+                    "Masking error: mask_otel_spans returned a patch for an unknown span "
+                    "identifier. Dropping export batch. identifier_type='%s'",
+                    type(identifier).__name__,
                 )
                 return None
 
@@ -372,10 +379,12 @@ class LangfuseTransformingSpanExporter(SpanExporter):
     ) -> Optional[Dict[str, AttributeValue]]:
         if not isinstance(patch, OtelSpanPatch):
             langfuse_logger.error(
-                "Masking error: mask_otel_spans returned an invalid span patch. "
-                "Dropping span. "
-                f"span_name='{span.name}' trace_id='{_get_trace_id(span)}' "
-                f"span_id='{_get_span_id(span)}' patch_type='{type(patch).__name__}'"
+                "Masking error: mask_otel_spans returned an invalid span patch. Dropping "
+                "span. span_name='%s' trace_id='%s' span_id='%s' patch_type='%s'",
+                span.name,
+                _get_trace_id(span),
+                _get_span_id(span),
+                type(patch).__name__,
             )
             return None
 
@@ -384,11 +393,12 @@ class LangfuseTransformingSpanExporter(SpanExporter):
 
         if not isinstance(set_attributes, MappingCollection):
             langfuse_logger.error(
-                "Masking error: mask_otel_spans returned invalid set_attributes. "
-                "Dropping span. "
-                f"span_name='{span.name}' trace_id='{_get_trace_id(span)}' "
-                f"span_id='{_get_span_id(span)}' "
-                f"set_attributes_type='{type(set_attributes).__name__}'"
+                "Masking error: mask_otel_spans returned invalid set_attributes. Dropping "
+                "span. span_name='%s' trace_id='%s' span_id='%s' set_attributes_type='%s'",
+                span.name,
+                _get_trace_id(span),
+                _get_span_id(span),
+                type(set_attributes).__name__,
             )
             return None
 
@@ -397,10 +407,12 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         ):
             langfuse_logger.error(
                 "Masking error: mask_otel_spans returned invalid delete_attributes. "
-                "Dropping span. "
-                f"span_name='{span.name}' trace_id='{_get_trace_id(span)}' "
-                f"span_id='{_get_span_id(span)}' "
-                f"delete_attributes_type='{type(delete_attributes).__name__}'"
+                "Dropping span. span_name='%s' trace_id='%s' span_id='%s' "
+                "delete_attributes_type='%s'",
+                span.name,
+                _get_trace_id(span),
+                _get_span_id(span),
+                type(delete_attributes).__name__,
             )
             return None
 
@@ -409,10 +421,13 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         for key in delete_attributes:
             if not _is_valid_attribute_key(key):
                 langfuse_logger.warning(
-                    "Masking error: mask_otel_spans requested deletion with an invalid attribute key. "
-                    f"Ignoring delete entry. span_name='{span.name}' "
-                    f"trace_id='{_get_trace_id(span)}' span_id='{_get_span_id(span)}' "
-                    f"delete_key_type='{type(key).__name__}'"
+                    "Masking error: mask_otel_spans requested deletion with an invalid "
+                    "attribute key. Ignoring delete entry. span_name='%s' trace_id='%s' "
+                    "span_id='%s' delete_key_type='%s'",
+                    span.name,
+                    _get_trace_id(span),
+                    _get_span_id(span),
+                    type(key).__name__,
                 )
                 continue
 
@@ -422,9 +437,12 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             if not _is_valid_attribute_key(key):
                 langfuse_logger.warning(
                     "Masking error: mask_otel_spans returned an invalid set_attributes key. "
-                    f"Ignoring set entry. span_name='{span.name}' "
-                    f"trace_id='{_get_trace_id(span)}' span_id='{_get_span_id(span)}' "
-                    f"attribute_key_type='{type(key).__name__}'"
+                    "Ignoring set entry. span_name='%s' trace_id='%s' span_id='%s' "
+                    "attribute_key_type='%s'",
+                    span.name,
+                    _get_trace_id(span),
+                    _get_span_id(span),
+                    type(key).__name__,
                 )
                 continue
 
@@ -434,9 +452,13 @@ class LangfuseTransformingSpanExporter(SpanExporter):
                 masked_attributes.pop(key, None)
                 langfuse_logger.warning(
                     "Masking error: mask_otel_spans returned an invalid attribute value. "
-                    f"Deleting attribute from export. span_name='{span.name}' "
-                    f"trace_id='{_get_trace_id(span)}' span_id='{_get_span_id(span)}' "
-                    f"attribute_key='{key}' value_type='{type(value).__name__}'"
+                    "Deleting attribute from export. span_name='%s' trace_id='%s' "
+                    "span_id='%s' attribute_key='%s' value_type='%s'",
+                    span.name,
+                    _get_trace_id(span),
+                    _get_span_id(span),
+                    key,
+                    type(value).__name__,
                 )
                 continue
 

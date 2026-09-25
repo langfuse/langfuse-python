@@ -21,7 +21,6 @@ if typing.TYPE_CHECKING:
         NotFoundError,
         TooManyRequestsError,
         UnauthorizedError,
-        UnprocessableContentError,
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "AccessDeniedError": ".errors",
@@ -36,7 +35,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PublicApiValidationIssue": ".types",
     "TooManyRequestsError": ".errors",
     "UnauthorizedError": ".errors",
-    "UnprocessableContentError": ".errors",
 }
 
 
@@ -80,5 +78,4 @@ __all__ = [
     "PublicApiValidationIssue",
     "TooManyRequestsError",
     "UnauthorizedError",
-    "UnprocessableContentError",
 ]
