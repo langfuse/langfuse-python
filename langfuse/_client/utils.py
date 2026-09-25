@@ -96,13 +96,13 @@ class _RunAsyncThread(threading.Thread):
         self.coro = coro
         self.context = contextvars.copy_context()
         self.result: Any = None
-        self.exception: Exception | None = None
+        self.exception: BaseException | None = None
         super().__init__()
 
     def run(self) -> None:
         try:
             self.result = self.context.run(asyncio.run, self.coro)
-        except Exception as e:
+        except BaseException as e:
             self.exception = e
 
 
