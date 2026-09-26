@@ -1955,6 +1955,9 @@ class Langfuse:
             return
 
         score_id = score_id or self._create_observation_id()
+        comment = self._apply_mask(comment)
+        if comment is not None and not isinstance(comment, str):
+            comment = json.dumps(comment)
 
         # The API rejects timestamps without a UTC offset; naive values are UTC.
         if timestamp is not None and timestamp.tzinfo is None:
@@ -1973,7 +1976,7 @@ class Langfuse:
                 "datasetRunId": dataset_run_id,
                 "name": name,
                 "value": value,
-                "comment": self._apply_mask(comment),
+                "comment": comment,
                 "environment": environment or self._environment,
                 "dataType": data_type,
                 "configId": config_id,
