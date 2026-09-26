@@ -4,6 +4,7 @@ This module implements Langfuse's core observability functionality on top of the
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -2035,6 +2036,9 @@ class Langfuse:
             return
 
         score_id = score_id or self._create_observation_id()
+        comment = self._apply_mask(comment)
+        if comment is not None and not isinstance(comment, str):
+            comment = json.dumps(comment)
 
         try:
             new_body = ScoreBody(
@@ -2046,7 +2050,7 @@ class Langfuse:
                 name=name,
                 value=value,
                 dataType=data_type,  # type: ignore
-                comment=self._apply_mask(comment),
+                comment=comment,
                 configId=config_id,
                 environment=environment or self._environment,
                 metadata=metadata,
