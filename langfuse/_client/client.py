@@ -1949,6 +1949,20 @@ class Langfuse:
         environment: Optional[str] = None,
     ) -> None: ...
 
+    def _apply_mask(self, data: Any) -> Any:
+        """Apply the configured mask to data sent outside a span, matching span masking."""
+        if data is None or not self._mask:
+            return data
+        try:
+            return self._mask(data=data)
+        except Exception as e:
+            langfuse_logger.error(
+                "Masking error: Custom mask function threw exception when processing "
+                "data. Using fallback masking. Error: %s",
+                e,
+            )
+            return "<fully masked due to failed mask function>"
+
     def create_score(
         self,
         *,
@@ -2029,7 +2043,7 @@ class Langfuse:
                 name=name,
                 value=value,
                 dataType=data_type,  # type: ignore
-                comment=comment,
+                comment=self._apply_mask(comment),
                 configId=config_id,
                 environment=environment or self._environment,
                 metadata=metadata,
@@ -3550,7 +3564,7 @@ class Langfuse:
             result = self.api.datasets.create(
                 name=name,
                 description=description,
-                metadata=metadata,
+                metadata=self._apply_mask(metadata),
                 input_schema=input_schema,
                 expected_output_schema=expected_output_schema,
             )
@@ -3649,9 +3663,9 @@ class Langfuse:
 
             result = self.api.dataset_items.create(
                 dataset_name=dataset_name,
-                input=input,
-                expected_output=expected_output,
-                metadata=metadata,
+                input=self._apply_mask(input),
+                expected_output=self._apply_mask(expected_output),
+                metadata=self._apply_mask(metadata),
                 source_trace_id=source_trace_id,
                 source_observation_id=source_observation_id,
                 status=status,
