@@ -37,6 +37,7 @@ def test_create_dataset_masks_metadata():
 
 def test_create_score_masks_comment():
     client = _client()
+    client._tracing_enabled = True  # create_score is a no-op otherwise
     client.create_score(name="s", value=1, trace_id="t" * 32, comment="secret")
     assert (
         client._resources.add_score_task.call_args.args[0]["body"].comment == "masked"
