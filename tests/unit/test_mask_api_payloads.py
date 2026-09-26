@@ -42,3 +42,12 @@ def test_create_score_masks_comment():
     assert (
         client._resources.add_score_task.call_args.args[0]["body"].comment == "masked"
     )
+
+
+def test_create_score_serializes_non_string_masked_comment():
+    client = _client()
+    client._tracing_enabled = True
+    client._mask = lambda data: {"redacted": True}
+    client.create_score(name="s", value=1, trace_id="t" * 32, comment="secret")
+    body = client._resources.add_score_task.call_args.args[0]["body"]
+    assert body.comment == '{"redacted": true}'
