@@ -279,6 +279,15 @@ class TextPromptClient(BasePromptClient):
 
 
 class ChatPromptClient(BasePromptClient):
+    _LANGCHAIN_MESSAGE_ROLE_MAP = {
+        "human": "user",
+        "ai": "assistant",
+        "system": "system",
+        "tool": "tool",
+        "function": "function",
+        "chat": "chat",
+    }
+
     def __init__(self, prompt: Prompt_Chat, is_fallback: bool = False):
         super().__init__(prompt, is_fallback)
         self.prompt: List[ChatMessageWithPlaceholdersDict] = []
@@ -346,17 +355,12 @@ class ChatPromptClient(BasePromptClient):
                     placeholder_value = kwargs[placeholder_name]
                     if isinstance(placeholder_value, list):
                         for msg in placeholder_value:
-                            if isinstance(msg, dict):
-                                # Preserve all fields from the original message, such as tool calls
-                                compiled_msg = dict(msg)  # type: ignore
-                                # Ensure role and content are always present
-                                compiled_msg["role"] = msg.get("role", "NOT_GIVEN")
-                                compiled_msg["content"] = (
-                                    TemplateParser.compile_template(
-                                        msg.get("content", ""),  # type: ignore
-                                        kwargs,
-                                    )
-                                )
+                            compiled_msg = self._compile_placeholder_message(
+                                msg=msg,
+                                kwargs=kwargs,
+                            )
+
+                            if compiled_msg is not None:
                                 compiled_messages.append(compiled_msg)
                             else:
                                 compiled_messages.append(
@@ -386,6 +390,47 @@ class ChatPromptClient(BasePromptClient):
             langfuse_logger.warning(unresolved_placeholders_message)
 
         return compiled_messages  # type: ignore
+
+    def _compile_placeholder_message(
+        self, *, msg: Any, kwargs: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        if isinstance(msg, dict):
+            # Preserve all fields from the original message, such as tool calls
+            compiled_msg = dict(msg)
+            # Ensure role and content are always present
+            compiled_msg["role"] = msg.get("role", "NOT_GIVEN")
+            compiled_msg["content"] = TemplateParser.compile_template(
+                msg.get("content", ""),
+                kwargs,
+            )
+            return compiled_msg
+
+        if not hasattr(msg, "content"):
+            return None
+
+        role = getattr(msg, "role", None)
+        if role is None:
+            role = self._LANGCHAIN_MESSAGE_ROLE_MAP.get(
+                str(getattr(msg, "type", "")),
+            )
+
+        if role is None:
+            return None
+
+        content = getattr(msg, "content")
+        compiled_msg = {
+            "role": role,
+            "content": TemplateParser.compile_template(content, kwargs)
+            if isinstance(content, str)
+            else content,
+        }
+
+        for key in ("name", "tool_call_id", "tool_calls", "invalid_tool_calls"):
+            value = getattr(msg, key, None)
+            if value:
+                compiled_msg[key] = value
+
+        return compiled_msg
 
     @property
     def variables(self) -> List[str]:
