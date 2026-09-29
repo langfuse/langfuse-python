@@ -10,6 +10,7 @@ import langfuse._client.span_processor as span_processor_module
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
+    LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
 )
 from langfuse._client.span_processor import LangfuseSpanProcessor
 
@@ -56,6 +57,100 @@ def test_span_processor_uses_env_flush_settings_when_constructor_omits_them(
     try:
         assert processor._batch_processor._max_export_batch_size == 19
         assert processor._batch_processor._schedule_delay_millis == 3250
+    finally:
+        processor.shutdown()
+
+
+class RecordingOTLPSpanExporter(NoOpSpanExporter):
+    init_kwargs: dict = {}
+
+    def __init__(self, *, endpoint=None, headers=None, timeout=None, **kwargs):
+        type(self).init_kwargs = kwargs
+
+
+class RecordingOTLPSpanExporterWithRequestLimit(RecordingOTLPSpanExporter):
+    def __init__(
+        self,
+        *,
+        endpoint=None,
+        headers=None,
+        timeout=None,
+        max_request_size=None,
+    ):
+        super().__init__(max_request_size=max_request_size)
+
+
+def _build_default_exporter_processor(monkeypatch, exporter_class):
+    exporter_class.init_kwargs = {}
+    monkeypatch.setattr(span_processor_module, "OTLPSpanExporter", exporter_class)
+    return LangfuseSpanProcessor(
+        public_key="pk-test",
+        secret_key="sk-test",
+        base_url="http://localhost:3000",
+    )
+
+
+def test_default_exporter_receives_configured_max_batch_size_bytes(monkeypatch):
+    monkeypatch.setenv(LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES, " 1024 ")
+    processor = _build_default_exporter_processor(
+        monkeypatch, RecordingOTLPSpanExporterWithRequestLimit
+    )
+
+    try:
+        assert RecordingOTLPSpanExporterWithRequestLimit.init_kwargs == {
+            "max_request_size": 1024
+        }
+    finally:
+        processor.shutdown()
+
+
+def test_default_exporter_keeps_upstream_limit_when_env_unset(monkeypatch):
+    monkeypatch.delenv(LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES, raising=False)
+    processor = _build_default_exporter_processor(
+        monkeypatch, RecordingOTLPSpanExporterWithRequestLimit
+    )
+
+    try:
+        assert RecordingOTLPSpanExporterWithRequestLimit.init_kwargs == {
+            "max_request_size": None
+        }
+    finally:
+        processor.shutdown()
+
+
+@pytest.mark.parametrize("raw_value", ["0", "-5", "abc", "1.5"])
+def test_invalid_max_batch_size_bytes_falls_back_to_upstream_limit(
+    monkeypatch, caplog, raw_value
+):
+    monkeypatch.setenv(LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES, raw_value)
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        processor = _build_default_exporter_processor(
+            monkeypatch, RecordingOTLPSpanExporterWithRequestLimit
+        )
+
+    try:
+        assert RecordingOTLPSpanExporterWithRequestLimit.init_kwargs == {
+            "max_request_size": None
+        }
+        assert LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES in caplog.text
+    finally:
+        processor.shutdown()
+
+
+def test_max_batch_size_bytes_warns_when_exporter_lacks_request_limit(
+    monkeypatch, caplog
+):
+    monkeypatch.setenv(LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES, "1024")
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        processor = _build_default_exporter_processor(
+            monkeypatch, RecordingOTLPSpanExporter
+        )
+
+    try:
+        assert RecordingOTLPSpanExporter.init_kwargs == {}
+        assert "opentelemetry-exporter-otlp-proto-http>=1.45.0" in caplog.text
     finally:
         processor.shutdown()
 

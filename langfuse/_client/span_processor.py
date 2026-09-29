@@ -12,10 +12,11 @@ Key features:
 """
 
 import base64
+import inspect
 import logging
 import os
 import threading
-from typing import Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -28,6 +29,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
+    LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.propagation import (
@@ -45,6 +47,32 @@ from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskOtelSpansFunction
+
+
+def _resolve_max_batch_size_bytes() -> Optional[int]:
+    """Return the configured batch byte limit, or None to keep the exporter default."""
+    raw_value = os.environ.get(LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES, "").strip()
+    if not raw_value:
+        return None
+
+    if raw_value.isascii() and raw_value.isdigit() and int(raw_value) > 0:
+        return int(raw_value)
+
+    langfuse_logger.warning(
+        "Invalid %s=%r. Expected a positive integer. Using the default limit.",
+        LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
+        raw_value,
+    )
+    return None
+
+
+def _otlp_exporter_supports_max_request_size() -> bool:
+    try:
+        parameters = inspect.signature(OTLPSpanExporter.__init__).parameters
+    except (TypeError, ValueError):
+        return False
+
+    return "max_request_size" in parameters
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -123,10 +151,23 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 else f"{base_url}/api/public/otel/v1/traces"
             )
 
+            exporter_kwargs: Dict[str, Any] = {}
+            max_request_size = _resolve_max_batch_size_bytes()
+            if max_request_size is not None:
+                if _otlp_exporter_supports_max_request_size():
+                    exporter_kwargs["max_request_size"] = max_request_size
+                else:
+                    langfuse_logger.warning(
+                        "%s is set but not enforced. It requires "
+                        "opentelemetry-exporter-otlp-proto-http>=1.45.0.",
+                        LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
+                    )
+
             span_exporter = OTLPSpanExporter(
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
+                **exporter_kwargs,
             )
 
         if media_manager is not None or mask_otel_spans is not None:
