@@ -70,3 +70,29 @@ class TestAuthCheck:
             return_value=SimpleNamespace(data=[SimpleNamespace(id="p1")]),
         ):
             assert client.auth_check() is True
+
+    def test_auth_check_maps_fern_unauthorized_error_to_auth_error(self):
+        from langfuse.api import UnauthorizedError
+
+        client = Langfuse(public_key="test_pk", secret_key="test_sk")
+        fern_error = UnauthorizedError(body={"error": "Unauthorized"})
+
+        with (
+            patch.object(client.api.projects, "get", side_effect=fern_error),
+            pytest.raises(AuthError, match="invalid credentials") as excinfo,
+        ):
+            client.auth_check()
+
+        assert isinstance(excinfo.value.__cause__, UnauthorizedError)
+
+    def test_auth_check_propagates_non_auth_fern_errors_unchanged(self):
+        from langfuse.api import NotFoundError
+
+        client = Langfuse(public_key="test_pk", secret_key="test_sk")
+        fern_error = NotFoundError(body={"error": "Not found"})
+
+        with (
+            patch.object(client.api.projects, "get", side_effect=fern_error),
+            pytest.raises(NotFoundError),
+        ):
+            client.auth_check()
