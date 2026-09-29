@@ -21,6 +21,7 @@ from typing import (
 )
 
 from langfuse.api import DatasetItem
+from langfuse.errors import LangfuseError
 from langfuse.logger import langfuse_logger as logger
 from langfuse.types import ExperimentScoreType
 
@@ -1162,7 +1163,7 @@ class RunnerContext:
         )
 
 
-class RegressionError(Exception):
+class RegressionError(LangfuseError):
     """Raised by a user's ``experiment`` function to signal a CI gate failure.
 
     Intended for use with the ``langfuse/experiment-action`` GitHub Action

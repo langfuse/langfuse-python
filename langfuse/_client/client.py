@@ -123,6 +123,7 @@ from langfuse.batch_evaluation import (
     CompositeEvaluatorFunction,
     MapperFunction,
 )
+from langfuse.errors import AuthError
 from langfuse.experiment import (
     Evaluation,
     EvaluatorFunction,
@@ -3497,7 +3498,7 @@ class Langfuse:
         """Check if the provided credentials (public and secret key) are valid.
 
         Raises:
-            Exception: If no projects were found for the provided credentials.
+            AuthError: If no projects were found for the provided credentials.
 
         Note:
             This method is blocking. It is discouraged to use it in production code.
@@ -3508,7 +3509,7 @@ class Langfuse:
                 "Auth check successful, found %s projects", len(projects.data)
             )
             if len(projects.data) == 0:
-                raise Exception(
+                raise AuthError(
                     "Auth check failed, no project found for the keys provided."
                 )
             return True

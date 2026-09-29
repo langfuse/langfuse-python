@@ -7,6 +7,7 @@ from typing import Any, List, Union
 import httpx
 
 from langfuse._utils.serializer import EventSerializer
+from langfuse.errors import LangfuseError
 from langfuse.logger import langfuse_logger as logger
 
 
@@ -115,7 +116,7 @@ class LangfuseClient:
             raise APIError(res.status_code, res.text)
 
 
-class APIError(Exception):
+class APIError(LangfuseError):
     def __init__(self, status: Union[int, str], message: str, details: Any = None):
         self.message = message
         self.status = status
@@ -126,7 +127,7 @@ class APIError(Exception):
         return msg.format(self.message, self.status, self.details)
 
 
-class APIErrors(Exception):
+class APIErrors(LangfuseError):
     def __init__(self, errors: List[APIError]):
         self.errors = errors
 
