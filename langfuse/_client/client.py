@@ -116,6 +116,7 @@ from langfuse.api import (
     ScoreBody,
     TraceBody,
 )
+from langfuse.api.core.api_error import ApiError
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -174,6 +175,73 @@ def _serialize_evaluations(evaluations: List[Evaluation]) -> List[Dict[str, Any]
         }
         for evaluation in evaluations
     ]
+
+
+_V4_REJECTION_MARKER = "not available on deployments running in Langfuse v4"
+
+_V4_DATASET_RUN_HINT = (
+    "This dataset-run endpoint is not available on Langfuse v4 (events_only) "
+    "deployments. Read runs with `client.api.experiments.list(...)` and "
+    "`client.api.experiments.list_items(...)` instead -- both need "
+    "`from_start_time`, and `dataset_run_id` from "
+    "`run_experiment()` is the same value those return as `id` / `experimentId`. "
+    "See https://langfuse.com/docs/v4 for the migration guide."
+)
+
+_V4_DELETE_HINT = (
+    "Deleting a dataset run is not available on Langfuse v4 (events_only) "
+    "deployments, and there is no delete counterpart on `client.api.experiments` "
+    "-- the run itself is untouched. See https://langfuse.com/docs/v4 for the "
+    "migration guide."
+)
+
+
+def _handle_dataset_run_error(
+    exc: ApiError, hint: str = _V4_DATASET_RUN_HINT
+) -> None:
+    """Route a failed dataset-run call: v4 guidance, silence for 404, else log.
+
+    A Langfuse v4 deployment answers the legacy dataset-run endpoints with 404,
+    and the generated exception's ``str()`` starts with the response headers, so
+    the server's own explanation is only reachable through ``exc.body``. A caller
+    that just prints the exception therefore sees no hint at all.
+
+    404 is deliberately not routed to ``handle_fern_exception``: its 404 entry
+    reads "Internal error occurred ... we are monitoring it closely", and these
+    helpers raise ``NotFoundError`` routinely, because asking for a run that does
+    not exist is an ordinary outcome.
+
+    The three helpers share this so the marker is checked once per failure and so
+    each can pass the hint that is actually true for it.
+    """
+    if _is_v4_dataset_run_rejection(exc):
+        langfuse_logger.warning(hint)
+    elif not _is_not_found(exc):
+        handle_fern_exception(exc)
+
+
+def _is_v4_dataset_run_rejection(exc: Exception) -> bool:
+    """Whether the server refused the call because the deployment is v4."""
+    body = getattr(exc, "body", None)
+    text = body if isinstance(body, str) else str(body or "")
+    return _V4_REJECTION_MARKER in text
+
+
+def _is_not_found(exc: Exception) -> bool:
+    """Whether the server answered 404.
+
+    ``handle_fern_exception`` maps a bare status onto a generic message, and its
+    404 entry reads "Internal error occurred. This is an unusual occurrence and
+    we are monitoring it closely". These three helpers raise ``NotFoundError``
+    routinely -- asking for a run that does not exist is an ordinary outcome, not
+    an internal error -- so routing 404 through it would ship a false claim at
+    ERROR level, which is also what error alerting keys on.
+    """
+    status = getattr(exc, "status_code", None)
+    try:
+        return int(status) == 404
+    except (TypeError, ValueError):
+        return False
 
 
 class Langfuse:
@@ -2534,6 +2602,14 @@ class Langfuse:
     ) -> DatasetRunWithItems:
         """Fetch a dataset run by dataset name and run name.
 
+        Not available on Langfuse v4 deployments: the underlying
+        ``GET /api/public/datasets/{name}/runs/{run_name}`` path is rejected
+        with 404 in v4 ``events_only`` mode. Use
+        ``client.api.experiments.list(from_start_time=...)`` and match on ``id``
+        or ``name`` instead -- ``from_start_time`` is required, and
+        ``run_experiment()`` returns that same value as ``dataset_run_id``. See
+        https://langfuse.com/docs/v4.
+
         Args:
             dataset_name (str): The name of the dataset.
             run_name (str): The name of the run.
@@ -2550,8 +2626,8 @@ class Langfuse:
                     request_options=None,
                 ),
             )
-        except Error as e:
-            handle_fern_exception(e)
+        except ApiError as e:
+            _handle_dataset_run_error(e)
             raise e
 
     def get_dataset_runs(
@@ -2562,6 +2638,14 @@ class Langfuse:
         limit: Optional[int] = None,
     ) -> PaginatedDatasetRuns:
         """Fetch all runs for a dataset.
+
+        Not available on Langfuse v4 deployments: the underlying
+        ``GET /api/public/datasets/{name}/runs`` path is rejected with 404 in v4
+        ``events_only`` mode. Use
+        ``client.api.experiments.list(from_start_time=..., dataset_id=...)``
+        instead; note it is cursor-paginated, requires ``from_start_time``, and
+        filters by ``datasetId`` rather than dataset name. See
+        https://langfuse.com/docs/v4.
 
         Args:
             dataset_name (str): The name of the dataset.
@@ -2581,14 +2665,19 @@ class Langfuse:
                     request_options=None,
                 ),
             )
-        except Error as e:
-            handle_fern_exception(e)
+        except ApiError as e:
+            _handle_dataset_run_error(e)
             raise e
 
     def delete_dataset_run(
         self, *, dataset_name: str, run_name: str
     ) -> DeleteDatasetRunResponse:
         """Delete a dataset run and all its run items. This action is irreversible.
+
+        Not available on Langfuse v4 deployments: the underlying
+        ``DELETE /api/public/datasets/{name}/runs/{run_name}`` path is rejected
+        with 404 in v4 ``events_only`` mode, and there is no delete counterpart
+        on ``client.api.experiments``. See https://langfuse.com/docs/v4.
 
         Args:
             dataset_name (str): The name of the dataset.
@@ -2606,8 +2695,8 @@ class Langfuse:
                     request_options=None,
                 ),
             )
-        except Error as e:
-            handle_fern_exception(e)
+        except ApiError as e:
+            _handle_dataset_run_error(e, hint=_V4_DELETE_HINT)
             raise e
 
     def run_experiment(
