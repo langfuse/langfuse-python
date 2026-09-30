@@ -65,16 +65,6 @@ def _resolve_max_batch_size_bytes() -> Optional[int]:
     )
     return None
 
-
-def _otlp_exporter_supports_max_request_size() -> bool:
-    try:
-        parameters = inspect.signature(OTLPSpanExporter.__init__).parameters
-    except (TypeError, ValueError):
-        return False
-
-    return "max_request_size" in parameters
-
-
 class LangfuseSpanProcessor(BatchSpanProcessor):
     """OpenTelemetry span processor that exports spans to the Langfuse API.
 
@@ -151,23 +141,11 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 else f"{base_url}/api/public/otel/v1/traces"
             )
 
-            exporter_kwargs: Dict[str, Any] = {}
-            max_request_size = _resolve_max_batch_size_bytes()
-            if max_request_size is not None:
-                if _otlp_exporter_supports_max_request_size():
-                    exporter_kwargs["max_request_size"] = max_request_size
-                else:
-                    langfuse_logger.warning(
-                        "%s is set but not enforced. It requires "
-                        "opentelemetry-exporter-otlp-proto-http>=1.45.0.",
-                        LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
-                    )
-
             span_exporter = OTLPSpanExporter(
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
-                **exporter_kwargs,
+                max_request_size=_resolve_max_batch_size_bytes()
             )
 
         if media_manager is not None or mask_otel_spans is not None:
