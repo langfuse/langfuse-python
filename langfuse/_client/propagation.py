@@ -5,6 +5,8 @@ attributes (user_id, session_id, metadata, environment, etc.) that automatically
 propagate to all child spans within the context.
 """
 
+import ast
+import json
 import re
 from typing import (
     Any,
@@ -492,6 +494,12 @@ def _get_propagated_attributes_from_context(
                     propagated_attributes[span_key] = int(baggage_value)
                     continue
 
+                if span_key == LangfuseOtelSpanAttributes.TRACE_TAGS and isinstance(
+                    baggage_value, str
+                ):
+                    propagated_attributes[span_key] = _parse_baggage_tags(baggage_value)
+                    continue
+
                 propagated_attributes[span_key] = (
                     baggage_value
                     if isinstance(baggage_value, (str, list))
@@ -540,6 +548,22 @@ def _get_propagated_attributes_from_context(
         )
 
     return propagated_attributes
+
+
+def _parse_baggage_tags(value: str) -> List[str]:
+    # The Python SDK writes str(list), e.g. "['a', 'b']", and the JS SDK writes "a,b".
+    # JSON goes first because literal_eval does not join JSON's escaped surrogate pairs.
+    if value.startswith("["):
+        for parse in (json.loads, ast.literal_eval):
+            try:
+                tags = parse(value)
+            except Exception:
+                continue
+
+            if isinstance(tags, list) and all(isinstance(tag, str) for tag in tags):
+                return tags
+
+    return value.split(",")
 
 
 def _set_propagated_attribute(
