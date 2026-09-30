@@ -12,11 +12,10 @@ Key features:
 """
 
 import base64
-import inspect
 import logging
 import os
 import threading
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Callable, Dict, List, Optional, cast
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -64,6 +63,7 @@ def _resolve_max_batch_size_bytes() -> Optional[int]:
         raw_value,
     )
     return None
+
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
     """OpenTelemetry span processor that exports spans to the Langfuse API.
@@ -145,7 +145,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
-                max_request_size=_resolve_max_batch_size_bytes()
+                max_request_size=_resolve_max_batch_size_bytes(),
             )
 
         if media_manager is not None or mask_otel_spans is not None:

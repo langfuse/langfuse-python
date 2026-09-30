@@ -70,9 +70,6 @@ Maximum serialized size in bytes (before compression) of a span batch exported b
 default OTLP exporter. Oversized batches are dropped before sending and logged as a
 failed export. Must be a positive integer. Custom span exporters are not affected.
 
-Requires ``opentelemetry-exporter-otlp-proto-http>=1.45.0``; older versions do not
-enforce a limit.
-
 **Default value:** ``67108864`` (64 MiB)
 """
 
