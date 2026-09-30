@@ -77,7 +77,7 @@ def test_stream_chat_models(model_name):
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 def test_stream_completions_models(model_name):
     name = f"test_stream_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -181,7 +181,7 @@ def test_invoke_chat_models(model_name):
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 def test_invoke_in_completions_models(model_name):
     name = f"test_invoke_in_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -230,7 +230,7 @@ def test_invoke_in_completions_models(model_name):
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 def test_batch_in_completions_models(model_name):
     name = f"test_batch_in_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -386,7 +386,7 @@ async def test_astream_chat_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 async def test_astream_completions_models(model_name):
     name = f"test_astream_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -494,7 +494,7 @@ async def test_ainvoke_chat_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 async def test_ainvoke_in_completions_models(model_name):
     name = f"test_ainvoke_in_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -598,7 +598,7 @@ def test_chains_batch_in_chat_models(model_name):
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 def test_chains_batch_in_completions_models(model_name):
     name = f"test_chains_batch_in_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -704,7 +704,7 @@ async def test_chains_abatch_in_chat_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 async def test_chains_abatch_in_completions_models(model_name):
     name = f"test_chains_abatch_in_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -809,7 +809,7 @@ async def test_chains_ainvoke_chat_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 async def test_chains_ainvoke_completions_models(model_name):
     name = f"test_chains_ainvoke_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -927,7 +927,7 @@ async def test_chains_astream_chat_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo-instruct"])
+@pytest.mark.parametrize("model_name", ["gpt-4.1"])
 async def test_chains_astream_completions_models(model_name):
     name = f"test_chains_astream_completions_models-{create_uuid()}"
     tags = ["Hello", "world"]

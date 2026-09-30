@@ -409,7 +409,7 @@ def test_openai_completion(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-instruct",
+        model="gpt-4.1",
         prompt="1 + 1 = ",
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -428,7 +428,7 @@ def test_openai_completion(openai):
     assert completion.choices[0].text == generation.data[0].output
     assert generation.data[0].input == "1 + 1 = "
     assert generation.data[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-instruct" in generation.data[0].model
+    assert "gpt-4.1" in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -449,7 +449,7 @@ def test_openai_completion_stream(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-instruct",
+        model="gpt-4.1",
         prompt="1 + 1 = ",
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -475,7 +475,7 @@ def test_openai_completion_stream(openai):
 
     assert generation.data[0].input == "1 + 1 = "
     assert generation.data[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-instruct" in generation.data[0].model
+    assert "gpt-4.1" in generation.data[0].model
     assert generation.data[0].start_time is not None
     assert generation.data[0].end_time is not None
     assert generation.data[0].start_time < generation.data[0].end_time
@@ -597,7 +597,7 @@ def test_openai_completion_with_langfuse_prompt(openai):
     )
     openai.OpenAI().completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo-instruct",
+        model="gpt-4.1",
         prompt="1 + 1 = ",
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -619,7 +619,7 @@ def test_fails_wrong_name(openai):
     with pytest.raises(TypeError, match="name must be a string"):
         openai.OpenAI().completions.create(
             name={"key": "generation_name"},
-            model="gpt-3.5-turbo-instruct",
+            model="gpt-4.1",
             prompt="1 + 1 = ",
             temperature=0,
         )
@@ -629,7 +629,7 @@ def test_fails_wrong_trace_id(openai):
     with pytest.raises(TypeError, match="trace_id must be a string"):
         openai.OpenAI().completions.create(
             trace_id={"trace_id": "metadata"},
-            model="gpt-3.5-turbo-instruct",
+            model="gpt-4.1",
             prompt="1 + 1 = ",
             temperature=0,
         )
