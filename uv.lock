@@ -3,20 +3,20 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer = "2026-09-23T09:55:45.072586391Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-opentelemetry-api = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-exporter-http-transport = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-exporter-otlp-common = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-common = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-http = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-instrumentation = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-instrumentation-threading = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-proto = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-sdk = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
-opentelemetry-semantic-conventions = { timestamp = "0001-01-01T00:00:00Z", span = "P3D" }
+opentelemetry-sdk = { timestamp = "2026-09-27T09:55:45.07259989Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-common = { timestamp = "2026-09-27T09:55:45.072602529Z", span = "P3D" }
+opentelemetry-api = { timestamp = "2026-09-27T09:55:45.072592938Z", span = "P3D" }
+opentelemetry-instrumentation-threading = { timestamp = "2026-09-27T09:55:45.072606649Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-http = { timestamp = "2026-09-27T09:55:45.072603292Z", span = "P3D" }
+opentelemetry-proto = { timestamp = "2026-09-27T09:55:45.072601503Z", span = "P3D" }
+opentelemetry-exporter-http-transport = { timestamp = "2026-09-27T09:55:45.07260482Z", span = "P3D" }
+opentelemetry-semantic-conventions = { timestamp = "2026-09-27T09:55:45.072600686Z", span = "P3D" }
+opentelemetry-exporter-otlp-common = { timestamp = "2026-09-27T09:55:45.07260406Z", span = "P3D" }
+opentelemetry-instrumentation = { timestamp = "2026-09-27T09:55:45.07260589Z", span = "P3D" }
 
 [[package]]
 name = "annotated-types"
@@ -247,7 +247,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -554,7 +554,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "4.15.6"
+version = "4.16.0"
 source = { editable = "." }
 dependencies = [
     { name = "backoff" },
