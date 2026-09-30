@@ -47,7 +47,10 @@ class ExperimentsClient:
         Parameters
         ----------
         from_start_time : dt.datetime
-            Retrieve only experiments on or after this datetime.
+            Required. Retrieve only experiments with events on or after this
+            datetime. A lower bound is required so the query stays fast on
+            large projects; pair it with `toStartTime` to select a specific
+            window.
 
         fields : typing.Optional[str]
             Comma-separated list of field groups to include. Available groups:
@@ -145,7 +148,10 @@ class ExperimentsClient:
         Parameters
         ----------
         from_start_time : dt.datetime
-            Retrieve only experiment items started on or after this datetime.
+            Required. Retrieve only experiment items started on or after this
+            datetime. A lower bound is required so the query stays fast on
+            large projects; pair it with `toStartTime` to select a specific
+            window.
 
         fields : typing.Optional[str]
             Comma-separated list of field groups to include. Available groups:
@@ -263,7 +269,10 @@ class AsyncExperimentsClient:
         Parameters
         ----------
         from_start_time : dt.datetime
-            Retrieve only experiments on or after this datetime.
+            Required. Retrieve only experiments with events on or after this
+            datetime. A lower bound is required so the query stays fast on
+            large projects; pair it with `toStartTime` to select a specific
+            window.
 
         fields : typing.Optional[str]
             Comma-separated list of field groups to include. Available groups:
@@ -368,7 +377,10 @@ class AsyncExperimentsClient:
         Parameters
         ----------
         from_start_time : dt.datetime
-            Retrieve only experiment items started on or after this datetime.
+            Required. Retrieve only experiment items started on or after this
+            datetime. A lower bound is required so the query stays fast on
+            large projects; pair it with `toStartTime` to select a specific
+            window.
 
         fields : typing.Optional[str]
             Comma-separated list of field groups to include. Available groups:
