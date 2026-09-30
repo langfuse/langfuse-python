@@ -1167,6 +1167,77 @@ async def test_openai_async_stream_captures_service_tier_from_chunks(
     assert model_parameters["temperature"] == 0
 
 
+def test_chat_completion_captures_reasoning_parameters(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response()
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-reasoning-params",
+            model="gpt-5",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            reasoning_effort="minimal",
+            verbosity="low",
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-reasoning-params")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert model_parameters["reasoning_effort"] == "minimal"
+    assert model_parameters["verbosity"] == "low"
+
+
+def test_chat_completion_reasoning_parameters_absent_by_default(
+    langfuse_memory_client, get_span, json_attr
+):
+    from openai._types import NOT_GIVEN
+
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response()
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-reasoning-params-absent",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            reasoning_effort=NOT_GIVEN,
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-reasoning-params-absent")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert "reasoning_effort" not in model_parameters
+    assert "verbosity" not in model_parameters
+
+
+def test_responses_kwargs_capture_reasoning_parameters():
+    data = lf_openai_module._get_langfuse_data_from_kwargs(
+        SimpleNamespace(type="chat", object="Responses"),
+        {
+            "model": "gpt-5",
+            "input": "1 + 1 = ?",
+            "reasoning": {"effort": "high", "summary": "auto"},
+            "text": {"verbosity": "high", "format": {"type": "text"}},
+            "max_output_tokens": 256,
+        },
+    )
+
+    model_parameters = data["model_parameters"]
+    assert model_parameters["reasoning_effort"] == "high"
+    assert model_parameters["reasoning_summary"] == "auto"
+    assert model_parameters["verbosity"] == "high"
+    assert model_parameters["max_output_tokens"] == 256
+    assert "max_tokens" not in model_parameters
+
+
 def test_embedding_model_parameters_do_not_include_service_tier(
     langfuse_memory_client, get_span, json_attr
 ):

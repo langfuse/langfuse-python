@@ -10,6 +10,11 @@ from tests.support.utils import create_uuid, encode_file_to_base64, get_api
 
 langfuse: Langfuse | None = None
 
+requires_legacy_completion_model = pytest.mark.skip(
+    reason="OpenAI retired gpt-3.5-turbo-instruct, the legacy completions model "
+    "this test depends on"
+)
+
 
 @pytest.fixture(scope="module")
 def openai():
@@ -405,6 +410,7 @@ def test_openai_chat_completion_with_seed(openai):
     assert len(completion.choices) != 0
 
 
+@requires_legacy_completion_model
 def test_openai_completion(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().completions.create(
@@ -445,6 +451,7 @@ def test_openai_completion(openai):
     assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
 
+@requires_legacy_completion_model
 def test_openai_completion_stream(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().completions.create(
@@ -588,6 +595,7 @@ def test_openai_completion_stream_fail(openai):
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
+@requires_legacy_completion_model
 def test_openai_completion_with_langfuse_prompt(openai):
     generation_name = create_uuid()
     langfuse = Langfuse()
