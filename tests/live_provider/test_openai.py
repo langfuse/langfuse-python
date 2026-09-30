@@ -407,7 +407,7 @@ def test_openai_chat_completion_with_seed(openai):
 
 def test_openai_completion(openai):
     generation_name = create_uuid()
-    completion = openai.OpenAI().completions.create(
+    completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-4.1",
         prompt="1 + 1 = ",
@@ -447,7 +447,7 @@ def test_openai_completion(openai):
 
 def test_openai_completion_stream(openai):
     generation_name = create_uuid()
-    completion = openai.OpenAI().completions.create(
+    completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-4.1",
         prompt="1 + 1 = ",
@@ -504,7 +504,7 @@ def test_openai_completion_fail(openai):
     openai.api_key = ""
 
     with pytest.raises(Exception):
-        openai.OpenAI().completions.create(
+        openai.OpenAI().chat.completions.create(
             name=generation_name,
             model="fake",
             prompt="1 + 1 = ",
@@ -546,7 +546,7 @@ def test_openai_completion_stream_fail(openai):
     openai.api_key = ""
 
     with pytest.raises(Exception):
-        openai.OpenAI().completions.create(
+        openai.OpenAI().chat.completions.create(
             name=generation_name,
             model="gpt-3.5-turbo",
             prompt="1 + 1 = ",
@@ -595,7 +595,7 @@ def test_openai_completion_with_langfuse_prompt(openai):
     prompt_client = langfuse.create_prompt(
         name=prompt_name, prompt="test prompt", labels=["production"]
     )
-    openai.OpenAI().completions.create(
+    openai.OpenAI().chat.completions.create(
         name=generation_name,
         model="gpt-4.1",
         prompt="1 + 1 = ",
