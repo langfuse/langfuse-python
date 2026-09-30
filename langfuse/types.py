@@ -28,9 +28,8 @@ from typing import (
     Protocol,
     Sequence,
     TypedDict,
+    Union,
 )
-
-from opentelemetry.util.types import AttributeValue
 
 try:
     from typing import NotRequired  # type: ignore
@@ -39,6 +38,20 @@ except ImportError:
 
 
 from langfuse.api import MediaContentType
+
+# Span attribute values accepted by the OpenTelemetry trace API. OpenTelemetry 1.45
+# widened ``opentelemetry.util.types.AttributeValue`` to the recursive ``AnyValue``,
+# which mypy cannot use as a type alias.
+AttributeValue = Union[
+    str,
+    bool,
+    int,
+    float,
+    Sequence[str],
+    Sequence[bool],
+    Sequence[int],
+    Sequence[float],
+]
 
 SpanLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]
 

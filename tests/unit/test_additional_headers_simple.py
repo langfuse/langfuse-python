@@ -180,16 +180,16 @@ class TestAdditionalHeadersSimple:
         exporter = processor.span_exporter
 
         # Verify additional headers are in the exporter's headers
-        assert exporter._headers["X-Custom-Trace-Header"] == "trace-value"
-        assert exporter._headers["X-Override-Default"] == "override-value"
+        assert exporter._client._headers["x-custom-trace-header"] == "trace-value"
+        assert exporter._client._headers["x-override-default"] == "override-value"
 
         # Verify default headers are still present
-        assert "Authorization" in exporter._headers
-        assert "x-langfuse-sdk-name" in exporter._headers
-        assert "x-langfuse-public-key" in exporter._headers
+        assert "authorization" in exporter._client._headers
+        assert "x-langfuse-sdk-name" in exporter._client._headers
+        assert "x-langfuse-public-key" in exporter._client._headers
 
         # Check that our override worked
-        assert exporter._headers["X-Override-Default"] == "override-value"
+        assert exporter._client._headers["x-override-default"] == "override-value"
 
     def test_span_processor_none_additional_headers_works(self):
         """Test that span processor works with None additional headers."""
@@ -207,9 +207,9 @@ class TestAdditionalHeadersSimple:
         exporter = processor.span_exporter
 
         # Verify default headers are present
-        assert "Authorization" in exporter._headers
-        assert "x-langfuse-sdk-name" in exporter._headers
-        assert "x-langfuse-public-key" in exporter._headers
+        assert "authorization" in exporter._client._headers
+        assert "x-langfuse-sdk-name" in exporter._client._headers
+        assert "x-langfuse-public-key" in exporter._client._headers
 
     def test_span_processor_uses_custom_span_exporter_when_provided(self):
         """Test that a custom exporter bypasses the default OTLP exporter construction."""
