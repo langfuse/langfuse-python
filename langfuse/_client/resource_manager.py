@@ -677,6 +677,11 @@ def _init_tracer_provider(
         otel_trace_api.set_tracer_provider(provider)
 
     else:
+        if sample_rate is not None and sample_rate < 1:
+            langfuse_logger.warning(
+                "Configuration: sample_rate was ignored because an OpenTelemetry TracerProvider is already registered. "
+                "Configure the sampler on your own TracerProvider instead."
+            )
         if id_generator is not None:
             langfuse_logger.warning(
                 "Configuration: id_generator was ignored because an OpenTelemetry TracerProvider is already registered. "
