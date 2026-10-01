@@ -45,6 +45,7 @@ class MediaManager:
         self._enabled = os.environ.get(
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
+        self._cancelled_media_ids: set[str] = set()
 
     def reinitialize(
         self,
@@ -65,6 +66,14 @@ class MediaManager:
                 self._queue.task_done()
                 return
 
+            if upload_job["media_id"] in self._cancelled_media_ids:
+                self._cancelled_media_ids.discard(upload_job["media_id"])
+                logger.debug(
+                    f"Media: Skipping cancelled upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
+                )
+                self._queue.task_done()
+                return
+
             logger.debug(
                 "Media: Processing upload for media_id=%s in trace_id=%s",
                 upload_job["media_id"],
@@ -82,6 +91,16 @@ class MediaManager:
                 e,
             )
             self._queue.task_done()
+
+    def cancel_pending_uploads(self, *, media_ids: set[str]) -> None:
+        """Cancel media uploads enqueued for a batch that was dropped.
+
+        The mask hook runs after media attributes are processed, so upload jobs
+        for a batch are already queued by the time the hook decides to drop it.
+        Mark those media IDs so the consumer skips them instead of uploading the
+        bytes the hook just redacted.
+        """
+        self._cancelled_media_ids.update(media_ids)
 
     def signal_shutdown(self, *, count: int = 1) -> None:
         for _ in range(count):
