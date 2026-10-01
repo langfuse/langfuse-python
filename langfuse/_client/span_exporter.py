@@ -94,16 +94,21 @@ _OUTPUT_MEDIA_ATTRIBUTE_PREFIXES = (
 class LangfuseTransformingSpanExporter(SpanExporter):
     """Apply Langfuse export-stage transformations before delegating export."""
 
+    _MAX_UNMASKED_ATTRIBUTE_KEYS_IN_WARNING = 10
+
     def __init__(
         self,
         *,
         exporter: SpanExporter,
         media_manager: Optional[MediaManager],
         mask_otel_spans: Optional[MaskOtelSpansFunction],
+        mask_configured: bool = False,
     ) -> None:
         self._exporter = exporter
         self._media_manager = media_manager
         self._mask_otel_spans = mask_otel_spans
+        self._mask_configured = mask_configured
+        self._mask_coverage_warning_logged = False
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         span_attributes = [
@@ -126,6 +131,8 @@ class LangfuseTransformingSpanExporter(SpanExporter):
                 return SpanExportResult.SUCCESS
 
             span_attributes = masked_span_attributes
+        elif self._mask_configured:
+            self._warn_if_mask_misses_attributes(span_attributes=span_attributes)
 
         transformed_spans = [
             self._clone_span(span=span, attributes=attributes)
@@ -136,6 +143,36 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             return SpanExportResult.SUCCESS
 
         return self._exporter.export(transformed_spans)
+
+    def _warn_if_mask_misses_attributes(
+        self,
+        *,
+        span_attributes: Sequence[tuple[ReadableSpan, Dict[str, AttributeValue]]],
+    ) -> None:
+        if self._mask_coverage_warning_logged:
+            return
+
+        unmasked_keys = sorted(
+            {
+                key
+                for _, attributes in span_attributes
+                for key, value in attributes.items()
+                if _is_unmasked_io_attribute(key=key, value=value)
+            }
+        )
+
+        if not unmasked_keys:
+            return
+
+        self._mask_coverage_warning_logged = True
+        langfuse_logger.warning(
+            "Masking warning: `mask` only applies to data set through Langfuse SDK APIs "
+            "and does not inspect attributes set by other OpenTelemetry instrumentations. "
+            "Exported spans contain input or output attributes that `mask` did not "
+            "process: %s. Configure `mask_otel_spans` to mask them before export. "
+            "This warning is only logged once.",
+            ", ".join(unmasked_keys[: self._MAX_UNMASKED_ATTRIBUTE_KEYS_IN_WARNING]),
+        )
 
     def shutdown(self) -> None:
         self._exporter.shutdown()
@@ -662,6 +699,21 @@ def _media_field_for_attribute(
         return "output"
 
     return "metadata"
+
+
+def _is_unmasked_io_attribute(*, key: str, value: AttributeValue) -> bool:
+    if key.startswith("langfuse."):
+        return False
+
+    if _media_field_for_attribute(key) == "metadata":
+        return False
+
+    if isinstance(value, str):
+        return True
+
+    return _is_attribute_sequence(value) and any(
+        isinstance(item, str) for item in cast(Sequence[Any], value)
+    )
 
 
 def _get_trace_id(span: ReadableSpan) -> str:
