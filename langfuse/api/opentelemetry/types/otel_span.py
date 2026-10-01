@@ -66,7 +66,7 @@ class OtelSpan(UniversalBaseModel):
     Span attributes including Langfuse-specific attributes (langfuse.observation.*)
     """
 
-    status: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    status: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Span status object
     """
