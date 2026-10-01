@@ -132,6 +132,44 @@ def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
     )
 
 
+def test_llm_callback_ends_generation_with_empty_generations(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    response = LLMResult(
+        generations=[[]],
+        llm_output={
+            "token_usage": {
+                "prompt_tokens": 2,
+                "completion_tokens": 0,
+                "total_tokens": 2,
+            },
+            "model_name": "empty-model",
+        },
+    )
+
+    handler.on_llm_start(
+        {"name": "EmptyLLM"},
+        ["hello"],
+        run_id=run_id,
+        invocation_params={"model_name": "empty-model"},
+    )
+    handler.on_llm_end(response, run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("EmptyLLM")
+
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "empty-model"
+    )
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "prompt_tokens": 2,
+        "completion_tokens": 0,
+        "total_tokens": 2,
+    }
+
+
 def test_lcel_chain_exports_intermediate_chain_spans(
     langfuse_memory_client, get_span, find_spans
 ):
