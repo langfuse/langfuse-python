@@ -882,7 +882,7 @@ class TestBasicSpans(TestOTelBase):
         spans = self.get_spans_by_name(memory_exporter, "custom-parent-span")
         assert len(spans) == 1, "Expected one span"
         assert spans[0]["trace_id"] == trace_id
-        assert spans[0]["attributes"][LangfuseOtelSpanAttributes.AS_ROOT] is True
+        assert LangfuseOtelSpanAttributes.AS_ROOT not in spans[0]["attributes"]
 
     def test_multiple_generations_in_trace(self, langfuse_client, memory_exporter):
         """Test creating multiple generation spans within the same trace."""
