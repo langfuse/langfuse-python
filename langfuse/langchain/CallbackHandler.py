@@ -594,7 +594,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     session_id=parsed_trace_attributes.get("session_id", None),
                     tags=parsed_trace_attributes.get("tags", None),
                     metadata=parsed_trace_attributes.get("metadata", None),
-                    trace_name=parsed_trace_attributes.get("trace_name", None),
+                    trace_name=parsed_trace_attributes.get("trace_name", span_name),
                 )
 
                 root_run_state = self._get_root_run_state(run_id)
