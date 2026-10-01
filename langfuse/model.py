@@ -351,11 +351,21 @@ class ChatPromptClient(BasePromptClient):
                                 compiled_msg = dict(msg)  # type: ignore
                                 # Ensure role and content are always present
                                 compiled_msg["role"] = msg.get("role", "NOT_GIVEN")
+                                # Only string content is templated. An
+                                # injected history message can legitimately
+                                # carry non-string content -- content=None
+                                # for an assistant tool-call turn, or a list
+                                # of content parts for a multimodal message
+                                # -- which must be passed through untouched
+                                # rather than fed to the string parser.
+                                msg_content = msg.get("content", "")
                                 compiled_msg["content"] = (
                                     TemplateParser.compile_template(
-                                        msg.get("content", ""),  # type: ignore
+                                        msg_content,  # type: ignore
                                         kwargs,
                                     )
+                                    if isinstance(msg_content, str)
+                                    else msg_content
                                 )
                                 compiled_messages.append(compiled_msg)
                             else:
@@ -464,10 +474,21 @@ class ChatPromptClient(BasePromptClient):
                     raise ImportError(import_error) from e
             else:
                 if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    content = msg["content"]  # type: ignore
+                    if isinstance(content, str):
+                        lc_content: Any = self._get_langchain_prompt_string(content)
+                    else:
+                        # Non-string content (a tool-call turn's None, or
+                        # multimodal content parts) has no mustache syntax to
+                        # convert. LangChain (role, content) tuples accept a
+                        # list but not None, so normalize None to "" (its
+                        # convention for a tool-call message) and pass a list
+                        # through unchanged.
+                        lc_content = "" if content is None else content
                     langchain_messages.append(
                         (
                             msg["role"],  # type: ignore
-                            self._get_langchain_prompt_string(msg["content"]),  # type: ignore
+                            lc_content,
                         ),
                     )
 
