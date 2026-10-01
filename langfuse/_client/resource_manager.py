@@ -262,6 +262,7 @@ class LangfuseResourceManager:
                 media_manager=self._media_manager,
                 mask_otel_spans=mask_otel_spans,
             )
+            self._span_processor = langfuse_processor
             tracer_provider.add_span_processor(langfuse_processor)
 
             self._otel_tracer = tracer_provider.get_tracer(
@@ -485,46 +486,54 @@ class LangfuseResourceManager:
     @classmethod
     def reset(cls) -> None:
         with cls._lock:
-            for key in cls._instances:
-                cls._instances[key].shutdown()
+            for key in list(cls._instances.keys()):
+                if key in cls._instances:
+                    cls._instances[key].shutdown()
 
             cls._instances.clear()
 
     def add_score_task(self, event: dict, *, force_sample: bool = False) -> None:
         try:
-            # Sample scores with the same sampler that is used for tracing
-            tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-            should_sample = (
-                force_sample
-                or isinstance(
-                    tracer_provider, otel_trace_api.ProxyTracerProvider
-                )  # default to in-sample if otel sampler is not available
-                or (
-                    (
-                        tracer_provider.sampler.should_sample(
-                            parent_context=None,
-                            trace_id=int(event["body"].trace_id, 16),
-                            name="score",
-                        ).decision
-                        == Decision.RECORD_AND_SAMPLE
-                        if hasattr(event["body"], "trace_id")
+            with self._lock:
+                if getattr(self, "_shutdown", False):
+                    langfuse_logger.warning(
+                        "Langfuse client is already shut down. Dropping score event."
+                    )
+                    return
+
+                # Sample scores with the same sampler that is used for tracing
+                tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+                should_sample = (
+                    force_sample
+                    or isinstance(
+                        tracer_provider, otel_trace_api.ProxyTracerProvider
+                    )  # default to in-sample if otel sampler is not available
+                    or (
+                        (
+                            tracer_provider.sampler.should_sample(
+                                parent_context=None,
+                                trace_id=int(event["body"].trace_id, 16),
+                                name="score",
+                            ).decision
+                            == Decision.RECORD_AND_SAMPLE
+                            if hasattr(event["body"], "trace_id")
+                            else True
+                        )
+                        if event["body"].trace_id
+                        is not None  # do not sample out session / dataset run scores
                         else True
                     )
-                    if event["body"].trace_id
-                    is not None  # do not sample out session / dataset run scores
-                    else True
                 )
-            )
 
-            if should_sample:
-                langfuse_logger.debug(
-                    "Score: Enqueuing event type=%s for trace_id=%s name=%s value=%s",
-                    event["type"],
-                    event["body"].trace_id,
-                    event["body"].name,
-                    event["body"].value,
-                )
-                self._score_ingestion_queue.put(event, block=False)
+                if should_sample:
+                    langfuse_logger.debug(
+                        "Score: Enqueuing event type=%s for trace_id=%s name=%s value=%s",
+                        event["type"],
+                        event["body"].trace_id,
+                        event["body"].name,
+                        event["body"].value,
+                    )
+                    self._score_ingestion_queue.put(event, block=False)
 
         except Full:
             langfuse_logger.warning(
@@ -546,12 +555,19 @@ class LangfuseResourceManager:
         event: dict,
     ) -> None:
         try:
-            langfuse_logger.debug(
-                "Trace: Enqueuing event type=%s for trace_id=%s",
-                event["type"],
-                event["body"].id,
-            )
-            self._score_ingestion_queue.put(event, block=False)
+            with self._lock:
+                if getattr(self, "_shutdown", False):
+                    langfuse_logger.warning(
+                        "Langfuse client is already shut down. Dropping trace event."
+                    )
+                    return
+
+                langfuse_logger.debug(
+                    "Trace: Enqueuing event type=%s for trace_id=%s",
+                    event["type"],
+                    event["body"].id,
+                )
+                self._score_ingestion_queue.put(event, block=False)
 
         except Full:
             langfuse_logger.warning(
@@ -635,13 +651,41 @@ class LangfuseResourceManager:
         langfuse_logger.debug("Successfully flushed media upload queue")
 
     def shutdown(self) -> None:
-        self._shutdown = True
+        with self._lock:
+            if getattr(self, "_shutdown", False):
+                return
 
-        # Unregister the atexit handler first
-        atexit.unregister(self.shutdown)
+            self._shutdown = True
 
-        self.flush()
-        self._stop_and_join_consumer_threads()
+            # Unregister the atexit handler first
+            atexit.unregister(self.shutdown)
+
+            # Evict from singleton registry so subsequent client initializations
+            # construct a fresh, active manager instead of reusing a shut down one
+            if hasattr(self, "public_key") and self.public_key in self._instances:
+                if self._instances[self.public_key] is self:
+                    del self._instances[self.public_key]
+
+            self.flush()
+            self._stop_and_join_consumer_threads()
+
+            # Shut down and detach span processor
+            if hasattr(self, "_span_processor") and self._span_processor is not None:
+                try:
+                    self._span_processor.shutdown()
+                except Exception as e:
+                    langfuse_logger.debug("Error shutting down span processor: %s", e)
+
+                if self.tracer_provider is not None and hasattr(
+                    self.tracer_provider, "_active_span_processor"
+                ):
+                    active_proc = self.tracer_provider._active_span_processor
+                    if hasattr(active_proc, "_span_processors"):
+                        active_proc._span_processors = tuple(
+                            p
+                            for p in active_proc._span_processors
+                            if p is not self._span_processor
+                        )
 
 
 def _init_tracer_provider(
