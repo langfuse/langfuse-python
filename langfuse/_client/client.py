@@ -3272,7 +3272,7 @@ class Langfuse:
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
-        """Fetch traces or observations using legacy read APIs and evaluate each item.
+        """Fetch traces or observations using the v2 observations API and evaluate each item.
 
         This method provides a powerful way to evaluate existing data in Langfuse at scale.
         It fetches items based on filters, transforms them using a mapper function, runs
@@ -3288,10 +3288,13 @@ class Langfuse:
         it memory-efficient for large datasets. It includes comprehensive error handling,
         retry logic, and resume capability for long-running evaluations.
 
-        Legacy platform compatibility:
-            This method reads traces from `GET /api/public/traces` and observations
-            from the legacy `GET /api/public/observations` endpoint. It is supported
-            with Langfuse platform v3 and is not yet supported with platform v4.
+        Data source:
+            Both scopes are read from `GET /api/public/v2/observations` with cursor
+            pagination. This works on Langfuse platform v4 events_only deployments
+            (where the v3 read endpoints are unavailable) and remains available on
+            v3. For `scope="traces"`, observations are collapsed to one
+            representative per trace (preferring the root observation), because
+            the v2 endpoint has no trace-level read.
 
         Args:
             scope: The type of items to evaluate. Must be one of:
@@ -3310,7 +3313,12 @@ class Langfuse:
                 Default: None (fetches all items).
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Default: 50.
-            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'.
+            fetch_trace_fields: Comma-separated list of v2 observation field groups to
+                request (merged with the default set: 'core', 'basic', 'io', 'metadata',
+                'model', 'usage', 'trace_context'). Legacy-only groups ('observations',
+                'scores') are dropped because the v2 endpoint returns one observation
+                at a time. Example: 'io,metrics' to additionally fetch latency metrics.
+                Note: v2 metadata values are truncated to 200 characters unless expanded.
             max_items: Maximum total number of items to process. If None, processes all
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).

@@ -25,10 +25,112 @@ from typing import (
 
 from langfuse.api import (
     ObservationsView,
+    ObservationV2,
     TraceWithFullDetails,
 )
 from langfuse.experiment import Evaluation, EvaluatorFunction
 from langfuse.logger import langfuse_logger as logger
+
+# v2 observations field groups. ``core`` carries id/trace_id/type/name and
+# similar observation metadata, ``basic`` adds level/status/version/etc,
+# ``io`` carries the input/output strings, ``metadata`` carries the
+# observation metadata (separate from ``io``), ``usage`` carries token and
+# cost details, ``model`` carries the model id, ``trace_context`` carries
+# tags/release/trace_name. The legacy ``/api/public/traces`` ``io`` /
+# ``scores`` / ``observations`` / ``metrics`` field groups are not selectable
+# on the v2 read endpoint because it returns one observation at a time.
+_DEFAULT_V2_OBSERVATION_FIELDS = "core,basic,io,metadata,model,usage,trace_context"
+_LEGACY_ONLY_FIELDS = frozenset({"observations", "scores"})
+
+# Trace-level filter columns are translated to their v2 observations-endpoint
+# equivalents when ``scope='traces'`` so a v3-shaped filter still selects the
+# intended traces via the v2 read path.
+_TRACE_FILTER_COLUMN_REWRITES = {
+    "id": "traceId",
+    "name": "traceName",
+    "timestamp": "startTime",
+}
+
+
+def _translate_trace_filter(filter_json: Optional[str]) -> Optional[str]:
+    """Rewrite a v3-shaped trace filter into a v2 observations filter.
+
+    The v2 endpoint cannot filter directly on trace-level columns like ``name``
+    or ``timestamp``; it filters on observations, exposing those trace columns
+    as ``traceName`` and ``startTime``. We translate the JSON filter in place
+    for ``scope='traces'`` callers so that existing trace-level filters
+    continue to select the same set of traces.
+    """
+    if not filter_json:
+        return filter_json
+    try:
+        conditions = json.loads(filter_json)
+    except (TypeError, ValueError):
+        return filter_json
+    if not isinstance(conditions, list):
+        return filter_json
+    for cond in conditions:
+        if not isinstance(cond, dict):
+            continue
+        column = cond.get("column")
+        if column in _TRACE_FILTER_COLUMN_REWRITES:
+            cond["column"] = _TRACE_FILTER_COLUMN_REWRITES[column]
+    return json.dumps(conditions)
+
+
+def _v2_observations_fields(fetch_fields: Optional[str]) -> str:
+    """Translate the legacy ``fetch_trace_fields`` argument into the v2 field
+    groups understood by ``GET /api/public/v2/observations``.
+
+    The default groups cover everything the existing evaluator contract reads.
+    Caller-supplied groups are merged in; legacy-only groups are dropped.
+    """
+    if fetch_fields is None:
+        return _DEFAULT_V2_OBSERVATION_FIELDS
+
+    user_groups = {item.strip() for item in fetch_fields.split(",") if item.strip()}
+    base_groups = {item.strip() for item in _DEFAULT_V2_OBSERVATION_FIELDS.split(",")}
+    merged = (user_groups | base_groups) - _LEGACY_ONLY_FIELDS
+    if not merged:
+        return _DEFAULT_V2_OBSERVATION_FIELDS
+    return ",".join(sorted(merged))
+
+
+def _collapse_observations_to_traces(
+    observations: List[ObservationV2],
+    seen_trace_ids: Optional[Set[str]] = None,
+) -> List[ObservationV2]:
+    """Collapse a flat list of observations to one observation per trace_id.
+
+    The v2 observations endpoint has no trace-level read; this helper takes
+    whatever observations the page returned and returns one representative
+    per trace, preferring the observation that the server already marked as
+    the root (``is_root_observation=True``) regardless of its position in the
+    page.
+
+    ``seen_trace_ids``, when provided, holds the trace IDs already processed
+    in earlier pages. Observations for those traces are skipped so the same
+    trace is never evaluated twice across cursor pages.
+    """
+    chosen: Dict[str, ObservationV2] = {}
+    for observation in observations:
+        trace_id = getattr(observation, "trace_id", None)
+        if not trace_id:
+            continue
+        if seen_trace_ids is not None and trace_id in seen_trace_ids:
+            continue
+        existing = chosen.get(trace_id)
+        if existing is None or (
+            getattr(observation, "is_root_observation", False)
+            and not getattr(existing, "is_root_observation", False)
+        ):
+            chosen[trace_id] = observation
+
+    if seen_trace_ids is not None:
+        seen_trace_ids.update(chosen.keys())
+
+    return list(chosen.values())
+
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
@@ -137,7 +239,7 @@ class MapperFunction(Protocol):
     def __call__(
         self,
         *,
-        item: Union["TraceWithFullDetails", "ObservationsView"],
+        item: Union["TraceWithFullDetails", "ObservationsView", "ObservationV2"],
         **kwargs: Dict[str, Any],
     ) -> Union[EvaluatorInputs, Awaitable[EvaluatorInputs]]:
         """Transform an API response object into evaluator inputs.
@@ -148,8 +250,11 @@ class MapperFunction(Protocol):
 
         Args:
             item: The API response object to transform. The type depends on the scope:
-                - TraceWithFullDetails: When evaluating traces
-                - ObservationsView: When evaluating observations
+                - TraceWithFullDetails: legacy v3 trace response
+                - ObservationsView: legacy v1 observations response
+                - ObservationV2: v2 observations response (used on Langfuse
+                  platform v4 events_only deployments where the legacy endpoints
+                  are unavailable)
 
         Returns:
             EvaluatorInputs: A structured container with:
@@ -835,6 +940,10 @@ class BatchEvaluationRunner:
             client: The Langfuse client instance.
         """
         self.client = client
+        # Holds trace IDs already processed in earlier cursor pages so that
+        # ``scope='traces'`` never evaluates the same trace twice. Reset at
+        # the start of each ``run_async`` call.
+        self._seen_trace_ids: Set[str] = set()
 
     async def run_async(
         self,
@@ -855,15 +964,18 @@ class BatchEvaluationRunner:
         verbose: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
     ) -> BatchEvaluationResult:
-        """Run batch evaluation asynchronously using legacy read APIs.
+        """Run batch evaluation asynchronously using the v2 observations API.
 
         This is the main implementation method that orchestrates the entire batch
         evaluation process: fetching items, mapping, evaluating, creating scores,
         and tracking statistics.
 
-        This runner reads traces from `GET /api/public/traces` and observations
-        from the legacy `GET /api/public/observations` endpoint. It is supported
-        with Langfuse platform v3 and is not yet supported with platform v4.
+        This runner reads both scopes from `GET /api/public/v2/observations`
+        with cursor pagination. That endpoint is the only read path available on
+        Langfuse platform v4 events_only deployments and remains available on
+        v3. For `scope='traces'`, observations are collapsed to one
+        representative per trace (preferring the root observation), since the
+        v2 endpoint has no trace-level read.
 
         Args:
             scope: The type of items to evaluate ("traces", "observations").
@@ -871,7 +983,13 @@ class BatchEvaluationRunner:
             evaluators: List of evaluation functions to run on each item.
             filter: JSON filter string for querying items.
             fetch_batch_size: Number of items to fetch per API call.
-            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'. Default: 'io'
+            fetch_trace_fields: Comma-separated list of v2 observation field groups to
+                request (merged with the default set: 'core', 'basic', 'io', 'metadata',
+                'model', 'usage', 'trace_context'). Legacy-only groups ('observations',
+                'scores') are dropped because the v2 endpoint returns one observation
+                at a time. Example: 'io,metrics' to additionally fetch latency metrics.
+                Note: v2 metadata values are truncated to 200 characters unless expanded.
+                Default: the full default set listed above.
             max_items: Maximum number of items to process (None = all).
             max_concurrency: Maximum number of concurrent evaluations.
             composite_evaluator: Optional function to create composite scores.
@@ -888,6 +1006,9 @@ class BatchEvaluationRunner:
             BatchEvaluationResult with comprehensive statistics.
         """
         start_time = time.time()
+
+        # Reset cross-page trace-collapse state for this run.
+        self._seen_trace_ids.clear()
 
         # Initialize tracking variables
         total_items_fetched = 0
@@ -920,8 +1041,10 @@ class BatchEvaluationRunner:
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        # Pagination state
-        page = 1
+        # Pagination state. The v2 observations endpoint is cursor-based, so
+        # the runner walks the result set with ``next_cursor`` and stops when
+        # the server returns ``meta.cursor=None``.
+        cursor: Optional[str] = None
         has_more = True
         last_item_timestamp: Optional[str] = None
         last_item_id: Optional[str] = None
@@ -948,18 +1071,21 @@ class BatchEvaluationRunner:
 
             # Fetch next batch with retry logic
             try:
-                items = await self._fetch_batch_with_retry(
+                items, next_cursor = await self._fetch_batch_with_retry(
                     scope=scope,
                     filter=effective_filter,
-                    page=page,
+                    cursor=cursor,
                     limit=fetch_batch_size,
                     max_retries=max_retries,
                     fields=fetch_trace_fields,
                 )
             except Exception as e:
-                # Failed after max_retries - create resume token and return
+                # Failed after max_retries - flush what has been processed so
+                # far, then create a resume token and return.
                 error_msg = f"Failed to fetch batch after {max_retries} retries"
                 logger.error("%s: %s", error_msg, e)
+
+                self.client.flush()
 
                 resume_token = BatchEvaluationResumeToken(
                     scope=scope,
@@ -986,6 +1112,15 @@ class BatchEvaluationRunner:
                     item_evaluations=item_evaluations,
                 )
 
+            # Advance the cursor and stop when the server reports it is
+            # done. An empty page is also treated as the end of the stream:
+            # under v2 semantics an empty page typically coincides with
+            # ``cursor=None``, and breaking here matches the pre-v3 path's
+            # behaviour.
+            cursor = next_cursor
+            if cursor is None:
+                has_more = False
+
             # Check if we got any items
             if not items:
                 has_more = False
@@ -996,7 +1131,7 @@ class BatchEvaluationRunner:
             total_items_fetched += len(items)
 
             if verbose:
-                logger.info("Fetched batch %s (%s items)", page, len(items))
+                logger.info("Fetched batch (%s items)", len(items))
 
             # Limit items if max_items would be exceeded
             items_to_process = items
@@ -1013,7 +1148,7 @@ class BatchEvaluationRunner:
 
             # Process items concurrently
             async def process_item(
-                item: Union[TraceWithFullDetails, ObservationsView],
+                item: Union[TraceWithFullDetails, ObservationsView, ObservationV2],
             ) -> Tuple[str, Union[Tuple[int, int, int, List[Evaluation]], Exception]]:
                 """Process a single item and return (item_id, result)."""
                 async with semaphore:
@@ -1094,17 +1229,15 @@ class BatchEvaluationRunner:
                         total_scores_created,
                     )
 
-            # Check if we should continue to next page
-            if len(items) < fetch_batch_size:
-                # Last page - no more items available
-                has_more = False
-            else:
-                page += 1
-
-                # Check max_items again before next fetch
-                if max_items is not None and total_items_fetched >= max_items:
+            # Check if we should continue to next page. ``has_more`` is set inside
+            # the fetch block above, so we only need to honour ``max_items``
+            # here. If the server has already reported ``cursor=None`` the
+            # call set ``has_more = False``; do not flip it back to ``True``
+            # just because ``max_items`` was reached on the last page.
+            if max_items is not None and total_items_fetched >= max_items:
+                if cursor is not None:
                     has_more = True  # More items exist but we're stopping
-                    break
+                break
 
         # Flush all scores to Langfuse
         if verbose:
@@ -1152,52 +1285,83 @@ class BatchEvaluationRunner:
         *,
         scope: str,
         filter: Optional[str],
-        page: int,
+        cursor: Optional[str],
         limit: int,
         max_retries: int,
         fields: Optional[str],
-    ) -> List[Union[TraceWithFullDetails, ObservationsView]]:
-        """Fetch a batch of items with retry logic.
+    ) -> Tuple[
+        List[Union[TraceWithFullDetails, ObservationsView, ObservationV2]],
+        Optional[str],
+    ]:
+        """Fetch a batch of items via the v2 observations API with cursor pagination.
+
+        Both ``scope='traces'`` and ``scope='observations'`` go through the
+        v2 ``GET /api/public/v2/observations`` endpoint, which is the only
+        read path that works on Langfuse platform v4 events_only deployments.
+        The legacy ``GET /api/public/traces`` and ``GET /api/public/observations``
+        endpoints are unavailable there.
 
         Args:
             scope: The type of items ("traces", "observations").
             filter: JSON filter string for querying.
-            page: Page number (1-indexed).
-            limit: Number of items per page.
+            cursor: Pagination cursor returned by the previous page; ``None`` on
+                the first call.
+            limit: Number of items to request per page.
             max_retries: Maximum number of retry attempts.
-            verbose: Whether to log retry attempts.
-            fields: Trace fields to fetch
+            fields: Comma-separated list of v2 field groups to include when
+                fetching traces. Maps to the ``fields`` query parameter on
+                ``/api/public/v2/observations``. Only used when
+                ``scope='traces'``.
 
         Returns:
-            List of items from the API.
+            Tuple of (items, next_cursor). ``items`` is a list of either
+            ``ObservationV2`` (when scope='observations') or one
+            ``ObservationV2`` per trace (when scope='traces'). ``next_cursor``
+            is the cursor for the next page, or ``None`` when no more pages
+            remain.
 
         Raises:
+            ValueError: If ``scope`` is not "traces" or "observations".
             Exception: If all retry attempts fail.
         """
-        if scope == "traces":
-            response = self.client.api.trace.list(
-                page=page,
-                limit=limit,
-                filter=filter,
-                request_options={"max_retries": max_retries},
-                fields=fields,
-            )  # type: ignore
-            return list(response.data)  # type: ignore
-        elif scope == "observations":
-            response = self.client.api.legacy.observations_v1.get_many(
-                page=page,
-                limit=limit,
-                filter=filter,
-                request_options={"max_retries": max_retries},
-            )  # type: ignore
-            return list(response.data)  # type: ignore
-        else:
+        if scope not in ("traces", "observations"):
             error_message = f"Invalid scope: {scope}"
             raise ValueError(error_message)
 
+        v2_fields = _v2_observations_fields(fields)
+        v2_filter = _translate_trace_filter(filter) if scope == "traces" else filter
+
+        response = self.client.api.observations.get_many(  # type: ignore[union-attr]
+            cursor=cursor,
+            limit=limit,
+            filter=v2_filter,
+            request_options={"max_retries": max_retries},
+            fields=v2_fields,
+        )
+
+        next_cursor = cast(
+            Optional[str], response.meta.cursor if response.meta else None
+        )
+
+        if scope == "traces":
+            items = cast(
+                List[Union[TraceWithFullDetails, ObservationsView, ObservationV2]],
+                _collapse_observations_to_traces(
+                    list(response.data),  # type: ignore[arg-type]
+                    seen_trace_ids=self._seen_trace_ids,
+                ),
+            )
+        else:
+            items = cast(
+                List[Union[TraceWithFullDetails, ObservationsView, ObservationV2]],
+                list(response.data),  # type: ignore[arg-type]
+            )
+
+        return items, next_cursor
+
     async def _process_batch_evaluation_item(
         self,
-        item: Union[TraceWithFullDetails, ObservationsView],
+        item: Union[TraceWithFullDetails, ObservationsView, ObservationV2],
         scope: str,
         mapper: MapperFunction,
         evaluators: List[EvaluatorFunction],
@@ -1352,7 +1516,7 @@ class BatchEvaluationRunner:
     async def _run_mapper(
         self,
         mapper: MapperFunction,
-        item: Union[TraceWithFullDetails, ObservationsView],
+        item: Union[TraceWithFullDetails, ObservationsView, ObservationV2],
     ) -> EvaluatorInputs:
         """Run mapper function (handles both sync and async mappers).
 
@@ -1529,7 +1693,7 @@ class BatchEvaluationRunner:
 
     @staticmethod
     def _get_item_id(
-        item: Union[TraceWithFullDetails, ObservationsView],
+        item: Union[TraceWithFullDetails, ObservationsView, ObservationV2],
         scope: str,
     ) -> str:
         """Extract ID from item based on scope.
@@ -1539,13 +1703,19 @@ class BatchEvaluationRunner:
             scope: The type of item.
 
         Returns:
-            The item's ID.
+            The item's ID. For ``scope='traces'`` the returned value is the
+            trace ID, not the observation ID, so downstream score-create calls
+            attach to the intended trace.
         """
+        if scope == "traces":
+            trace_id = getattr(item, "trace_id", None)
+            if trace_id:
+                return trace_id  # type: ignore[no-any-return,return-value]
         return item.id
 
     @staticmethod
     def _get_item_timestamp(
-        item: Union[TraceWithFullDetails, ObservationsView],
+        item: Union[TraceWithFullDetails, ObservationsView, ObservationV2],
         scope: str,
     ) -> str:
         """Extract timestamp from item based on scope.
@@ -1555,33 +1725,25 @@ class BatchEvaluationRunner:
             scope: The type of item.
 
         Returns:
-            ISO 8601 timestamp string.
+            ISO 8601 timestamp string. For ``scope='traces'`` we use the root
+            observation's ``start_time`` as a proxy for the trace's timestamp
+            because the v2 endpoint has no trace-level read.
         """
-        if scope == "traces":
-            # Type narrowing for traces
-            if hasattr(item, "timestamp"):
-                return item.timestamp.isoformat()  # type: ignore[attr-defined]
-        elif scope == "observations":
-            # Type narrowing for observations
-            if hasattr(item, "start_time"):
-                return item.start_time.isoformat()  # type: ignore[attr-defined]
+        start_time = getattr(item, "start_time", None)
+        if start_time is not None:
+            return start_time.isoformat()  # type: ignore[attr-defined,no-any-return]
+        timestamp = getattr(item, "timestamp", None)
+        if timestamp is not None:
+            return timestamp.isoformat()  # type: ignore[attr-defined,no-any-return]
         return ""
 
     @staticmethod
     def _get_timestamp_field_for_scope(scope: str) -> str:
-        """Get the timestamp field name for filtering based on scope.
-
-        Args:
-            scope: The type of items.
-
-        Returns:
-            The field name to use in filters.
+        """Get the v2 observations filter column for resume by last-processed
+        timestamp. The v2 endpoint filters on observation ``startTime``;
+        ``scope='traces'`` uses this as a proxy for the trace's timestamp.
         """
-        if scope == "traces":
-            return "timestamp"
-        elif scope == "observations":
-            return "start_time"
-        return "timestamp"  # Default
+        return "startTime"
 
     @staticmethod
     def _dedupe_tags(tags: Optional[List[str]]) -> List[str]:
