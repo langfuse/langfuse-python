@@ -54,8 +54,14 @@ def _resolve_max_batch_size_bytes() -> Optional[int]:
     if not raw_value:
         return None
 
-    if raw_value.isascii() and raw_value.isdigit() and int(raw_value) > 0:
-        return int(raw_value)
+    if raw_value.isascii() and raw_value.isdigit():
+        try:
+            max_batch_size_bytes = int(raw_value)
+        except ValueError:
+            # Python 3.11+ rejects decimal strings over its int conversion digit limit.
+            max_batch_size_bytes = 0
+        if max_batch_size_bytes > 0:
+            return max_batch_size_bytes
 
     langfuse_logger.warning(
         "Invalid %s=%r. Expected a positive integer. Using the default limit.",
