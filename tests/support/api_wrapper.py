@@ -1,6 +1,6 @@
 import os
 
-import httpx
+import httpx2
 
 from langfuse.api.commons.errors.not_found_error import NotFoundError
 from tests.support.retry import (
@@ -29,7 +29,7 @@ class LangfuseAPI:
         interval_seconds=DEFAULT_RETRY_INTERVAL_SECONDS,
     ):
         def _request():
-            response = httpx.get(url, params=params, auth=self.auth)
+            response = httpx2.get(url, params=params, auth=self.auth)
             payload = response.json()
 
             if response.status_code == 404 and is_not_found_payload(payload):

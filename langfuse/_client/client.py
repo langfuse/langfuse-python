@@ -28,7 +28,7 @@ from typing import (
 )
 
 import backoff
-import httpx
+import httpx2
 from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -201,8 +201,8 @@ class Langfuse:
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
-        httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
-            **Fork safety**: ``httpx.Client`` is thread-safe but not process-safe. When using
+        httpx_client (Optional[httpx2.Client]): Custom httpx2 client for making non-tracing HTTP requests. If not provided, a default client will be created.
+            **Fork safety**: ``httpx2.Client`` is thread-safe but not process-safe. When using
             ``fork()``-based servers (e.g. Gunicorn with ``--preload``), the SDK automatically
             recreates its internally-managed HTTP client in child processes after fork. A custom
             ``httpx_client`` is intentionally left as-is (the fork-inherited copy is reused), so
@@ -318,7 +318,7 @@ class Langfuse:
         base_url: Optional[str] = None,
         host: Optional[str] = None,
         timeout: Optional[int] = None,
-        httpx_client: Optional[httpx.Client] = None,
+        httpx_client: Optional[httpx2.Client] = None,
         debug: bool = False,
         tracing_enabled: Optional[bool] = True,
         flush_at: Optional[int] = None,
@@ -4224,11 +4224,11 @@ class Langfuse:
         return updated_prompt
 
     def _url_encode(self, url: str, *, is_url_param: Optional[bool] = False) -> str:
-        # httpx ≥ 0.28 does its own WHATWG-compliant quoting (eg. encodes bare
+        # httpx2 ≥ 0.28 does its own WHATWG-compliant quoting (eg. encodes bare
         # “%”, “?”, “#”, “|”, … in query/path parts).  Re-quoting here would
         # double-encode, so we skip when the value is about to be sent straight
-        # to httpx (`is_url_param=True`) and the installed version is ≥ 0.28.
-        if is_url_param and Version(httpx.__version__) >= Version("0.28.0"):
+        # to httpx2 (`is_url_param=True`) and the installed version is ≥ 0.28.
+        if is_url_param and Version(httpx2.__version__) >= Version("0.28.0"):
             return url
 
         # urllib.parse.quote does not escape slashes "/" by default; we need to add safe="" to force escaping
