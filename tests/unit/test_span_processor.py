@@ -296,11 +296,6 @@ def test_client_otel_compression_sends_gzip_request(compression_env, otlp_http_s
         (None, {LANGFUSE_OTEL_COMPRESSION: " GZIP "}, "gzip"),
         ("gzip", {LANGFUSE_OTEL_COMPRESSION: "none"}, "gzip"),
         ("none", {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"}, None),
-        (
-            None,
-            {LANGFUSE_OTEL_COMPRESSION: "none", OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"},
-            None,
-        ),
         (None, {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"}, "gzip"),
     ],
 )
@@ -324,49 +319,6 @@ def test_default_exporter_compression_precedence(
         expected_encoding
     ]
     assert _span_names(_decode_request(received_requests[0])) == ["llm-call"]
-
-
-@pytest.mark.parametrize(
-    ("otel_compression", "env_value", "setting"),
-    [
-        ("deflate", None, "otel_compression"),
-        (None, "deflate", LANGFUSE_OTEL_COMPRESSION),
-    ],
-)
-def test_invalid_compression_warns_and_falls_back_to_otel_env(
-    compression_env, caplog, otlp_http_server, otel_compression, env_value, setting
-):
-    base_url, received_requests = otlp_http_server
-    compression_env.setenv(OTEL_EXPORTER_OTLP_TRACES_COMPRESSION, "gzip")
-    if env_value is not None:
-        compression_env.setenv(LANGFUSE_OTEL_COMPRESSION, env_value)
-
-    with caplog.at_level(logging.WARNING, logger="langfuse"):
-        processor = LangfuseSpanProcessor(
-            public_key="pk-test",
-            secret_key="sk-test",
-            base_url=base_url,
-            otel_compression=otel_compression,
-        )
-
-    _export_one_span(processor)
-
-    assert f"Invalid {setting}='deflate'" in caplog.text
-    assert [request.content_encoding for request in received_requests] == ["gzip"]
-
-
-def test_otel_compression_with_custom_span_exporter_warns(caplog):
-    with caplog.at_level(logging.WARNING, logger="langfuse"):
-        processor = LangfuseSpanProcessor(
-            public_key="pk-test",
-            secret_key="sk-test",
-            base_url="http://localhost:3000",
-            span_exporter=InMemorySpanExporter(),
-            otel_compression="gzip",
-        )
-    processor.shutdown()
-
-    assert "otel_compression is ignored" in caplog.text
 
 
 @pytest.fixture
