@@ -195,9 +195,11 @@ class BasePromptClient(ABC):
 
             # ---------- opening brace ----------
             if ch == "{":
-                # leave existing “{{ …” untouched
+                # Leave existing “{{ …” untouched, but push a marker so a later
+                # “}}” can tell a pre-escaped pair from a JSON closing brace.
                 if i + 1 < n and text[i + 1] == "{":
                     out.append("{{")
+                    stack.append(None)  # pre-escaped “{{ … }}” pair
                     i += 2
                     continue
 
@@ -214,13 +216,31 @@ class BasePromptClient(ABC):
 
             # ---------- closing brace ----------
             elif ch == "}":
-                # leave existing “… }}” untouched
+                # A “}}” pair is pre-escaped (left untouched) unless its first
+                # “}” closes a JSON “{” that was doubled above (stack top True):
+                # each doubled “{” needs its own escaped “}}”.
                 if i + 1 < n and text[i + 1] == "}":
+                    top = stack.pop() if stack else False
+                    if top is True:
+                        # First "}" closes the doubled JSON brace: emit its
+                        # escaped pair, then reprocess the second "}".
+                        out.append("}}")
+                        i += 1
+                        continue
+                    # Pre-escaped pair (None), non-JSON close (False), or stray
+                    # pair: leave untouched.
                     out.append("}}")
                     i += 2
                     continue
 
-                is_json = stack.pop() if stack else False
+                # A lone "}" never closes a pre-escaped "{{": skip any stale
+                # markers to find the nearest unmatched "{".
+                is_json = False
+                while stack:
+                    top = stack.pop()
+                    if top is not None:
+                        is_json = top
+                        break
                 out.append("}}" if is_json else "}")
                 i += 1
                 continue
