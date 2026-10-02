@@ -15,10 +15,11 @@ import base64
 import logging
 import os
 import threading
-from typing import Callable, Dict, List, Optional, cast
+from typing import Callable, Dict, List, Literal, Optional, cast
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
+from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
@@ -28,6 +29,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
+    LANGFUSE_OTEL_COMPRESSION,
     LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
@@ -65,6 +67,34 @@ def _resolve_max_batch_size_bytes() -> Optional[int]:
     return None
 
 
+# The Langfuse OTLP endpoint only decodes gzip, so deflate is not offered.
+_COMPRESSION_BY_NAME = {"gzip": Compression.Gzip, "none": Compression.NoCompression}
+
+
+def _resolve_compression(otel_compression: Optional[str]) -> Optional[Compression]:
+    """Return the configured compression, or None to defer to OTEL_EXPORTER_OTLP_*COMPRESSION."""
+    setting = "otel_compression"
+    raw_value = otel_compression
+    if raw_value is None:
+        setting = LANGFUSE_OTEL_COMPRESSION
+        raw_value = os.environ.get(LANGFUSE_OTEL_COMPRESSION, "")
+
+    value = raw_value.strip().lower()
+    if not value:
+        return None
+
+    compression = _COMPRESSION_BY_NAME.get(value)
+    if compression is None:
+        langfuse_logger.warning(
+            "Invalid %s=%r. Expected 'gzip' or 'none'. Falling back to the "
+            "OTEL_EXPORTER_OTLP_*COMPRESSION environment variables.",
+            setting,
+            raw_value,
+        )
+
+    return compression
+
+
 class LangfuseSpanProcessor(BatchSpanProcessor):
     """OpenTelemetry span processor that exports spans to the Langfuse API.
 
@@ -97,6 +127,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         span_exporter: Optional[SpanExporter] = None,
         media_manager: Optional[MediaManager] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
+        otel_compression: Optional[Literal["gzip", "none"]] = None,
     ):
         self.public_key = public_key
         self.blocked_instrumentation_scopes = (
@@ -145,6 +176,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
+                compression=_resolve_compression(otel_compression),
                 max_request_size=_resolve_max_batch_size_bytes(),
             )
 
