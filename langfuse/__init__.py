@@ -49,6 +49,7 @@ Docs: https://langfuse.com/docs — machine-readable index: https://langfuse.com
 .. include:: ../README.md
 """
 
+from langfuse._utils.request import APIError, APIErrors
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -57,6 +58,7 @@ from langfuse.batch_evaluation import (
     EvaluatorStats,
     MapperFunction,
 )
+from langfuse.errors import AuthError, LangfuseError
 from langfuse.experiment import Evaluation, RegressionError, RunnerContext
 
 from ._client import client as _client_module
@@ -99,8 +101,12 @@ Langfuse = _client_module.Langfuse
 
 __all__ = [
     "Langfuse",
+    "LangfuseError",
     "LangfuseMedia",
     "LangfuseMediaReference",
+    "APIError",
+    "APIErrors",
+    "AuthError",
     "get_client",
     "observe",
     "propagate_attributes",
