@@ -59,9 +59,11 @@ class Trace(UniversalBaseModel):
     The user identifier associated with the trace
     """
 
-    metadata: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(
+        default=None
+    )
     """
-    The metadata associated with the trace. Can be any JSON.
+    The metadata associated with the trace. Values can be any JSON; non-object metadata sent at ingestion is returned under the `metadata` key.
     """
 
     tags: typing.List[str] = pydantic.Field()

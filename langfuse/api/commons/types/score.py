@@ -54,7 +54,7 @@ class Score_Numeric(Base):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -100,7 +100,7 @@ class Score_Categorical(Base):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -146,7 +146,7 @@ class Score_Boolean(Base):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -192,7 +192,7 @@ class Score_Correction(Base):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -237,7 +237,7 @@ class Score_Text(Base):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
