@@ -73,6 +73,19 @@ failed export. Must be a positive integer. Custom span exporters are not affecte
 **Default value:** ``67108864`` (64 MiB)
 """
 
+LANGFUSE_OTEL_COMPRESSION = "LANGFUSE_OTEL_COMPRESSION"
+"""
+.. envvar:: LANGFUSE_OTEL_COMPRESSION
+
+Compression for span batches sent by the default OTLP exporter: ``gzip`` or ``none``.
+The ``otel_compression`` client argument takes precedence. If unset, the standard
+``OTEL_EXPORTER_OTLP_TRACES_COMPRESSION`` and ``OTEL_EXPORTER_OTLP_COMPRESSION``
+environment variables apply. ``gzip`` requires Langfuse server v3.30.0 or later.
+Custom span exporters are not affected.
+
+**Default value:** unset
+"""
+
 LANGFUSE_DEBUG = "LANGFUSE_DEBUG"
 """
 .. envvar:: LANGFUSE_DEBUG
