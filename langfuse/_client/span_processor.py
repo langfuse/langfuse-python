@@ -179,6 +179,11 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 compression=_resolve_compression(otel_compression),
                 max_request_size=_resolve_max_batch_size_bytes(),
             )
+        elif otel_compression is not None:
+            langfuse_logger.warning(
+                "otel_compression is ignored because a custom span_exporter was "
+                "provided. Configure compression on the exporter instead."
+            )
 
         if media_manager is not None or mask_otel_spans is not None:
             span_exporter = LangfuseTransformingSpanExporter(

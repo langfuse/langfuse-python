@@ -355,6 +355,20 @@ def test_invalid_compression_warns_and_falls_back_to_otel_env(
     assert [request.content_encoding for request in received_requests] == ["gzip"]
 
 
+def test_otel_compression_with_custom_span_exporter_warns(caplog):
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        processor = LangfuseSpanProcessor(
+            public_key="pk-test",
+            secret_key="sk-test",
+            base_url="http://localhost:3000",
+            span_exporter=InMemorySpanExporter(),
+            otel_compression="gzip",
+        )
+    processor.shutdown()
+
+    assert "otel_compression is ignored" in caplog.text
+
+
 @pytest.fixture
 def tracer_with_processor():
     processor = LangfuseSpanProcessor(
