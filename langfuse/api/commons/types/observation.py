@@ -77,7 +77,7 @@ class Observation(UniversalBaseModel):
     The version of the observation
     """
 
-    metadata: typing.Any = pydantic.Field()
+    metadata: typing.Dict[str, typing.Any] = pydantic.Field()
     """
     Additional metadata of the observation
     """

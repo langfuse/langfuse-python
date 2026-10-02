@@ -49,6 +49,8 @@ class RawObservationsClient:
         """
         Get a list of observations with cursor-based pagination and flexible field selection.
 
+        Together with OpenTelemetry ingestion and Metrics API v2, this is the only real-time read path. Other public API endpoints can delay data by about 10 minutes.
+
         ## Cursor-based Pagination
         This endpoint uses cursor-based pagination for efficient traversal of large datasets.
         The cursor is returned in the response metadata and should be passed in subsequent requests
@@ -151,7 +153,7 @@ class RawObservationsClient:
                                           // - categoryOptions: "any of", "none of"
                                           // - arrayOptions: "any of", "none of", "all of"
                                           // - number: "=", ">", "<", ">=", "<="
-                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches"
+                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches", "is set", "is not set"
                                           // - numberObject: "=", ">", "<", ">=", "<="
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
@@ -392,6 +394,8 @@ class AsyncRawObservationsClient:
         """
         Get a list of observations with cursor-based pagination and flexible field selection.
 
+        Together with OpenTelemetry ingestion and Metrics API v2, this is the only real-time read path. Other public API endpoints can delay data by about 10 minutes.
+
         ## Cursor-based Pagination
         This endpoint uses cursor-based pagination for efficient traversal of large datasets.
         The cursor is returned in the response metadata and should be passed in subsequent requests
@@ -494,7 +498,7 @@ class AsyncRawObservationsClient:
                                           // - categoryOptions: "any of", "none of"
                                           // - arrayOptions: "any of", "none of", "all of"
                                           // - number: "=", ">", "<", ">=", "<="
-                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches"
+                                          // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches", "is set", "is not set"
                                           // - numberObject: "=", ">", "<", ">=", "<="
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
