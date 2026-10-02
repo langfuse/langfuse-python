@@ -180,7 +180,7 @@ def test_callback_simple_openai():
 
         # Initialize components
         handler = CallbackHandler()
-        llm = OpenAI()
+        llm = ChatOpenAI(model="gpt-4o-mini")
         text = (
             "What would be a good company name for a company that makes colorful socks?"
         )
@@ -222,7 +222,7 @@ def test_callback_multiple_invocations_on_different_traces():
         test_name_2 = f"Test Multiple Invocations 2 {create_uuid()}"
 
         # Setup components
-        llm = OpenAI()
+        llm = ChatOpenAI(model="gpt-4o-mini")
         text = (
             "What would be a good company name for a company that makes colorful socks?"
         )
@@ -257,6 +257,10 @@ def test_callback_multiple_invocations_on_different_traces():
         assert generation.output != ""
 
 
+@pytest.mark.skip(
+    reason="OpenAI retired gpt-3.5-turbo-instruct, the legacy completions model "
+    "this test depends on"
+)
 def test_openai_instruct_usage():
     langfuse = Langfuse()
 

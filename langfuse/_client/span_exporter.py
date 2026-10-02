@@ -9,7 +9,6 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.util import BoundedList
 from opentelemetry.trace import format_span_id, format_trace_id
-from opentelemetry.util.types import AttributeValue
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._task_manager.media_manager import MediaManager
@@ -17,6 +16,7 @@ from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
 from langfuse.media import LangfuseMedia
 from langfuse.types import (
+    AttributeValue,
     MaskOtelSpansFunction,
     MaskOtelSpansParams,
     MaskOtelSpansResult,

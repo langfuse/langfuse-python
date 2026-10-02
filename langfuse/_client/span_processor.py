@@ -28,6 +28,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
+    LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.propagation import (
@@ -45,6 +46,23 @@ from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskOtelSpansFunction
+
+
+def _resolve_max_batch_size_bytes() -> Optional[int]:
+    """Return the configured batch byte limit, or None to keep the exporter default."""
+    raw_value = os.environ.get(LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES, "").strip()
+    if not raw_value:
+        return None
+
+    if raw_value.isascii() and raw_value.isdigit() and int(raw_value) > 0:
+        return int(raw_value)
+
+    langfuse_logger.warning(
+        "Invalid %s=%r. Expected a positive integer. Using the default limit.",
+        LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
+        raw_value,
+    )
+    return None
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -127,6 +145,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
+                max_request_size=_resolve_max_batch_size_bytes(),
             )
 
         if media_manager is not None or mask_otel_spans is not None:

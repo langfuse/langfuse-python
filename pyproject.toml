@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "4.15.6"
+version = "4.16.0"
 description = "Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
@@ -29,9 +29,9 @@ dependencies = [
     "backoff>=1.10.0",
     "wrapt>=1.14,<3",
     "packaging>=23.2,<27.0",
-    "opentelemetry-api>=1.33.1,<2",
-    "opentelemetry-sdk>=1.33.1,<2",
-    "opentelemetry-exporter-otlp-proto-http>=1.33.1,<2",
+    "opentelemetry-api>=1.45.0,<2",
+    "opentelemetry-sdk>=1.45.0,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.0,<2",
     "typing-extensions>=4.12.2,<5",
 ]
 
@@ -71,6 +71,8 @@ build-backend = "uv_build"
 [tool.uv]
 # Basic protection against supply chain attacks
 exclude-newer = "7 days"
+# OpenTelemetry 1.45 ships the OTLP request size cap the SDK relies on
+exclude-newer-package = { "opentelemetry-api" = "3 days", "opentelemetry-sdk" = "3 days", "opentelemetry-semantic-conventions" = "3 days", "opentelemetry-proto" = "3 days", "opentelemetry-exporter-otlp-proto-common" = "3 days", "opentelemetry-exporter-otlp-proto-http" = "3 days", "opentelemetry-exporter-otlp-common" = "3 days", "opentelemetry-exporter-http-transport" = "3 days", "opentelemetry-instrumentation" = "3 days", "opentelemetry-instrumentation-threading" = "3 days" }
 
 [tool.uv.build-backend]
 module-root = ""
