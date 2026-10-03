@@ -263,6 +263,7 @@ def test_resolve_media_references_uses_configured_httpx_client():
         "https://example.com/test.jpg", timeout=fetch_timeout_seconds
     )
 
+
 def test_init_with_urlsafe_base64_data_uri():
     original_bytes = b"\xfb\xff"
     urlsafe_base64 = base64.urlsafe_b64encode(original_bytes).decode()
@@ -274,4 +275,3 @@ def test_init_with_urlsafe_base64_data_uri():
     assert media._source == "base64_data_uri"
     assert media._content_type == "application/octet-stream"
     assert media._content_bytes == original_bytes
-
