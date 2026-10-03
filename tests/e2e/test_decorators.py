@@ -1,6 +1,5 @@
 import asyncio
 import os
-import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
@@ -1880,7 +1879,6 @@ def test_sync_generator_context_preservation():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_context_preservation():
     """Test that async generators preserve context when consumed later (e.g., by streaming responses)"""
     langfuse = get_client()
@@ -1946,7 +1944,6 @@ async def test_async_generator_context_preservation():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_context_preservation_with_trace_hierarchy():
     """Test that async generators maintain proper parent-child span relationships"""
     langfuse = get_client()
@@ -2009,7 +2006,6 @@ async def test_async_generator_context_preservation_with_trace_hierarchy():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_exception_handling_with_context():
     """Test that exceptions in async generators are properly handled while preserving context"""
     langfuse = get_client()
