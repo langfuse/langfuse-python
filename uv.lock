@@ -3,20 +3,20 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-09-23T09:55:45.072586391Z"
+exclude-newer = "2026-09-28T07:57:48.738841057Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-opentelemetry-sdk = { timestamp = "2026-09-27T09:55:45.07259989Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-common = { timestamp = "2026-09-27T09:55:45.072602529Z", span = "P3D" }
-opentelemetry-api = { timestamp = "2026-09-27T09:55:45.072592938Z", span = "P3D" }
-opentelemetry-instrumentation-threading = { timestamp = "2026-09-27T09:55:45.072606649Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-http = { timestamp = "2026-09-27T09:55:45.072603292Z", span = "P3D" }
-opentelemetry-proto = { timestamp = "2026-09-27T09:55:45.072601503Z", span = "P3D" }
-opentelemetry-exporter-http-transport = { timestamp = "2026-09-27T09:55:45.07260482Z", span = "P3D" }
-opentelemetry-semantic-conventions = { timestamp = "2026-09-27T09:55:45.072600686Z", span = "P3D" }
-opentelemetry-exporter-otlp-common = { timestamp = "2026-09-27T09:55:45.07260406Z", span = "P3D" }
-opentelemetry-instrumentation = { timestamp = "2026-09-27T09:55:45.07260589Z", span = "P3D" }
+opentelemetry-sdk = { timestamp = "2026-10-02T07:57:48.738858583Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-common = { timestamp = "2026-10-02T07:57:48.738859967Z", span = "P3D" }
+opentelemetry-api = { timestamp = "2026-10-02T07:57:48.738850918Z", span = "P3D" }
+opentelemetry-instrumentation-threading = { timestamp = "2026-10-02T07:57:48.738861974Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-http = { timestamp = "2026-10-02T07:57:48.738860346Z", span = "P3D" }
+opentelemetry-proto = { timestamp = "2026-10-02T07:57:48.73885946Z", span = "P3D" }
+opentelemetry-exporter-http-transport = { timestamp = "2026-10-02T07:57:48.738861112Z", span = "P3D" }
+opentelemetry-semantic-conventions = { timestamp = "2026-10-02T07:57:48.7388591Z", span = "P3D" }
+opentelemetry-exporter-otlp-common = { timestamp = "2026-10-02T07:57:48.738860738Z", span = "P3D" }
+opentelemetry-instrumentation = { timestamp = "2026-10-02T07:57:48.738861605Z", span = "P3D" }
 
 [[package]]
 name = "annotated-types"
@@ -560,6 +560,7 @@ dependencies = [
     { name = "backoff" },
     { name = "httpx" },
     { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-common" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
     { name = "packaging" },
@@ -595,6 +596,7 @@ requires-dist = [
     { name = "backoff", specifier = ">=1.10.0" },
     { name = "httpx", specifier = ">=0.15.4,<1.0" },
     { name = "opentelemetry-api", specifier = ">=1.45.0,<2" },
+    { name = "opentelemetry-exporter-otlp-common", specifier = ">=0.66b0,<1" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.0,<2" },
     { name = "opentelemetry-sdk", specifier = ">=1.45.0,<2" },
     { name = "packaging", specifier = ">=23.2,<27.0" },

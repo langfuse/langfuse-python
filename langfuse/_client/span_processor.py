@@ -19,7 +19,7 @@ from typing import Callable, Dict, List, Literal, Optional, cast
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
-from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.exporter.otlp.common.http import Compression
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
@@ -68,7 +68,7 @@ def _resolve_max_batch_size_bytes() -> Optional[int]:
 
 
 # The Langfuse OTLP endpoint only decodes gzip, so deflate is not offered.
-_COMPRESSION_BY_NAME = {"gzip": Compression.Gzip, "none": Compression.NoCompression}
+_COMPRESSION_BY_NAME = {"gzip": Compression.GZIP, "none": Compression.NONE}
 
 
 def _resolve_compression(otel_compression: Optional[str]) -> Optional[Compression]:
