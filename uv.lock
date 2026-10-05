@@ -3,20 +3,20 @@ revision = 3
 requires-python = ">=3.10, <4.0"
 
 [options]
-exclude-newer = "2026-09-23T09:55:45.072586391Z"
+exclude-newer = "2026-09-28T08:53:26.348016113Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-opentelemetry-sdk = { timestamp = "2026-09-27T09:55:45.07259989Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-common = { timestamp = "2026-09-27T09:55:45.072602529Z", span = "P3D" }
-opentelemetry-api = { timestamp = "2026-09-27T09:55:45.072592938Z", span = "P3D" }
-opentelemetry-instrumentation-threading = { timestamp = "2026-09-27T09:55:45.072606649Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-http = { timestamp = "2026-09-27T09:55:45.072603292Z", span = "P3D" }
-opentelemetry-proto = { timestamp = "2026-09-27T09:55:45.072601503Z", span = "P3D" }
-opentelemetry-exporter-http-transport = { timestamp = "2026-09-27T09:55:45.07260482Z", span = "P3D" }
-opentelemetry-semantic-conventions = { timestamp = "2026-09-27T09:55:45.072600686Z", span = "P3D" }
-opentelemetry-exporter-otlp-common = { timestamp = "2026-09-27T09:55:45.07260406Z", span = "P3D" }
-opentelemetry-instrumentation = { timestamp = "2026-09-27T09:55:45.07260589Z", span = "P3D" }
+opentelemetry-sdk = { timestamp = "2026-10-02T08:53:26.348034988Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-common = { timestamp = "2026-10-02T08:53:26.348036791Z", span = "P3D" }
+opentelemetry-api = { timestamp = "2026-10-02T08:53:26.348028349Z", span = "P3D" }
+opentelemetry-instrumentation-threading = { timestamp = "2026-10-02T08:53:26.348039705Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-http = { timestamp = "2026-10-02T08:53:26.348037311Z", span = "P3D" }
+opentelemetry-proto = { timestamp = "2026-10-02T08:53:26.34803612Z", span = "P3D" }
+opentelemetry-exporter-http-transport = { timestamp = "2026-10-02T08:53:26.348038423Z", span = "P3D" }
+opentelemetry-semantic-conventions = { timestamp = "2026-10-02T08:53:26.348035579Z", span = "P3D" }
+opentelemetry-exporter-otlp-common = { timestamp = "2026-10-02T08:53:26.348037912Z", span = "P3D" }
+opentelemetry-instrumentation = { timestamp = "2026-10-02T08:53:26.348039134Z", span = "P3D" }
 
 [[package]]
 name = "annotated-types"
@@ -554,7 +554,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "4.16.0"
+version = "4.17.0"
 source = { editable = "." }
 dependencies = [
     { name = "backoff" },
