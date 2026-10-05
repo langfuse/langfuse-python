@@ -21,7 +21,7 @@ import threading
 import urllib.request
 import weakref
 from queue import Full, Queue
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Literal, Optional, cast
 
 import httpx
 from opentelemetry import trace as otel_trace_api
@@ -133,6 +133,7 @@ class LangfuseResourceManager:
         tracer_provider: Optional[TracerProvider] = None,
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
+        otel_compression: Optional[Literal["gzip", "none"]] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -171,6 +172,7 @@ class LangfuseResourceManager:
                     tracer_provider=tracer_provider,
                     id_generator=id_generator,
                     span_exporter=span_exporter,
+                    otel_compression=otel_compression,
                 )
 
                 cls._instances[public_key] = instance
@@ -200,6 +202,7 @@ class LangfuseResourceManager:
         tracer_provider: Optional[TracerProvider] = None,
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
+        otel_compression: Optional[Literal["gzip", "none"]] = None,
     ) -> None:
         self.public_key = public_key
         self.secret_key = secret_key
@@ -222,6 +225,7 @@ class LangfuseResourceManager:
         self.additional_headers = additional_headers
         self.id_generator = id_generator
         self.span_exporter = span_exporter
+        self.otel_compression = otel_compression
         self.tracer_provider: Optional[TracerProvider] = None
 
         self._custom_httpx_client = httpx_client
@@ -261,6 +265,7 @@ class LangfuseResourceManager:
                 span_exporter=span_exporter,
                 media_manager=self._media_manager,
                 mask_otel_spans=mask_otel_spans,
+                otel_compression=otel_compression,
             )
             tracer_provider.add_span_processor(langfuse_processor)
 

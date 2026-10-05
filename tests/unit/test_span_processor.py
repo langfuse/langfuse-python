@@ -1,11 +1,19 @@
+import gzip
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import List, Sequence
+from typing import List, NamedTuple, Optional, Sequence
 from unittest.mock import patch
 
 import pytest
 from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+    ExportTraceServiceRequest,
+)
+from opentelemetry.sdk.environment_variables import (
+    OTEL_EXPORTER_OTLP_COMPRESSION,
+    OTEL_EXPORTER_OTLP_TRACES_COMPRESSION,
+)
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import (
     SimpleSpanProcessor,
@@ -17,9 +25,11 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 )
 
 import langfuse._client.span_processor as span_processor_module
+from langfuse._client.client import Langfuse
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
+    LANGFUSE_OTEL_COMPRESSION,
     LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
 )
 from langfuse._client.span_processor import LangfuseSpanProcessor
@@ -71,12 +81,19 @@ def test_span_processor_uses_env_flush_settings_when_constructor_omits_them(
         processor.shutdown()
 
 
+class _RecordedRequest(NamedTuple):
+    content_encoding: Optional[str]
+    body: bytes
+
+
 class _RecordingOTLPHandler(BaseHTTPRequestHandler):
-    received_body_sizes: List[int]
+    received_requests: List[_RecordedRequest]
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        self.received_body_sizes.append(len(body))
+        self.received_requests.append(
+            _RecordedRequest(self.headers.get("Content-Encoding"), body)
+        )
         self.send_response(200)
         self.end_headers()
 
@@ -86,17 +103,17 @@ class _RecordingOTLPHandler(BaseHTTPRequestHandler):
 
 @pytest.fixture
 def otlp_http_server():
-    received_body_sizes: List[int] = []
+    received_requests: List[_RecordedRequest] = []
     handler = type(
         "Handler",
         (_RecordingOTLPHandler,),
-        {"received_body_sizes": received_body_sizes},
+        {"received_requests": received_requests},
     )
     server = HTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
-    yield f"http://127.0.0.1:{server.server_port}", received_body_sizes
+    yield f"http://127.0.0.1:{server.server_port}", received_requests
 
     server.shutdown()
     server.server_close()
@@ -136,7 +153,7 @@ def _default_exporter_processor(base_url: str) -> LangfuseSpanProcessor:
 def test_default_exporter_enforces_max_batch_size_bytes_at_boundary(
     monkeypatch, otlp_http_server, limit_offset, expected_result
 ):
-    base_url, received_body_sizes = otlp_http_server
+    base_url, received_requests = otlp_http_server
     spans = _finished_spans("x" * 1_000)
     request_size = _serialized_request_size(spans)
     monkeypatch.setenv(
@@ -153,13 +170,13 @@ def test_default_exporter_enforces_max_batch_size_bytes_at_boundary(
     expected_requests = (
         [] if expected_result == SpanExportResult.FAILURE else [request_size]
     )
-    assert received_body_sizes == expected_requests
+    assert [len(request.body) for request in received_requests] == expected_requests
 
 
 def test_oversized_batch_is_dropped_on_flush_without_blocking_later_batches(
     monkeypatch, caplog, otlp_http_server
 ):
-    base_url, received_body_sizes = otlp_http_server
+    base_url, received_requests = otlp_http_server
     oversized_spans = _finished_spans("secret-payload" * 1_000)
     small_spans = _finished_spans("ok")
     monkeypatch.setenv(
@@ -173,7 +190,7 @@ def test_oversized_batch_is_dropped_on_flush_without_blocking_later_batches(
             super(LangfuseSpanProcessor, processor).on_end(oversized_spans[0])
             assert processor.force_flush()
 
-        assert received_body_sizes == []
+        assert received_requests == []
         assert "Dropping span batch" in caplog.text
         assert "secret-payload" not in caplog.text
 
@@ -182,7 +199,9 @@ def test_oversized_batch_is_dropped_on_flush_without_blocking_later_batches(
     finally:
         processor.shutdown()
 
-    assert received_body_sizes == [_serialized_request_size(small_spans)]
+    assert [len(request.body) for request in received_requests] == [
+        _serialized_request_size(small_spans)
+    ]
 
 
 def test_default_exporter_uses_64_mib_limit_when_env_unset(monkeypatch):
@@ -211,6 +230,95 @@ def test_invalid_max_batch_size_bytes_falls_back_to_default_limit(
         assert LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES in caplog.text
     finally:
         processor.shutdown()
+
+
+def _decode_request(request: _RecordedRequest) -> ExportTraceServiceRequest:
+    body = gzip.decompress(request.body) if request.content_encoding else request.body
+    return ExportTraceServiceRequest.FromString(body)
+
+
+def _span_names(request: ExportTraceServiceRequest) -> List[str]:
+    return [
+        span.name
+        for resource_spans in request.resource_spans
+        for scope_spans in resource_spans.scope_spans
+        for span in scope_spans.spans
+    ]
+
+
+@pytest.fixture
+def compression_env(monkeypatch):
+    for name in (
+        LANGFUSE_OTEL_COMPRESSION,
+        OTEL_EXPORTER_OTLP_TRACES_COMPRESSION,
+        OTEL_EXPORTER_OTLP_COMPRESSION,
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    return monkeypatch
+
+
+def _export_one_span(processor: LangfuseSpanProcessor) -> None:
+    provider = TracerProvider()
+    provider.add_span_processor(processor)
+    with provider.get_tracer("test").start_as_current_span(
+        "llm-call", attributes={"gen_ai.system": "test"}
+    ):
+        pass
+
+    try:
+        assert processor.force_flush()
+    finally:
+        provider.shutdown()
+
+
+def test_client_otel_compression_sends_gzip_request(compression_env, otlp_http_server):
+    base_url, received_requests = otlp_http_server
+    langfuse = Langfuse(
+        public_key="pk-test",
+        secret_key="sk-test",
+        base_url=base_url,
+        tracer_provider=TracerProvider(),
+        otel_compression="gzip",
+    )
+
+    with langfuse.start_as_current_observation(name="compressed-span"):
+        pass
+    langfuse.flush()
+
+    assert [request.content_encoding for request in received_requests] == ["gzip"]
+    assert _span_names(_decode_request(received_requests[0])) == ["compressed-span"]
+
+
+@pytest.mark.parametrize(
+    ("otel_compression", "env", "expected_encoding"),
+    [
+        (None, {LANGFUSE_OTEL_COMPRESSION: " GZIP "}, "gzip"),
+        ("gzip", {LANGFUSE_OTEL_COMPRESSION: "none"}, "gzip"),
+        ("none", {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"}, None),
+        (None, {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"}, "gzip"),
+    ],
+)
+def test_default_exporter_compression_precedence(
+    compression_env, otlp_http_server, otel_compression, env, expected_encoding
+):
+    base_url, received_requests = otlp_http_server
+    for name, value in env.items():
+        compression_env.setenv(name, value)
+
+    _export_one_span(
+        LangfuseSpanProcessor(
+            public_key="pk-test",
+            secret_key="sk-test",
+            base_url=base_url,
+            otel_compression=otel_compression,
+        )
+    )
+
+    assert [request.content_encoding for request in received_requests] == [
+        expected_encoding
+    ]
+    assert _span_names(_decode_request(received_requests[0])) == ["llm-call"]
 
 
 @pytest.fixture
