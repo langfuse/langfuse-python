@@ -2,7 +2,7 @@
 
 import inspect
 import typing
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import get_type_hints
 from unittest.mock import MagicMock
 
@@ -12,7 +12,9 @@ from opentelemetry import trace as otel_trace_api
 from langfuse import Evaluation, RegressionError, RunnerContext
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
+from langfuse.api import DatasetItem, DatasetStatus
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
+from langfuse.experiment import ExperimentItemResult, ExperimentResult
 
 
 def _noop_task(*, item, **kwargs):  # pragma: no cover - never invoked via mock
@@ -524,3 +526,214 @@ class TestExperimentObservationTree:
             "failed_evaluator_count": 1,
             "skipped_evaluator_count": 1,
         }
+
+
+def _dataset_item(*, item_id: str, dataset_id: str, input: str) -> DatasetItem:
+    return DatasetItem(
+        id=item_id,
+        status=DatasetStatus.ACTIVE,
+        input=input,
+        expected_output=f"expected {input}",
+        metadata=None,
+        source_trace_id=None,
+        source_observation_id=None,
+        dataset_id=dataset_id,
+        dataset_name="dataset",
+        media_references=[],
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+
+def _run_scores(create_score: MagicMock) -> list:
+    return [
+        call.kwargs
+        for call in create_score.call_args_list
+        if call.kwargs.get("dataset_run_id") is not None
+    ]
+
+
+class TestExperimentRunIdentity:
+    @pytest.mark.parametrize(
+        ("project_id", "dataset_id", "run_name", "expected"),
+        [
+            ("p", "d", "r", "eab007015b1c6f77"),
+            ("proj-ü", "ds", 'Run – ✓ "q"', "8d4425c67052ced3"),
+        ],
+    )
+    def test_dataset_experiment_id_matches_server_derivation(
+        self, langfuse_memory_client, project_id, dataset_id, run_name, expected
+    ):
+        assert (
+            langfuse_memory_client._create_experiment_id(
+                project_id=project_id, dataset_id=dataset_id, run_name=run_name
+            )
+            == expected
+        )
+
+    def test_dataset_experiment_without_project_id_uses_random_id(
+        self, langfuse_memory_client, caplog
+    ):
+        ids = {
+            langfuse_memory_client._create_experiment_id(
+                project_id=None, dataset_id="d", run_name="r"
+            )
+            for _ in range(2)
+        }
+
+        assert len(ids) == 2
+        assert all(len(i) == 16 for i in ids)
+        assert "random experiment id" in caplog.text
+
+    def test_dataset_run_uses_stable_id_url_version_and_no_run_item_post(
+        self, langfuse_memory_client, find_spans, monkeypatch
+    ):
+        create_score = MagicMock()
+        create_run_item = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+        monkeypatch.setattr(
+            langfuse_memory_client.api.dataset_run_items, "create", create_run_item
+        )
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+        version = datetime(2026, 2, 3, 4, 5, 6, tzinfo=timezone.utc)
+
+        result = langfuse_memory_client.run_experiment(
+            name="exp",
+            run_name="r",
+            data=[
+                _dataset_item(item_id="i1", dataset_id="d", input="a"),
+                _dataset_item(item_id="i2", dataset_id="d", input="b"),
+            ],
+            task=lambda *, item, **kwargs: item.input,
+            run_evaluators=[lambda **kwargs: Evaluation(name="run", value=1.0)],
+            _dataset_version=version,
+        )
+        langfuse_memory_client.flush()
+
+        create_run_item.assert_not_called()
+        assert result.experiment_id == "eab007015b1c6f77"
+        assert (
+            result.experiment_url
+            == "http://test-host/project/p/experiments/results?baseline=eab007015b1c6f77"
+        )
+        assert {r.experiment_id for r in result.item_results} == {result.experiment_id}
+
+        spans = find_spans("experiment-item-run") + find_spans("experiment-item-task")
+        assert len(spans) == 4
+        for span in spans:
+            assert (
+                span.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+                == result.experiment_id
+            )
+            assert (
+                span.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_VERSION]
+                == "2026-02-03T04:05:06Z"
+            )
+
+        run_scores = _run_scores(create_score)
+        assert len(run_scores) == 1
+        assert run_scores[0]["dataset_run_id"] == result.experiment_id
+        assert run_scores[0]["name"] == "run"
+        assert "trace_id" not in run_scores[0]
+        assert "observation_id" not in run_scores[0]
+        assert "session_id" not in run_scores[0]
+
+    def test_local_run_persists_run_scores_without_item_version(
+        self, langfuse_memory_client, find_spans, monkeypatch
+    ):
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+
+        result = langfuse_memory_client.run_experiment(
+            name="exp",
+            run_name="r",
+            data=[{"input": "a"}],
+            task=lambda *, item, **kwargs: item["input"],
+            run_evaluators=[lambda **kwargs: Evaluation(name="run", value=1.0)],
+            _dataset_version=datetime(2026, 2, 3, tzinfo=timezone.utc),
+        )
+        langfuse_memory_client.flush()
+
+        assert len(result.experiment_id) == 16
+        assert result.experiment_id != "eab007015b1c6f77"
+        assert result.experiment_url == (
+            f"http://test-host/project/p/experiments/results?baseline={result.experiment_id}"
+        )
+        assert [s["dataset_run_id"] for s in _run_scores(create_score)] == [
+            result.experiment_id
+        ]
+        for span in find_spans("experiment-item-run") + find_spans(
+            "experiment-item-task"
+        ):
+            assert LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_VERSION not in (
+                span.attributes or {}
+            )
+
+    def test_unresolvable_project_id_yields_no_url(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        def fail():
+            raise RuntimeError("no network")
+
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", fail)
+
+        result = langfuse_memory_client.run_experiment(
+            name="exp",
+            data=[_dataset_item(item_id="i1", dataset_id="d", input="a")],
+            task=lambda *, item, **kwargs: item.input,
+        )
+
+        assert len(result.item_results) == 1
+        assert len(result.experiment_id) == 16
+        assert result.experiment_url is None
+
+
+class TestExperimentResultAliases:
+    def test_dataset_run_fields_are_deprecated_aliases(self):
+        item_result = ExperimentItemResult(
+            item={"input": "a"},
+            output="a",
+            evaluations=[],
+            trace_id="t",
+            experiment_id="e",
+        )
+        result = ExperimentResult(
+            name="exp",
+            run_name="r",
+            description=None,
+            item_results=[item_result],
+            run_evaluations=[],
+            experiment_id="e",
+            experiment_url="http://host/project/p/experiments/results?baseline=e",
+        )
+
+        with pytest.warns(DeprecationWarning, match="experiment_id"):
+            assert result.dataset_run_id == "e"
+        with pytest.warns(DeprecationWarning, match="experiment_url"):
+            assert result.dataset_run_url == result.experiment_url
+        with pytest.warns(DeprecationWarning, match="experiment_id"):
+            assert item_result.dataset_run_id == "e"
+        assert f"Experiment:\n   {result.experiment_url}" in result.format()
+
+    def test_legacy_constructor_arguments_still_populate_new_fields(self):
+        item_result = ExperimentItemResult(
+            item={"input": "a"},
+            output="a",
+            evaluations=[],
+            trace_id="t",
+            dataset_run_id="legacy",
+        )
+        result = ExperimentResult(
+            name="exp",
+            run_name="r",
+            description=None,
+            item_results=[item_result],
+            run_evaluations=[],
+            experiment_id="e",
+            dataset_run_url="http://legacy",
+        )
+
+        assert item_result.experiment_id == "legacy"
+        assert result.experiment_url == "http://legacy"
