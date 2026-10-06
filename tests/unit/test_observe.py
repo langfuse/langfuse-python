@@ -3,13 +3,11 @@ import contextvars
 import gc
 import inspect
 import json
-import sys
 from typing import Any, AsyncGenerator, Generator, cast
 
 import pytest
 
 from langfuse import observe
-from langfuse._client import observe as observe_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.observe import (
     _ContextPreservedAsyncGeneratorWrapper,
@@ -96,7 +94,6 @@ def test_sync_generator_preserves_context_without_output_capture(
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_streaming_response_preserves_context_without_output_capture(
     langfuse_memory_client: Any, memory_exporter: Any
 ) -> None:
@@ -477,41 +474,6 @@ async def test_async_generator_wrapper_aclose_propagates_cleanup_type_error() ->
 
     assert span.ended == 1
     assert span.updates[-1] == {"level": "ERROR", "status_message": "cleanup failed"}
-
-
-@pytest.mark.asyncio
-async def test_async_generator_wrapper_fallback_preserves_context(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    marker = contextvars.ContextVar("marker", default="ambient")
-    seen: list[str] = []
-    monkeypatch.setattr(observe_module, "_ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT", False)
-
-    async def generator() -> AsyncGenerator[str, None]:
-        try:
-            yield marker.get()
-            yield "item_1"
-        finally:
-            seen.append(marker.get())
-
-    span = SpanRecorder()
-    context = contextvars.copy_context()
-    context.run(marker.set, "preserved")
-    wrapper = _ContextPreservedAsyncGeneratorWrapper(
-        generator(),
-        context,
-        cast(Any, span),
-        False,
-        None,
-    )
-
-    assert await wrapper.__anext__() == "preserved"
-    marker.set("ambient-now")
-
-    await wrapper.aclose()
-
-    assert seen == ["preserved"]
-    assert span.ended == 1
 
 
 @pytest.mark.asyncio
