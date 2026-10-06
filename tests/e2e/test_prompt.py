@@ -1,7 +1,7 @@
 import pytest
 
 from langfuse._client.client import Langfuse
-from tests.support.utils import create_uuid, get_api
+from tests.support.utils import create_uuid, wait_for_observations
 
 
 def test_create_prompt():
@@ -429,18 +429,17 @@ def test_prompt_end_to_end():
 
     langfuse.flush()
 
-    api = get_api()
+    observations = wait_for_observations(
+        generation.trace_id,
+        is_result_ready=lambda observations: observations[0].prompt_id is not None,
+    )
 
-    trace = api.trace.get(generation.trace_id)
+    assert len(observations) == 1
 
-    assert len(trace.observations) == 1
-
-    generation = trace.observations[0]
-    assert generation.prompt_id is not None
-
-    observation = api.legacy.observations_v1.get(generation.id)
-
+    observation = observations[0]
     assert observation.prompt_id is not None
+    assert observation.prompt_name == "test"
+    assert observation.prompt_version == prompt.version
 
 
 def test_do_not_return_fallback_if_fetch_success():
@@ -525,11 +524,10 @@ def test_do_not_link_observation_if_fallback():
     ).end()
     langfuse.flush()
 
-    api = get_api()
-    trace = api.trace.get(generation.trace_id)
+    observations = wait_for_observations(generation.trace_id)
 
-    assert len(trace.observations) == 1
-    assert trace.observations[0].prompt_id is None
+    assert len(observations) == 1
+    assert observations[0].prompt_id is None
 
 
 def test_variable_names_on_content_with_variable_names():

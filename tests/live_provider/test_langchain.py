@@ -1,3 +1,4 @@
+import json
 import random
 import string
 import time
@@ -18,7 +19,12 @@ from pydantic import BaseModel, Field
 
 from langfuse._client.client import Langfuse
 from langfuse.langchain import CallbackHandler
-from tests.support.utils import create_uuid, encode_file_to_base64, get_api
+from tests.support.utils import (
+    create_uuid,
+    encode_file_to_base64,
+    wait_for_observations,
+    wait_for_trace_snapshot,
+)
 
 
 def test_callback_generated_from_trace_chat():
@@ -44,7 +50,7 @@ def test_callback_generated_from_trace_chat():
 
     langfuse.flush()
 
-    trace = get_api().trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
 
     assert trace.input is None
     assert trace.output is None
@@ -92,7 +98,7 @@ def test_callback_generated_from_lcel_chain():
 
     langfuse.flush()
 
-    trace = get_api().trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
 
     assert trace.input is None
     assert trace.output is None
@@ -151,10 +157,10 @@ def test_basic_chat_openai():
     # Ensure data is flushed to API
     sleep(2)
 
-    # Retrieve trace by name
-    traces = get_api().trace.list(name=test_name)
-    assert len(traces.data) > 0
-    trace = get_api().trace.get(traces.data[0].id)
+    # Retrieve trace by its root observation, which carries the run name
+    roots = wait_for_observations(name=test_name)
+    assert len(roots) > 0
+    trace = wait_for_trace_snapshot(roots[0].trace_id, min_observations=2)
 
     # Assertions
     assert trace.name == test_name
@@ -193,7 +199,7 @@ def test_callback_simple_openai():
     sleep(2)
 
     # Retrieve trace
-    trace = get_api().trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
 
     # Assertions - add 1 for the wrapping span
     assert len(trace.observations) > 1
@@ -241,7 +247,7 @@ def test_callback_multiple_invocations_on_different_traces():
     sleep(2)
 
     # Retrieve trace
-    trace = get_api().trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=3)
 
     # Add 1 to account for the wrapping span
     assert len(trace.observations) > 2
@@ -300,7 +306,7 @@ def test_openai_instruct_usage():
 
     lf_handler._langfuse_client.flush()
 
-    observations = get_api().trace.get(trace_id).observations
+    observations = wait_for_observations(trace_id, min_count=3)
 
     assert len(observations) >= 3
     assert any(
@@ -318,7 +324,7 @@ def test_openai_instruct_usage():
         assert observation.output != ""
         assert observation.input is not None
         assert observation.input != ""
-        assert observation.usage is not None
+        assert observation.usage_details is not None
         assert observation.usage_details["input"] is not None
         assert observation.usage_details["output"] is not None
         assert observation.usage_details["total"] is not None
@@ -479,7 +485,7 @@ def test_link_langfuse_prompts_invoke():
     langfuse_handler._langfuse_client.flush()
     sleep(2)
 
-    trace = get_api().trace.get(trace_id=trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=4)
 
     observations = trace.observations
 
@@ -567,7 +573,12 @@ def test_link_langfuse_prompts_stream():
     langfuse_handler._langfuse_client.flush()
     sleep(2)
 
-    trace = get_api().trace.get(trace_id=trace_id)
+    trace = wait_for_trace_snapshot(
+        trace_id,
+        is_result_ready=lambda trace: (
+            len([o for o in trace.observations if o.type == "GENERATION"]) >= 4
+        ),
+    )
 
     observations = trace.observations
 
@@ -653,11 +664,26 @@ def test_link_langfuse_prompts_batch():
 
     langfuse_handler._langfuse_client.flush()
 
-    traces = get_api().trace.list(name=trace_name).data
+    trace_name_filter = json.dumps(
+        [
+            {
+                "type": "string",
+                "column": "traceName",
+                "operator": "=",
+                "value": trace_name,
+            }
+        ]
+    )
+    traced_observations = wait_for_observations(filter=trace_name_filter)
 
-    assert len(traces) == 1
+    assert {o.trace_id for o in traced_observations} == {trace_id}
 
-    trace = get_api().trace.get(trace_id=trace_id)
+    trace = wait_for_trace_snapshot(
+        trace_id,
+        is_result_ready=lambda trace: (
+            len([o for o in trace.observations if o.type == "GENERATION"]) >= 10
+        ),
+    )
 
     observations = trace.observations
 
@@ -783,7 +809,7 @@ def test_callback_openai_functions_with_tools():
 
     handler._langfuse_client.flush()
 
-    trace = get_api().trace.get(trace_id=trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
 
     generations = list(filter(lambda x: x.type == "GENERATION", trace.observations))
     assert len(generations) > 0
@@ -882,7 +908,7 @@ def test_multimodal():
 
     handler._langfuse_client.flush()
 
-    trace = get_api().trace.get(trace_id=trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
 
     assert len(trace.observations) >= 2
     assert any(
@@ -979,7 +1005,7 @@ def test_langgraph():
     print(final_state["messages"][-1].content)
     handler._langfuse_client.flush()
 
-    trace = get_api().trace.get(trace_id=trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
 
     assert len(trace.observations) > 0
 
@@ -1012,7 +1038,7 @@ def test_cached_token_usage():
 
     handler._langfuse_client.flush()
 
-    trace = get_api().trace.get(handler.get_trace_id())
+    trace = wait_for_trace_snapshot(handler.get_trace_id())
 
     generation = next((o for o in trace.observations if o.type == "GENERATION"))
 
