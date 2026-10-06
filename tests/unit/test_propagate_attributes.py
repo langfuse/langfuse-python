@@ -474,16 +474,21 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "max_search_results": 5,
             "is_cached": True,
             "ratio": 0.5,
-            "config": {"model": "gpt-4o"},
+            "config": {"model": "gpt-4o", "nested": {"b": [1, None], "a": "ü"}},
+            "label": ["Läufe", "🚀"],
+            "empty": None,
         }
+        # Byte-identical to JSON.stringify in the JS SDK for the same values.
         expected = {
             "langgraph_step": "1",
             "langgraph_triggers": '["branch:agent"]',
-            "langgraph_path": '["root", "agent"]',
+            "langgraph_path": '["root","agent"]',
             "max_search_results": "5",
             "is_cached": "true",
             "ratio": "0.5",
-            "config": '{"model": "gpt-4o"}',
+            "config": '{"model":"gpt-4o","nested":{"b":[1,null],"a":"ü"}}',
+            "label": '["Läufe","🚀"]',
+            "empty": "null",
         }
 
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -501,21 +506,6 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             )
 
         assert "value is not a string. Dropping value." not in caplog.text
-
-    def test_none_metadata_values_dropped(self, langfuse_client, memory_exporter):
-        """Verify None metadata values are dropped instead of sent as 'None'."""
-        with langfuse_client.start_as_current_observation(name="parent-span"):
-            with propagate_attributes(metadata={"kept": "yes", "empty": None}):
-                child = langfuse_client.start_observation(name="child-span")
-                child.end()
-
-        child_span = self.get_span_by_name(memory_exporter, "child-span")
-        self.verify_span_attribute(
-            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.kept", "yes"
-        )
-        self.verify_missing_attribute(
-            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.empty"
-        )
 
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
