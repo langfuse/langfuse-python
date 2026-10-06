@@ -461,10 +461,10 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID
         )
 
-    def test_non_string_metadata_values_coerced(
+    def test_non_string_metadata_values_json_serialized(
         self, langfuse_client, memory_exporter, caplog
     ):
-        """Verify non-string metadata values are coerced instead of dropped."""
+        """Verify non-string metadata values are JSON-serialized instead of dropped."""
 
         caplog.set_level("WARNING", logger="langfuse")
         metadata = {
@@ -472,6 +472,18 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "langgraph_triggers": ["branch:agent"],
             "langgraph_path": ("root", "agent"),
             "max_search_results": 5,
+            "is_cached": True,
+            "ratio": 0.5,
+            "config": {"model": "gpt-4o"},
+        }
+        expected = {
+            "langgraph_step": "1",
+            "langgraph_triggers": '["branch:agent"]',
+            "langgraph_path": '["root", "agent"]',
+            "max_search_results": "5",
+            "is_cached": "true",
+            "ratio": "0.5",
+            "config": '{"model": "gpt-4o"}',
         }
 
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -481,14 +493,29 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
 
-        for key, value in metadata.items():
+        for key, value in expected.items():
             self.verify_span_attribute(
                 child_span,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}",
-                str(value),
+                value,
             )
 
         assert "value is not a string. Dropping value." not in caplog.text
+
+    def test_none_metadata_values_dropped(self, langfuse_client, memory_exporter):
+        """Verify None metadata values are dropped instead of sent as 'None'."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"kept": "yes", "empty": None}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.kept", "yes"
+        )
+        self.verify_missing_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.empty"
+        )
 
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
