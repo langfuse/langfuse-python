@@ -559,6 +559,19 @@ class TestExperimentRunIdentity:
         [
             ("p", "d", "r", "eab007015b1c6f77"),
             ("proj-ü", "ds", 'Run – ✓ "q"', "8d4425c67052ced3"),
+            # Shared with the JS SDK and the platform; keep these in sync.
+            (
+                "7a88fb47-b4e2-43b8-a06c-a5ce950dc53a",
+                "cm9x1dataset0000000000001",
+                "my-run",
+                "a1164c0f238e4173",
+            ),
+            (
+                "7a88fb47-b4e2-43b8-a06c-a5ce950dc53a",
+                "cm9x1dataset0000000000001",
+                'Läufe "v2" 🚀 – 2026-10-06T12:00:00.000Z',
+                "dce21641128b88a8",
+            ),
         ],
     )
     def test_dataset_experiment_id_matches_server_derivation(
