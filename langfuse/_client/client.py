@@ -3178,11 +3178,11 @@ class Langfuse:
     def run_batched_evaluation(
         self,
         *,
-        scope: Literal["traces", "observations"],
+        scope: Literal["observations", "root_observations"],
         mapper: MapperFunction,
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
-        fetch_trace_fields: Optional[str] = None,
+        fields: Optional[str] = "core,basic,io,metadata",
         max_items: Optional[int] = None,
         max_retries: int = 3,
         evaluators: List[EvaluatorFunction],
@@ -3190,16 +3190,15 @@ class Langfuse:
         max_concurrency: int = 5,
         metadata: Optional[Dict[str, Any]] = None,
         _add_observation_scores_to_trace: bool = False,
-        _additional_trace_tags: Optional[List[str]] = None,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
-        """Fetch traces or observations using legacy read APIs and evaluate each item.
+        """Fetch observations from Langfuse and evaluate each of them.
 
         This method provides a powerful way to evaluate existing data in Langfuse at scale.
-        It fetches items based on filters, transforms them using a mapper function, runs
-        evaluators on each item, and creates scores that are linked back to the original
-        entities. This is ideal for:
+        It fetches observations based on filters, transforms them using a mapper function,
+        runs evaluators on each item, and creates scores that are linked back to the
+        original entities. This is ideal for:
 
         - Running evaluations on production traces after deployment
         - Backtesting new evaluation metrics on historical data
@@ -3210,46 +3209,55 @@ class Langfuse:
         it memory-efficient for large datasets. It includes comprehensive error handling,
         retry logic, and resume capability for long-running evaluations.
 
-        Legacy platform compatibility:
-            This method reads traces from `GET /api/public/traces` and observations
-            from the legacy `GET /api/public/observations` endpoint. It is supported
-            with Langfuse platform v3 and is not yet supported with platform v4.
+        Items are read from `GET /api/public/v2/observations` with cursor pagination,
+        newest first (by start time).
 
         Args:
-            scope: The type of items to evaluate. Must be one of:
-                - "traces": Evaluate complete traces with all their observations
-                - "observations": Evaluate individual observations (spans, generations, events)
-            mapper: Function that transforms API response objects into evaluator inputs.
-                Receives a trace/observation object and returns an EvaluatorInputs
+            scope: Which observations to evaluate. Must be one of:
+                - "observations": Every observation matching the filter (spans,
+                  generations, events, ...). Scores are attached to the observation.
+                - "root_observations": Only the logical root observation of each trace.
+                  Scores are attached to the trace. Use this to evaluate whole traces.
+            mapper: Function that transforms an `ObservationV2` into evaluator inputs.
+                Called as `mapper(item=observation)` and must return an EvaluatorInputs
                 instance with input, output, expected_output, and metadata fields.
-                Can be sync or async.
+                `input`/`output` are raw strings (not JSON-parsed), and only the
+                requested `fields` groups are populated. Can be sync or async.
             evaluators: List of evaluation functions to run on each item. Each evaluator
                 receives the mapped inputs and returns Evaluation object(s). Evaluator
                 failures are logged but don't stop the batch evaluation.
-            filter: Optional JSON filter string for querying items (same format as Langfuse API). Examples:
-                - '{"tags": ["production"]}'
-                - '{"user_id": "user123", "timestamp": {"operator": ">", "value": "2024-01-01"}}'
-                Default: None (fetches all items).
+            filter: Optional JSON array of filter conditions in the v2 observations
+                filter format, for example:
+                - '[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]'
+                - '[{"type": "string", "column": "traceName", "operator": "=", "value": "chat"}]'
+                - '[{"type": "datetime", "column": "startTime", "operator": ">=", "value": "2026-01-01T00:00:00Z"}]'
+                Default: None (fetches all items of the scope).
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
-                Larger values may be faster but use more memory. Default: 50.
-            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'.
+                Larger values may be faster but use more memory. Maximum 1000. Default: 50.
+            fields: Comma-separated list of observation field groups to fetch. Available
+                groups: 'core' (always included), 'basic', 'time', 'io', 'metadata',
+                'model', 'usage', 'prompt', 'metrics', 'trace_context'. Fields of groups
+                that are not requested are None on the item passed to the mapper.
+                Metadata values longer than 200 characters are truncated.
+                Default: "core,basic,io,metadata".
             max_items: Maximum total number of items to process. If None, processes all
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).
             max_concurrency: Maximum number of items to evaluate concurrently. Controls
                 parallelism and resource usage. Default: 5.
             composite_evaluator: Optional function that creates a composite score from
-                item-level evaluations. Receives the original item and its evaluations,
-                returns a single Evaluation. Useful for weighted averages or combined metrics.
-                Default: None.
+                item-level evaluations. Receives the mapped inputs and the item's
+                evaluations, returns Evaluation(s). Useful for weighted averages or
+                combined metrics. Default: None.
             metadata: Optional metadata dict to add to all created scores. Useful for
                 tracking evaluation runs, versions, or other context. Default: None.
             max_retries: Maximum number of retry attempts for failed batch fetches.
-                Uses exponential backoff (1s, 2s, 4s). Default: 3.
+                Default: 3.
             verbose: If True, logs progress information to console. Useful for monitoring
                 long-running evaluations. Default: False.
-            resume_from: Optional resume token from a previous incomplete run. Allows
-                continuing evaluation after interruption or failure. Default: None.
+            resume_from: Optional resume token from a previous run that stopped early
+                (fetch failure or `max_items`). Continues exactly after the last
+                processed page. Pass the same `scope` and `filter`. Default: None.
 
 
         Returns:
@@ -3261,45 +3269,45 @@ class Langfuse:
                 - total_composite_scores_created: Scores created by composite evaluator
                 - total_evaluations_failed: Individual evaluator failures
                 - evaluator_stats: Per-evaluator statistics (success rate, scores created)
-                - resume_token: Token for resuming if incomplete (None if completed)
-                - completed: True if all items processed
+                - resume_token: Token for continuing the run (set after a fetch failure
+                  or when max_items was reached while more items exist)
+                - completed: False if the run stopped because a fetch failed
                 - duration_seconds: Total execution time
-                - failed_item_ids: IDs of items that failed
+                - failed_item_ids: Observation IDs of items that failed
                 - error_summary: Error types and counts
                 - has_more_items: True if max_items reached but more exist
+                - item_evaluations: Evaluations per observation ID
 
         Raises:
-            ValueError: If invalid scope is provided.
+            ValueError: If an invalid scope or a non-array filter is provided, or the
+                resume token belongs to a different scope.
 
         Examples:
-            Basic trace evaluation:
+            Evaluate whole traces via their root observations:
             ```python
             from langfuse import Langfuse, EvaluatorInputs, Evaluation
 
             client = Langfuse()
 
-            # Define mapper to extract fields from traces
-            def trace_mapper(trace):
+            def root_mapper(*, item):
                 return EvaluatorInputs(
-                    input=trace.input,
-                    output=trace.output,
+                    input=item.input,
+                    output=item.output,
                     expected_output=None,
-                    metadata={"trace_id": trace.id}
+                    metadata={"trace_id": item.trace_id},
                 )
 
-            # Define evaluator
             def length_evaluator(*, input, output, expected_output, metadata):
                 return Evaluation(
                     name="output_length",
                     value=len(output) if output else 0
                 )
 
-            # Run batch evaluation
             result = client.run_batched_evaluation(
-                scope="traces",
-                mapper=trace_mapper,
+                scope="root_observations",
+                mapper=root_mapper,
                 evaluators=[length_evaluator],
-                filter='{"tags": ["production"]}',
+                filter='[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]',
                 max_items=1000,
                 verbose=True
             )
@@ -3308,87 +3316,69 @@ class Langfuse:
             print(f"Created {result.total_scores_created} scores")
             ```
 
-            Evaluation with composite scorer:
+            Evaluate generations with a composite scorer:
             ```python
+            import json
+
+            def generation_mapper(*, item):
+                return EvaluatorInputs(
+                    input=json.loads(item.input) if item.input else None,
+                    output=item.output,
+                    expected_output=None,
+                    metadata={"model": item.model},
+                )
+
             def accuracy_evaluator(*, input, output, expected_output, metadata):
-                # ... evaluation logic
                 return Evaluation(name="accuracy", value=0.85)
 
             def relevance_evaluator(*, input, output, expected_output, metadata):
-                # ... evaluation logic
                 return Evaluation(name="relevance", value=0.92)
 
-            def composite_evaluator(*, item, evaluations):
-                # Weighted average of evaluations
+            def composite_evaluator(*, input, output, expected_output, metadata, evaluations):
                 weights = {"accuracy": 0.6, "relevance": 0.4}
                 total = sum(
                     e.value * weights.get(e.name, 0)
                     for e in evaluations
                     if isinstance(e.value, (int, float))
                 )
-                return Evaluation(
-                    name="composite_score",
-                    value=total,
-                    comment=f"Weighted average of {len(evaluations)} metrics"
-                )
+                return Evaluation(name="composite_score", value=total)
 
-            result = client.run_batched_evaluation(
-                scope="traces",
-                mapper=trace_mapper,
-                evaluators=[accuracy_evaluator, relevance_evaluator],
-                composite_evaluator=composite_evaluator,
-                filter='{"user_id": "important_user"}',
-                verbose=True
-            )
-            ```
-
-            Handling incomplete runs with resume:
-            ```python
-            # Initial run that may fail or timeout
             result = client.run_batched_evaluation(
                 scope="observations",
-                mapper=obs_mapper,
-                evaluators=[my_evaluator],
-                max_items=10000,
-                verbose=True
+                mapper=generation_mapper,
+                evaluators=[accuracy_evaluator, relevance_evaluator],
+                composite_evaluator=composite_evaluator,
+                filter='[{"type": "string", "column": "type", "operator": "=", "value": "GENERATION"}]',
+                fields="core,basic,io,model",
             )
-
-            # Check if incomplete
-            if not result.completed and result.resume_token:
-                print(f"Processed {result.resume_token.items_processed} items before interruption")
-
-                # Resume from where it left off
-                result = client.run_batched_evaluation(
-                    scope="observations",
-                    mapper=obs_mapper,
-                    evaluators=[my_evaluator],
-                    resume_from=result.resume_token,
-                    verbose=True
-                )
-
-            print(f"Total items processed: {result.total_items_processed}")
             ```
 
-            Monitoring evaluator performance:
+            Continuing a run that stopped early:
             ```python
-            result = client.run_batched_evaluation(...)
+            result = client.run_batched_evaluation(
+                scope="observations",
+                mapper=generation_mapper,
+                evaluators=[accuracy_evaluator],
+                max_items=10000,
+            )
 
-            for stats in result.evaluator_stats:
-                success_rate = stats.successful_runs / stats.total_runs
-                print(f"{stats.name}:")
-                print(f"  Success rate: {success_rate:.1%}")
-                print(f"  Scores created: {stats.total_scores_created}")
-
-                if stats.failed_runs > 0:
-                    print(f"  ⚠️  Failed {stats.failed_runs} times")
+            while result.resume_token:
+                result = client.run_batched_evaluation(
+                    scope="observations",
+                    mapper=generation_mapper,
+                    evaluators=[accuracy_evaluator],
+                    max_items=10000,
+                    resume_from=result.resume_token,
+                )
             ```
 
         Note:
             - Evaluator failures are logged but don't stop the batch evaluation
             - Individual item failures are tracked but don't stop processing
-            - Fetch failures are retried with exponential backoff
+            - Fetch failures are retried up to `max_retries` times
             - All scores are automatically flushed to Langfuse at the end
-            - The resume mechanism uses timestamp-based filtering to avoid duplicates
+            - Resuming uses the pagination cursor, so items are neither skipped nor
+              evaluated twice
         """
         runner = BatchEvaluationRunner(self)
 
@@ -3401,13 +3391,12 @@ class Langfuse:
                     evaluators=evaluators,
                     filter=filter,
                     fetch_batch_size=fetch_batch_size,
-                    fetch_trace_fields=fetch_trace_fields,
+                    fields=fields,
                     max_items=max_items,
                     max_concurrency=max_concurrency,
                     composite_evaluator=composite_evaluator,
                     metadata=metadata,
                     _add_observation_scores_to_trace=_add_observation_scores_to_trace,
-                    _additional_trace_tags=_additional_trace_tags,
                     max_retries=max_retries,
                     verbose=verbose,
                     resume_from=resume_from,

@@ -1,9 +1,10 @@
 """Batch evaluation functionality for Langfuse.
 
 This module provides comprehensive batch evaluation capabilities for running evaluations
-on traces and observations fetched from Langfuse. It includes type definitions,
-protocols, result classes, and the implementation for large-scale evaluation workflows
-with error handling, retry logic, and resume capability.
+on observations fetched from Langfuse via the v2 observations API
+(`GET /api/public/v2/observations`). It includes type definitions, protocols, result
+classes, and the implementation for large-scale evaluation workflows with error
+handling, retry logic, and resume capability.
 """
 
 import asyncio
@@ -15,40 +16,52 @@ from typing import (
     Awaitable,
     Dict,
     List,
+    Literal,
     Optional,
     Protocol,
-    Set,
     Tuple,
     Union,
-    cast,
+    get_args,
 )
 
-from langfuse.api import (
-    ObservationsView,
-    TraceWithFullDetails,
-)
+from langfuse.api import ObservationV2
 from langfuse.experiment import Evaluation, EvaluatorFunction
 from langfuse.logger import langfuse_logger as logger
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
 
+BatchEvaluationScope = Literal["observations", "root_observations"]
+"""Which observations a batch evaluation runs on.
+
+- ``"observations"``: every observation matching the filter. Scores are attached
+  to the observation (``observation_id`` + ``trace_id``).
+- ``"root_observations"``: only logical root observations, i.e. one per trace.
+  Scores are attached to the trace (``trace_id`` only), which makes this the
+  replacement for trace-level batch evaluation.
+"""
+
+DEFAULT_BATCH_EVALUATION_FIELDS = "core,basic,io,metadata"
+"""Default v2 observation field groups fetched for batch evaluation.
+
+Includes ``io`` (raw ``input``/``output`` strings) and ``metadata`` so that mappers
+work without extra configuration. Available groups: core, basic, time, io,
+metadata, model, usage, prompt, metrics, trace_context.
+"""
+
 
 class EvaluatorInputs:
     """Input data structure for evaluators, returned by mapper functions.
 
-    This class provides a strongly-typed container for transforming API response
-    objects (traces, observations) into the standardized format expected
-    by evaluator functions. It ensures consistent access to input, output, expected
-    output, and metadata regardless of the source entity type.
+    This class provides a strongly-typed container for transforming `ObservationV2`
+    objects returned by the v2 observations API into the standardized format
+    expected by evaluator functions.
 
     Attributes:
-        input: The input data that was provided to generate the output being evaluated.
-            For traces, this might be the initial prompt or request. For observations,
-            this could be the span's input. The exact meaning depends on your use case.
-        output: The actual output that was produced and needs to be evaluated.
-            For traces, this is typically the final response. For observations,
-            this might be the generation output or span result.
+        input: The input data that was provided to generate the output being evaluated,
+            for example the observation's input.
+        output: The actual output that was produced and needs to be evaluated,
+            for example the generation output or span result.
         expected_output: Optional ground truth or expected result for comparison.
             Used by evaluators to assess correctness. May be None if no ground truth
             is available for the entity being evaluated.
@@ -57,37 +70,30 @@ class EvaluatorInputs:
             or any other relevant data that evaluators might use.
 
     Examples:
-        Simple mapper for traces:
+        Simple mapper for root observations:
         ```python
         from langfuse import EvaluatorInputs
 
-        def trace_mapper(trace):
+        def root_mapper(*, item):
             return EvaluatorInputs(
-                input=trace.input,
-                output=trace.output,
+                input=item.input,  # raw string as returned by the API
+                output=item.output,
                 expected_output=None,  # No ground truth available
-                metadata={"user_id": trace.user_id, "tags": trace.tags}
+                metadata={"trace_id": item.trace_id, "user_id": item.user_id},
             )
         ```
 
-        Mapper for observations extracting specific fields:
+        Mapper that decodes JSON input/output:
         ```python
-        def observation_mapper(observation):
-            # Extract input/output from observation's data
-            input_data = observation.input if hasattr(observation, 'input') else None
-            output_data = observation.output if hasattr(observation, 'output') else None
+        import json
 
+        def observation_mapper(*, item):
             return EvaluatorInputs(
-                input=input_data,
-                output=output_data,
+                input=json.loads(item.input) if item.input else None,
+                output=json.loads(item.output) if item.output else None,
                 expected_output=None,
-                metadata={
-                    "observation_type": observation.type,
-                    "model": observation.model,
-                    "latency_ms": observation.end_time - observation.start_time
-                }
+                metadata={"observation_type": item.type, "name": item.name},
             )
-        ```
         ```
 
     Note:
@@ -122,34 +128,40 @@ class EvaluatorInputs:
 class MapperFunction(Protocol):
     """Protocol defining the interface for mapper functions in batch evaluation.
 
-    Mapper functions transform API response objects (traces or observations)
-    into the standardized EvaluatorInputs format that evaluators expect. This abstraction
-    allows you to define how to extract and structure evaluation data from different
-    entity types.
+    Mapper functions transform `ObservationV2` objects from the v2 observations API
+    into the standardized EvaluatorInputs format that evaluators expect.
 
     Mapper functions must:
-    - Accept a single item parameter (trace, observation)
+    - Accept a single keyword argument `item` (an `ObservationV2`)
     - Return an EvaluatorInputs instance with input, output, expected_output, metadata
     - Can be either synchronous or asynchronous
     - Should handle missing or malformed data gracefully
+
+    Notes on `ObservationV2`:
+    - `input` and `output` are raw strings exactly as stored; the SDK does not
+      parse them. Use `json.loads` in the mapper if you need structured data.
+    - Only the requested field groups (see the `fields` argument of
+      `Langfuse.run_batched_evaluation`) are populated; fields of other groups
+      are None.
+    - `metadata` values longer than 200 characters are truncated by the API.
+    - Price fields (`input_price`, `output_price`, `total_price`) are strings.
     """
 
     def __call__(
         self,
         *,
-        item: Union["TraceWithFullDetails", "ObservationsView"],
+        item: ObservationV2,
         **kwargs: Dict[str, Any],
     ) -> Union[EvaluatorInputs, Awaitable[EvaluatorInputs]]:
-        """Transform an API response object into evaluator inputs.
+        """Transform an observation into evaluator inputs.
 
-        This method defines how to extract evaluation-relevant data from the raw
-        API response object. The implementation should map entity-specific fields
-        to the standardized input/output/expected_output/metadata structure.
+        This method defines how to extract evaluation-relevant data from the
+        observation. The implementation should map its fields to the standardized
+        input/output/expected_output/metadata structure.
 
         Args:
-            item: The API response object to transform. The type depends on the scope:
-                - TraceWithFullDetails: When evaluating traces
-                - ObservationsView: When evaluating observations
+            item: The `ObservationV2` to transform. With
+                `scope="root_observations"` this is the root observation of a trace.
 
         Returns:
             EvaluatorInputs: A structured container with:
@@ -162,48 +174,45 @@ class MapperFunction(Protocol):
             (for async mappers that need to fetch additional data).
 
         Examples:
-            Basic trace mapper:
+            Basic root observation mapper:
             ```python
-            def map_trace(trace):
+            def map_root(*, item):
                 return EvaluatorInputs(
-                    input=trace.input,
-                    output=trace.output,
+                    input=item.input,
+                    output=item.output,
                     expected_output=None,
-                    metadata={"trace_id": trace.id, "user": trace.user_id}
+                    metadata={"trace_id": item.trace_id, "user": item.user_id}
                 )
             ```
 
             Observation mapper with conditional logic:
             ```python
-            def map_observation(observation):
-                # Extract fields based on observation type
-                if observation.type == "GENERATION":
-                    input_data = observation.input
-                    output_data = observation.output
+            import json
+
+            def map_observation(*, item):
+                if item.type == "GENERATION":
+                    input_data = json.loads(item.input) if item.input else None
                 else:
-                    # For other types, use different fields
-                    input_data = observation.metadata.get("input")
-                    output_data = observation.metadata.get("output")
+                    input_data = item.input
 
                 return EvaluatorInputs(
                     input=input_data,
-                    output=output_data,
+                    output=item.output,
                     expected_output=None,
-                    metadata={"obs_id": observation.id, "type": observation.type}
+                    metadata={"obs_id": item.id, "type": item.type}
                 )
             ```
 
             Async mapper (if additional processing needed):
             ```python
-            async def map_trace_async(trace):
-                # Could do async processing here if needed
-                processed_output = await some_async_transformation(trace.output)
+            async def map_async(*, item):
+                processed_output = await some_async_transformation(item.output)
 
                 return EvaluatorInputs(
-                    input=trace.input,
+                    input=item.input,
                     output=processed_output,
                     expected_output=None,
-                    metadata={"trace_id": trace.id}
+                    metadata={"trace_id": item.trace_id}
                 )
             ```
         """
@@ -452,97 +461,66 @@ class EvaluatorStats:
 
 
 class BatchEvaluationResumeToken:
-    """Token for resuming a failed batch evaluation run.
+    """Token for resuming an interrupted or limited batch evaluation run.
 
-    This class encapsulates all the information needed to resume a batch evaluation
-    that was interrupted or failed partway through. It uses timestamp-based filtering
-    to avoid re-processing items that were already evaluated, even if the underlying
-    dataset changed between runs.
+    The v2 observations API returns observations ordered by start time, newest
+    first, and paginates with an opaque cursor. The token stores the cursor of
+    the next page that has not been processed yet, so a resumed run continues
+    exactly where the previous one stopped, without re-evaluating or skipping
+    items, even if new observations were ingested in the meantime.
+
+    A token is returned when a run stops because a batch fetch failed after all
+    retries (`completed=False`) or because `max_items` was reached while more
+    items exist (`has_more_items=True`).
 
     Attributes:
-        scope: The type of items being evaluated ("traces", "observations").
-        filter: The original JSON filter string used to query items.
-        last_processed_timestamp: ISO 8601 timestamp of the last successfully processed item.
-            Used to construct a filter that only fetches items after this timestamp.
-        last_processed_id: The ID of the last successfully processed item, for reference.
-        items_processed: Count of items successfully processed before interruption.
+        scope: The scope of the run ("observations" or "root_observations").
+            Resuming requires the same scope.
+        filter: The original JSON filter string used to query items. Pass the
+            same filter when resuming.
+        cursor: Cursor of the next page to fetch. None if no page was fetched yet.
+        last_processed_timestamp: ISO 8601 start time of the oldest processed
+            observation. Only used to resume when `cursor` is None, by fetching
+            observations that started strictly before this timestamp.
+        last_processed_id: The ID of the last processed observation, for reference.
+        items_processed: Number of items successfully processed so far, including
+            items processed by the runs this token was resumed from.
 
     Examples:
-        Resuming a failed batch evaluation:
+        Resuming a run that stopped early:
         ```python
-        # Initial run that fails partway through
-        try:
-            result = client.run_batched_evaluation(
-                scope="traces",
-                mapper=my_mapper,
-                evaluators=[evaluator1, evaluator2],
-                filter='{"tags": ["production"]}',
-                max_items=10000
-            )
-        except Exception as e:
-            print(f"Evaluation failed: {e}")
-
-            # Save the resume token
-            if result.resume_token:
-                # Store resume token for later (e.g., in a file or database)
-                import json
-                with open("resume_token.json", "w") as f:
-                    json.dump({
-                        "scope": result.resume_token.scope,
-                        "filter": result.resume_token.filter,
-                        "last_timestamp": result.resume_token.last_processed_timestamp,
-                        "last_id": result.resume_token.last_processed_id,
-                        "items_done": result.resume_token.items_processed
-                    }, f)
-
-        # Later, resume from where it left off
-        with open("resume_token.json") as f:
-            token_data = json.load(f)
-
-        resume_token = BatchEvaluationResumeToken(
-            scope=token_data["scope"],
-            filter=token_data["filter"],
-            last_processed_timestamp=token_data["last_timestamp"],
-            last_processed_id=token_data["last_id"],
-            items_processed=token_data["items_done"]
-        )
-
-        # Resume the evaluation
         result = client.run_batched_evaluation(
-            scope="traces",
+            scope="root_observations",
             mapper=my_mapper,
             evaluators=[evaluator1, evaluator2],
-            resume_from=resume_token
+            filter=my_filter,
+            max_items=10000,
         )
 
-        print(f"Processed {result.total_items_processed} additional items")
+        if result.resume_token:
+            result = client.run_batched_evaluation(
+                scope="root_observations",
+                mapper=my_mapper,
+                evaluators=[evaluator1, evaluator2],
+                filter=my_filter,
+                resume_from=result.resume_token,
+            )
         ```
 
-        Handling partial completion:
+        Persisting a token between processes:
         ```python
-        result = client.run_batched_evaluation(...)
+        import json
 
-        if not result.completed:
-            print(f"Evaluation incomplete. Processed {result.resume_token.items_processed} items")
-            print(f"Last item: {result.resume_token.last_processed_id}")
-            print(f"Resume from: {result.resume_token.last_processed_timestamp}")
+        token = result.resume_token
+        with open("resume_token.json", "w") as f:
+            json.dump(vars(token), f)
 
-            # Optionally retry automatically
-            if result.resume_token:
-                print("Retrying...")
-                result = client.run_batched_evaluation(
-                    scope=result.resume_token.scope,
-                    mapper=my_mapper,
-                    evaluators=my_evaluators,
-                    resume_from=result.resume_token
-                )
+        with open("resume_token.json") as f:
+            token = BatchEvaluationResumeToken(**json.load(f))
         ```
 
     Note:
         All arguments must be passed as keywords when instantiating this class.
-        The timestamp-based approach means that items created after the initial run
-        but before the timestamp will be skipped. This is intentional to avoid
-        duplicates and ensure consistent evaluation.
     """
 
     def __init__(
@@ -553,21 +531,24 @@ class BatchEvaluationResumeToken:
         last_processed_timestamp: str,
         last_processed_id: str,
         items_processed: int,
+        cursor: Optional[str] = None,
     ):
         """Initialize BatchEvaluationResumeToken with the provided state.
 
         Args:
-            scope: The scope type ("traces", "observations").
+            scope: The scope of the run ("observations" or "root_observations").
             filter: The original JSON filter string.
-            last_processed_timestamp: ISO 8601 timestamp of last processed item.
+            last_processed_timestamp: ISO 8601 start time of the oldest processed item.
             last_processed_id: ID of last processed item.
             items_processed: Count of items processed before interruption.
+            cursor: Cursor of the next page to fetch.
 
         Note:
             All arguments must be provided as keywords.
         """
         self.scope = scope
         self.filter = filter
+        self.cursor = cursor
         self.last_processed_timestamp = last_processed_timestamp
         self.last_processed_id = last_processed_id
         self.items_processed = items_processed
@@ -588,13 +569,16 @@ class BatchEvaluationResult:
         total_composite_scores_created: Scores created by the composite evaluator.
         total_evaluations_failed: Number of individual evaluator failures across all items.
         evaluator_stats: List of per-evaluator statistics (success/failure rates, scores created).
-        resume_token: Token for resuming if evaluation was interrupted (None if completed).
-        completed: True if all items were processed, False if stopped early or failed.
+        resume_token: Token for continuing the run. Set when a batch fetch failed
+            (`completed=False`) or when `max_items` was reached while more items
+            exist (`has_more_items=True`); None otherwise.
+        completed: False if the run stopped because a batch fetch failed, True otherwise
+            (including when it stopped at `max_items`).
         duration_seconds: Total time taken to execute the batch evaluation.
-        failed_item_ids: List of IDs for items that failed evaluation.
+        failed_item_ids: List of observation IDs for items that failed evaluation.
         error_summary: Dictionary mapping error types to occurrence counts.
         has_more_items: True if max_items limit was reached but more items exist.
-        item_evaluations: Dictionary mapping item IDs to their evaluation results (both regular and composite).
+        item_evaluations: Dictionary mapping observation IDs to their evaluation results (both regular and composite).
 
     Examples:
         Basic result inspection:
@@ -644,9 +628,7 @@ class BatchEvaluationResult:
 
             if result.resume_token:
                 print(f"Processed {result.resume_token.items_processed} items before failure")
-                print(f"Use resume_from parameter to continue from:")
-                print(f"  Timestamp: {result.resume_token.last_processed_timestamp}")
-                print(f"  Last ID: {result.resume_token.last_processed_id}")
+                print("Pass it as resume_from to continue")
 
         if result.has_more_items:
             print(f"ℹ️  More items available beyond max_items limit")
@@ -839,57 +821,70 @@ class BatchEvaluationRunner:
     async def run_async(
         self,
         *,
-        scope: str,
+        scope: BatchEvaluationScope,
         mapper: MapperFunction,
         evaluators: List[EvaluatorFunction],
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
-        fetch_trace_fields: Optional[str] = "io",
+        fields: Optional[str] = DEFAULT_BATCH_EVALUATION_FIELDS,
         max_items: Optional[int] = None,
         max_concurrency: int = 5,
         composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
         metadata: Optional[Dict[str, Any]] = None,
         _add_observation_scores_to_trace: bool = False,
-        _additional_trace_tags: Optional[List[str]] = None,
         max_retries: int = 3,
         verbose: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
     ) -> BatchEvaluationResult:
-        """Run batch evaluation asynchronously using legacy read APIs.
+        """Run batch evaluation asynchronously.
 
         This is the main implementation method that orchestrates the entire batch
-        evaluation process: fetching items, mapping, evaluating, creating scores,
-        and tracking statistics.
-
-        This runner reads traces from `GET /api/public/traces` and observations
-        from the legacy `GET /api/public/observations` endpoint. It is supported
-        with Langfuse platform v3 and is not yet supported with platform v4.
+        evaluation process: fetching items from `GET /api/public/v2/observations`
+        with cursor pagination, mapping, evaluating, creating scores, and tracking
+        statistics.
 
         Args:
-            scope: The type of items to evaluate ("traces", "observations").
-            mapper: Function to transform API response items to evaluator inputs.
+            scope: Which observations to evaluate ("observations", "root_observations").
+            mapper: Function to transform `ObservationV2` items to evaluator inputs.
             evaluators: List of evaluation functions to run on each item.
-            filter: JSON filter string for querying items.
-            fetch_batch_size: Number of items to fetch per API call.
-            fetch_trace_fields: Comma-separated list of fields to include when fetching traces. Available field groups: 'core' (always included), 'io' (input, output, metadata), 'scores', 'observations', 'metrics'. If not specified, all fields are returned. Example: 'core,scores,metrics'. Note: Excluded 'observations' or 'scores' fields return empty arrays; excluded 'metrics' returns -1 for 'totalCost' and 'latency'. Only relevant if scope is 'traces'. Default: 'io'
+            filter: JSON filter string (v2 observations filter schema).
+            fetch_batch_size: Number of items to fetch per API call (max 1000).
+            fields: Comma-separated v2 observation field groups to fetch.
             max_items: Maximum number of items to process (None = all).
             max_concurrency: Maximum number of concurrent evaluations.
             composite_evaluator: Optional function to create composite scores.
             metadata: Metadata to add to all created scores.
             _add_observation_scores_to_trace: Private option to duplicate
-                observation-level scores onto the parent trace.
-            _additional_trace_tags: Private option to add tags on traces via
-                ingestion trace-create events.
+                observation-level scores onto the parent trace. Only applies to
+                scope="observations".
             max_retries: Maximum retries for failed batch fetches.
             verbose: If True, log progress to console.
-            resume_from: Resume token from a previous failed run.
+            resume_from: Resume token from a previous run.
 
         Returns:
             BatchEvaluationResult with comprehensive statistics.
+
+        Raises:
+            ValueError: If the scope is invalid, the filter is not a JSON array, or
+                the resume token was created for a different scope.
         """
         start_time = time.time()
 
-        # Initialize tracking variables
+        if scope not in get_args(BatchEvaluationScope):
+            raise ValueError(
+                f"Invalid scope: {scope!r}. Expected one of "
+                f"{', '.join(repr(s) for s in get_args(BatchEvaluationScope))}."
+            )
+        if resume_from is not None and resume_from.scope != scope:
+            raise ValueError(
+                f"Resume token was created for scope {resume_from.scope!r}, "
+                f"cannot resume with scope {scope!r}."
+            )
+
+        effective_filter = self._build_filter(
+            filter=filter, scope=scope, resume_from=resume_from
+        )
+
         total_items_fetched = 0
         total_items_processed = 0
         total_items_failed = 0
@@ -899,8 +894,8 @@ class BatchEvaluationRunner:
         failed_item_ids: List[str] = []
         error_summary: Dict[str, int] = {}
         item_evaluations: Dict[str, List[Evaluation]] = {}
+        previously_processed = resume_from.items_processed if resume_from else 0
 
-        # Initialize evaluator stats
         evaluator_stats_dict = {
             getattr(evaluator, "__name__", "unknown_evaluator"): EvaluatorStats(
                 name=getattr(evaluator, "__name__", "unknown_evaluator")
@@ -908,65 +903,60 @@ class BatchEvaluationRunner:
             for evaluator in evaluators
         }
 
-        # Handle resume token by modifying filter
-        effective_filter = self._build_timestamp_filter(filter, resume_from)
-        normalized_additional_trace_tags = (
-            self._dedupe_tags(_additional_trace_tags)
-            if _additional_trace_tags is not None
-            else []
-        )
-        updated_trace_ids: Set[str] = set()
-
-        # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        # Pagination state
-        page = 1
+        cursor: Optional[str] = resume_from.cursor if resume_from else None
         has_more = True
-        last_item_timestamp: Optional[str] = None
-        last_item_id: Optional[str] = None
+        last_item_timestamp = (
+            resume_from.last_processed_timestamp if resume_from else ""
+        )
+        last_item_id = resume_from.last_processed_id if resume_from else ""
+        batch_number = 0
 
         if verbose:
             logger.info("Starting batch evaluation on %s", scope)
-            if scope == "traces" and fetch_trace_fields:
-                logger.info("Fetching trace fields: %s", fetch_trace_fields)
+            if fields:
+                logger.info("Fetching observation fields: %s", fields)
             if resume_from:
                 logger.info(
-                    "Resuming from %s (%s items already processed)",
-                    resume_from.last_processed_timestamp,
+                    "Resuming after %s (%s items already processed)",
+                    resume_from.last_processed_timestamp or "start",
                     resume_from.items_processed,
                 )
 
-        # Main pagination loop
-        while has_more:
-            # Check if we've reached max_items
+        def build_resume_token() -> BatchEvaluationResumeToken:
+            return BatchEvaluationResumeToken(
+                scope=scope,
+                filter=filter,
+                cursor=cursor,
+                last_processed_timestamp=last_item_timestamp,
+                last_processed_id=last_item_id,
+                items_processed=previously_processed + total_items_processed,
+            )
+
+        while True:
             if max_items is not None and total_items_fetched >= max_items:
                 if verbose:
                     logger.info("Reached max_items limit (%s)", max_items)
-                has_more = True  # More items may exist
                 break
 
-            # Fetch next batch with retry logic
+            # Clamping the page size keeps the cursor aligned with the last
+            # processed item, so resuming after max_items skips nothing.
+            limit = fetch_batch_size
+            if max_items is not None:
+                limit = min(limit, max_items - total_items_fetched)
+
             try:
-                items = await self._fetch_batch_with_retry(
-                    scope=scope,
+                items, next_cursor = await self._fetch_batch_with_retry(
                     filter=effective_filter,
-                    page=page,
-                    limit=fetch_batch_size,
+                    cursor=cursor,
+                    limit=limit,
                     max_retries=max_retries,
-                    fields=fetch_trace_fields,
+                    fields=fields,
                 )
             except Exception as e:
-                # Failed after max_retries - create resume token and return
-                error_msg = f"Failed to fetch batch after {max_retries} retries"
-                logger.error("%s: %s", error_msg, e)
-
-                resume_token = BatchEvaluationResumeToken(
-                    scope=scope,
-                    filter=filter,  # Original filter, not modified
-                    last_processed_timestamp=last_item_timestamp or "",
-                    last_processed_id=last_item_id or "",
-                    items_processed=total_items_processed,
+                logger.error(
+                    "Failed to fetch batch after %s retries: %s", max_retries, e
                 )
 
                 return self._build_result(
@@ -977,47 +967,25 @@ class BatchEvaluationRunner:
                     total_composite_scores_created=total_composite_scores_created,
                     total_evaluations_failed=total_evaluations_failed,
                     evaluator_stats_dict=evaluator_stats_dict,
-                    resume_token=resume_token,
+                    resume_token=build_resume_token(),
                     completed=False,
                     start_time=start_time,
                     failed_item_ids=failed_item_ids,
                     error_summary=error_summary,
-                    has_more_items=has_more,
+                    has_more_items=False,
                     item_evaluations=item_evaluations,
                 )
 
-            # Check if we got any items
-            if not items:
-                has_more = False
-                if verbose:
-                    logger.info("No more items to fetch")
-                break
-
+            batch_number += 1
             total_items_fetched += len(items)
 
             if verbose:
-                logger.info("Fetched batch %s (%s items)", page, len(items))
+                logger.info("Fetched batch %s (%s items)", batch_number, len(items))
 
-            # Limit items if max_items would be exceeded
-            items_to_process = items
-            if max_items is not None:
-                remaining_capacity = max_items - total_items_processed
-                if len(items) > remaining_capacity:
-                    items_to_process = items[:remaining_capacity]
-                    if verbose:
-                        logger.info(
-                            "Limiting batch to %s items to respect max_items=%s",
-                            len(items_to_process),
-                            max_items,
-                        )
-
-            # Process items concurrently
             async def process_item(
-                item: Union[TraceWithFullDetails, ObservationsView],
+                item: ObservationV2,
             ) -> Tuple[str, Union[Tuple[int, int, int, List[Evaluation]], Exception]]:
-                """Process a single item and return (item_id, result)."""
                 async with semaphore:
-                    item_id = self._get_item_id(item, scope)
                     try:
                         result = await self._process_batch_evaluation_item(
                             item=item,
@@ -1029,25 +997,20 @@ class BatchEvaluationRunner:
                             _add_observation_scores_to_trace=_add_observation_scores_to_trace,
                             evaluator_stats_dict=evaluator_stats_dict,
                         )
-                        return (item_id, result)
+                        return (item.id, result)
                     except Exception as e:
-                        return (item_id, e)
+                        return (item.id, e)
 
-            # Run all items in batch concurrently
-            tasks = [process_item(item) for item in items_to_process]
-            results = await asyncio.gather(*tasks)
+            results = await asyncio.gather(*[process_item(item) for item in items])
 
-            # Process results and update statistics
-            for item, (item_id, result) in zip(items_to_process, results):
+            for item, (item_id, result) in zip(items, results):
                 if isinstance(result, Exception):
-                    # Item processing failed
                     total_items_failed += 1
                     failed_item_ids.append(item_id)
                     error_type = type(result).__name__
                     error_summary[error_type] = error_summary.get(error_type, 0) + 1
                     logger.warning("Item %s failed: %s", item_id, result)
                 else:
-                    # Item processed successfully
                     total_items_processed += 1
                     scores_created, composite_created, evals_failed, evaluations = (
                         result
@@ -1055,36 +1018,19 @@ class BatchEvaluationRunner:
                     total_scores_created += scores_created
                     total_composite_scores_created += composite_created
                     total_evaluations_failed += evals_failed
-
-                    # Store evaluations for this item
                     item_evaluations[item_id] = evaluations
 
-                    if normalized_additional_trace_tags:
-                        trace_id = (
-                            item_id
-                            if scope == "traces"
-                            else cast(ObservationsView, item).trace_id
-                        )
-
-                        if trace_id and trace_id not in updated_trace_ids:
-                            self.client._create_trace_tags_via_ingestion(
-                                trace_id=trace_id,
-                                tags=normalized_additional_trace_tags,
-                            )
-                            updated_trace_ids.add(trace_id)
-
-                    # Update last processed tracking
-                    last_item_timestamp = self._get_item_timestamp(item, scope)
-                    last_item_id = item_id
+            if items:
+                last_item_timestamp = items[-1].start_time.isoformat()
+                last_item_id = items[-1].id
 
             if verbose:
                 if max_items is not None and max_items > 0:
-                    progress_pct = total_items_processed / max_items * 100
                     logger.info(
                         "Progress: %s/%s items (%.1f%%), %s scores created",
                         total_items_processed,
                         max_items,
-                        progress_pct,
+                        total_items_processed / max_items * 100,
                         total_scores_created,
                     )
                 else:
@@ -1094,39 +1040,21 @@ class BatchEvaluationRunner:
                         total_scores_created,
                     )
 
-            # Check if we should continue to next page
-            if len(items) < fetch_batch_size:
-                # Last page - no more items available
+            cursor = next_cursor
+            if cursor is None or not items:
                 has_more = False
-            else:
-                page += 1
+                break
 
-                # Check max_items again before next fetch
-                if max_items is not None and total_items_fetched >= max_items:
-                    has_more = True  # More items exist but we're stopping
-                    break
-
-        # Flush all scores to Langfuse
         if verbose:
             logger.info("Flushing scores to Langfuse...")
         self.client.flush()
-
-        # Build final result
-        duration = time.time() - start_time
 
         if verbose:
             logger.info(
                 "Batch evaluation complete: %s items processed in %.2fs",
                 total_items_processed,
-                duration,
+                time.time() - start_time,
             )
-
-        # Completed successfully if we either:
-        # 1. Ran out of items (has_more is False), OR
-        # 2. Hit max_items limit (intentionally stopped)
-        completed_successfully = not has_more or (
-            max_items is not None and total_items_fetched >= max_items
-        )
 
         return self._build_result(
             total_items_fetched=total_items_fetched,
@@ -1136,69 +1064,55 @@ class BatchEvaluationRunner:
             total_composite_scores_created=total_composite_scores_created,
             total_evaluations_failed=total_evaluations_failed,
             evaluator_stats_dict=evaluator_stats_dict,
-            resume_token=None,  # No resume needed on successful completion
-            completed=completed_successfully,
+            resume_token=build_resume_token() if has_more else None,
+            completed=True,
             start_time=start_time,
             failed_item_ids=failed_item_ids,
             error_summary=error_summary,
-            has_more_items=(
-                has_more and max_items is not None and total_items_fetched >= max_items
-            ),
+            has_more_items=has_more,
             item_evaluations=item_evaluations,
         )
 
     async def _fetch_batch_with_retry(
         self,
         *,
-        scope: str,
         filter: Optional[str],
-        page: int,
+        cursor: Optional[str],
         limit: int,
         max_retries: int,
         fields: Optional[str],
-    ) -> List[Union[TraceWithFullDetails, ObservationsView]]:
-        """Fetch a batch of items with retry logic.
+    ) -> Tuple[List[ObservationV2], Optional[str]]:
+        """Fetch one page of observations from the v2 observations API.
 
         Args:
-            scope: The type of items ("traces", "observations").
             filter: JSON filter string for querying.
-            page: Page number (1-indexed).
-            limit: Number of items per page.
+            cursor: Cursor returned with the previous page; None for the first page.
+            limit: Number of items to request.
             max_retries: Maximum number of retry attempts.
-            verbose: Whether to log retry attempts.
-            fields: Trace fields to fetch
+            fields: Comma-separated v2 field groups to include.
 
         Returns:
-            List of items from the API.
+            Tuple of the page's observations and the cursor for the next page
+            (None when there are no more pages).
 
         Raises:
             Exception: If all retry attempts fail.
         """
-        if scope == "traces":
-            response = self.client.api.trace.list(
-                page=page,
-                limit=limit,
-                filter=filter,
-                request_options={"max_retries": max_retries},
-                fields=fields,
-            )  # type: ignore
-            return list(response.data)  # type: ignore
-        elif scope == "observations":
-            response = self.client.api.legacy.observations_v1.get_many(
-                page=page,
-                limit=limit,
-                filter=filter,
-                request_options={"max_retries": max_retries},
-            )  # type: ignore
-            return list(response.data)  # type: ignore
-        else:
-            error_message = f"Invalid scope: {scope}"
-            raise ValueError(error_message)
+        response = await asyncio.to_thread(
+            self.client.api.observations.get_many,
+            fields=fields,
+            limit=limit,
+            cursor=cursor,
+            filter=filter,
+            request_options={"max_retries": max_retries},
+        )
+
+        return list(response.data), response.meta.cursor
 
     async def _process_batch_evaluation_item(
         self,
-        item: Union[TraceWithFullDetails, ObservationsView],
-        scope: str,
+        item: ObservationV2,
+        scope: BatchEvaluationScope,
         mapper: MapperFunction,
         evaluators: List[EvaluatorFunction],
         composite_evaluator: Optional[CompositeEvaluatorFunction],
@@ -1209,8 +1123,8 @@ class BatchEvaluationRunner:
         """Process a single item: map, evaluate, create scores.
 
         Args:
-            item: The API response object to evaluate.
-            scope: The type of item ("traces", "observations").
+            item: The observation to evaluate.
+            scope: The scope of the run.
             mapper: Function to transform item to evaluator inputs.
             evaluators: List of evaluator functions.
             composite_evaluator: Optional composite evaluator function.
@@ -1225,14 +1139,15 @@ class BatchEvaluationRunner:
         Raises:
             Exception: If mapping fails or item processing encounters fatal error.
         """
+        if not item.trace_id:
+            raise ValueError(f"Observation {item.id} has no trace_id")
+
         scores_created = 0
         composite_scores_created = 0
         evaluations_failed = 0
 
-        # Run mapper to transform item
         evaluator_inputs = await self._run_mapper(mapper, item)
 
-        # Run all evaluators
         evaluations: List[Evaluation] = []
         for evaluator in evaluators:
             evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
@@ -1253,31 +1168,24 @@ class BatchEvaluationRunner:
                 evaluations.extend(eval_results)
 
             except Exception as e:
-                # Evaluator failed - log warning and continue with other evaluators
                 stats.failed_runs += 1
                 evaluations_failed += 1
                 logger.warning(
                     "Evaluator %s failed on item %s: %s",
                     evaluator_name,
-                    self._get_item_id(item, scope),
+                    item.id,
                     e,
                 )
 
-        # Create scores for item-level evaluations
-        item_id = self._get_item_id(item, scope)
         for evaluation in evaluations:
             scores_created += self._create_score_for_scope(
                 scope=scope,
-                item_id=item_id,
-                trace_id=cast(ObservationsView, item).trace_id
-                if scope == "observations"
-                else None,
+                item=item,
                 evaluation=evaluation,
                 additional_metadata=metadata,
                 add_observation_score_to_trace=_add_observation_scores_to_trace,
             )
 
-        # Run composite evaluator if provided and we have evaluations
         if composite_evaluator and evaluations:
             try:
                 composite_evals = await self._run_composite_evaluator(
@@ -1289,24 +1197,19 @@ class BatchEvaluationRunner:
                     evaluations=evaluations,
                 )
 
-                # Create scores for all composite evaluations
                 for composite_eval in composite_evals:
                     composite_scores_created += self._create_score_for_scope(
                         scope=scope,
-                        item_id=item_id,
-                        trace_id=cast(ObservationsView, item).trace_id
-                        if scope == "observations"
-                        else None,
+                        item=item,
                         evaluation=composite_eval,
                         additional_metadata=metadata,
                         add_observation_score_to_trace=_add_observation_scores_to_trace,
                     )
 
-                # Add composite evaluations to the list
                 evaluations.extend(composite_evals)
 
             except Exception as e:
-                logger.warning("Composite evaluator failed on item %s: %s", item_id, e)
+                logger.warning("Composite evaluator failed on item %s: %s", item.id, e)
 
         return (
             scores_created,
@@ -1337,11 +1240,9 @@ class BatchEvaluationRunner:
         """
         result = evaluator(**kwargs)
 
-        # Handle async evaluators
         if asyncio.iscoroutine(result):
             result = await result
 
-        # Normalize to list
         if isinstance(result, (dict, Evaluation)):
             return [result]  # type: ignore
         elif isinstance(result, list):
@@ -1352,13 +1253,13 @@ class BatchEvaluationRunner:
     async def _run_mapper(
         self,
         mapper: MapperFunction,
-        item: Union[TraceWithFullDetails, ObservationsView],
+        item: ObservationV2,
     ) -> EvaluatorInputs:
         """Run mapper function (handles both sync and async mappers).
 
         Args:
             mapper: The mapper function to run.
-            item: The API response object to map.
+            item: The observation to map.
 
         Returns:
             EvaluatorInputs instance.
@@ -1406,7 +1307,6 @@ class BatchEvaluationRunner:
         if asyncio.iscoroutine(result):
             result = await result
 
-        # Normalize to list (same as regular evaluator)
         if isinstance(result, (dict, Evaluation)):
             return [result]  # type: ignore
         elif isinstance(result, list):
@@ -1417,19 +1317,20 @@ class BatchEvaluationRunner:
     def _create_score_for_scope(
         self,
         *,
-        scope: str,
-        item_id: str,
-        trace_id: Optional[str] = None,
+        scope: BatchEvaluationScope,
+        item: ObservationV2,
         evaluation: Evaluation,
         additional_metadata: Optional[Dict[str, Any]],
         add_observation_score_to_trace: bool = False,
     ) -> int:
-        """Create a score linked to the appropriate entity based on scope.
+        """Create a score linked to the entity that the scope evaluates.
+
+        `root_observations` scores the trace; `observations` scores the
+        observation and optionally duplicates the score onto its trace.
 
         Args:
-            scope: The type of entity ("traces", "observations").
-            item_id: The ID of the entity.
-            trace_id: The trace ID of the entity; required if scope=observations
+            scope: The scope of the run.
+            item: The evaluated observation.
             evaluation: The evaluation result to create a score from.
             additional_metadata: Additional metadata to merge with evaluation metadata.
             add_observation_score_to_trace: Whether to duplicate observation
@@ -1438,165 +1339,96 @@ class BatchEvaluationRunner:
         Returns:
             Number of score events created.
         """
-        # Merge metadata
         score_metadata = {
             **(evaluation.metadata or {}),
             **(additional_metadata or {}),
         }
+        score_kwargs: Dict[str, Any] = {
+            "name": evaluation.name,
+            "value": evaluation.value,
+            "comment": evaluation.comment,
+            "metadata": score_metadata,
+            "data_type": evaluation.data_type,
+            "config_id": evaluation.config_id,
+        }
 
-        if scope == "traces":
-            self.client.create_score(
-                trace_id=item_id,
-                name=evaluation.name,
-                value=evaluation.value,  # type: ignore
-                comment=evaluation.comment,
-                metadata=score_metadata,
-                data_type=evaluation.data_type,  # type: ignore[arg-type]
-                config_id=evaluation.config_id,
-            )
+        if scope == "root_observations":
+            self.client.create_score(trace_id=item.trace_id, **score_kwargs)
             return 1
-        elif scope == "observations":
-            self.client.create_score(
-                observation_id=item_id,
-                trace_id=trace_id,
-                name=evaluation.name,
-                value=evaluation.value,  # type: ignore
-                comment=evaluation.comment,
-                metadata=score_metadata,
-                data_type=evaluation.data_type,  # type: ignore[arg-type]
-                config_id=evaluation.config_id,
-            )
-            score_count = 1
 
-            if add_observation_score_to_trace and trace_id:
-                self.client.create_score(
-                    trace_id=trace_id,
-                    name=evaluation.name,
-                    value=evaluation.value,  # type: ignore
-                    comment=evaluation.comment,
-                    metadata=score_metadata,
-                    data_type=evaluation.data_type,  # type: ignore[arg-type]
-                    config_id=evaluation.config_id,
-                )
-                score_count += 1
+        self.client.create_score(
+            observation_id=item.id, trace_id=item.trace_id, **score_kwargs
+        )
+        if not add_observation_score_to_trace:
+            return 1
 
-            return score_count
+        self.client.create_score(trace_id=item.trace_id, **score_kwargs)
+        return 2
 
-        return 0
-
-    def _build_timestamp_filter(
-        self,
-        original_filter: Optional[str],
+    @staticmethod
+    def _build_filter(
+        *,
+        filter: Optional[str],
+        scope: BatchEvaluationScope,
         resume_from: Optional[BatchEvaluationResumeToken],
     ) -> Optional[str]:
-        """Build filter with timestamp constraint for resume capability.
+        """Combine the user filter with the scope and resume constraints.
+
+        Constraints are added as JSON filter conditions rather than query
+        parameters because the API drops a query-parameter filter whenever the
+        JSON filter has a condition on the same column.
 
         Args:
-            original_filter: The original JSON filter string.
-            resume_from: Optional resume token with timestamp information.
+            filter: The user-provided JSON filter string (a JSON array).
+            scope: The scope of the run.
+            resume_from: Optional resume token.
 
         Returns:
-            Modified filter string with timestamp constraint, or original filter.
-        """
-        if not resume_from:
-            return original_filter
+            The JSON filter string to send, or None if there are no conditions.
 
-        # Parse original filter (should be array) or create empty array
-        try:
-            filter_list = json.loads(original_filter) if original_filter else []
-            if not isinstance(filter_list, list):
-                logger.warning(
-                    "Filter should be a JSON array, got: %s", type(filter_list).__name__
+        Raises:
+            ValueError: If the filter is not a JSON array.
+        """
+        conditions: List[Any] = []
+        if filter:
+            try:
+                parsed = json.loads(filter)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"filter must be a JSON array: {e}") from e
+            if not isinstance(parsed, list):
+                raise ValueError(
+                    f"filter must be a JSON array of conditions, got {type(parsed).__name__}"
                 )
-                filter_list = []
-        except json.JSONDecodeError:
-            logger.warning(
-                "Invalid JSON in original filter, ignoring: %s", original_filter
+            conditions.extend(parsed)
+
+        if scope == "root_observations":
+            conditions.append(
+                {
+                    "type": "boolean",
+                    "column": "isRootObservation",
+                    "operator": "=",
+                    "value": True,
+                }
             )
-            filter_list = []
 
-        # Add timestamp constraint to filter array
-        timestamp_field = self._get_timestamp_field_for_scope(resume_from.scope)
-        timestamp_filter = {
-            "type": "datetime",
-            "column": timestamp_field,
-            "operator": ">",
-            "value": resume_from.last_processed_timestamp,
-        }
-        filter_list.append(timestamp_filter)
+        # Results are ordered by start time descending, so items that remain
+        # after the last processed one started before it. The cursor resumes
+        # exactly; the timestamp is the fallback for tokens without a cursor.
+        if (
+            resume_from is not None
+            and resume_from.cursor is None
+            and resume_from.last_processed_timestamp
+        ):
+            conditions.append(
+                {
+                    "type": "datetime",
+                    "column": "startTime",
+                    "operator": "<",
+                    "value": resume_from.last_processed_timestamp,
+                }
+            )
 
-        return json.dumps(filter_list)
-
-    @staticmethod
-    def _get_item_id(
-        item: Union[TraceWithFullDetails, ObservationsView],
-        scope: str,
-    ) -> str:
-        """Extract ID from item based on scope.
-
-        Args:
-            item: The API response object.
-            scope: The type of item.
-
-        Returns:
-            The item's ID.
-        """
-        return item.id
-
-    @staticmethod
-    def _get_item_timestamp(
-        item: Union[TraceWithFullDetails, ObservationsView],
-        scope: str,
-    ) -> str:
-        """Extract timestamp from item based on scope.
-
-        Args:
-            item: The API response object.
-            scope: The type of item.
-
-        Returns:
-            ISO 8601 timestamp string.
-        """
-        if scope == "traces":
-            # Type narrowing for traces
-            if hasattr(item, "timestamp"):
-                return item.timestamp.isoformat()  # type: ignore[attr-defined]
-        elif scope == "observations":
-            # Type narrowing for observations
-            if hasattr(item, "start_time"):
-                return item.start_time.isoformat()  # type: ignore[attr-defined]
-        return ""
-
-    @staticmethod
-    def _get_timestamp_field_for_scope(scope: str) -> str:
-        """Get the timestamp field name for filtering based on scope.
-
-        Args:
-            scope: The type of items.
-
-        Returns:
-            The field name to use in filters.
-        """
-        if scope == "traces":
-            return "timestamp"
-        elif scope == "observations":
-            return "start_time"
-        return "timestamp"  # Default
-
-    @staticmethod
-    def _dedupe_tags(tags: Optional[List[str]]) -> List[str]:
-        """Deduplicate tags while preserving order."""
-        if tags is None:
-            return []
-
-        deduped: List[str] = []
-        seen = set()
-        for tag in tags:
-            if tag not in seen:
-                deduped.append(tag)
-                seen.add(tag)
-
-        return deduped
+        return json.dumps(conditions) if conditions else None
 
     def _build_result(
         self,
@@ -1625,12 +1457,12 @@ class BatchEvaluationRunner:
             total_composite_scores_created: Scores from composite evaluator.
             total_evaluations_failed: Individual evaluator failures.
             evaluator_stats_dict: Per-evaluator statistics.
-            resume_token: Resume token if incomplete.
-            completed: Whether evaluation completed fully.
+            resume_token: Resume token if the run can be continued.
+            completed: Whether evaluation completed without a fetch failure.
             start_time: Start time (unix timestamp).
             failed_item_ids: IDs of failed items.
             error_summary: Error type counts.
-            has_more_items: Whether more items exist.
+            has_more_items: Whether more items exist beyond max_items.
             item_evaluations: Dictionary mapping item IDs to their evaluation results.
 
         Returns:
