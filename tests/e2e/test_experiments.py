@@ -1,20 +1,121 @@
 """Comprehensive tests for Langfuse experiment functionality matching JS SDK."""
 
+import os
 import time
-from typing import Any, Dict, List
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, Dict, List, TypeVar
+from uuid import uuid4
 
 import pytest
 from opentelemetry import trace as otel_trace_api
 
 from langfuse import get_client
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse.api import LangfuseAPI
 from langfuse.experiment import (
     Evaluation,
     ExperimentData,
     ExperimentItem,
     ExperimentItemResult,
 )
-from tests.support.utils import create_uuid, get_api, wait_for_trace
+
+T = TypeVar("T")
+
+READ_TIMEOUT_SECONDS = float(os.environ.get("LANGFUSE_E2E_READ_TIMEOUT_SECONDS", "30"))
+READ_INTERVAL_SECONDS = float(
+    os.environ.get("LANGFUSE_E2E_READ_INTERVAL_SECONDS", "0.5")
+)
+ITEM_FIELDS = "core,dataset,io,metadata,experimentMetadata,scores"
+
+
+def create_uuid() -> str:
+    return str(uuid4())
+
+
+def get_api() -> LangfuseAPI:
+    return LangfuseAPI(
+        username=os.environ.get("LANGFUSE_PUBLIC_KEY"),
+        password=os.environ.get("LANGFUSE_SECRET_KEY"),
+        base_url=os.environ.get("LANGFUSE_BASE_URL"),
+    )
+
+
+def _read_window_start() -> datetime:
+    return datetime.now(timezone.utc) - timedelta(hours=1)
+
+
+def poll(operation: Callable[[], T], is_ready: Callable[[T], bool]) -> T:
+    """Re-read until ready or timeout; returns the last result for the caller to assert."""
+    deadline = time.monotonic() + READ_TIMEOUT_SECONDS
+    while True:
+        result = operation()
+        if is_ready(result) or time.monotonic() >= deadline:
+            return result
+        time.sleep(READ_INTERVAL_SECONDS)
+
+
+def get_experiment_items(
+    experiment_id: str, *, expected_count: int, with_scores: bool = False
+) -> list:
+    api = get_api()
+    return poll(
+        lambda: (
+            api.experiments.list_items(
+                from_start_time=_read_window_start(),
+                experiment_id=experiment_id,
+                fields=ITEM_FIELDS,
+                limit=100,
+            ).data
+        ),
+        lambda items: (
+            len(items) >= expected_count
+            and (not with_scores or all(item.scores for item in items))
+        ),
+    )
+
+
+def get_experiment(
+    experiment_id: str, *, is_ready: Callable[[Any], bool] = lambda _: True
+):
+    api = get_api()
+    experiments = poll(
+        lambda: (
+            api.experiments.list(
+                from_start_time=_read_window_start(),
+                id=experiment_id,
+                fields="core,metadata,scores",
+            ).data
+        ),
+        lambda data: len(data) == 1 and is_ready(data[0]),
+    )
+    assert len(experiments) == 1, f"Experiment {experiment_id} should exist"
+    return experiments[0]
+
+
+def get_observations(trace_id: str, *, is_ready: Callable[[list], bool]) -> list:
+    api = get_api()
+    return poll(
+        lambda: (
+            api.observations.get_many(
+                trace_id=trace_id,
+                fields="core,basic,io,metadata",
+                from_start_time=_read_window_start(),
+            ).data
+        ),
+        is_ready,
+    )
+
+
+def get_trace_scores(trace_id: str, *, expected_count: int) -> list:
+    api = get_api()
+    return poll(
+        lambda: api.scores_v3.get_many_v3(trace_id=trace_id, fields="subject").data,
+        lambda scores: len(scores) >= expected_count,
+    )
+
+
+def has_score(name: str) -> Callable[[Any], bool]:
+    return lambda experiment: any(s.name == name for s in experiment.scores or [])
 
 
 @pytest.fixture
@@ -78,63 +179,53 @@ def test_run_experiment_on_local_dataset(sample_dataset):
     assert len(result.item_results) == 3
     assert len(result.run_evaluations) == 1
     assert result.run_evaluations[0].name == "average_length"
-    assert result.dataset_run_id is None  # No dataset_run_id for local datasets
+    assert len(result.experiment_id) == 16
+    assert result.experiment_url is not None
+    assert result.experiment_url.endswith(
+        f"/experiments/results?baseline={result.experiment_id}"
+    )
+    with pytest.warns(DeprecationWarning):
+        assert result.dataset_run_id == result.experiment_id
 
     # Validate item results structure
     for item_result in result.item_results:
         assert hasattr(item_result, "output")
         assert hasattr(item_result, "evaluations")
         assert hasattr(item_result, "trace_id")
-        assert (
-            item_result.dataset_run_id is None
-        )  # No dataset_run_id for local datasets
+        assert item_result.experiment_id == result.experiment_id
         assert len(item_result.evaluations) == 2  # Both evaluators should run
 
-    # Flush and wait for server processing
     langfuse_client.flush()
-    time.sleep(2)
 
-    # Validate traces are correctly persisted with input/output/metadata
-    api = get_api()
-    expected_inputs = ["Germany", "France", "Spain"]
-    expected_outputs = ["Capital of Germany", "Capital of France", "Capital of Spain"]
+    expected = {
+        "Germany": ("Capital of Germany", "Berlin"),
+        "France": ("Capital of France", "Paris"),
+        "Spain": ("Capital of Spain", "Madrid"),
+    }
+    items = get_experiment_items(result.experiment_id, expected_count=3)
+    assert len(items) == 3
+    assert {item.trace_id for item in items} == {
+        r.trace_id for r in result.item_results
+    }
 
-    for i, item_result in enumerate(result.item_results):
-        trace_id = item_result.trace_id
-        assert trace_id is not None, f"Item {i} should have a trace_id"
+    for item in items:
+        assert item.experiment_name == result.run_name
+        assert item.experiment_dataset_id is None
+        assert item.input in expected
+        expected_output, expected_answer = expected[item.input]
+        assert item.output == expected_output
+        assert item.expected_output == expected_answer
+        assert item.metadata is not None
+        assert item.metadata["experiment_name"] == "Euro capitals"
 
-        # Fetch trace from API
-        trace = api.trace.get(trace_id)
-        assert trace is not None, f"Trace {trace_id} should exist"
-
-        # Validate trace name
-        assert trace.name == "experiment-item-run", (
-            f"Trace {trace_id} should have correct name"
-        )
-
-        # Validate trace input - should contain the experiment item
-        assert trace.input is not None, f"Trace {trace_id} should have input"
-        expected_input = expected_inputs[i]
-        # The input should contain the item data in some form
-        assert expected_input in str(trace.input), (
-            f"Trace {trace_id} input should contain '{expected_input}'"
-        )
-
-        # Validate trace output - should be the task result
-        assert trace.output is not None, f"Trace {trace_id} should have output"
-        expected_output = expected_outputs[i]
-        assert trace.output == expected_output, (
-            f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
-        )
-
-        # Validate trace metadata contains experiment name
-        assert trace.metadata is not None, f"Trace {trace_id} should have metadata"
-        assert "experiment_name" in trace.metadata, (
-            f"Trace {trace_id} metadata should contain experiment_name"
-        )
-        assert trace.metadata["experiment_name"] == "Euro capitals", (
-            f"Trace {trace_id} metadata should have correct experiment_name"
-        )
+    # Run-level evaluations are persisted for local data, too
+    experiment = get_experiment(
+        result.experiment_id, is_ready=has_score("average_length")
+    )
+    assert experiment.name == result.run_name
+    assert experiment.description == "Country capital experiment"
+    assert experiment.item_count == 3
+    assert [s.name for s in experiment.scores or []] == ["average_length"]
 
 
 def test_run_experiment_flattens_large_metadata_for_server_ingestion():
@@ -168,21 +259,25 @@ def test_run_experiment_flattens_large_metadata_for_server_ingestion():
     trace_id = result.item_results[0].trace_id
     assert trace_id is not None
 
-    trace = wait_for_trace(
+    observations = get_observations(
         trace_id,
-        is_result_ready=lambda fetched_trace: any(
-            observation.name == external_span_name
-            for observation in fetched_trace.observations
+        is_ready=lambda observations: any(
+            observation.name == external_span_name for observation in observations
         ),
     )
 
-    assert trace.metadata is not None
+    root_observation = next(
+        observation
+        for observation in observations
+        if observation.name == "experiment-item-run"
+    )
+    assert root_observation.metadata is not None
     for metadata_key, metadata_value in experiment_metadata.items():
-        assert trace.metadata[metadata_key] == metadata_value
+        assert root_observation.metadata[metadata_key] == metadata_value
 
     external_observation = next(
         observation
-        for observation in trace.observations
+        for observation in observations
         if observation.name == external_span_name
     )
     external_metadata = external_observation.metadata or {}
@@ -227,117 +322,109 @@ def test_run_experiment_on_langfuse_dataset():
         run_evaluators=[run_evaluator_average_length],
     )
 
-    # Should have dataset run ID for Langfuse datasets
-    assert result.dataset_run_id is not None
+    project_id = langfuse_client._get_project_id()
+    assert project_id is not None
+    assert result.experiment_id == langfuse_client._create_experiment_id(
+        project_id=project_id, dataset_id=dataset.id, run_name=result.run_name
+    )
+    assert result.experiment_url == (
+        f"{os.environ['LANGFUSE_BASE_URL']}/project/{project_id}"
+        f"/experiments/results?baseline={result.experiment_id}"
+    )
     assert len(result.item_results) == 2
-    assert all(item.dataset_run_id is not None for item in result.item_results)
-
-    # Flush and wait for server processing
-    langfuse_client.flush()
-    time.sleep(3)
-
-    # Verify dataset run exists via API
-    api = get_api()
-    dataset_run = api.datasets.get_run(
-        dataset_name=dataset_name, run_name=result.run_name
+    assert all(
+        item.experiment_id == result.experiment_id for item in result.item_results
     )
 
-    # Validate traces are correctly persisted with input/output/metadata
-    expected_data = {"Germany": "Capital of Germany", "France": "Capital of France"}
-    dataset_run_id = result.dataset_run_id
+    langfuse_client.flush()
 
-    # Create a mapping from dataset item ID to dataset item for validation
+    expected_data = {"Germany": "Capital of Germany", "France": "Capital of France"}
     dataset_item_map = {item.id: item for item in dataset.items}
 
-    for i, item_result in enumerate(result.item_results):
-        trace_id = item_result.trace_id
-        assert trace_id is not None, f"Item {i} should have a trace_id"
-
-        # Fetch trace from API
-        trace = api.trace.get(trace_id)
-        assert trace is not None, f"Trace {trace_id} should exist"
-
-        # Validate trace name
-        assert trace.name == "experiment-item-run", (
-            f"Trace {trace_id} should have correct name"
-        )
-
-        # Validate trace input and output match expected pairs
-        assert trace.input is not None, f"Trace {trace_id} should have input"
-        trace_input_str = str(trace.input)
-
-        # Find which expected input this trace corresponds to
-        matching_input = None
-        for expected_input in expected_data.keys():
-            if expected_input in trace_input_str:
-                matching_input = expected_input
-                break
-
-        assert matching_input is not None, (
-            f"Trace {trace_id} input '{trace_input_str}' should contain one of {list(expected_data.keys())}"
-        )
-
-        # Validate trace output matches the expected output for this input
-        assert trace.output is not None, f"Trace {trace_id} should have output"
-        expected_output = expected_data[matching_input]
-        assert trace.output == expected_output, (
-            f"Trace {trace_id} output should be '{expected_output}', got '{trace.output}'"
-        )
-
-        # Validate trace metadata contains experiment and dataset info
-        assert trace.metadata is not None, f"Trace {trace_id} should have metadata"
-        assert "experiment_name" in trace.metadata, (
-            f"Trace {trace_id} metadata should contain experiment_name"
-        )
-        assert trace.metadata["experiment_name"] == experiment_name, (
-            f"Trace {trace_id} metadata should have correct experiment_name"
-        )
-
-        # Validate dataset-specific metadata fields
-        assert "dataset_id" in trace.metadata, (
-            f"Trace {trace_id} metadata should contain dataset_id"
-        )
-        assert trace.metadata["dataset_id"] == dataset.id, (
-            f"Trace {trace_id} metadata should have correct dataset_id"
-        )
-
-        assert "dataset_item_id" in trace.metadata, (
-            f"Trace {trace_id} metadata should contain dataset_item_id"
-        )
-        # Get the dataset item ID from metadata and validate it exists
-        dataset_item_id = trace.metadata["dataset_item_id"]
-        assert dataset_item_id in dataset_item_map, (
-            f"Trace {trace_id} metadata dataset_item_id should correspond to a valid dataset item"
-        )
-
-        # Validate the dataset item input matches the trace input
-        dataset_item = dataset_item_map[dataset_item_id]
-        assert dataset_item.input == matching_input, (
-            f"Trace {trace_id} should correspond to dataset item with input '{matching_input}'"
-        )
-
-    assert dataset_run is not None, f"Dataset run {dataset_run_id} should exist"
-    assert dataset_run.name == result.run_name, "Dataset run should have correct name"
-    assert dataset_run.description == "Test on Langfuse dataset", (
-        "Dataset run should have correct description"
+    items = get_experiment_items(
+        result.experiment_id, expected_count=2, with_scores=True
     )
-
-    # Get dataset run items to verify trace linkage
-    dataset_run_items = api.dataset_run_items.list(
-        dataset_id=dataset.id, run_name=result.run_name
-    )
-    assert len(dataset_run_items.data) == 2, "Dataset run should have 2 items"
-
-    # Verify each dataset run item links to the correct trace
-    run_item_trace_ids = {
-        item.trace_id for item in dataset_run_items.data if item.trace_id
+    assert len(items) == 2, "Experiment should have 2 items"
+    assert {item.trace_id for item in items} == {
+        r.trace_id for r in result.item_results
     }
-    result_trace_ids = {item.trace_id for item in result.item_results}
+    assert {item.experiment_item_id for item in items} == set(dataset_item_map)
 
-    assert run_item_trace_ids == result_trace_ids, (
-        f"Dataset run items should link to the same traces as experiment results. "
-        f"Run items: {run_item_trace_ids}, Results: {result_trace_ids}"
+    for item in items:
+        assert item.experiment_name == result.run_name
+        assert item.experiment_dataset_id == dataset.id
+        assert item.experiment_description == "Test on Langfuse dataset"
+        assert item.experiment_item_version is None
+
+        dataset_item = dataset_item_map[item.experiment_item_id]
+        assert item.input == dataset_item.input
+        assert item.output == expected_data[dataset_item.input]
+        assert item.expected_output == dataset_item.expected_output
+
+        assert item.metadata is not None
+        assert item.metadata["experiment_name"] == experiment_name
+        assert item.metadata["dataset_id"] == dataset.id
+        assert item.metadata["dataset_item_id"] == item.experiment_item_id
+
+        assert [s.name for s in item.scores or []] == ["factuality"]
+
+    experiment = get_experiment(
+        result.experiment_id, is_ready=has_score("average_length")
     )
+    assert experiment.name == result.run_name
+    assert experiment.description == "Test on Langfuse dataset"
+    assert experiment.dataset_id == dataset.id
+    assert experiment.item_count == 2
+    assert [s.name for s in experiment.scores or []] == ["average_length"]
+    assert experiment.scores[0].subject.kind == "experiment"
+    assert experiment.scores[0].subject.id == result.experiment_id
+
+
+def test_run_experiment_on_versioned_dataset_records_item_version():
+    """Pinned dataset versions are recorded as the experiment item version."""
+    langfuse_client = get_client()
+    dataset_name = "versioned-dataset-" + create_uuid()
+    langfuse_client.create_dataset(name=dataset_name)
+    langfuse_client.create_dataset_item(
+        dataset_name=dataset_name, input="Germany", expected_output="Berlin"
+    )
+
+    version = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(seconds=1)
+    time.sleep(1.5)
+    dataset = langfuse_client.get_dataset(dataset_name, version=version)
+    assert len(dataset.items) == 1
+
+    result = dataset.run_experiment(
+        name="Versioned " + create_uuid()[:8], task=mock_task
+    )
+    langfuse_client.flush()
+
+    items = get_experiment_items(result.experiment_id, expected_count=1)
+    assert len(items) == 1
+    assert items[0].experiment_item_version is not None
+    assert items[0].experiment_item_version.astimezone(timezone.utc) == version
+
+
+def test_same_run_name_on_dataset_reuses_experiment_id():
+    """Re-running with the same run name on a dataset groups into one experiment."""
+    langfuse_client = get_client()
+    dataset_name = "rerun-dataset-" + create_uuid()
+    langfuse_client.create_dataset(name=dataset_name)
+    langfuse_client.create_dataset_item(
+        dataset_name=dataset_name, input="Germany", expected_output="Berlin"
+    )
+    dataset = langfuse_client.get_dataset(dataset_name)
+    run_name = "Shared run " + create_uuid()[:8]
+
+    first = dataset.run_experiment(name="Rerun", run_name=run_name, task=mock_task)
+    second = dataset.run_experiment(name="Rerun", run_name=run_name, task=mock_task)
+    langfuse_client.flush()
+
+    assert first.experiment_id == second.experiment_id
+    items = get_experiment_items(first.experiment_id, expected_count=2)
+    assert {item.trace_id for item in items} == {
+        r.trace_id for r in first.item_results + second.item_results
+    }
 
 
 # Error Handling Tests
@@ -630,20 +717,21 @@ def test_scores_are_persisted():
         run_evaluators=[test_run_evaluator],
     )
 
-    assert result.dataset_run_id is not None
     assert len(result.item_results) == 1
     assert len(result.run_evaluations) == 1
 
     langfuse_client.flush()
-    time.sleep(3)
 
-    # Verify scores are persisted via API
-    api = get_api()
-    dataset_run = api.datasets.get_run(
-        dataset_name=dataset_name, run_name=result.run_name
+    experiment = get_experiment(
+        result.experiment_id, is_ready=has_score("persistence_run_test")
     )
+    assert experiment.name == "Score persistence test"
+    run_scores = {s.name: s for s in experiment.scores or []}
+    assert run_scores["persistence_run_test"].value == 0.9
 
-    assert dataset_run.name == "Score persistence test"
+    trace_scores = get_trace_scores(result.item_results[0].trace_id, expected_count=1)
+    assert [(s.name, s.value) for s in trace_scores] == [("persistence_test", 0.85)]
+    assert trace_scores[0].subject.kind == "observation"
 
 
 def test_multiple_experiments_on_same_dataset():
@@ -688,21 +776,22 @@ def test_multiple_experiments_on_same_dataset():
     )
 
     langfuse_client.flush()
-    time.sleep(2)
 
-    # Both experiments should have different run IDs
-    assert result1.dataset_run_id is not None
-    assert result2.dataset_run_id is not None
-    assert result1.dataset_run_id != result2.dataset_run_id
+    assert result1.experiment_id != result2.experiment_id
 
-    # Verify both runs exist in database
     api = get_api()
-    runs = api.datasets.get_runs(dataset_name)
-    assert len(runs.data) >= 2
-
-    run_names = [run.name for run in runs.data]
-    assert "Experiment 1" in run_names
-    assert "Experiment 2" in run_names
+    experiments = poll(
+        lambda: (
+            api.experiments.list(
+                from_start_time=_read_window_start(), dataset_id=dataset.id
+            ).data
+        ),
+        lambda data: len(data) >= 2,
+    )
+    assert {e.id: e.name for e in experiments} == {
+        result1.experiment_id: "Experiment 1",
+        result2.experiment_id: "Experiment 2",
+    }
 
 
 # Result Formatting Tests
@@ -840,24 +929,24 @@ def test_boolean_score_types():
     assert run_eval.value is False  # Spain should fail, so not all pass
     assert run_eval.data_type == ScoreDataType.BOOLEAN
 
-    # Flush and wait for server processing
     langfuse_client.flush()
-    time.sleep(3)
 
     # Verify scores are persisted via API with correct data types
     for i, item_result in enumerate(result.item_results):
         trace_id = item_result.trace_id
         assert trace_id is not None, f"Item {i} should have a trace_id"
 
-        # Fetch trace from API to verify score persistence
-        trace = wait_for_trace(
-            trace_id,
-            is_result_ready=lambda trace: len(trace.scores) > 0,
-        )
-        assert trace is not None, f"Trace {trace_id} should exist"
+        scores = get_trace_scores(trace_id, expected_count=1)
+        assert len(scores) == 1
+        assert scores[0].data_type == "BOOLEAN"
+        assert scores[0].value is expected_results[i]
 
-        for score in trace.scores:
-            assert score.data_type == "BOOLEAN"
+    experiment = get_experiment(
+        result.experiment_id, is_ready=has_score("all_items_pass")
+    )
+    run_score = next(s for s in experiment.scores or [] if s.name == "all_items_pass")
+    assert run_score.data_type == "BOOLEAN"
+    assert run_score.value is False
 
 
 def test_experiment_composite_evaluator_weighted_average():
