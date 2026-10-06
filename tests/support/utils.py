@@ -114,27 +114,6 @@ def wait_for_result(
     )
 
 
-def wait_for_trace(
-    trace_id: str,
-    *,
-    is_result_ready: Callable[[Any], bool] | None = None,
-    timeout_seconds: float = DEFAULT_RETRY_TIMEOUT_SECONDS,
-    interval_seconds: float = DEFAULT_RETRY_INTERVAL_SECONDS,
-):
-    """Read a trace through the v3 trace API.
-
-    Unavailable on servers running the v4 `events_only` write mode; use
-    `wait_for_observations` / `wait_for_root_observation` instead.
-    """
-    api = get_api(retry=False)
-    return wait_for_result(
-        lambda: api.trace.get(trace_id),
-        is_result_ready=is_result_ready,
-        timeout_seconds=timeout_seconds,
-        interval_seconds=interval_seconds,
-    )
-
-
 def _parse_json_string(value: Any) -> Any:
     if not isinstance(value, str):
         return value
