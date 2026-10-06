@@ -549,14 +549,14 @@ def test_create_update_current_trace():
 
     trace_name = create_uuid()
 
-    # Create initial span with trace properties using propagate_attributes and set_current_trace_io
+    # Create initial span with trace properties using propagate_attributes
     with langfuse.start_as_current_observation(name="test-span-current") as span:
         with propagate_attributes(
             trace_name=trace_name,
             user_id="test",
             metadata={"key": "value"},
         ):
-            langfuse.set_current_trace_io(input="test_input")
+            langfuse.update_current_span(input="test_input")
             langfuse.set_current_trace_as_public()
             # Get trace ID for later reference
             trace_id = span.trace_id
@@ -989,7 +989,7 @@ def test_create_trace_and_generation():
     # Create parent span and set trace properties
     with langfuse.start_as_current_observation(name=trace_name) as parent_span:
         with propagate_attributes(trace_name=trace_name, session_id="test-session-id"):
-            parent_span.set_trace_io(input={"key": "value"})
+            parent_span.update(input={"key": "value"})
 
             # Create a generation as child
             generation = parent_span.start_observation(
@@ -1812,7 +1812,7 @@ def test_fetch_traces():
     # First trace
     with langfuse.start_as_current_observation(name="test1") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
-            span.set_trace_io(input={"key": "value"}, output="output-value")
+            span.update(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
 
     sleep(1)  # Ensure traces have different timestamps
@@ -1820,7 +1820,7 @@ def test_fetch_traces():
     # Second trace
     with langfuse.start_as_current_observation(name="test2") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
-            span.set_trace_io(input={"key": "value"}, output="output-value")
+            span.update(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
 
     sleep(1)  # Ensure traces have different timestamps
@@ -1828,7 +1828,7 @@ def test_fetch_traces():
     # Third trace
     with langfuse.start_as_current_observation(name="test3") as span:
         with propagate_attributes(trace_name=name, session_id="session-1"):
-            span.set_trace_io(input={"key": "value"}, output="output-value")
+            span.update(input={"key": "value"}, output="output-value")
             trace_ids.append(span.trace_id)
 
     # Ensure data is sent
@@ -2088,11 +2088,11 @@ def test_mask_function(request):
     # Create a root span with trace properties
     with langfuse.start_as_current_observation(name="test-span") as root_span:
         with propagate_attributes(trace_name="test_trace"):
-            root_span.set_trace_io(input={"sensitive": "data"})
+            root_span.update(input={"sensitive": "data"})
             # Get trace ID for later use
             trace_id = root_span.trace_id
             # Add output to the trace
-            root_span.set_trace_io(output={"more": "sensitive"})
+            root_span.update(output={"more": "sensitive"})
 
             # Create a generation as child
             gen = root_span.start_observation(
@@ -2136,11 +2136,11 @@ def test_mask_function(request):
     # Create a root span with trace properties
     with langfuse.start_as_current_observation(name="test-span") as root_span:
         with propagate_attributes(trace_name="test_trace"):
-            root_span.set_trace_io(input={"should_raise": "data"})
+            root_span.update(input={"should_raise": "data"})
             # Get trace ID for later use
             trace_id = root_span.trace_id
             # Add output to the trace
-            root_span.set_trace_io(output={"should_raise": "sensitive"})
+            root_span.update(output={"should_raise": "sensitive"})
 
     # Ensure data is sent
     langfuse.flush()

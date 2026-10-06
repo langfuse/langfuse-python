@@ -1071,10 +1071,10 @@ def test_media():
 
     media = LangfuseMedia(content_bytes=pdf_bytes, content_type="application/pdf")
 
-    @observe()
+    @observe(capture_input=False, capture_output=False)
     def main():
         sleep(1)
-        langfuse.set_current_trace_io(
+        langfuse.update_current_span(
             input={
                 "context": {
                     "nested": media,
