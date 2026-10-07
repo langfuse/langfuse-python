@@ -849,6 +849,44 @@ def test_tool_when_structured_inputs_only_store_in_inputs_attribute_not_metadata
     assert "inputs" not in metadata
 
 
+def test_root_run_keeps_128_metadata_keys(langfuse_memory_client, get_span):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    metadata = {f"key_{i}": i for i in range(128)}
+
+    handler.on_chain_start(
+        {"name": "root-128-keys"}, {"question": "hi"}, run_id=run_id, metadata=metadata
+    )
+    handler.on_chain_end({"answer": "ok"}, run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("root-128-keys")
+
+    # The is_langchain_root marker is skipped when it doesn't fit, so the user's
+    # 128 keys (the documented maximum) are kept
+    observation_metadata = json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+    )
+    assert observation_metadata == metadata
+
+
+def test_root_run_marker_is_added_when_it_fits(langfuse_memory_client, get_span):
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    handler.on_chain_start(
+        {"name": "root-small-metadata"}, {}, run_id=run_id, metadata={"a": 1}
+    )
+    handler.on_chain_end({}, run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("root-small-metadata")
+
+    assert json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+    ) == {"a": 1, "is_langchain_root": True}
+
+
 def test_metadata_over_key_limit_is_dropped_not_raised(
     langfuse_memory_client, get_span, caplog
 ):

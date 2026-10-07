@@ -21,6 +21,7 @@ from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import (
+    MAX_OBSERVATION_METADATA_KEYS,
     LangfuseOtelSpanAttributes,
     drop_metadata_over_key_limit,
 )
@@ -541,13 +542,19 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             keep_langfuse_trace_attributes=keep_langfuse_trace_attributes,
         )
 
+        observation_metadata = drop_metadata_over_key_limit(observation_metadata)
+
         if parent_run_id is not None:
-            return drop_metadata_over_key_limit(observation_metadata)
+            return observation_metadata
 
         root_metadata = observation_metadata.copy() if observation_metadata else {}
-        root_metadata["is_langchain_root"] = True
 
-        return drop_metadata_over_key_limit(root_metadata)
+        # Only add the marker if it fits, so root runs keep the full key budget
+        key_count = sum(1 for value in root_metadata.values() if value is not None)
+        if key_count < MAX_OBSERVATION_METADATA_KEYS:
+            root_metadata["is_langchain_root"] = True
+
+        return root_metadata
 
     def on_chain_start(
         self,
