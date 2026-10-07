@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import sha256
 from typing import List, Sequence
 
@@ -400,9 +400,7 @@ class TestBasicSpans(TestOTelBase):
         attributes = span_data["attributes"]
         assert LangfuseOtelSpanAttributes.OBSERVATION_INPUT in attributes
         assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT in attributes
-        assert (
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.session" in attributes
-        )
+        assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA in attributes
 
         # Parse JSON attributes
         input_data = json.loads(
@@ -411,14 +409,14 @@ class TestBasicSpans(TestOTelBase):
         output_data = json.loads(
             attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
         )
-        metadata_data = attributes[
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.session"
-        ]
+        metadata_data = json.loads(
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+        )
 
         # Verify attribute values
         assert input_data == {"prompt": "Test prompt"}
         assert output_data == {"response": "Updated response"}
-        assert metadata_data == "test-session"
+        assert metadata_data == {"session": "test-session", "updated": True}
         assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "INFO"
         assert (
             attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
@@ -611,10 +609,10 @@ class TestBasicSpans(TestOTelBase):
         )
 
         # Parse metadata
-        proc_metadata = proc["attributes"][
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.step"
-        ]
-        assert proc_metadata == "processing"
+        proc_metadata = json.loads(
+            proc["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+        )
+        assert proc_metadata["step"] == "processing"
 
         # Parse input/output JSON
         llm_input = json.loads(
@@ -1547,444 +1545,266 @@ class TestAdvancedSpans(TestOTelBase):
 
 
 class TestMetadataHandling(TestOTelBase):
-    """Tests for metadata serialization, updates, and integrity."""
+    """Tests for observation metadata serialization, merging, and limits."""
 
-    def test_complex_metadata_serialization(self):
-        """Test the _flatten_and_serialize_metadata function directly."""
-        from langfuse._client.attributes import (
-            _flatten_and_serialize_metadata,
-            _serialize,
+    def get_span_by_name(self, memory_exporter, name: str) -> dict:
+        spans = self.get_spans_by_name(memory_exporter, name)
+        assert len(spans) == 1, f"Expected one span named {name}"
+        return spans[0]
+
+    @staticmethod
+    def get_metadata(span_data):
+        return json.loads(
+            span_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
         )
 
-        # Test case 1: Non-dict metadata
-        non_dict_result = _flatten_and_serialize_metadata("string-value", "observation")
-        assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA in non_dict_result
-        assert non_dict_result[
-            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
-        ] == _serialize("string-value")
+    def test_metadata_is_one_json_attribute(self, langfuse_client, memory_exporter):
+        metadata = {
+            "string": "value",
+            "int": 1,
+            "float": 0.5,
+            "bool": True,
+            "list": [1, 2, 3],
+            "nested": {"database": {"host": "localhost", "port": 5432}},
+            "date": datetime(2024, 1, 1, tzinfo=timezone.utc),
+        }
+        langfuse_client.start_observation(name="json-metadata", metadata=metadata).end()
 
-        # Test case 2: Simple dict
-        simple_dict = {"key1": "value1", "key2": 123}
-        simple_result = _flatten_and_serialize_metadata(simple_dict, "observation")
+        span_data = self.get_span_by_name(memory_exporter, "json-metadata")
+        assert self.get_metadata(span_data) == {
+            "string": "value",
+            "int": 1,
+            "float": 0.5,
+            "bool": True,
+            "list": [1, 2, 3],
+            "nested": {"database": {"host": "localhost", "port": 5432}},
+            "date": "2024-01-01T00:00:00Z",
+        }
+        assert not any(
+            key.startswith(f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.")
+            for key in span_data["attributes"]
+        )
+
+    def test_non_dict_metadata(self, langfuse_client, memory_exporter):
+        langfuse_client.start_observation(name="list-metadata", metadata=[1, 2]).end()
+        langfuse_client.start_observation(name="str-metadata", metadata="text").end()
+
+        list_span = self.get_span_by_name(memory_exporter, "list-metadata")
+        str_span = self.get_span_by_name(memory_exporter, "str-metadata")
+        assert self.get_metadata(list_span) == [1, 2]
         assert (
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1" in simple_result
-        )
-        assert (
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2" in simple_result
-        )
-        assert (
-            simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1"]
-            == "value1"
-        )
-        assert (
-            simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2"]
-            == 123
+            str_span["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+            == "text"
         )
 
-        # Test case 3: Nested dict (will be flattened in current implementation)
-        nested_dict = {
-            "outer": {"inner1": "value1", "inner2": 123},
-            "list_key": [1, 2, 3],
-        }
-        nested_result = _flatten_and_serialize_metadata(nested_dict, "trace")
+    def test_empty_and_none_metadata_write_nothing(
+        self, langfuse_client, memory_exporter
+    ):
+        langfuse_client.start_observation(name="empty-metadata", metadata={}).end()
+        langfuse_client.start_observation(
+            name="none-values", metadata={"a": None}
+        ).end()
+        langfuse_client.start_observation(name="no-metadata").end()
 
-        # Verify the keys are flattened properly
-        outer_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.outer"
-        list_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.list_key"
-
-        assert outer_key in nested_result
-        assert list_key in nested_result
-
-        # The inner dictionary should be serialized as a JSON string
-        assert json.loads(nested_result[outer_key]) == {
-            "inner1": "value1",
-            "inner2": 123,
-        }
-        assert json.loads(nested_result[list_key]) == [1, 2, 3]
-
-        # Test case 4: Empty dict
-        empty_result = _flatten_and_serialize_metadata({}, "observation")
-        assert len(empty_result) == 0
-
-        # Test case 5: None
-        none_result = _flatten_and_serialize_metadata(None, "observation")
-        # The implementation returns a dictionary with a None value
-        assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA in none_result
-        assert none_result[LangfuseOtelSpanAttributes.OBSERVATION_METADATA] is None
-
-        # Test case 6: Complex nested structure
-        complex_dict = {
-            "level1": {
-                "level2": {"level3": {"value": "deeply nested"}},
-                "array": [{"item1": 1}, {"item2": 2}],
-            },
-            "sibling": "value",
-        }
-        complex_result = _flatten_and_serialize_metadata(complex_dict, "observation")
-
-        # Check first-level keys only (current implementation)
-        level1_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.level1"
-        sibling_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.sibling"
-
-        assert level1_key in complex_result
-        assert sibling_key in complex_result
-
-        # The nested structures are serialized as JSON strings
-        assert json.loads(complex_result[level1_key]) == complex_dict["level1"]
-        assert complex_result[sibling_key] == "value"
-
-    def test_nested_metadata_updates(self):
-        """Test that nested metadata updates don't overwrite unrelated keys."""
-        from langfuse._client.attributes import _flatten_and_serialize_metadata
-
-        # Test how updates to metadata should behave in sequential calls
-        # Initial metadata
-        initial_metadata = {
-            "config": {
-                "model": "gpt-4",
-                "parameters": {"temperature": 0.7, "max_tokens": 500},
-            },
-            "telemetry": {"client_info": {"version": "1.0.0", "platform": "python"}},
-        }
-
-        # First flattening
-        first_result = _flatten_and_serialize_metadata(initial_metadata, "observation")
-
-        # Update with new config temperature only
-        update_metadata = {
-            "config": {
-                "parameters": {
-                    "temperature": 0.9  # Changed from 0.7
-                }
-            }
-        }
-
-        # Second flattening (would happen on update)
-        second_result = _flatten_and_serialize_metadata(update_metadata, "observation")
-
-        # In a merge scenario, we'd have:
-        # config.model: kept from first_result
-        # config.temperature: updated from second_result
-        # telemetry.session_id: kept from first_result
-
-        # Get the expected keys
-        config_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.config"
-        telemetry_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.telemetry"
-
-        # Verify the structure of the results
-        assert config_key in first_result
-        assert telemetry_key in first_result
-
-        # Check serialized values can be parsed
-        first_config = json.loads(first_result[config_key])
-        assert first_config["model"] == "gpt-4"
-        assert first_config["parameters"]["temperature"] == 0.7
-
-        first_telemetry = json.loads(first_result[telemetry_key])
-        assert first_telemetry["client_info"]["version"] == "1.0.0"
-
-        # Verify the second result only contains the config key
-        assert config_key in second_result
-        assert telemetry_key not in second_result
-
-        # Check the updated temperature
-        second_config = json.loads(second_result[config_key])
-        assert "parameters" in second_config
-        assert second_config["parameters"]["temperature"] == 0.9
-
-        # Now test with completely different metadata keys
-        first_metadata = {"first_section": {"key1": "value1", "key2": "value2"}}
-
-        second_metadata = {"second_section": {"key3": "value3"}}
-
-        # Generate flattened results
-        first_section_result = _flatten_and_serialize_metadata(
-            first_metadata, "observation"
-        )
-        second_section_result = _flatten_and_serialize_metadata(
-            second_metadata, "observation"
-        )
-
-        # Get expected keys
-        first_section_key = (
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.first_section"
-        )
-        second_section_key = (
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.second_section"
-        )
-
-        # Verify each section is properly serialized
-        assert first_section_key in first_section_result
-        assert second_section_key in second_section_result
-
-        # In a merge scenario, both keys would be present
-        merged_result = {**first_section_result, **second_section_result}
-        assert first_section_key in merged_result
-        assert second_section_key in merged_result
-
-        # Check the values
-        first_section_data = json.loads(merged_result[first_section_key])
-        second_section_data = json.loads(merged_result[second_section_key])
-
-        assert first_section_data["key1"] == "value1"
-        assert first_section_data["key2"] == "value2"
-        assert second_section_data["key3"] == "value3"
-
-    def test_metadata_integrity_in_async_environment(self):
-        """Test that metadata nesting integrity is preserved in async contexts."""
-        import asyncio
-
-        from langfuse._client.attributes import _flatten_and_serialize_metadata
-
-        # Initial metadata with complex nested structure
-        initial_metadata = {
-            "config": {
-                "model": "gpt-4",
-                "parameters": {"temperature": 0.7, "max_tokens": 500},
-            },
-            "telemetry": {"client_info": {"version": "1.0.0", "platform": "python"}},
-        }
-
-        # Define async metadata update functions
-        async def update_config_temperature():
-            # Update just temperature
-            update = {"config": {"parameters": {"temperature": 0.9}}}
-            return _flatten_and_serialize_metadata(update, "observation")
-
-        async def update_telemetry_version():
-            # Update just version
-            update = {"telemetry": {"client_info": {"version": "1.1.0"}}}
-            return _flatten_and_serialize_metadata(update, "observation")
-
-        async def update_config_model():
-            # Update just model
-            update = {"config": {"model": "gpt-3.5-turbo"}}
-            return _flatten_and_serialize_metadata(update, "observation")
-
-        async def update_telemetry_platform():
-            # Update just platform
-            update = {"telemetry": {"client_info": {"platform": "web"}}}
-            return _flatten_and_serialize_metadata(update, "observation")
-
-        # Create multiple tasks to run concurrently
-        async def run_concurrent_updates():
-            # Initial flattening
-            base_result = _flatten_and_serialize_metadata(
-                initial_metadata, "observation"
+        for name in ["empty-metadata", "none-values", "no-metadata"]:
+            span_data = self.get_span_by_name(memory_exporter, name)
+            assert (
+                LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+                not in span_data["attributes"]
             )
 
-            # Run all updates concurrently
-            (
-                temperature_result,
-                version_result,
-                model_result,
-                platform_result,
-            ) = await asyncio.gather(
-                update_config_temperature(),
-                update_telemetry_version(),
-                update_config_model(),
-                update_telemetry_platform(),
-            )
+    def test_updates_merge_by_top_level_key(self, langfuse_client, memory_exporter):
+        span = langfuse_client.start_observation(
+            name="merge-metadata",
+            metadata={"a": 1, "b": {"x": 1, "y": 2}, "c": "keep"},
+        )
+        span.update(metadata={"b": {"x": 10}, "d": "new"})
+        span.update(metadata={"c": None})
+        span.update(output="no metadata in this update")
+        span.end()
 
-            # Return all results for verification
-            return (
-                base_result,
-                temperature_result,
-                version_result,
-                model_result,
-                platform_result,
-            )
+        span_data = self.get_span_by_name(memory_exporter, "merge-metadata")
+        # Top-level keys are replaced, nested objects are not deep-merged, and
+        # keys set to None keep their earlier values.
+        assert self.get_metadata(span_data) == {
+            "a": 1,
+            "b": {"x": 10},
+            "c": "keep",
+            "d": "new",
+        }
 
-        # Run the async function
-        loop = asyncio.new_event_loop()
-        try:
-            base_result, temp_result, version_result, model_result, platform_result = (
-                loop.run_until_complete(run_concurrent_updates())
-            )
-        finally:
-            loop.close()
+    def test_update_current_helpers_merge(self, langfuse_client, memory_exporter):
+        with langfuse_client.start_as_current_observation(
+            name="current-span", metadata={"a": 1}
+        ):
+            langfuse_client.update_current_span(metadata={"b": 2})
+            langfuse_client.update_current_span(metadata={"c": 3})
 
-        # Define expected keys
-        config_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.config"
-        telemetry_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.telemetry"
+        with langfuse_client.start_as_current_observation(
+            name="current-generation", as_type="generation", metadata={"a": 1}
+        ):
+            langfuse_client.update_current_generation(metadata={"b": 2})
 
-        # Verify base result has all expected data
-        assert config_key in base_result
-        assert telemetry_key in base_result
+        span_data = self.get_span_by_name(memory_exporter, "current-span")
+        generation_data = self.get_span_by_name(memory_exporter, "current-generation")
+        assert self.get_metadata(span_data) == {"a": 1, "b": 2, "c": 3}
+        assert self.get_metadata(generation_data) == {"a": 1, "b": 2}
 
-        base_config = json.loads(base_result[config_key])
-        base_telemetry = json.loads(base_result[telemetry_key])
+    def test_merge_state_is_not_shared_between_spans(
+        self, langfuse_client, memory_exporter
+    ):
+        first = langfuse_client.start_observation(name="first", metadata={"a": 1})
+        second = langfuse_client.start_observation(name="second", metadata={"b": 2})
+        second.update(metadata={"c": 3})
+        first.end()
+        second.end()
 
-        assert base_config["model"] == "gpt-4"
-        assert base_config["parameters"]["temperature"] == 0.7
-        assert base_config["parameters"]["max_tokens"] == 500
-        assert base_telemetry["client_info"]["version"] == "1.0.0"
-        assert base_telemetry["client_info"]["platform"] == "python"
+        assert self.get_metadata(self.get_span_by_name(memory_exporter, "first")) == {
+            "a": 1
+        }
+        assert self.get_metadata(self.get_span_by_name(memory_exporter, "second")) == {
+            "b": 2,
+            "c": 3,
+        }
 
-        # Verify temperature update only changed temperature
-        assert config_key in temp_result
-        temp_config = json.loads(temp_result[config_key])
-        assert "parameters" in temp_config
-        assert "temperature" in temp_config["parameters"]
-        assert temp_config["parameters"]["temperature"] == 0.9
-        assert "model" not in temp_config  # Shouldn't be present
+    def test_later_mutation_does_not_change_earlier_metadata(
+        self, langfuse_client, memory_exporter
+    ):
+        config = {"model": "gpt-4"}
+        span = langfuse_client.start_observation(
+            name="mutation", metadata={"config": config}
+        )
+        config["model"] = "changed"
+        span.update(metadata={"other": 1})
+        span.end()
 
-        # Verify version update only changed version
-        assert telemetry_key in version_result
-        version_telemetry = json.loads(version_result[telemetry_key])
-        assert "client_info" in version_telemetry
-        assert "version" in version_telemetry["client_info"]
-        assert version_telemetry["client_info"]["version"] == "1.1.0"
+        assert self.get_metadata(
+            self.get_span_by_name(memory_exporter, "mutation")
+        ) == {
+            "config": {"model": "gpt-4"},
+            "other": 1,
+        }
+
+    def test_non_dict_metadata_replaces_earlier_metadata(
+        self, langfuse_client, memory_exporter
+    ):
+        span = langfuse_client.start_observation(name="replace", metadata={"a": 1})
+        span.update(metadata=["list"])
+        span.update(metadata={"b": 2})
+        span.end()
+
+        assert self.get_metadata(self.get_span_by_name(memory_exporter, "replace")) == {
+            "b": 2
+        }
+
+    def test_unserializable_value_does_not_drop_other_keys(
+        self, langfuse_client, memory_exporter, monkeypatch
+    ):
+        from langfuse._client import attributes
+
+        original_dumps = json.dumps
+
+        def failing_dumps(value, *args, **kwargs):
+            if value == "boom":
+                raise ValueError("cannot serialize")
+            return original_dumps(value, *args, **kwargs)
+
+        monkeypatch.setattr(attributes.json, "dumps", failing_dumps)
+
+        langfuse_client.start_observation(
+            name="unserializable", metadata={"bad": "boom", "good": 1}
+        ).end()
+
+        assert self.get_metadata(
+            self.get_span_by_name(memory_exporter, "unserializable")
+        ) == {"bad": "<failed to serialize>", "good": 1}
+
+    def test_more_than_128_keys_raises(self, langfuse_client, memory_exporter):
+        from langfuse._client.attributes import MAX_OBSERVATION_METADATA_KEYS
+
+        too_many = {f"key_{i}": i for i in range(MAX_OBSERVATION_METADATA_KEYS + 1)}
+
+        with pytest.raises(ValueError, match="exceeds the maximum of 128"):
+            langfuse_client.start_observation(name="too-many", metadata=too_many)
+
+    def test_exactly_128_keys_is_allowed(self, langfuse_client, memory_exporter):
+        from langfuse._client.attributes import MAX_OBSERVATION_METADATA_KEYS
+
+        metadata = {f"key_{i}": i for i in range(MAX_OBSERVATION_METADATA_KEYS)}
+        # None values don't count towards the limit
+        metadata["ignored"] = None
+
+        langfuse_client.start_observation(name="max-keys", metadata=metadata).end()
+
+        span_data = self.get_span_by_name(memory_exporter, "max-keys")
+        assert len(self.get_metadata(span_data)) == MAX_OBSERVATION_METADATA_KEYS
+
+    def test_limit_counts_merged_keys_and_keeps_earlier_metadata(
+        self, langfuse_client, memory_exporter
+    ):
+        from langfuse._client.attributes import MAX_OBSERVATION_METADATA_KEYS
+
+        initial = {f"key_{i}": i for i in range(MAX_OBSERVATION_METADATA_KEYS)}
+        span = langfuse_client.start_observation(name="merged-limit", metadata=initial)
+
+        with pytest.raises(ValueError, match="129 keys"):
+            span.update(name="renamed", output="dropped", metadata={"extra": 1})
+
+        # Overwriting an existing key still fits
+        span.update(metadata={"key_0": "updated"})
+        span.end()
+
+        span_data = self.get_span_by_name(memory_exporter, "merged-limit")
+        metadata = self.get_metadata(span_data)
+        assert len(metadata) == MAX_OBSERVATION_METADATA_KEYS
+        assert "extra" not in metadata
+        assert metadata["key_0"] == "updated"
         assert (
-            "platform" not in version_telemetry["client_info"]
-        )  # Shouldn't be present
+            LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT not in span_data["attributes"]
+        )
 
-        # Verify model update only changed model
-        assert config_key in model_result
-        model_config = json.loads(model_result[config_key])
-        assert model_config["model"] == "gpt-3.5-turbo"
-        assert "parameters" not in model_config  # Shouldn't be present
+    def test_mask_applies_to_metadata(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict) and "secret" in data:
+                return {**data, "secret": "***"}
+            return data
 
-        # Verify platform update only changed platform
-        assert telemetry_key in platform_result
-        platform_telemetry = json.loads(platform_result[telemetry_key])
-        assert "client_info" in platform_telemetry
-        assert "platform" in platform_telemetry["client_info"]
-        assert platform_telemetry["client_info"]["platform"] == "web"
-        assert (
-            "version" not in platform_telemetry["client_info"]
-        )  # Shouldn't be present
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="masked", metadata={"secret": "s3cr3t", "a": 1}
+        )
+        span.update(metadata={"secret": "other", "b": 2})
+        span.end()
 
-    def test_thread_safe_metadata_updates(self):
-        """Test thread-safe metadata updates using the _flatten_and_serialize_metadata function."""
-        import random
+        assert self.get_metadata(self.get_span_by_name(memory_exporter, "masked")) == {
+            "secret": "***",
+            "a": 1,
+            "b": 2,
+        }
+
+    def test_thread_safe_metadata_updates(self, langfuse_client, memory_exporter):
         import threading
-        import time
 
-        from langfuse._client.attributes import _flatten_and_serialize_metadata
+        span = langfuse_client.start_observation(name="threaded", metadata={"base": 0})
 
-        # Create a shared metadata dictionary we'll update from multiple threads
-        shared_metadata = {
-            "user": {
-                "id": "user-123",
-                "profile": {"name": "Test User", "email": "test@example.com"},
-            },
-            "system": {"version": "1.0.0", "features": ["search", "recommendations"]},
-        }
+        def update(thread_id):
+            span.update(metadata={f"thread_{thread_id}": thread_id})
 
-        # Dictionary to store current metadata (protected by lock)
-        current_metadata = shared_metadata.copy()
-        metadata_lock = threading.Lock()
-
-        # Thread function that updates a random part of metadata
-        def update_random_metadata(thread_id):
-            nonlocal current_metadata
-
-            # Generate a random update
-            updates = [
-                # Update user name
-                {"user": {"profile": {"name": f"User {thread_id}"}}},
-                # Update user email
-                {"user": {"profile": {"email": f"user{thread_id}@example.com"}}},
-                # Update system version
-                {"system": {"version": f"1.0.{thread_id}"}},
-                # Add a feature
-                {
-                    "system": {
-                        "features": [
-                            "search",
-                            "recommendations",
-                            f"feature-{thread_id}",
-                        ]
-                    }
-                },
-                # Add a new top-level key
-                {f"custom-{thread_id}": {"value": f"thread-{thread_id}"}},
-            ]
-
-            # Select a random update
-            update = random.choice(updates)
-
-            # Sleep a tiny bit to simulate work and increase chances of thread interleaving
-            time.sleep(random.uniform(0.0005, 0.001))
-
-            # Apply the update to current_metadata (in a real system, this would update OTEL span)
-            with metadata_lock:
-                # This simulates how OTEL span attributes would be updated
-                # In a real system, you'd iterate through flattened and set each attribute
-
-                # For user name and email
-                if "user" in update and "profile" in update["user"]:
-                    if "name" in update["user"]["profile"]:
-                        current_metadata["user"]["profile"]["name"] = update["user"][
-                            "profile"
-                        ]["name"]
-                    if "email" in update["user"]["profile"]:
-                        current_metadata["user"]["profile"]["email"] = update["user"][
-                            "profile"
-                        ]["email"]
-
-                # For system version
-                if "system" in update and "version" in update["system"]:
-                    current_metadata["system"]["version"] = update["system"]["version"]
-
-                # For system features
-                if "system" in update and "features" in update["system"]:
-                    current_metadata["system"]["features"] = update["system"][
-                        "features"
-                    ]
-
-                # For new top-level keys
-                for key in update:
-                    if key not in ["user", "system"]:
-                        current_metadata[key] = update[key]
-
-        # Create and start multiple threads
-        threads = []
-        for i in range(10):  # Create 10 threads
-            thread = threading.Thread(target=update_random_metadata, args=(i,))
-            threads.append(thread)
+        threads = [threading.Thread(target=update, args=(i,)) for i in range(20)]
+        for thread in threads:
             thread.start()
-
-        # Wait for all threads to complete
         for thread in threads:
             thread.join()
+        span.end()
 
-        # Verify that the structure is still valid
-        # User structure should be intact
-        assert "user" in current_metadata
-        assert "id" in current_metadata["user"]
-        assert "profile" in current_metadata["user"]
-        assert "name" in current_metadata["user"]["profile"]
-        assert "email" in current_metadata["user"]["profile"]
-
-        # System structure should be intact
-        assert "system" in current_metadata
-        assert "version" in current_metadata["system"]
-        assert "features" in current_metadata["system"]
-        assert isinstance(current_metadata["system"]["features"], list)
-
-        # The metadata should still be serializable
-        # This verifies we haven't broken the structure in a way that would prevent
-        # proper OTEL attribute setting
-        final_flattened = _flatten_and_serialize_metadata(
-            current_metadata, "observation"
-        )
-
-        user_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.user"
-        system_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.system"
-
-        assert user_key in final_flattened
-        assert system_key in final_flattened
-
-        # Verify we can deserialize the values
-        user_data = json.loads(final_flattened[user_key])
-        system_data = json.loads(final_flattened[system_key])
-
-        assert "id" in user_data
-        assert "profile" in user_data
-        assert "version" in system_data
-        assert "features" in system_data
+        assert self.get_metadata(
+            self.get_span_by_name(memory_exporter, "threaded")
+        ) == {
+            "base": 0,
+            **{f"thread_{i}": i for i in range(20)},
+        }
 
 
 class TestMultiProjectSetup(TestOTelBase):
@@ -3051,37 +2871,18 @@ class TestConcurrencyAndAsync(TestOTelBase):
         assert len(spans) == 1, "Expected one span"
         span_data = spans[0]
 
-        # Skip further assertions if metadata attribute isn't present
-        # (since the implementation might not be complete)
-        if (
-            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
-            not in span_data["attributes"]
-        ):
-            pytest.skip("Metadata attribute not present in span, skipping assertions")
+        metadata = json.loads(
+            span_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+        )
 
-        # Parse the final metadata
-        metadata_str = span_data["attributes"][
-            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        # Updates merge by top-level key: each update replaces the whole value of
+        # the keys it sets, nested objects are not deep-merged.
+        assert metadata["request_info"] == {"user_id": "updated-user"}
+        assert metadata["llm_config"] in [
+            {"parameters": {"temperature": 0.8}},
+            {"model": "gpt-3.5-turbo"},
+            {"parameters": {"context_length": 4096}},
         ]
-        metadata = json.loads(metadata_str)
-
-        # The behavior here depends on how the OTEL integration handles metadata updates
-        # If it does deep merging correctly, we should see all values preserved/updated
-        # If it doesn't, some values might be missing
-
-        # Verify metadata structure (if implementation supports proper nesting)
-        if "llm_config" in metadata:
-            # These assertions may fail if the implementation doesn't support proper nesting
-            assert metadata["llm_config"]["model"] == "gpt-3.5-turbo"
-
-            if "parameters" in metadata["llm_config"]:
-                assert metadata["llm_config"]["parameters"]["temperature"] == 0.8
-                assert metadata["llm_config"]["parameters"]["top_p"] == 0.9
-                assert metadata["llm_config"]["parameters"]["context_length"] == 4096
-
-        if "request_info" in metadata:
-            assert metadata["request_info"]["user_id"] == "updated-user"
-            assert metadata["request_info"]["session_id"] == "test-session"
 
     def test_metrics_and_timing(self, langfuse_client, memory_exporter):
         """Test span timing and metrics."""

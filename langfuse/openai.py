@@ -39,6 +39,7 @@ from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
 from wrapt import wrap_function_wrapper
 
+from langfuse._client.attributes import drop_metadata_over_key_limit
 from langfuse._client.environment_variables import (
     LANGFUSE_OPENAI_SKIP_RAW_RESPONSES,
 )
@@ -1303,7 +1304,7 @@ def _wrap(
         as_type=observation_type,  # type: ignore
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
-        metadata=langfuse_data.get("metadata", None),
+        metadata=drop_metadata_over_key_limit(langfuse_data.get("metadata", None)),
         model_parameters=langfuse_data.get("model_parameters", None),
         trace_context={
             "trace_id": cast(str, langfuse_data.get("trace_id", None)),
@@ -1392,7 +1393,7 @@ async def _wrap_async(
         as_type=observation_type,  # type: ignore
         name=langfuse_data["name"],
         input=langfuse_data.get("input", None),
-        metadata=langfuse_data.get("metadata", None),
+        metadata=drop_metadata_over_key_limit(langfuse_data.get("metadata", None)),
         trace_context={
             "trace_id": cast(str, langfuse_data.get("trace_id", None)),
             "parent_span_id": cast(

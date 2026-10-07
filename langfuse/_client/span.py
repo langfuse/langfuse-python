@@ -13,6 +13,8 @@ All span classes provide methods for media processing, attribute management,
 and scoring integration specific to Langfuse's observability platform.
 """
 
+import threading
+import weakref
 from datetime import datetime
 from time import time_ns
 from typing import (
@@ -43,6 +45,8 @@ from langfuse._client.attributes import (
     create_generation_attributes,
     create_span_attributes,
     create_trace_attributes,
+    merge_observation_metadata,
+    serialize_observation_metadata,
 )
 from langfuse._client.constants import (
     ObservationTypeGenerationLike,
@@ -60,6 +64,56 @@ from langfuse.types import SpanLevel
 # Note: "event" is handled separately due to special instantiation logic
 # Populated after class definitions
 _OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
+
+# Serialized metadata already written to each span, keyed by top-level key. Kept
+# so that repeated updates merge into the single `langfuse.observation.metadata`
+# attribute instead of overwriting it. Keyed by the OTel span (not the wrapper),
+# because update_current_* helpers create a new wrapper for every update.
+_span_metadata: "weakref.WeakKeyDictionary[otel_trace_api.Span, Dict[str, str]]" = (
+    weakref.WeakKeyDictionary()
+)
+_span_metadata_lock = threading.Lock()
+
+
+def _set_attributes_with_merged_metadata(
+    *,
+    span: otel_trace_api.Span,
+    attributes: Dict[str, Any],
+    metadata: Optional[Any],
+) -> None:
+    """Set attributes on a span, merging metadata into the span's earlier metadata.
+
+    Raises:
+        ValueError: If the merged metadata has more than 128 top-level keys.
+            Nothing is set on the span in that case.
+    """
+    # Serialize outside the lock, only the merge needs to be atomic
+    serialized = serialize_observation_metadata(metadata)
+
+    with _span_metadata_lock:
+        try:
+            previous = _span_metadata.get(span)
+        except TypeError:  # span type that can't be weakly referenced
+            previous = None
+
+        # Raises before any state changes if the merged metadata is too large
+        metadata_value, merged = merge_observation_metadata(previous, serialized)
+
+        if metadata_value is not None:
+            attributes = {
+                **attributes,
+                LangfuseOtelSpanAttributes.OBSERVATION_METADATA: metadata_value,
+            }
+
+        try:
+            if merged is not None:
+                _span_metadata[span] = merged
+            else:
+                _span_metadata.pop(span, None)
+        except TypeError:
+            pass
+
+        span.set_attributes({k: v for k, v in attributes.items() if v is not None})
 
 
 class LangfuseObservationWrapper:
@@ -166,7 +220,6 @@ class LangfuseObservationWrapper:
                 attributes = create_generation_attributes(
                     input=media_processed_input,
                     output=media_processed_output,
-                    metadata=media_processed_metadata,
                     version=version,
                     level=level,
                     status_message=status_message,
@@ -187,7 +240,6 @@ class LangfuseObservationWrapper:
                 attributes = create_span_attributes(
                     input=media_processed_input,
                     output=media_processed_output,
-                    metadata=media_processed_metadata,
                     version=version,
                     level=level,
                     status_message=status_message,
@@ -204,8 +256,10 @@ class LangfuseObservationWrapper:
             # We don't want to overwrite the observation type, and already set it
             attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
 
-            self._otel_span.set_attributes(
-                {k: v for k, v in attributes.items() if v is not None}
+            _set_attributes_with_merged_metadata(
+                span=self._otel_span,
+                attributes=attributes,
+                metadata=media_processed_metadata,
             )
             # Set OTEL span status if level is ERROR
             self._set_otel_span_status_if_error(
@@ -519,17 +573,19 @@ class LangfuseObservationWrapper:
             create_generation_attributes(
                 input=processed_input,
                 output=processed_output,
-                metadata=processed_metadata,
             )
             if as_type == "generation"
             else create_span_attributes(
                 input=processed_input,
                 output=processed_output,
-                metadata=processed_metadata,
             )
         )
 
-        span.set_attributes(media_processed_attributes)
+        _set_attributes_with_merged_metadata(
+            span=span,
+            attributes=media_processed_attributes,
+            metadata=processed_metadata,
+        )
 
     def _process_media_and_apply_mask(
         self,
@@ -661,7 +717,10 @@ class LangfuseObservationWrapper:
             name: Observation name
             input: Updated input data for the operation
             output: Output data from the operation
-            metadata: Additional metadata to associate with the observation
+            metadata: Additional metadata to associate with the observation. Merges
+                into earlier metadata by top-level key; keys set to None keep
+                their earlier values. At most 128 top-level keys are allowed,
+                more raise a ValueError.
             version: Version identifier for the code or component
             level: Importance level of the observation (info, warning, error)
             status_message: Optional status message for the observation
@@ -686,16 +745,12 @@ class LangfuseObservationWrapper:
             data=metadata, field="metadata", span=self._otel_span
         )
 
-        if name:
-            self._otel_span.update_name(name)
-
         if self._observation_type in get_observation_types_list(
             ObservationTypeGenerationLike
         ):
             attributes = create_generation_attributes(
                 input=processed_input,
                 output=processed_output,
-                metadata=processed_metadata,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -715,7 +770,6 @@ class LangfuseObservationWrapper:
             attributes = create_span_attributes(
                 input=processed_input,
                 output=processed_output,
-                metadata=processed_metadata,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -729,7 +783,14 @@ class LangfuseObservationWrapper:
                 ),
             )
 
-        self._otel_span.set_attributes(attributes=attributes)
+        # Raises before changing the span if the merged metadata has too many keys
+        _set_attributes_with_merged_metadata(
+            span=self._otel_span, attributes=attributes, metadata=processed_metadata
+        )
+
+        if name:
+            self._otel_span.update_name(name)
+
         # Set OTEL span status if level is ERROR
         self._set_otel_span_status_if_error(level=level, status_message=status_message)
 

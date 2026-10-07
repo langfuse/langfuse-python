@@ -251,6 +251,45 @@ def _make_single_chunk_stream():
     )
 
 
+def test_chat_completion_drops_metadata_over_key_limit(
+    langfuse_memory_client, get_span, caplog
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = SimpleNamespace(
+        model="gpt-4o-mini",
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    role="assistant",
+                    content="2",
+                    function_call=None,
+                    tool_calls=None,
+                    audio=None,
+                )
+            )
+        ],
+        usage=SimpleNamespace(prompt_tokens=3, completion_tokens=1, total_tokens=4),
+    )
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        result = openai_client.chat.completions.create(
+            name="unit-openai-too-much-metadata",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            metadata={f"key_{i}": i for i in range(129)},
+        )
+
+    # The model call must not fail because of the metadata key limit
+    assert result is response
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-too-much-metadata")
+
+    assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA not in span.attributes
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+    assert "Dropping observation metadata" in caplog.text
+
+
 def test_chat_completion_exports_generation_span(
     langfuse_memory_client, get_span, json_attr
 ):
@@ -289,7 +328,10 @@ def test_chat_completion_exports_generation_span(
     assert (
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o-mini"
     )
-    assert span.attributes["langfuse.observation.metadata.suite"] == "unit"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)["suite"]
+        == "unit"
+    )
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == [
         {"role": "user", "content": "1 + 1 = ?"}
     ]
@@ -345,7 +387,7 @@ def test_chat_completion_with_none_choices_does_not_crash(
 
 
 def test_openai_stream_with_none_choices_chunk_does_not_crash(
-    langfuse_memory_client, get_span
+    langfuse_memory_client, get_span, json_attr
 ):
     openai_client = lf_openai.OpenAI(api_key="test")
     chunks_with_none_choices = [
@@ -371,7 +413,12 @@ def test_openai_stream_with_none_choices_chunk_does_not_crash(
     span = get_span("unit-openai-stream-none-choices")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)[
+            "finish_reason"
+        ]
+        == "stop"
+    )
 
 
 def test_streaming_chat_completion_preserves_tool_calls_after_content():
@@ -507,7 +554,12 @@ def test_streaming_chat_completion_exports_ttft(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)[
+            "finish_reason"
+        ]
+        == "stop"
+    )
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -575,7 +627,12 @@ def test_openai_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)[
+            "finish_reason"
+        ]
+        == "stop"
+    )
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -610,7 +667,12 @@ def test_openai_stream_handles_trailing_azure_content_filter_chunk(
     span = get_span("unit-openai-native-stream-azure-filter")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)[
+            "finish_reason"
+        ]
+        == "stop"
+    )
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -734,7 +796,12 @@ async def test_openai_async_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)[
+            "finish_reason"
+        ]
+        == "stop"
+    )
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -777,7 +844,12 @@ async def test_openai_async_stream_supports_anext(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)[
+            "finish_reason"
+        ]
+        == "stop"
+    )
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,

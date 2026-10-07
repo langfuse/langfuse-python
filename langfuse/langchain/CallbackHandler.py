@@ -20,7 +20,10 @@ from opentelemetry import context, trace
 from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse import propagate_attributes
-from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    drop_metadata_over_key_limit,
+)
 from langfuse._client.client import Langfuse
 from langfuse._client.get_client import get_client
 from langfuse._client.propagation import _detach_context_token_safely
@@ -539,12 +542,12 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         )
 
         if parent_run_id is not None:
-            return observation_metadata
+            return drop_metadata_over_key_limit(observation_metadata)
 
         root_metadata = observation_metadata.copy() if observation_metadata else {}
         root_metadata["is_langchain_root"] = True
 
-        return root_metadata
+        return drop_metadata_over_key_limit(root_metadata)
 
     def on_chain_start(
         self,
@@ -981,6 +984,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     if value is not None and key != "inputs"
                 }
             )
+            meta = drop_metadata_over_key_limit(meta)
 
             observation_type = self._get_observation_type_from_serialized(
                 serialized, "tool", **kwargs

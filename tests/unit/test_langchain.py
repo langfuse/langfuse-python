@@ -1,4 +1,5 @@
 import importlib
+import json
 from contextvars import copy_context
 from unittest.mock import patch
 from uuid import uuid4
@@ -241,9 +242,8 @@ def test_root_chain_metadata_propagates_trace_name(
         generation_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME]
         == "langchain-trace-name"
     )
-    assert (
-        f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.langfuse_trace_name"
-        not in root_span.attributes
+    assert "langfuse_trace_name" not in json.loads(
+        root_span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_METADATA, "{}")
     )
     assert len(find_spans("ChatOpenAI")) == 1
 
@@ -843,10 +843,37 @@ def test_tool_when_structured_inputs_only_store_in_inputs_attribute_not_metadata
     langfuse_memory_client.flush()
     span = get_span("write_document")
 
-    metadata_prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+    metadata = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)
 
-    assert span.attributes[f"{metadata_prefix}.custom_key"] == "custom_value"
-    assert f"{metadata_prefix}.inputs" not in span.attributes
+    assert metadata["custom_key"] == "custom_value"
+    assert "inputs" not in metadata
+
+
+def test_metadata_over_key_limit_is_dropped_not_raised(
+    langfuse_memory_client, get_span, caplog
+):
+    handler = CallbackHandler()
+    root_run_id = uuid4()
+    run_id = uuid4()
+
+    # Use a child run: root runs also propagate metadata to the trace per key
+    handler.on_chain_start({"name": "root-chain"}, {}, run_id=root_run_id)
+    handler.on_chain_start(
+        {"name": "wide-metadata-chain"},
+        {"question": "hi"},
+        run_id=run_id,
+        parent_run_id=root_run_id,
+        metadata={f"key_{i}": i for i in range(129)},
+    )
+    handler.on_chain_end({"answer": "ok"}, run_id=run_id)
+    handler.on_chain_end({}, run_id=root_run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("wide-metadata-chain")
+
+    assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA not in span.attributes
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+    assert "Dropping observation metadata" in caplog.text
 
 
 def test_handled_tool_error_marks_observation_error(

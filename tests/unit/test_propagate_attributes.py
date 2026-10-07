@@ -6,6 +6,7 @@ to all child spans within the context.
 """
 
 import concurrent.futures
+import json
 from datetime import datetime
 
 import pytest
@@ -2766,21 +2767,12 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         langfuse_client.flush()
 
         span = self.get_span_by_name(memory_exporter, "experiment-item-run")
-        self.verify_span_attribute(
-            span,
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.shared",
-            "run",
+        metadata = json.loads(
+            span["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
         )
-        self.verify_span_attribute(
-            span,
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.experiment_run_name",
-            "run-name",
-        )
-        self.verify_span_attribute(
-            span,
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.item_only",
-            "yes",
-        )
+        assert metadata["shared"] == "run"
+        assert metadata["experiment_run_name"] == "run-name"
+        assert metadata["item_only"] == "yes"
 
     def test_experiment_attributes_propagate_with_dataset(
         self, langfuse_client, memory_exporter, monkeypatch

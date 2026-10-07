@@ -1434,7 +1434,10 @@ class Langfuse:
             name: The generation name
             input: Updated input data for the model
             output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
+            metadata: Additional metadata to associate with the generation. Merges
+                into earlier metadata by top-level key; keys set to None keep
+                their earlier values. At most 128 top-level keys are allowed,
+                more raise a ValueError.
             version: Version identifier for the model or component
             level: Importance level of the generation (info, warning, error)
             status_message: Optional status message for the generation
@@ -1474,10 +1477,8 @@ class Langfuse:
                 otel_span=current_otel_span, langfuse_client=self
             )
 
-            if name:
-                current_otel_span.update_name(name)
-
             generation.update(
+                name=name,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -1513,7 +1514,10 @@ class Langfuse:
             name: The span name
             input: Updated input data for the operation
             output: Output data from the operation
-            metadata: Additional metadata to associate with the span
+            metadata: Additional metadata to associate with the span. Merges
+                into earlier metadata by top-level key; keys set to None keep
+                their earlier values. At most 128 top-level keys are allowed,
+                more raise a ValueError.
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
@@ -1553,10 +1557,8 @@ class Langfuse:
                 release=self._release,
             )
 
-            if name:
-                current_otel_span.update_name(name)
-
             span.update(
+                name=name,
                 input=input,
                 output=output,
                 metadata=metadata,

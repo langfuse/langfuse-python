@@ -12,7 +12,7 @@ The module includes:
 
 import json
 from datetime import datetime
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Dict, Literal, Optional, Tuple, TypeVar, Union
 
 from langfuse._client.constants import (
     ObservationTypeGenerationLike,
@@ -20,8 +20,16 @@ from langfuse._client.constants import (
 )
 from langfuse._utils.serializer import EventSerializer
 from langfuse.api import MapValue
+from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
 from langfuse.types import SpanLevel
+
+MAX_OBSERVATION_METADATA_KEYS = 128
+"""Maximum number of top-level keys allowed in observation metadata."""
+
+_FAILED_TO_SERIALIZE = "<failed to serialize>"
+_T = TypeVar("_T")
+_COMPACT_SEPARATORS = (",", ":")
 
 
 class LangfuseOtelSpanAttributes:
@@ -107,7 +115,9 @@ def create_span_attributes(
         LangfuseOtelSpanAttributes.VERSION: version,
         LangfuseOtelSpanAttributes.OBSERVATION_INPUT: _serialize(input),
         LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
-        **_flatten_and_serialize_metadata(metadata, "observation"),
+        LangfuseOtelSpanAttributes.OBSERVATION_METADATA: merge_observation_metadata(
+            None, serialize_observation_metadata(metadata)
+        )[0],
     }
 
     return {k: v for k, v in attributes.items() if v is not None}
@@ -152,7 +162,9 @@ def create_generation_attributes(
         LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS: _serialize(
             model_parameters
         ),
-        **_flatten_and_serialize_metadata(metadata, "observation"),
+        LangfuseOtelSpanAttributes.OBSERVATION_METADATA: merge_observation_metadata(
+            None, serialize_observation_metadata(metadata)
+        )[0],
     }
 
     return {k: v for k, v in attributes.items() if v is not None}
@@ -191,25 +203,110 @@ def _flatten_and_serialize_metadata_values(
     return flattened_metadata
 
 
-def _flatten_and_serialize_metadata(
-    metadata: Any, type: Literal["observation", "trace"]
-) -> dict:
-    prefix = (
-        LangfuseOtelSpanAttributes.OBSERVATION_METADATA
-        if type == "observation"
-        else LangfuseOtelSpanAttributes.TRACE_METADATA
-    )
+def serialize_observation_metadata(
+    metadata: Any,
+) -> Union[None, str, Dict[str, str]]:
+    """Serialize observation metadata for merge_observation_metadata.
 
-    metadata_attributes: Dict[str, Union[str, int, None]] = {}
+    Values of dict metadata are serialized one by one, so a value that fails to
+    serialize becomes `"<failed to serialize>"` instead of dropping all metadata.
+    Keys with `None` values are skipped.
+
+    Returns:
+        None if there is no metadata, the serialized value for non-dict
+        metadata, or the serialized values keyed by top-level key.
+    """
+    if metadata is None:
+        return None
 
     if not isinstance(metadata, dict):
-        metadata_attributes[prefix] = _serialize(metadata)
-    else:
-        for key, value in metadata.items():
-            metadata_attributes[f"{prefix}.{key}"] = (
-                value
-                if isinstance(value, str) or isinstance(value, int)
-                else _serialize(value)
-            )
+        return _serialize_metadata_value(metadata, top_level=True)
 
-    return metadata_attributes
+    return {
+        str(key): _serialize_metadata_value(value)
+        for key, value in metadata.items()
+        if value is not None
+    }
+
+
+def merge_observation_metadata(
+    previous: Optional[Dict[str, str]],
+    serialized: Union[None, str, Dict[str, str]],
+) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+    """Merge serialized metadata into earlier metadata of the same observation.
+
+    Observation metadata is written as one JSON object to the
+    `langfuse.observation.metadata` attribute. Top-level keys of `serialized`
+    overwrite keys in `previous`. Non-dict metadata replaces earlier metadata.
+
+    Args:
+        previous: Serialized values from earlier updates, keyed by top-level key
+        serialized: Output of serialize_observation_metadata for this update
+
+    Returns:
+        The attribute value to write (None if there is nothing to write) and the
+        serialized values to keep for the next update (None if there are none).
+
+    Raises:
+        ValueError: If the merged metadata has more than
+            MAX_OBSERVATION_METADATA_KEYS top-level keys.
+    """
+    if serialized is None:
+        return None, previous
+
+    if isinstance(serialized, str):
+        return serialized, None
+
+    merged = {**(previous or {}), **serialized}
+
+    if len(merged) > MAX_OBSERVATION_METADATA_KEYS:
+        message = (
+            f"Observation metadata has {len(merged)} keys, which exceeds the "
+            f"maximum of {MAX_OBSERVATION_METADATA_KEYS}."
+        )
+        raise ValueError(message)
+
+    if not merged:
+        return None, None
+
+    attribute_value = (
+        "{"
+        + ",".join(f"{json.dumps(key)}:{value}" for key, value in merged.items())
+        + "}"
+    )
+
+    return attribute_value, merged
+
+
+def drop_metadata_over_key_limit(metadata: _T) -> Optional[_T]:
+    """Drop dict metadata with more than MAX_OBSERVATION_METADATA_KEYS keys.
+
+    For integrations: the SDK raises on too many metadata keys, but raising inside
+    instrumentation would break or lose the user's call. Integrations drop the
+    metadata with a warning instead. Keys with `None` values are not counted.
+    """
+    if not isinstance(metadata, dict):
+        return metadata
+
+    key_count = sum(1 for value in metadata.values() if value is not None)
+
+    if key_count > MAX_OBSERVATION_METADATA_KEYS:
+        langfuse_logger.warning(
+            "Dropping observation metadata: it has %s keys, which exceeds the "
+            "maximum of %s.",
+            key_count,
+            MAX_OBSERVATION_METADATA_KEYS,
+        )
+        return None
+
+    return metadata
+
+
+def _serialize_metadata_value(value: Any, *, top_level: bool = False) -> str:
+    if top_level and isinstance(value, str):
+        return value
+
+    try:
+        return json.dumps(value, cls=EventSerializer, separators=_COMPACT_SEPARATORS)
+    except Exception:
+        return _FAILED_TO_SERIALIZE if top_level else json.dumps(_FAILED_TO_SERIALIZE)
