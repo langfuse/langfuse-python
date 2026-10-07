@@ -115,7 +115,9 @@ def wait_for_result(
 
 
 def _parse_json_string(value: Any) -> Any:
-    if not isinstance(value, str):
+    # Only objects and arrays: the SDK sends string IO unquoted, so text such as
+    # "2" or "true" must stay a string.
+    if not isinstance(value, str) or not value.lstrip().startswith(("{", "[")):
         return value
 
     try:
@@ -127,8 +129,8 @@ def _parse_json_string(value: Any) -> Any:
 def normalize_observation(observation: ObservationV2) -> ObservationV2:
     """Map a v2 observation to the shape the SDK sent.
 
-    The v2 API returns input/output as raw JSON strings and unset string
-    fields as "". This parses JSON input/output and maps "" to None.
+    The v2 API returns input/output as raw strings and unset string fields as
+    "". This parses JSON object/array input/output and maps "" to None.
     """
     update: dict[str, Any] = {
         "input": _parse_json_string(observation.input),

@@ -141,7 +141,7 @@ def test_openai_chat_completion_stream(openai):
     assert generation[0].usage_details["input"] is not None
     assert generation[0].usage_details["output"] is not None
     assert generation[0].usage_details["total"] is not None
-    assert generation[0].output == 2
+    assert generation[0].output == "2"
     assert generation[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
@@ -200,7 +200,7 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
     assert generation[0].usage_details["input"] is not None
     assert generation[0].usage_details["output"] is not None
     assert generation[0].usage_details["total"] is not None
-    assert generation[0].output == 2
+    assert generation[0].output == "2"
     assert generation[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
@@ -999,7 +999,9 @@ def test_structured_output_response_format_kwarg(openai):
 
     langfuse.flush()
 
-    generation = wait_for_observations(name=generation_name, type="GENERATION")
+    generation = wait_for_observations(
+        name=generation_name, type="GENERATION", expand_metadata="response_format"
+    )
 
     assert len(generation) != 0
     assert generation[0].name == generation_name

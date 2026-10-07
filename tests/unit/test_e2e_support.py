@@ -287,3 +287,20 @@ def test_retry_until_ready_clears_stale_error_after_success(monkeypatch):
 
     assert trace["id"] == "trace-123"
     assert trace["attempt"] == 3
+
+
+def test_normalize_observation_keeps_scalar_text_io_as_strings():
+    observation = normalize_observation(
+        ObservationV2(
+            id="obs",
+            trace_id="trace",
+            start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            project_id="project",
+            type="SPAN",
+            input="2",
+            output="true",
+        )
+    )
+
+    assert observation.input == "2"
+    assert observation.output == "true"
