@@ -461,10 +461,10 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             child_span, LangfuseOtelSpanAttributes.TRACE_USER_ID
         )
 
-    def test_non_string_metadata_values_coerced(
+    def test_non_string_metadata_values_json_serialized(
         self, langfuse_client, memory_exporter, caplog
     ):
-        """Verify non-string metadata values are coerced instead of dropped."""
+        """Verify non-string metadata values are JSON-serialized instead of dropped."""
 
         caplog.set_level("WARNING", logger="langfuse")
         metadata = {
@@ -472,6 +472,23 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "langgraph_triggers": ["branch:agent"],
             "langgraph_path": ("root", "agent"),
             "max_search_results": 5,
+            "is_cached": True,
+            "ratio": 0.5,
+            "config": {"model": "gpt-4o", "nested": {"b": [1, None], "a": "ü"}},
+            "label": ["Läufe", "🚀"],
+            "empty": None,
+        }
+        # Byte-identical to JSON.stringify in the JS SDK for the same values.
+        expected = {
+            "langgraph_step": "1",
+            "langgraph_triggers": '["branch:agent"]',
+            "langgraph_path": '["root","agent"]',
+            "max_search_results": "5",
+            "is_cached": "true",
+            "ratio": "0.5",
+            "config": '{"model":"gpt-4o","nested":{"b":[1,null],"a":"ü"}}',
+            "label": '["Läufe","🚀"]',
+            "empty": "null",
         }
 
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -481,14 +498,83 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
 
-        for key, value in metadata.items():
+        for key, value in expected.items():
             self.verify_span_attribute(
                 child_span,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}",
-                str(value),
+                value,
             )
 
         assert "value is not a string. Dropping value." not in caplog.text
+
+    def test_large_integer_metadata_keeps_its_digits(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify integers beyond JS's safe range are sent as plain digits."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"snowflake_id": 9007199254740993}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.snowflake_id",
+            "9007199254740993",
+        )
+
+    def test_nested_large_integer_metadata_keeps_its_digits(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify nested integers beyond JS's safe range stay unquoted digits."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(
+                metadata={
+                    "ids": [9007199254740993, 1],
+                    "ref": {"snowflake_id": 9007199254740993},
+                }
+            ):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.ids",
+            "[9007199254740993,1]",
+        )
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.ref",
+            '{"snowflake_id":9007199254740993}',
+        )
+
+    def test_non_finite_number_metadata_is_dropped(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        """Verify values containing NaN or Infinity are dropped, like in the JS SDK."""
+        caplog.set_level("WARNING", logger="langfuse")
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(
+                metadata={
+                    "kept": 1.5,
+                    "nan": float("nan"),
+                    "inf": float("-inf"),
+                    "nested": {"scores": [1.0, float("inf")]},
+                }
+            ):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.kept", "1.5"
+        )
+        for key in ("nan", "inf", "nested"):
+            self.verify_missing_attribute(
+                child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"
+            )
+        assert "metadata.nan" in caplog.text
 
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
