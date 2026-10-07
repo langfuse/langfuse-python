@@ -506,6 +506,25 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
         assert "value is not a string. Dropping value." not in caplog.text
 
+    def test_non_ascii_coerced_metadata_is_not_escaped(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify non-ASCII text isn't \\u-escaped, which would inflate the length."""
+        # 2 x 90 characters: fits the 200 character limit only without escaping
+        path = ["ü" * 90, "é" * 90]
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"langgraph_path": path}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.langgraph_path",
+            f'["{"ü" * 90}","{"é" * 90}"]',
+        )
+
     def test_none_metadata_values_are_skipped(self, langfuse_client, memory_exporter):
         """Verify None metadata values are skipped instead of stored as a string."""
         with langfuse_client.start_as_current_observation(name="parent-span"):

@@ -656,7 +656,11 @@ def _coerce_metadata_value(value: Any) -> str:
     if isinstance(value, str):
         return value
 
-    return json.dumps(value, cls=EventSerializer, separators=(",", ":"))
+    # ensure_ascii=False: escaping non-ASCII as \uXXXX would count 6 characters
+    # per character against the 200 character limit
+    return json.dumps(
+        value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
+    )
 
 
 def _validate_string_value(*, value: str, key: str) -> bool:
