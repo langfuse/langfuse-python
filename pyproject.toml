@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 keywords = [
     "langfuse",
     "llm",
@@ -139,7 +139,7 @@ module = "langfuse.api.*"
 disable_error_code = ["redundant-cast", "no-untyped-def"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 extend-select = [
