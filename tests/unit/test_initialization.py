@@ -100,35 +100,15 @@ class TestClientInitialization:
 
         assert client._base_url == "http://env-host.com"
 
-    def test_env_host_fallback_logs_deprecation_warning(self, cleanup_env_vars, caplog):
-        """Test that resolving the URL from LANGFUSE_HOST logs a deprecation warning."""
+    def test_env_host_fallback_logs_no_warning(self, cleanup_env_vars, caplog):
+        """Test that LANGFUSE_HOST keeps working without a deprecation warning."""
         caplog.set_level("WARNING", logger="langfuse")
         os.environ["LANGFUSE_HOST"] = "http://env-host.com"
 
-        Langfuse(public_key="test_pk", secret_key="test_sk")
+        client = Langfuse(public_key="test_pk", secret_key="test_sk")
 
-        assert any(
-            "LANGFUSE_HOST are deprecated" in record.message
-            for record in caplog.records
-        )
-
-    def test_host_ignored_when_base_url_set_logs_no_warning(
-        self, cleanup_env_vars, caplog
-    ):
-        """Test that a set base URL suppresses the host deprecation warning."""
-        caplog.set_level("WARNING", logger="langfuse")
-        os.environ["LANGFUSE_HOST"] = "http://env-host.com"
-
-        Langfuse(
-            base_url="http://param-base-url.com",
-            public_key="test_pk",
-            secret_key="test_sk",
-        )
-
-        assert not any(
-            "LANGFUSE_HOST are deprecated" in record.message
-            for record in caplog.records
-        )
+        assert client._base_url == "http://env-host.com"
+        assert not any("deprecated" in record.message for record in caplog.records)
 
     def test_default_base_url(self, cleanup_env_vars):
         """Test that default base_url is used when nothing is set."""
