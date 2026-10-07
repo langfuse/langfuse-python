@@ -28,14 +28,20 @@ def make_observation(
     trace_id: Optional[str] = "default",
     is_root: bool = False,
     start_time: Optional[datetime] = None,
+    observation_id: Optional[str] = None,
+    parent_observation_id: Optional[str] = "default",
 ) -> ObservationV2:
     return ObservationV2(
-        id=f"obs-{index}",
+        id=observation_id or f"obs-{index}",
         trace_id=f"trace-{index}" if trace_id == "default" else trace_id,
         start_time=start_time or BASE_TIME + timedelta(seconds=index),
         end_time=None,
         project_id="project",
-        parent_observation_id=None if is_root else f"parent-{index}",
+        parent_observation_id=(
+            (None if is_root else f"parent-{index}")
+            if parent_observation_id == "default"
+            else parent_observation_id
+        ),
         type="SPAN",
         is_root_observation=is_root,
         input=json.dumps({"question": index}),
@@ -72,8 +78,8 @@ class FakeObservationsApi:
                 if observation.is_root_observation is not condition["value"]:
                     return False
             elif condition["column"] == "startTime":
-                assert condition["operator"] == "<"
-                if observation.start_time >= datetime.fromisoformat(condition["value"]):
+                assert condition["operator"] == "<="
+                if observation.start_time > datetime.fromisoformat(condition["value"]):
                     return False
         return True
 
@@ -292,7 +298,11 @@ async def test_fetch_failure_returns_resume_token_for_failed_page():
 
 @pytest.mark.asyncio
 async def test_resume_without_cursor_falls_back_to_start_time_bound():
-    runner, api, _ = make_runner([make_observation(i) for i in range(5)])
+    tied_time = BASE_TIME + timedelta(seconds=3)
+    runner, api, _ = make_runner(
+        [make_observation(i) for i in range(5)]
+        + [make_observation(9, observation_id="obs-tied", start_time=tied_time)]
+    )
     token = BatchEvaluationResumeToken(
         scope="observations",
         filter=None,
@@ -307,12 +317,71 @@ async def test_resume_without_cursor_falls_back_to_start_time_bound():
         {
             "type": "datetime",
             "column": "startTime",
-            "operator": "<",
+            "operator": "<=",
             "value": token.last_processed_timestamp,
         }
     ]
     assert api.calls[0]["cursor"] is None
-    assert set(result.item_evaluations) == {"obs-2", "obs-1", "obs-0"}
+    assert set(result.item_evaluations) == {"obs-tied", "obs-2", "obs-1", "obs-0"}
+
+
+@pytest.mark.asyncio
+async def test_resume_reuses_the_token_filter_and_rejects_a_different_one():
+    runner, api, _ = make_runner([make_observation(i) for i in range(4)])
+    token_filter = json.dumps(
+        [{"type": "string", "column": "name", "operator": "=", "value": "x"}]
+    )
+    token = BatchEvaluationResumeToken(
+        scope="observations",
+        filter=token_filter,
+        cursor="2",
+        last_processed_timestamp=BASE_TIME.isoformat(),
+        last_processed_id="obs-2",
+        items_processed=2,
+    )
+    api._matches = lambda observation, filter_json: True  # type: ignore[method-assign]
+
+    await run(runner, resume_from=token)
+    assert json.loads(api.calls[0]["filter"]) == json.loads(token_filter)
+
+    with pytest.raises(ValueError, match="different filter"):
+        await run(runner, resume_from=token, filter="[]")
+
+
+@pytest.mark.asyncio
+async def test_root_observations_scope_prefers_the_physical_root_of_a_trace():
+    runner, _, client = make_runner(
+        [
+            make_observation(0, trace_id="t1", is_root=True),
+            # SDK-marked app root below the physical root of the same trace.
+            make_observation(
+                1, trace_id="t1", is_root=True, parent_observation_id="obs-0"
+            ),
+        ]
+    )
+
+    result = await run(runner, scope="root_observations")
+
+    assert [c.kwargs["trace_id"] for c in client.create_score.call_args_list] == ["t1"]
+    assert set(result.item_evaluations) == {"obs-0"}
+
+
+@pytest.mark.asyncio
+async def test_root_observations_scope_scores_a_trace_once_across_pages():
+    # Sibling app roots under a parent that was not exported, on separate pages.
+    runner, _, client = make_runner(
+        [
+            make_observation(
+                i, trace_id="t2", is_root=True, parent_observation_id="hidden"
+            )
+            for i in range(3)
+        ]
+    )
+
+    result = await run(runner, scope="root_observations", fetch_batch_size=1)
+
+    assert [c.kwargs["trace_id"] for c in client.create_score.call_args_list] == ["t2"]
+    assert set(result.item_evaluations) == {"obs-2"}
 
 
 @pytest.mark.asyncio
