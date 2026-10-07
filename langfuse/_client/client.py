@@ -2684,13 +2684,14 @@ class Langfuse:
             "Starting experiment '%s' run '%s' with %s items", name, run_name, len(data)
         )
 
-        try:
-            project_id = await asyncio.to_thread(self._get_project_id)
-        except Exception as e:
-            langfuse_logger.warning(
-                "Failed to resolve project id for experiment: %s", e
-            )
-            project_id = None
+        project_id: Optional[str] = None
+        if self._tracing_enabled:
+            try:
+                project_id = await asyncio.to_thread(self._get_project_id)
+            except Exception as e:
+                langfuse_logger.warning(
+                    "Failed to resolve project id for experiment: %s", e
+                )
 
         # One experiment id per run: mixed-dataset data uses the first dataset item's dataset.
         experiment_dataset_id = next(
@@ -2760,8 +2761,24 @@ class Langfuse:
             else None
         )
 
+        # Without an exported item span the experiment does not exist on the server,
+        # so a run score would be orphaned.
+        stored_run_evaluations = (
+            run_evaluations
+            if any(
+                result.trace_id is not None and self._is_trace_sampled(result.trace_id)
+                for result in valid_results
+            )
+            else []
+        )
+        if run_evaluations and not stored_run_evaluations:
+            langfuse_logger.debug(
+                "Skipping run-level scores for experiment %s: all items were sampled out.",
+                experiment_id,
+            )
+
         # Run-level scores attach to the experiment via dataset_run_id == experiment_id.
-        for evaluation in run_evaluations:
+        for evaluation in stored_run_evaluations:
             try:
                 self.create_score(
                     dataset_run_id=experiment_id,
@@ -2818,6 +2835,23 @@ class Langfuse:
         )
 
         return sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+    def _is_trace_sampled(self, trace_id: str) -> bool:
+        from opentelemetry.sdk.trace.sampling import Decision
+
+        tracer_provider = self._resources.tracer_provider if self._resources else None
+        sampler = getattr(tracer_provider, "sampler", None)
+        if sampler is None:
+            return True
+
+        try:
+            decision = sampler.should_sample(
+                parent_context=None, trace_id=int(trace_id, 16), name="experiment"
+            ).decision
+        except Exception:
+            return True
+
+        return bool(decision == Decision.RECORD_AND_SAMPLE)
 
     @staticmethod
     def _format_experiment_item_version(dataset_version: datetime) -> str:

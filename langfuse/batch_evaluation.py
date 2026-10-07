@@ -19,6 +19,7 @@ from typing import (
     Literal,
     Optional,
     Protocol,
+    Set,
     Tuple,
     Union,
     get_args,
@@ -859,14 +860,15 @@ class BatchEvaluationRunner:
                 scope="observations".
             max_retries: Maximum retries for failed batch fetches.
             verbose: If True, log progress to console.
-            resume_from: Resume token from a previous run.
+            resume_from: Resume token from a previous run. If `filter` is omitted,
+                the token's filter is reused.
 
         Returns:
             BatchEvaluationResult with comprehensive statistics.
 
         Raises:
             ValueError: If the scope is invalid, the filter is not a JSON array, or
-                the resume token was created for a different scope.
+                the resume token was created for a different scope or filter.
         """
         start_time = time.time()
 
@@ -880,6 +882,15 @@ class BatchEvaluationRunner:
                 f"Resume token was created for scope {resume_from.scope!r}, "
                 f"cannot resume with scope {scope!r}."
             )
+        # The token's cursor only continues the query that produced it.
+        if resume_from is not None:
+            if filter is None:
+                filter = resume_from.filter
+            elif filter != resume_from.filter:
+                raise ValueError(
+                    "Resume token was created for a different filter. Pass the "
+                    "same filter, or omit it to reuse the token's filter."
+                )
 
         effective_filter = self._build_filter(
             filter=filter, scope=scope, resume_from=resume_from
@@ -911,6 +922,16 @@ class BatchEvaluationRunner:
             resume_from.last_processed_timestamp if resume_from else ""
         )
         last_item_id = resume_from.last_processed_id if resume_from else ""
+        # The start-time fallback is inclusive so tied items are not lost; skip
+        # the one item the token says was already processed.
+        resumed_item_id = (
+            resume_from.last_processed_id
+            if resume_from is not None
+            and resume_from.cursor is None
+            and resume_from.last_processed_timestamp
+            else None
+        )
+        seen_root_trace_ids: Set[str] = set()
         batch_number = 0
 
         if verbose:
@@ -1001,9 +1022,17 @@ class BatchEvaluationRunner:
                     except Exception as e:
                         return (item.id, e)
 
-            results = await asyncio.gather(*[process_item(item) for item in items])
+            items_to_process = [item for item in items if item.id != resumed_item_id]
+            if scope == "root_observations":
+                items_to_process = self._select_one_root_per_trace(
+                    items_to_process, seen_root_trace_ids
+                )
 
-            for item, (item_id, result) in zip(items, results):
+            results = await asyncio.gather(
+                *[process_item(item) for item in items_to_process]
+            )
+
+            for item, (item_id, result) in zip(items_to_process, results):
                 if isinstance(result, Exception):
                     total_items_failed += 1
                     failed_item_ids.append(item_id)
@@ -1423,12 +1452,46 @@ class BatchEvaluationRunner:
                 {
                     "type": "datetime",
                     "column": "startTime",
-                    "operator": "<",
+                    "operator": "<=",
                     "value": resume_from.last_processed_timestamp,
                 }
             )
 
         return json.dumps(conditions) if conditions else None
+
+    @staticmethod
+    def _select_one_root_per_trace(
+        items: List[ObservationV2], seen_trace_ids: Set[str]
+    ) -> List[ObservationV2]:
+        """Keep one root observation per trace.
+
+        The v2 API marks both physical roots and SDK-detected app roots as root
+        observations, so a trace can return several. Prefer the physical root
+        when it is on the same page; otherwise keep the first one seen.
+        """
+        traces_with_physical_root = {
+            item.trace_id
+            for item in items
+            if item.trace_id and not item.parent_observation_id
+        }
+        selected: List[ObservationV2] = []
+
+        for item in items:
+            if item.trace_id is None:
+                selected.append(item)
+                continue
+            if item.trace_id in seen_trace_ids:
+                continue
+            if (
+                item.parent_observation_id
+                and item.trace_id in traces_with_physical_root
+            ):
+                continue
+
+            seen_trace_ids.add(item.trace_id)
+            selected.append(item)
+
+        return selected
 
     def _build_result(
         self,
