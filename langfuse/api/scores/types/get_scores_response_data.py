@@ -45,7 +45,7 @@ class GetScoresResponseData_Numeric(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -92,7 +92,7 @@ class GetScoresResponseData_Categorical(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -139,7 +139,7 @@ class GetScoresResponseData_Boolean(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -186,7 +186,7 @@ class GetScoresResponseData_Correction(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -232,7 +232,7 @@ class GetScoresResponseData_Text(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = None
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None

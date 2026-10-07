@@ -3,11 +3,11 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import UniversalBaseModel
+from ....core.pydantic_utilities import UniversalBaseModel
 
 
-class SdkLogBody(UniversalBaseModel):
-    log: typing.Any
+class UpdateSkillLabelsRequest(UniversalBaseModel):
+    labels: typing.List[str]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
