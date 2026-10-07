@@ -2872,28 +2872,17 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         self, langfuse_client, memory_exporter, monkeypatch
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
-        created_run_items = []
 
-        # Mock the sync API used by run_experiment to create dataset run items
-        def mock_create_dataset_run_item(*args, **kwargs):
-            from langfuse.api import DatasetRunItem
-
-            created_run_items.append(kwargs)
-            return DatasetRunItem(
-                id="mock-run-item-id",
-                dataset_run_id="mock-dataset-run-id-123",
-                dataset_run_name=kwargs.get("run_name", "Dataset Test"),
-                dataset_item_id=kwargs.get("dataset_item_id", "mock-item-id"),
-                trace_id="mock-trace-id",
-                observation_id=kwargs.get("observation_id"),
-                created_at=datetime.now(),
-                updated_at=datetime.now(),
-            )
+        def fail_create_dataset_run_item(*args, **kwargs):
+            raise AssertionError("run_experiment must not create dataset run items")
 
         monkeypatch.setattr(
             langfuse_client.api.dataset_run_items,
             "create",
-            mock_create_dataset_run_item,
+            fail_create_dataset_run_item,
+        )
+        monkeypatch.setattr(
+            langfuse_client, "_get_project_id", lambda: "test-project-id"
         )
 
         # Create a mock dataset with items
@@ -2958,9 +2947,16 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         assert len(root_spans) >= 1, "Should have at least 1 root span"
         first_root = root_spans[0]
         task_span = self.get_span_by_name(memory_exporter, "experiment-item-task")
-        assert result.experiment_id == "mock-dataset-run-id-123"
-        assert len(created_run_items) == 1
-        assert created_run_items[0]["observation_id"] == task_span["span_id"]
+        assert result.experiment_id == langfuse_client._create_experiment_id(
+            project_id="test-project-id",
+            dataset_id=dataset_id,
+            run_name=result.run_name,
+        )
+        self.verify_span_attribute(
+            first_root,
+            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID,
+            task_span["span_id"],
+        )
 
         # Root-only attributes should be on root
         self.verify_span_attribute(
