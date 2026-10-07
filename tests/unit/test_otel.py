@@ -120,10 +120,6 @@ class TestOTelBase:
             from langfuse._client.span_filter import is_default_export_span
 
             self.public_key = kwargs.get("public_key", "test-key")
-            blocked_scopes = kwargs.get("blocked_instrumentation_scopes")
-            self.blocked_instrumentation_scopes = (
-                blocked_scopes if blocked_scopes is not None else []
-            )
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
@@ -2408,10 +2404,6 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             from langfuse._client.span_filter import is_default_export_span
 
             self.public_key = kwargs.get("public_key", "test-key")
-            blocked_scopes = kwargs.get("blocked_instrumentation_scopes")
-            self.blocked_instrumentation_scopes = (
-                blocked_scopes if blocked_scopes is not None else []
-            )
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
@@ -2446,16 +2438,13 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             # Call original_initialize to set up all the necessary attributes
             original_initialize(self, **kwargs)
 
-            # Now create our custom LangfuseSpanProcessor with the actual blocked_instrumentation_scopes
+            # Now create our custom LangfuseSpanProcessor with the actual should_export_span
             from langfuse._client.span_processor import LangfuseSpanProcessor
 
             processor = LangfuseSpanProcessor(
                 public_key=self.public_key,
                 secret_key=self.secret_key,
                 base_url=self.base_url,
-                blocked_instrumentation_scopes=kwargs.get(
-                    "blocked_instrumentation_scopes"
-                ),
                 should_export_span=kwargs.get("should_export_span"),
             )
             # Replace its exporter with our test exporter
@@ -2661,38 +2650,6 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         assert "known-span" in exported_span_names
         assert "unknown-span" not in exported_span_names
 
-    def test_blocked_scopes_override_should_export(
-        self, instrumentation_filtering_setup
-    ):
-        """Test that blocked scopes are dropped even when callback allows all."""
-        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
-            Langfuse(
-                public_key=instrumentation_filtering_setup["test_key"],
-                secret_key="test-secret-key",
-                base_url="http://localhost:3000",
-                blocked_instrumentation_scopes=["my-framework.worker"],
-                should_export_span=lambda span: True,
-            )
-
-        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
-        blocked_tracer = tracer_provider.get_tracer("my-framework.worker")
-        allowed_tracer = tracer_provider.get_tracer("custom.allowed")
-
-        blocked_span = blocked_tracer.start_span("blocked-span")
-        blocked_span.end()
-        allowed_span = allowed_tracer.start_span("allowed-span")
-        allowed_span.end()
-        tracer_provider.force_flush()
-
-        exported_span_names = [
-            span.name
-            for span in instrumentation_filtering_setup[
-                "blocked_exporter"
-            ].get_finished_spans()
-        ]
-        assert "blocked-span" not in exported_span_names
-        assert "allowed-span" in exported_span_names
-
     def test_should_export_span_with_none_uses_default(
         self, instrumentation_filtering_setup
     ):
@@ -2755,34 +2712,6 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         assert "callback-error-span" not in exported_span_names
         assert any(
             "should_export_span callback raised an error" in record.message
-            for record in caplog.records
-        )
-
-    def test_blocked_scope_drop_logs_scope_name(
-        self, instrumentation_filtering_setup, caplog
-    ):
-        """Test that blocked scope drops include scope names in debug logs."""
-        caplog.set_level("DEBUG", logger="langfuse")
-
-        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
-            Langfuse(
-                public_key=instrumentation_filtering_setup["test_key"],
-                secret_key="test-secret-key",
-                base_url="http://localhost:3000",
-                blocked_instrumentation_scopes=["my.blocked.scope"],
-                should_export_span=lambda span: True,
-            )
-
-        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
-        blocked_tracer = tracer_provider.get_tracer("my.blocked.scope")
-
-        span = blocked_tracer.start_span("blocked-debug-span")
-        span.end()
-        tracer_provider.force_flush()
-
-        assert any(
-            "Dropping span due to blocked instrumentation scope" in record.message
-            and "my.blocked.scope" in record.message
             for record in caplog.records
         )
 
