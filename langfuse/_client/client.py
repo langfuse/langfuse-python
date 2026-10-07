@@ -426,23 +426,17 @@ class Langfuse:
         Semantics that are easy to miss:
 
         - **Ingestion is asynchronous.** `langfuse.flush()` only guarantees delivery to
-          the API, not read visibility: reads such as `api.trace.get(trace_id)` may
-          raise `langfuse.api.NotFoundError` until processing completes (typically
-          within 15-30 seconds; longer under load). The same applies to scores and
-          dataset run reads. Instead of a fixed sleep, retry with a deadline:
+          the API, not read visibility: reads such as
+          `api.observations.get_many(trace_id=...)` may return no data until
+          processing completes (typically within 15-30 seconds; longer under load).
+          The same applies to scores and experiment reads. Instead of a fixed sleep,
+          poll with a deadline (see the ingestion-lag link below).
 
-        - **List endpoints return lightweight views.** `api.trace.list(...)` returns
-          `TraceWithDetails`, where `observations` and `scores` are lists of ID strings.
-          Fetch the full objects with `api.trace.get(trace_id)` (`TraceWithFullDetails`),
-          or prefer `api.observations.get_many(trace_id=...)` for row-level observation
-          queries. The same list-view vs. get-detail pattern applies to other resources.
-
-        - **Prefer the v2 data APIs — they are the defaults since SDK v4.**
-          `api.observations` and `api.metrics` map to the high-performance
-          `/api/public/v2/...` endpoints and are the recommended read path. Their v1
-          equivalents remain available under `api.legacy.observations_v1` /
-          `api.legacy.metrics_v1` but are less performant at scale, not recommended
-          for new workflows, and will be deprecated.
+        - **Observations are the read model.** Read trace data with
+          `api.observations.get_many(trace_id=...)` (`/api/public/v2/observations`,
+          cursor-paginated; request field groups with `fields`). A trace's name,
+          user, session, tags and input/output are on its root observation. Read
+          scores with `api.scores_v3` and experiments with `api.experiments`.
 
         - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
@@ -450,7 +444,7 @@ class Langfuse:
 
         See also: `async_api`,
         https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
-        (ingestion lag: #ingestion-lag, list vs. get: #traces-list-vs-get),
+        (ingestion lag: #ingestion-lag),
         https://langfuse.com/docs/api-and-data-platform/features/observations-api,
         https://langfuse.com/docs/metrics/features/metrics-api
         """
@@ -2247,9 +2241,8 @@ class Langfuse:
             `flush()` guarantees data was *delivered* to the API, not that it is
             *readable* yet: server-side ingestion is asynchronous, so flushed data
             may not be queryable for 15-30 seconds —
-            `api.observations.get_many(trace_id=...)` may return empty results and
-            `api.trace.get()` may raise `langfuse.api.NotFoundError` right after a
-            successful flush. See the `api` property docs for a bounded retry
+            `api.observations.get_many(trace_id=...)` may return empty results right
+            after a successful flush. See the `api` property docs for a bounded retry
             pattern, or
             https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
