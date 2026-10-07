@@ -175,8 +175,18 @@ def get_observations(
         if not cursor or not response.data:
             break
 
+    # The events table can briefly return several rows for one span until
+    # ClickHouse merges them; keep the most recently updated row per id.
+    latest_by_id: dict[str, ObservationV2] = {}
+    for observation in observations:
+        current = latest_by_id.get(observation.id)
+        if current is None or (observation.updated_at or observation.start_time) >= (
+            current.updated_at or current.start_time
+        ):
+            latest_by_id[observation.id] = observation
+
     return sorted(
-        (normalize_observation(observation) for observation in observations),
+        (normalize_observation(observation) for observation in latest_by_id.values()),
         key=lambda observation: observation.start_time,
     )
 

@@ -304,3 +304,20 @@ def test_normalize_observation_keeps_scalar_text_io_as_strings():
 
     assert observation.input == "2"
     assert observation.output == "true"
+
+
+def test_get_observations_keeps_the_latest_row_per_observation_id(monkeypatch):
+    stale = _observation(0, name="stale", updated_at=START)
+    fresh = _observation(0, name="fresh", updated_at=START + timedelta(seconds=1))
+
+    def get_many(**kwargs):
+        return _page([fresh, stale, _observation(1)])
+
+    _install_client(monkeypatch, observations=SimpleNamespace(get_many=get_many))
+
+    observations = get_observations(trace_id="trace-123")
+
+    assert [(o.id, o.name) for o in observations] == [
+        ("obs-0", "fresh"),
+        ("obs-1", None),
+    ]
