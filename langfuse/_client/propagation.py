@@ -160,7 +160,8 @@ def propagate_attributes(
             - Use for dimensions like internal correlating identifiers
             - AVOID: large payloads or sensitive data
         version: Version identfier for parts of your application that are independently versioned, e.g. agents
-        tags: List of tags to categorize the group of observations
+        tags: List of tags to categorize the group of observations. Appended to tags
+            inherited from the current context, including cross-service baggage.
         trace_name: Name to assign to the trace. Must be US-ASCII string, ≤200 characters.
             Use this to set a consistent trace name for all spans created within this context.
         prompt: Langfuse prompt to link to generations created within this context.
@@ -586,10 +587,10 @@ def _set_propagated_attribute(
         )
         value = existing_metadata_in_context | value
 
-    # Merge tags with previously set tags
+    # Merge with inherited tags, including baggage after a process boundary.
     if isinstance(value, list):
         existing_tags_in_context = cast(
-            list, otel_context_api.get_value(context_key) or []
+            list, _get_propagated_attributes_from_context(context).get(span_key) or []
         )
         merged_tags = list(existing_tags_in_context)
         merged_tags.extend(tag for tag in value if tag not in existing_tags_in_context)

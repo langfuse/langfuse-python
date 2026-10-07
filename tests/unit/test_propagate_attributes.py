@@ -1879,6 +1879,86 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
             tuple(["tag-a", "comma,tag"]),
         )
 
+    @pytest.mark.parametrize("as_baggage", [False, True])
+    def test_tags_append_after_baggage_header_extraction(
+        self, langfuse_client, memory_exporter, as_baggage
+    ):
+        """Append inherited tags locally and forward them only when requested."""
+        from opentelemetry import context as otel_context
+        from opentelemetry.baggage.propagation import W3CBaggagePropagator
+
+        propagator = W3CBaggagePropagator()
+        incoming: dict = {}
+        outgoing: dict = {}
+        inherited_tags = ["upstream", "shared", "comma,tag"]
+        merged_tags = (*inherited_tags, "worker")
+
+        with propagate_attributes(tags=inherited_tags, as_baggage=True):
+            propagator.inject(incoming)
+
+        received_context = propagator.extract(incoming, context=otel_context.Context())
+        token = otel_context.attach(received_context)
+        try:
+            with langfuse_client.start_as_current_observation(name="receiver"):
+                with propagate_attributes(
+                    tags=["shared", "worker"], as_baggage=as_baggage
+                ):
+                    with langfuse_client.start_as_current_observation(name="child"):
+                        propagator.inject(outgoing)
+                with langfuse_client.start_as_current_observation(name="restored"):
+                    pass
+        finally:
+            otel_context.detach(token)
+
+        forwarded_context = propagator.extract(outgoing, context=otel_context.Context())
+        token = otel_context.attach(forwarded_context)
+        try:
+            with langfuse_client.start_as_current_observation(name="next-service"):
+                pass
+        finally:
+            otel_context.detach(token)
+
+        for name in ("receiver", "child"):
+            self.verify_span_attribute(
+                self.get_span_by_name(memory_exporter, name),
+                LangfuseOtelSpanAttributes.TRACE_TAGS,
+                merged_tags,
+            )
+        self.verify_span_attribute(
+            self.get_span_by_name(memory_exporter, "restored"),
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            tuple(inherited_tags),
+        )
+        self.verify_span_attribute(
+            self.get_span_by_name(memory_exporter, "next-service"),
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            merged_tags if as_baggage else tuple(inherited_tags),
+        )
+
+    def test_tags_append_prefers_local_context_over_baggage(
+        self, langfuse_client, memory_exporter
+    ):
+        """Keep local tags authoritative when baggage has different values."""
+        from opentelemetry import baggage
+        from opentelemetry import context as otel_context
+
+        with propagate_attributes(tags=["local"]):
+            token = otel_context.attach(
+                baggage.set_baggage("langfuse_tags", "['baggage-only']")
+            )
+            try:
+                with propagate_attributes(tags=["worker"], as_baggage=True):
+                    with langfuse_client.start_as_current_observation(name="child"):
+                        pass
+            finally:
+                otel_context.detach(token)
+
+        self.verify_span_attribute(
+            self.get_span_by_name(memory_exporter, "child"),
+            LangfuseOtelSpanAttributes.TRACE_TAGS,
+            ("local", "worker"),
+        )
+
     @pytest.mark.parametrize(
         ("tags_value", "expected_tags"),
         [
