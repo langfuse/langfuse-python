@@ -102,14 +102,11 @@ from langfuse.api import (
     Dataset,
     DatasetItem,
     DatasetItemMediaReferenceField,
-    DatasetRunWithItems,
     DatasetStatus,
-    DeleteDatasetRunResponse,
     Error,
     LangfuseAPI,
     MapValue,
     NotFoundError,
-    PaginatedDatasetRuns,
     Prompt_Chat,
     Prompt_Text,
     ScoreBody,
@@ -2500,87 +2497,6 @@ class Langfuse:
                 langfuse_client=self,
             )
 
-        except Error as e:
-            handle_fern_exception(e)
-            raise e
-
-    def get_dataset_run(
-        self, *, dataset_name: str, run_name: str
-    ) -> DatasetRunWithItems:
-        """Fetch a dataset run by dataset name and run name.
-
-        Args:
-            dataset_name (str): The name of the dataset.
-            run_name (str): The name of the run.
-
-        Returns:
-            DatasetRunWithItems: The dataset run with its items.
-        """
-        try:
-            return cast(
-                DatasetRunWithItems,
-                self.api.datasets.get_run(
-                    dataset_name=self._url_encode(dataset_name),
-                    run_name=self._url_encode(run_name),
-                    request_options=None,
-                ),
-            )
-        except Error as e:
-            handle_fern_exception(e)
-            raise e
-
-    def get_dataset_runs(
-        self,
-        *,
-        dataset_name: str,
-        page: Optional[int] = None,
-        limit: Optional[int] = None,
-    ) -> PaginatedDatasetRuns:
-        """Fetch all runs for a dataset.
-
-        Args:
-            dataset_name (str): The name of the dataset.
-            page (Optional[int]): Page number, starts at 1.
-            limit (Optional[int]): Limit of items per page.
-
-        Returns:
-            PaginatedDatasetRuns: Paginated list of dataset runs.
-        """
-        try:
-            return cast(
-                PaginatedDatasetRuns,
-                self.api.datasets.get_runs(
-                    dataset_name=self._url_encode(dataset_name),
-                    page=page,
-                    limit=limit,
-                    request_options=None,
-                ),
-            )
-        except Error as e:
-            handle_fern_exception(e)
-            raise e
-
-    def delete_dataset_run(
-        self, *, dataset_name: str, run_name: str
-    ) -> DeleteDatasetRunResponse:
-        """Delete a dataset run and all its run items. This action is irreversible.
-
-        Args:
-            dataset_name (str): The name of the dataset.
-            run_name (str): The name of the run.
-
-        Returns:
-            DeleteDatasetRunResponse: Confirmation of deletion.
-        """
-        try:
-            return cast(
-                DeleteDatasetRunResponse,
-                self.api.datasets.delete_run(
-                    dataset_name=self._url_encode(dataset_name),
-                    run_name=self._url_encode(run_name),
-                    request_options=None,
-                ),
-            )
         except Error as e:
             handle_fern_exception(e)
             raise e
