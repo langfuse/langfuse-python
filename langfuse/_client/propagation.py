@@ -5,6 +5,7 @@ attributes (user_id, session_id, metadata, environment, etc.) that automatically
 propagate to all child spans within the context.
 """
 
+import math
 import re
 from typing import (
     Any,
@@ -40,6 +41,7 @@ from opentelemetry.util._decorator import (
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
+from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
 
@@ -281,8 +283,11 @@ def propagate_attributes(
         - **Validation**: Attribute values (user_id, session_id, version, tags,
           trace_name) must be strings ≤200 characters. Environment must also match
           Langfuse's environment format: lowercase alphanumeric with optional
-          hyphens or underscores, must be ≤40 characters, and it must not start with "langfuse". Metadata
-          values are coerced to strings before the 200 character limit is applied.
+          hyphens or underscores, must be ≤40 characters, and it must not start with "langfuse". Non-string
+          metadata values are serialized like JavaScript's `JSON.stringify`
+          (compact separators, non-ASCII kept as is, None becomes "null",
+          integers keep their exact digits) before the 200 character limit is
+          applied. Values containing NaN or Infinity are dropped.
           Invalid values will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
@@ -393,10 +398,21 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata_value.items():
-            coerced_value = value if isinstance(value, str) else str(value)
+            serialized_value = _serialize_propagated_metadata_value(value)
 
-            if _validate_string_value(value=coerced_value, key=f"{metadata_key}.{key}"):
-                validated_metadata[key] = coerced_value
+            if serialized_value is None:
+                langfuse_logger.warning(
+                    "Propagated attribute '%s.%s' contains NaN or Infinity, which "
+                    "is not valid JSON. Dropping value.",
+                    metadata_key,
+                    key,
+                )
+                continue
+
+            if _validate_string_value(
+                value=serialized_value, key=f"{metadata_key}.{key}"
+            ):
+                validated_metadata[key] = serialized_value
 
         if validated_metadata:
             context = _set_propagated_attribute(
@@ -639,6 +655,41 @@ def _validate_propagated_value(
         return None
 
     return value
+
+
+class _PropagatedMetadataSerializer(EventSerializer):
+    """EventSerializer variant that matches the JS SDK for propagated metadata.
+
+    Integers keep their exact digits as JSON numbers at any depth, and values
+    containing NaN or Infinity are flagged so the caller can drop them.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.found_non_finite_number = False
+
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, int) and not isinstance(obj, bool):
+            return obj
+
+        if isinstance(obj, float) and not math.isfinite(obj):
+            self.found_non_finite_number = True
+            return None
+
+        return super().default(obj)
+
+
+def _serialize_propagated_metadata_value(value: Any) -> Optional[str]:
+    """Serialize like JSON.stringify in the JS SDK; None means drop the value."""
+    if isinstance(value, str):
+        return value
+
+    serializer = _PropagatedMetadataSerializer(
+        separators=(",", ":"), ensure_ascii=False
+    )
+    serialized = serializer.encode(value)
+
+    return None if serializer.found_non_finite_number else serialized
 
 
 def _validate_string_value(*, value: str, key: str) -> bool:
