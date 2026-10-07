@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from asyncio import gather
@@ -5,17 +6,20 @@ from datetime import datetime, timedelta, timezone
 from time import sleep
 
 import pytest
-from tenacity import Retrying, stop_after_delay, wait_fixed
 
 from langfuse import Langfuse, propagate_attributes
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._utils import _get_timestamp
-from tests.support.api_wrapper import LangfuseAPI
 from tests.support.utils import (
     create_uuid,
     get_api,
-    wait_for_result,
-    wait_for_trace,
+    get_observations,
+    get_root_observation,
+    get_scores,
+    user_metadata,
+    wait_for_observations,
+    wait_for_root_observation,
+    wait_for_scores,
 )
 
 
@@ -38,31 +42,28 @@ async def test_concurrency():
                 # End the generation
                 generation.end()
 
+                return generation.trace_id
+
     # Create Langfuse client
     langfuse = Langfuse()
 
     # Run concurrent operations
-    await gather(*(update_generation(i, langfuse) for i in range(100)))
+    trace_ids = await gather(*(update_generation(i, langfuse) for i in range(100)))
 
     langfuse.flush()
 
-    # Allow time for all operations to be processed
-    sleep(10)
-
     # Verify that all spans were created properly
-    api = get_api()
-    for i in range(100):
-        # Find the observations with the expected name
-        observations = api.legacy.observations_v1.get_many(name=str(i)).data
+    for i, trace_id in enumerate(trace_ids):
+        observations = wait_for_observations(trace_id, min_count=2)
 
-        # Find generation observations (there should be at least one)
         generation_obs = [obs for obs in observations if obs.type == "GENERATION"]
-        assert len(generation_obs) > 0
+        assert len(generation_obs) == 1
 
         # Verify metadata
         observation = generation_obs[0]
         assert observation.name == str(i)
-        assert observation.metadata["count"] == i
+        assert user_metadata(observation)["count"] == i
+        assert get_root_observation(observations).trace_name == str(i)
 
 
 def test_flush():
@@ -80,14 +81,10 @@ def test_flush():
     # Flush all pending spans to the Langfuse API
     langfuse.flush()
 
-    # Allow time for API to process
-    sleep(2)
-
     # Verify traces were sent by checking they exist in the API
-    api = get_api()
     for i, trace_id in enumerate(trace_ids):
-        trace = api.trace.get(trace_id)
-        assert trace.name == str(i)
+        root = wait_for_root_observation(trace_id)
+        assert root.trace_name == str(i)
 
 
 def test_invalid_score_data_does_not_raise_exception():
@@ -152,21 +149,20 @@ def test_create_session_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    score = get_api().scores.get_by_id(score_id)
+    scores = wait_for_scores(session_id=session_id, id=score_id)
 
-    # find the score by name (server may transform the id format)
-    assert score is not None
+    assert len(scores) == 1
+    score = scores[0]
     assert score.value == 1
     assert score.data_type == "NUMERIC"
-    assert score.session_id == session_id
+    assert score.subject.kind == "session"
+    assert score.subject.id == session_id
 
 
 def test_create_numeric_score():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
     with langfuse.start_as_current_observation(name="test-span") as span:
@@ -202,22 +198,21 @@ def test_create_numeric_score():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    wait_for_observations(trace_id, min_count=2)
+    scores = wait_for_scores(trace_id=trace_id, name="this-is-a-score")
 
-    # Find the score by name (server may transform the ID format)
-    score = next((s for s in trace["scores"] if s["name"] == "this-is-a-score"), None)
-    assert score is not None
-    assert score["value"] == 1
-    assert score["dataType"] == "NUMERIC"
-    assert score["stringValue"] is None
+    assert len(scores) == 1
+    score = scores[0]
+    assert score.id == score_id
+    assert score.value == 1
+    assert score.data_type == "NUMERIC"
+    assert score.subject.kind == "trace"
 
 
 def test_create_boolean_score():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
     with langfuse.start_as_current_observation(name="test-span") as span:
@@ -231,7 +226,7 @@ def test_create_boolean_score():
 
     # Ensure data is sent
     langfuse.flush()
-    api_wrapper.get_trace(trace_id)
+    wait_for_root_observation(trace_id)
 
     # Create a boolean score
     score_id = create_uuid()
@@ -256,27 +251,17 @@ def test_create_boolean_score():
     langfuse.flush()
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(
-        trace_id,
-        is_result_ready=lambda trace: any(
-            score["name"] == "this-is-a-score" for score in trace.get("scores", [])
-        ),
-    )
+    scores = wait_for_scores(trace_id=trace_id, name="this-is-a-score")
 
-    # Find the score we created by name
-    created_score = next(
-        (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
-    )
-    assert created_score is not None, "Score not found in trace"
-    assert created_score["id"] == score_id
-    assert created_score["dataType"] == "BOOLEAN"
-    assert created_score["value"] == 1
-    assert created_score["stringValue"] == "True"
+    assert len(scores) == 1, "Score not found in trace"
+    created_score = scores[0]
+    assert created_score.id == score_id
+    assert created_score.data_type == "BOOLEAN"
+    assert created_score.value is True
 
 
 def test_create_categorical_score():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
     with langfuse.start_as_current_observation(name="test-span") as span:
@@ -290,7 +275,7 @@ def test_create_categorical_score():
 
     # Ensure data is sent
     langfuse.flush()
-    api_wrapper.get_trace(trace_id)
+    wait_for_root_observation(trace_id)
 
     # Create a categorical score
     score_id = create_uuid()
@@ -314,27 +299,17 @@ def test_create_categorical_score():
     langfuse.flush()
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(
-        trace_id,
-        is_result_ready=lambda trace: any(
-            score["name"] == "this-is-a-score" for score in trace.get("scores", [])
-        ),
-    )
+    scores = wait_for_scores(trace_id=trace_id, name="this-is-a-score")
 
-    # Find the score we created by name
-    created_score = next(
-        (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
-    )
-    assert created_score is not None, "Score not found in trace"
-    assert created_score["id"] == score_id
-    assert created_score["dataType"] == "CATEGORICAL"
-    assert created_score["value"] == 0
-    assert created_score["stringValue"] == "high score"
+    assert len(scores) == 1, "Score not found in trace"
+    created_score = scores[0]
+    assert created_score.id == score_id
+    assert created_score.data_type == "CATEGORICAL"
+    assert created_score.value == "high score"
 
 
 def test_create_text_score():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
     with langfuse.start_as_current_observation(name="test-span") as span:
@@ -372,30 +347,21 @@ def test_create_text_score():
     # Ensure data is sent
     langfuse.flush()
 
-    # Retrieve and verify with retry
-    for attempt in Retrying(
-        stop=stop_after_delay(10), wait=wait_fixed(0.1), reraise=True
-    ):
-        with attempt:
-            trace = api_wrapper.get_trace(trace_id)
+    # Retrieve and verify
+    scores = wait_for_scores(trace_id=trace_id, name="this-is-a-score")
 
-            # Find the score we created by name
-            created_score = next(
-                (s for s in trace["scores"] if s["name"] == "this-is-a-score"), None
-            )
-            assert created_score is not None, "Score not found in trace"
-            assert created_score["id"] == score_id
-            assert created_score["dataType"] == "TEXT"
-
-            assert (
-                created_score["stringValue"]
-                == "This is a detailed text evaluation of the output quality."
-            )
+    assert len(scores) == 1, "Score not found in trace"
+    created_score = scores[0]
+    assert created_score.id == score_id
+    assert created_score.data_type == "TEXT"
+    assert (
+        created_score.value
+        == "This is a detailed text evaluation of the output quality."
+    )
 
 
 def test_create_score_with_custom_timestamp():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a span and set trace properties
     with langfuse.start_as_current_observation(name="test-span") as span:
@@ -409,7 +375,7 @@ def test_create_score_with_custom_timestamp():
 
     # Ensure data is sent
     langfuse.flush()
-    api_wrapper.get_trace(trace_id)
+    wait_for_root_observation(trace_id)
 
     custom_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
     score_id = create_uuid()
@@ -426,28 +392,16 @@ def test_create_score_with_custom_timestamp():
     langfuse.flush()
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(
-        trace_id,
-        is_result_ready=lambda trace: any(
-            score["name"] == "custom-timestamp-score"
-            for score in trace.get("scores", [])
-        ),
-    )
+    scores = wait_for_scores(trace_id=trace_id, name="custom-timestamp-score")
 
-    # Find the score we created by name
-    created_score = next(
-        (s for s in trace["scores"] if s["name"] == "custom-timestamp-score"), None
-    )
-    assert created_score is not None, "Score not found in trace"
-    assert created_score["id"] == score_id
-    assert created_score["dataType"] == "NUMERIC"
-    assert created_score["value"] == 0.85
+    assert len(scores) == 1, "Score not found in trace"
+    created_score = scores[0]
+    assert created_score.id == score_id
+    assert created_score.data_type == "NUMERIC"
+    assert created_score.value == 0.85
 
     # Verify timestamp is close to our custom timestamp
-    # Parse the timestamp from the API response
-    response_timestamp = datetime.fromisoformat(
-        created_score["timestamp"].replace("Z", "+00:00")
-    )
+    response_timestamp = created_score.timestamp
 
     # Check that the timestamps are within 1 second of each other
     # (allowing for some processing time and rounding)
@@ -477,24 +431,14 @@ def test_create_trace():
     langfuse.flush()
 
     # Retrieve the trace from the API
-    trace = LangfuseAPI().get_trace(
-        trace_id,
-        is_result_ready=lambda trace: (
-            trace.get("name") == trace_name
-            and trace.get("userId") == "test"
-            and trace.get("metadata", {}).get("key") == "value"
-            and trace.get("tags") == ["tag1", "tag2"]
-            and trace.get("public") is True
-        ),
-    )
+    root = wait_for_root_observation(trace_id)
 
     # Verify all trace properties
-    assert trace["name"] == trace_name
-    assert trace["userId"] == "test"
-    assert trace["metadata"]["key"] == "value"
-    assert trace["tags"] == ["tag1", "tag2"]
-    assert trace["public"] is True
-    assert True if not trace["externalId"] else False
+    assert root.trace_name == trace_name
+    assert root.user_id == "test"
+    assert user_metadata(root) == {"key": "value"}
+    assert root.tags == ["tag1", "tag2"]
+    assert root.public is True
 
 
 def test_create_update_trace():
@@ -525,23 +469,12 @@ def test_create_update_trace():
 
     assert isinstance(trace_id, str)
     # Retrieve and verify trace
-    trace = wait_for_trace(
-        trace_id,
-        is_result_ready=lambda trace: (
-            trace.name == trace_name
-            and trace.user_id == "test"
-            and trace.metadata is not None
-            and trace.metadata.get("key") == "value"
-            and trace.metadata.get("key2") == "value2"
-            and trace.public is True
-        ),
-    )
+    root = wait_for_root_observation(trace_id)
 
-    assert trace.name == trace_name
-    assert trace.user_id == "test"
-    assert trace.metadata["key"] == "value"
-    assert trace.metadata["key2"] == "value2"
-    assert trace.public is True
+    assert root.trace_name == trace_name
+    assert root.user_id == "test"
+    assert user_metadata(root) == {"key": "value", "key2": "value2"}
+    assert root.public is True
 
 
 def test_create_update_current_trace():
@@ -570,20 +503,18 @@ def test_create_update_current_trace():
 
     # Ensure data is sent to the API
     langfuse.flush()
-    sleep(2)
 
     assert isinstance(trace_id, str)
     # Retrieve and verify trace
-    trace = get_api().trace.get(trace_id)
+    root = wait_for_root_observation(trace_id)
 
     # The 2nd update to the trace must not erase previously set attributes
-    assert trace.name == trace_name
-    assert trace.user_id == "test"
-    assert trace.metadata["key"] == "value"
-    assert trace.metadata["key2"] == "value2"
-    assert trace.public is True
-    assert trace.version == "1.0"
-    assert trace.input == "test_input"
+    assert root.trace_name == trace_name
+    assert root.user_id == "test"
+    assert user_metadata(root) == {"key": "value", "key2": "value2"}
+    assert root.public is True
+    assert root.version == "1.0"
+    assert root.input == "test_input"
 
 
 def test_create_generation():
@@ -620,19 +551,19 @@ def test_create_generation():
 
     # Flush to ensure all data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve the trace from the API
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id)
 
-    # Verify trace details
-    assert trace.name == "query-generation"
-    assert trace.user_id is None
-
-    assert len(trace.observations) == 1
+    assert len(observations) == 1
 
     # Verify generation details
-    generation_api = trace.observations[0]
+    generation_api = observations[0]
+
+    # Verify trace details
+    assert generation_api.is_root_observation is True
+    assert generation_api.trace_name == "query-generation"
+    assert generation_api.user_id is None
 
     assert generation_api.name == "query-generation"
     assert generation_api.start_time is not None
@@ -707,15 +638,14 @@ def test_create_generation_complex(
 
     langfuse.flush()
     trace_id = generation.trace_id
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id)
 
-    assert trace.name == "query-generation"
-    assert trace.user_id is None
+    assert len(observations) == 1
 
-    assert len(trace.observations) == 1
+    generation_api = observations[0]
 
-    generation_api = trace.observations[0]
-
+    assert generation_api.trace_name == "query-generation"
+    assert generation_api.user_id is None
     assert generation_api.id == generation.id
     assert generation_api.name == "query-generation"
     assert generation_api.input == [
@@ -727,13 +657,7 @@ def test_create_generation_complex(
     ]
     assert generation_api.output == [{"foo": "bar"}]
 
-    # Check if metadata exists and has tags before asserting
-    if (
-        hasattr(generation_api, "metadata")
-        and generation_api.metadata is not None
-        and "tags" in generation_api.metadata
-    ):
-        assert generation_api.metadata["tags"] == ["yo"]
+    assert user_metadata(generation_api) == {"tags": ["yo"]}
 
     assert generation_api.start_time is not None
     assert generation_api.usage_details == {"input": 51, "output": 0, "total": 100}
@@ -759,19 +683,18 @@ def test_create_span():
 
     # Ensure all data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve from API
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id)
 
-    # Verify trace details
-    assert trace.name == "span"
-    assert trace.user_id is None
-
-    assert len(trace.observations) == 1
+    assert len(observations) == 1
 
     # Verify span details
-    span_api = trace.observations[0]
+    span_api = observations[0]
+
+    # Verify trace details
+    assert span_api.trace_name == "span"
+    assert span_api.user_id is None
 
     assert span_api.id == span_id
     assert span_api.name == "span"
@@ -784,7 +707,6 @@ def test_create_span():
 
 def test_score_trace():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
 
@@ -803,20 +725,17 @@ def test_score_trace():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    assert wait_for_root_observation(trace_id).trace_name == trace_name
 
-    assert trace["name"] == trace_name
-
-    # Find the score we created by name (server may create additional auto-scores)
-    score = next((s for s in trace["scores"] if s["name"] == "valuation"), None)
-    assert score is not None
-    assert score["value"] == 0.5
-    assert score["comment"] == "This is a comment"
-    assert score["observationId"] is None
-    assert score["dataType"] == "NUMERIC"
+    scores = wait_for_scores(trace_id=trace_id, name="valuation")
+    assert len(scores) == 1
+    score = scores[0]
+    assert score.value == 0.5
+    assert score.comment == "This is a comment"
+    assert score.subject.kind == "trace"
+    assert score.data_type == "NUMERIC"
 
 
 def test_score_trace_nested_trace():
@@ -839,19 +758,16 @@ def test_score_trace_nested_trace():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    assert wait_for_root_observation(trace_id).trace_name == trace_name
 
-    assert trace.name == trace_name
-
-    # Find the score we created by name (server may create additional auto-scores)
-    score = next((s for s in trace.scores if s.name == "valuation"), None)
-    assert score is not None
+    scores = wait_for_scores(trace_id=trace_id, name="valuation")
+    assert len(scores) == 1
+    score = scores[0]
     assert score.value == 0.5
     assert score.comment == "This is a comment"
-    assert score.observation_id is None  # API returns this field name
+    assert score.subject.kind == "trace"
     assert score.data_type == "NUMERIC"
 
 
@@ -882,25 +798,23 @@ def test_score_trace_nested_observation():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    assert wait_for_root_observation(trace_id).trace_name == trace_name
 
-    assert trace.name == trace_name
-
-    # Find the score we created by name (server may create additional auto-scores)
-    score = next((s for s in trace.scores if s.name == "valuation"), None)
-    assert score is not None
+    scores = wait_for_scores(trace_id=trace_id, name="valuation")
+    assert len(scores) == 1
+    score = scores[0]
     assert score.value == 0.5
     assert score.comment == "This is a comment"
-    assert score.observation_id == child_span_id  # API returns this field name
+    assert score.subject.kind == "observation"
+    assert score.subject.id == child_span_id
+    assert score.subject.trace_id == trace_id
     assert score.data_type == "NUMERIC"
 
 
 def test_score_span():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a span
     span = langfuse.start_observation(
@@ -928,20 +842,19 @@ def test_score_span():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(3)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    assert len(wait_for_observations(trace_id)) == 1
 
-    assert len(trace["observations"]) == 1
-
-    # Find the score we created by name (server may create additional auto-scores)
-    score = next((s for s in trace["scores"] if s["name"] == "valuation"), None)
-    assert score is not None
-    assert score["value"] == 1
-    assert score["comment"] == "This is a comment"
-    assert score["observationId"] == span_id
-    assert score["dataType"] == "NUMERIC"
+    scores = wait_for_scores(trace_id=trace_id, observation_id=span_id)
+    assert len(scores) == 1
+    score = scores[0]
+    assert score.name == "valuation"
+    assert score.value == 1
+    assert score.comment == "This is a comment"
+    assert score.subject.kind == "observation"
+    assert score.subject.id == span_id
+    assert score.data_type == "NUMERIC"
 
 
 def test_create_trace_and_span():
@@ -963,16 +876,15 @@ def test_create_trace_and_span():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id, min_count=2)
 
-    assert trace.name == trace_name
-    assert len(trace.observations) == 2  # Parent span and child span
+    assert get_root_observation(observations).trace_name == trace_name
+    assert len(observations) == 2  # Parent span and child span
 
     # Find the child span
-    child_spans = [obs for obs in trace.observations if obs.name == "span"]
+    child_spans = [obs for obs in observations if obs.name == "span"]
     assert len(child_spans) == 1
 
     span = child_spans[0]
@@ -1004,35 +916,30 @@ def test_create_trace_and_generation():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
-    # Retrieve traces in two ways
-    dbTrace = get_api().trace.get(trace_id)
-    getTrace = get_api().trace.get(
-        trace_id
-    )  # Using API as direct getTrace not available
+    # Retrieve and verify
+    observations = wait_for_observations(trace_id, min_count=2)
+    root = get_root_observation(observations)
 
     # Verify trace details
-    assert dbTrace.name == trace_name
-    assert len(dbTrace.observations) == 2  # Parent span and generation
-    assert getTrace.name == trace_name
-    assert len(getTrace.observations) == 2
-    assert getTrace.session_id == "test-session-id"
+    assert root.trace_name == trace_name
+    assert len(observations) == 2  # Parent span and generation
+    assert root.session_id == "test-session-id"
 
     # Find the generation
-    generations = [obs for obs in getTrace.observations if obs.name == "generation"]
+    generations = [obs for obs in observations if obs.name == "generation"]
     assert len(generations) == 1
 
     generation = generations[0]
     assert generation.name == "generation"
     assert generation.trace_id == trace_id
+    assert generation.session_id == "test-session-id"
     assert generation.start_time is not None
-    assert getTrace.input == {"key": "value"}
+    assert root.input == {"key": "value"}
 
 
 def test_create_generation_and_trace():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
 
@@ -1063,23 +970,24 @@ def test_create_generation_and_trace():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
-
-    assert trace["name"] == trace_name
+    observations = wait_for_observations(trace_id, min_count=2)
 
     # We should have 2 observations (the generation and the span for updating trace)
-    assert len(trace["observations"]) == 2
+    assert len(observations) == 2
+
+    trace_update_spans = [obs for obs in observations if obs.name == "trace-update"]
+    assert len(trace_update_spans) == 1
+    assert trace_update_spans[0].trace_name == trace_name
 
     # Find the generation
-    generations = [obs for obs in trace["observations"] if obs["name"] == "generation"]
+    generations = [obs for obs in observations if obs.name == "generation"]
     assert len(generations) == 1
 
     generation_obs = generations[0]
-    assert generation_obs["name"] == "generation"
-    assert generation_obs["traceId"] == trace["id"]
+    assert generation_obs.name == "generation"
+    assert generation_obs.trace_id == trace_id
 
 
 def test_create_span_and_get_observation():
@@ -1096,12 +1004,12 @@ def test_create_span_and_get_observation():
 
     # Flush and wait
     langfuse.flush()
-    sleep(2)
 
-    # Use API to fetch the observation by ID
-    observation = get_api().legacy.observations_v1.get(span_id)
+    observations = wait_for_observations(span.trace_id)
 
     # Verify observation properties
+    assert len(observations) == 1
+    observation = observations[0]
     assert observation.name == "span"
     assert observation.id == span_id
 
@@ -1123,20 +1031,19 @@ def test_update_generation():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id)
 
     # Verify trace properties
-    assert trace.name == "generation"
-    assert len(trace.observations) == 1
+    assert len(observations) == 1
 
     # Verify generation updates
-    retrieved_generation = trace.observations[0]
+    retrieved_generation = observations[0]
+    assert retrieved_generation.trace_name == "generation"
     assert retrieved_generation.name == "generation"
     assert retrieved_generation.trace_id == trace_id
-    assert retrieved_generation.metadata["dict"] == "value"
+    assert user_metadata(retrieved_generation) == {"dict": "value"}
 
     # Note: With OTEL, we can't verify exact start times from manually set timestamps,
     # as they are managed internally by the OTEL SDK
@@ -1159,20 +1066,19 @@ def test_update_span():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id)
 
     # Verify trace properties
-    assert trace.name == "span"
-    assert len(trace.observations) == 1
+    assert len(observations) == 1
 
     # Verify span updates
-    retrieved_span = trace.observations[0]
+    retrieved_span = observations[0]
+    assert retrieved_span.trace_name == "span"
     assert retrieved_span.name == "span"
     assert retrieved_span.trace_id == trace_id
-    assert retrieved_span.metadata["dict"] == "value"
+    assert user_metadata(retrieved_span) == {"dict": "value"}
 
 
 def test_create_span_and_generation():
@@ -1197,17 +1103,16 @@ def test_create_span_and_generation():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id, min_count=2)
 
     # Verify trace details
-    assert len(trace.observations) == 2
+    assert len(observations) == 2
 
     # Find span and generation
-    spans = [obs for obs in trace.observations if obs.name == "span"]
-    generations = [obs for obs in trace.observations if obs.name == "generation"]
+    spans = [obs for obs in observations if obs.name == "span"]
+    generations = [obs for obs in observations if obs.name == "generation"]
 
     assert len(spans) == 1
     assert len(generations) == 1
@@ -1222,7 +1127,6 @@ def test_create_span_and_generation():
 
 def test_create_trace_with_id_and_generation():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     trace_name = create_uuid()
 
@@ -1244,28 +1148,27 @@ def test_create_trace_with_id_and_generation():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    observations = wait_for_observations(trace_id, min_count=2)
 
     # Verify trace properties
-    assert trace["name"] == trace_name
-    assert trace["id"] == trace_id
-    assert len(trace["observations"]) == 2  # Parent span and generation
+    root = get_root_observation(observations)
+    assert root.trace_name == trace_name
+    assert root.trace_id == trace_id
+    assert len(observations) == 2  # Parent span and generation
 
     # Find the generation
-    generations = [obs for obs in trace["observations"] if obs["name"] == "generation"]
+    generations = [obs for obs in observations if obs.name == "generation"]
     assert len(generations) == 1
 
     gen = generations[0]
-    assert gen["name"] == "generation"
-    assert gen["traceId"] == trace["id"]
+    assert gen.name == "generation"
+    assert gen.trace_id == trace_id
 
 
 def test_end_generation():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a generation
     generation = langfuse.start_observation(
@@ -1294,21 +1197,14 @@ def test_end_generation():
     langfuse.flush()
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(
-        trace_id,
-        is_result_ready=lambda trace: any(
-            obs["name"] == "query-generation" for obs in trace.get("observations", [])
-        ),
-    )
+    observations = wait_for_observations(trace_id)
 
     # Find generation by name
-    generations = [
-        obs for obs in trace["observations"] if obs["name"] == "query-generation"
-    ]
+    generations = [obs for obs in observations if obs.name == "query-generation"]
     assert len(generations) == 1
 
     gen = generations[0]
-    assert gen["endTime"] is not None
+    assert gen.end_time is not None
 
 
 def test_end_generation_with_data():
@@ -1353,15 +1249,12 @@ def test_end_generation_with_data():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    fetched_trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id, min_count=2)
 
     # Find generation by name
-    generations = [
-        obs for obs in fetched_trace.observations if obs.name == "query-generation"
-    ]
+    generations = [obs for obs in observations if obs.name == "query-generation"]
     assert len(generations) == 1
 
     generation = generations[0]
@@ -1371,7 +1264,7 @@ def test_end_generation_with_data():
         2023, 1, 1, 12, 3, tzinfo=timezone.utc
     )
     assert generation.name == "query-generation"
-    assert generation.metadata["dict"] == "value"
+    assert user_metadata(generation) == {"dict": "value"}
     assert generation.level == "ERROR"
     assert generation.status_message == "Generation ended"
     assert generation.version == "1.0"
@@ -1379,12 +1272,9 @@ def test_end_generation_with_data():
     assert generation.model_parameters == {"param1": "value1", "param2": "value2"}
     assert generation.input == [{"test_input_key": "test_input_value"}]
     assert generation.output == {"test_output_key": "test_output_value"}
-    assert generation.usage.input == 100
-    assert generation.usage.output == 200
-    assert generation.usage.total == 500
-    assert generation.calculated_input_cost == 111
-    assert generation.calculated_output_cost == 222
-    assert generation.calculated_total_cost == 444
+    assert generation.usage_details == {"input": 100, "output": 200, "total": 500}
+    assert generation.cost_details == {"input": 111, "output": 222, "total": 444}
+    assert generation.total_cost == 444
 
 
 def test_end_generation_with_openai_token_format():
@@ -1418,31 +1308,26 @@ def test_end_generation_with_openai_token_format():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id)
 
     # Find generation
-    generations = [obs for obs in trace.observations if obs.name == "query-generation"]
+    generations = [obs for obs in observations if obs.name == "query-generation"]
     assert len(generations) == 1
 
     generation_api = generations[0]
 
     # Verify properties were converted correctly
     assert generation_api.end_time is not None
-    assert generation_api.usage.input == 100  # prompt_tokens mapped to input
-    assert generation_api.usage.output == 200  # completion_tokens mapped to output
-    assert generation_api.usage.total == 500
-    assert generation_api.usage.unit == "TOKENS"  # Default unit for OpenAI format
-    assert generation_api.calculated_input_cost == 111
-    assert generation_api.calculated_output_cost == 222
-    assert generation_api.calculated_total_cost == 444
+    # OpenAI-style keys are mapped to input/output/total
+    assert generation_api.usage_details == {"input": 100, "output": 200, "total": 500}
+    assert generation_api.cost_details == {"input": 111, "output": 222, "total": 444}
+    assert generation_api.total_cost == 444
 
 
 def test_end_span():
     langfuse = Langfuse()
-    api_wrapper = LangfuseAPI()
 
     # Create a span
     span = langfuse.start_observation(
@@ -1460,19 +1345,18 @@ def test_end_span():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = api_wrapper.get_trace(trace_id)
+    observations = wait_for_observations(trace_id)
 
     # Find span
-    spans = [obs for obs in trace["observations"] if obs["name"] == "span"]
+    spans = [obs for obs in observations if obs.name == "span"]
     assert len(spans) == 1
 
     span_api = spans[0]
 
     # Verify end time was set
-    assert span_api["endTime"] is not None
+    assert span_api.end_time is not None
 
 
 def test_end_span_with_data():
@@ -1495,21 +1379,19 @@ def test_end_span_with_data():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id)
 
     # Find span
-    spans = [obs for obs in trace.observations if obs.name == "span"]
+    spans = [obs for obs in observations if obs.name == "span"]
     assert len(spans) == 1
 
     span_api = spans[0]
 
     # Verify end time and metadata were updated
     assert span_api.end_time is not None
-    assert span_api.metadata["dict"] == "value"
-    assert span_api.metadata["interface"] == "whatsapp"
+    assert user_metadata(span_api) == {"dict": "value", "interface": "whatsapp"}
 
 
 def test_get_generations():
@@ -1535,16 +1417,15 @@ def test_get_generations():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(3)
 
     # Fetch generations using API
-    generations = get_api().legacy.observations_v1.get_many(name=generation_name)
+    generations = wait_for_observations(name=generation_name)
 
     # Verify fetched generation matches what we created
-    assert len(generations.data) == 1
-    assert generations.data[0].name == generation_name
-    assert generations.data[0].input == "great-prompt"
-    assert generations.data[0].output == "great-completion"
+    assert len(generations) == 1
+    assert generations[0].name == generation_name
+    assert generations[0].input == "great-prompt"
+    assert generations[0].output == "great-completion"
 
 
 def test_get_generations_by_user():
@@ -1574,18 +1455,15 @@ def test_get_generations_by_user():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(3)
 
     # Fetch generations by user ID using the API
-    generations = get_api().legacy.observations_v1.get_many(
-        user_id=user_id, type="GENERATION"
-    )
+    generations = wait_for_observations(user_id=user_id, type="GENERATION")
 
     # Verify fetched generation matches what we created
-    assert len(generations.data) == 1
-    assert generations.data[0].name == generation_name
-    assert generations.data[0].input == "great-prompt"
-    assert generations.data[0].output == "great-completion"
+    assert len(generations) == 1
+    assert generations[0].name == generation_name
+    assert generations[0].input == "great-prompt"
+    assert generations[0].output == "great-completion"
 
 
 def test_kwargs():
@@ -1614,16 +1492,17 @@ def test_kwargs():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    observation = get_api().legacy.observations_v1.get(span_id)
+    observations = wait_for_observations(span.trace_id)
+    assert [observation.id for observation in observations] == [span_id]
+    observation = observations[0]
 
     # Verify kwargs were properly set as attributes
     assert observation.start_time is not None
     assert observation.input == {"key": "value"}
     assert observation.output == {"key": "value"}
-    assert observation.metadata["interface"] == "whatsapp"
+    assert user_metadata(observation) == {"interface": "whatsapp"}
 
 
 @pytest.mark.skip("Flaky")
@@ -1660,16 +1539,13 @@ def test_timezone_awareness():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id, min_count=4)
 
     # Verify timestamps are in UTC regardless of local timezone
-    assert (
-        len(trace.observations) == 4
-    )  # Parent span, child span, generation, and event
-    for observation in trace.observations:
+    assert len(observations) == 4  # Parent span, child span, generation, and event
+    for observation in observations:
         # Check that start_time is within 5 seconds of current time
         delta = observation.start_time - utc_now
         assert delta.seconds < 5
@@ -1720,16 +1596,13 @@ def test_timezone_awareness_setting_timestamps():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    trace = get_api().trace.get(trace_id)
+    observations = wait_for_observations(trace_id, min_count=4)
 
     # Verify timestamps are in UTC regardless of local timezone
-    assert (
-        len(trace.observations) == 4
-    )  # Parent span, child span, generation, and event
-    for observation in trace.observations:
+    assert len(observations) == 4  # Parent span, child span, generation, and event
+    for observation in observations:
         # Check that start_time is within 5 seconds of current time
         delta = abs((utc_now - observation.start_time).total_seconds())
         assert delta < 5
@@ -1762,17 +1635,17 @@ def test_get_trace_by_session_id():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
-    # Retrieve the trace using the session_id
-    traces = get_api().trace.list(session_id=session_id)
+    # Retrieve the trace's observations using the session_id
+    observations = wait_for_observations(session_id=session_id)
 
     # Verify that the trace was retrieved correctly
-    assert len(traces.data) == 1
-    retrieved_trace = traces.data[0]
-    assert retrieved_trace.name == trace_name
-    assert retrieved_trace.session_id == session_id
-    assert retrieved_trace.id == trace_id
+    assert len(observations) == 1
+    retrieved_root = observations[0]
+    assert retrieved_root.is_root_observation is True
+    assert retrieved_root.trace_name == trace_name
+    assert retrieved_root.session_id == session_id
+    assert retrieved_root.trace_id == trace_id
 
 
 def test_fetch_trace():
@@ -1789,15 +1662,12 @@ def test_fetch_trace():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
-    # Fetch the trace using the get_api client
-    # Note: In the OTEL-based client, we use the API client directly
-    trace = get_api().trace.get(trace_id)
+    root = wait_for_root_observation(trace_id)
 
     # Verify trace properties
-    assert trace.id == trace_id
-    assert trace.name == name
+    assert root.trace_id == trace_id
+    assert root.trace_name == name
 
 
 def test_fetch_traces():
@@ -1836,38 +1706,50 @@ def test_fetch_traces():
 
     expected_trace_ids = set(trace_ids)
     api = get_api(retry=False)
+    trace_name_filter = json.dumps(
+        [{"type": "string", "column": "traceName", "operator": "=", "value": name}]
+    )
 
-    # Fetch all traces with the same name.
-    all_traces = wait_for_result(
-        lambda: api.trace.list(name=name, limit=10),
-        is_result_ready=lambda response: (
-            {trace.id for trace in response.data} == expected_trace_ids
+    # Fetch the root observations of all traces with the same name.
+    roots = wait_for_observations(
+        filter=trace_name_filter,
+        is_result_ready=lambda observations: (
+            {o.trace_id for o in observations} == expected_trace_ids
         ),
     )
 
     # Verify we got all traces
-    assert len(all_traces.data) == 3
+    assert len(roots) == 3
 
     # Verify trace properties
-    for trace in all_traces.data:
-        assert trace.name == name
-        assert trace.session_id == "session-1"
-        assert trace.input == {"key": "value"}
-        assert trace.output == "output-value"
+    for root in roots:
+        assert root.is_root_observation is True
+        assert root.trace_name == name
+        assert root.session_id == "session-1"
+        assert root.input == {"key": "value"}
+        assert root.output == "output-value"
 
-    # Test pagination by fetching the first three pages one at a time and
-    # confirming they collectively cover the created traces.
-    paginated_ids = set()
-    for page in range(1, 4):
-        paginated_response = wait_for_result(
-            lambda page=page: api.trace.list(name=name, limit=1, page=page),
-            is_result_ready=lambda response: (
-                len(response.data) == 1 and response.data[0].id in expected_trace_ids
-            ),
+    # Test cursor pagination by walking pages of one item and confirming they
+    # collectively cover the created traces.
+    paginated_ids = []
+    cursor = None
+    for _ in range(3):
+        page = api.observations.get_many(
+            filter=trace_name_filter, limit=1, cursor=cursor
         )
-        paginated_ids.add(paginated_response.data[0].id)
+        assert len(page.data) == 1
+        paginated_ids.append(page.data[0].trace_id)
+        cursor = page.meta.cursor
 
-    assert paginated_ids == expected_trace_ids
+    assert set(paginated_ids) == expected_trace_ids
+    assert len(paginated_ids) == 3
+    if cursor is not None:
+        assert (
+            api.observations.get_many(
+                filter=trace_name_filter, limit=1, cursor=cursor
+            ).data
+            == []
+        )
 
 
 def test_get_observation():
@@ -1890,10 +1772,12 @@ def test_get_observation():
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Fetch the observation using the API
-    observation = get_api().legacy.observations_v1.get(generation_id)
+    observations = wait_for_observations(parent_span.trace_id, min_count=2)
+    matching = [o for o in observations if o.id == generation_id]
+    assert len(matching) == 1
+    observation = matching[0]
 
     # Verify observation properties
     assert observation.id == generation_id
@@ -1926,18 +1810,18 @@ def test_get_observations():
 
     # Fetch observations using the API
     expected_generation_ids = {gen1_id, gen2_id}
-    observations = wait_for_result(
-        lambda: api.legacy.observations_v1.get_many(name=name, limit=10),
-        is_result_ready=lambda response: expected_generation_ids.issubset(
-            {obs.id for obs in response.data}
+    observations = wait_for_observations(
+        name=name,
+        is_result_ready=lambda observations: expected_generation_ids.issubset(
+            {obs.id for obs in observations}
         ),
     )
 
     # Verify fetched observations
-    assert len(observations.data) == 2
+    assert len(observations) == 2
 
     # Filter for just the generations
-    generations = [obs for obs in observations.data if obs.type == "GENERATION"]
+    generations = [obs for obs in observations if obs.type == "GENERATION"]
     assert len(generations) == 2
 
     # Verify the generation IDs match what we created
@@ -1945,91 +1829,32 @@ def test_get_observations():
     assert gen1_id in gen_ids
     assert gen2_id in gen_ids
 
-    # Test pagination by confirming both created generations can be reached
-    # across separate pages.
-    paginated_ids = set()
-    for page in range(1, 3):
-        paginated_response = wait_for_result(
-            lambda page=page: api.legacy.observations_v1.get_many(
-                name=name, limit=1, page=page
-            ),
-            is_result_ready=lambda response: (
-                len(response.data) == 1
-                and response.data[0].id in expected_generation_ids
-            ),
-        )
-        paginated_ids.add(paginated_response.data[0].id)
+    # Test cursor pagination by confirming both created generations can be
+    # reached across separate pages.
+    first_page = api.observations.get_many(name=name, limit=1)
+    assert len(first_page.data) == 1
+    assert first_page.meta.cursor is not None
+    second_page = api.observations.get_many(
+        name=name, limit=1, cursor=first_page.meta.cursor
+    )
+    assert len(second_page.data) == 1
 
-    assert paginated_ids == expected_generation_ids
+    assert {first_page.data[0].id, second_page.data[0].id} == expected_generation_ids
 
 
-def test_get_trace_not_found():
-    # Attempt to fetch a non-existent trace using the API
-    with pytest.raises(Exception):
-        get_api(retry=False).trace.get(create_uuid())
+def test_get_observations_for_unknown_trace_is_empty():
+    response = get_api(retry=False).observations.get_many(trace_id=create_uuid())
 
-
-def test_get_observation_not_found():
-    # Attempt to fetch a non-existent observation using the API
-    with pytest.raises(Exception):
-        get_api(retry=False).legacy.observations_v1.get(create_uuid())
-
-
-def test_get_traces_empty():
-    # Fetch traces with a filter that should return no results
-    response = get_api(retry=False).trace.list(name=create_uuid())
-
-    assert len(response.data) == 0
-    assert response.meta.total_items == 0
+    assert response.data == []
+    assert response.meta.cursor is None
 
 
 def test_get_observations_empty():
     # Fetch observations with a filter that should return no results
-    response = get_api(retry=False).legacy.observations_v1.get_many(name=create_uuid())
+    response = get_api(retry=False).observations.get_many(name=create_uuid())
 
-    assert len(response.data) == 0
-    assert response.meta.total_items == 0
-
-
-def test_get_sessions():
-    langfuse = Langfuse()
-
-    # unique name
-    name = create_uuid()
-    session1 = create_uuid()
-    session2 = create_uuid()
-    session3 = create_uuid()
-
-    # Create multiple traces with different session IDs
-    # Create first trace
-    with langfuse.start_as_current_observation(name=name):
-        with propagate_attributes(trace_name=name, session_id=session1):
-            pass
-
-    # Create second trace
-    with langfuse.start_as_current_observation(name=name):
-        with propagate_attributes(trace_name=name, session_id=session2):
-            pass
-
-    # Create third trace
-    with langfuse.start_as_current_observation(name=name):
-        with propagate_attributes(trace_name=name, session_id=session3):
-            pass
-
-    langfuse.flush()
-
-    # Fetch sessions
-    sleep(3)
-    response = get_api().sessions.list()
-
-    # Assert the structure of the response, cannot check for the exact number of sessions as the table is not cleared between tests
-    assert hasattr(response, "data")
-    assert hasattr(response, "meta")
-    assert isinstance(response.data, list)
-
-    # fetch only one, cannot check for the exact number of sessions as the table is not cleared between tests
-    response = get_api().sessions.list(limit=1, page=2)
-    assert len(response.data) == 1
+    assert response.data == []
+    assert response.meta.cursor is None
 
 
 @pytest.mark.skip(
@@ -2037,7 +1862,6 @@ def test_get_sessions():
 )
 def test_create_trace_sampling_zero():
     langfuse = Langfuse(sample_rate=0)
-    api_wrapper = LangfuseAPI()
     trace_name = create_uuid()
 
     # Create a span with trace properties - with sample_rate=0, this will not be sent to the API
@@ -2061,12 +1885,9 @@ def test_create_trace_sampling_zero():
     langfuse.flush()
     sleep(2)
 
-    # Try to fetch the trace - should fail as it wasn't sent to the API
-    fetched_trace = api_wrapper.get_trace(trace_id)
-    assert fetched_trace == {
-        "error": "LangfuseNotFoundError",
-        "message": f"Trace {trace_id} not found within authorized project",
-    }
+    # The trace's observations must not exist as they were never sent to the API
+    assert get_observations(trace_id=trace_id) == []
+    assert get_scores(trace_id=trace_id) == []
 
 
 def test_mask_function(request):
@@ -2083,7 +1904,6 @@ def test_mask_function(request):
         return data
 
     langfuse = Langfuse(mask=mask_func)
-    api_wrapper = LangfuseAPI()
 
     # Create a root span with trace properties
     with langfuse.start_as_current_observation(name="test-span") as root_span:
@@ -2112,26 +1932,22 @@ def test_mask_function(request):
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    fetched_trace = api_wrapper.get_trace(trace_id)
-    assert fetched_trace["input"] == {"sensitive": "MASKED"}
-    assert fetched_trace["output"] == {"more": "MASKED"}
+    observations = wait_for_observations(trace_id, min_count=3)
+    fetched_root = get_root_observation(observations)
+    assert fetched_root.input == {"sensitive": "MASKED"}
+    assert fetched_root.output == {"more": "MASKED"}
 
-    fetched_gen = [
-        o for o in fetched_trace["observations"] if o["type"] == "GENERATION"
-    ][0]
-    assert fetched_gen["input"] == {"prompt": "MASKED"}
-    assert fetched_gen["output"] == "MASKED"
+    fetched_gen = [o for o in observations if o.type == "GENERATION"][0]
+    assert fetched_gen.input == {"prompt": "MASKED"}
+    assert fetched_gen.output == "MASKED"
 
     fetched_span = [
-        o
-        for o in fetched_trace["observations"]
-        if o["type"] == "SPAN" and o["name"] == "test_span"
+        o for o in observations if o.type == "SPAN" and o.name == "test_span"
     ][0]
-    assert fetched_span["input"] == {"data": "MASKED"}
-    assert fetched_span["output"] == "MASKED"
+    assert fetched_span.input == {"data": "MASKED"}
+    assert fetched_span.output == "MASKED"
 
     # Create a root span with trace properties
     with langfuse.start_as_current_observation(name="test-span") as root_span:
@@ -2144,12 +1960,11 @@ def test_mask_function(request):
 
     # Ensure data is sent
     langfuse.flush()
-    sleep(2)
 
     # Retrieve and verify
-    fetched_trace = api_wrapper.get_trace(trace_id)
-    assert fetched_trace["input"] == "<fully masked due to failed mask function>"
-    assert fetched_trace["output"] == "<fully masked due to failed mask function>"
+    fetched_root = wait_for_root_observation(trace_id)
+    assert fetched_root.input == "<fully masked due to failed mask function>"
+    assert fetched_root.output == "<fully masked due to failed mask function>"
 
 
 def test_get_project_id():
@@ -2218,13 +2033,11 @@ def test_start_as_current_observation_types():
                     pass
 
     langfuse.flush()
-    sleep(2)
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    observations = wait_for_observations(trace_id, min_count=len(observation_types) + 1)
 
     # Check we have all expected observation types
-    found_types = {obs.type for obs in trace.observations}
+    found_types = {obs.type for obs in observations}
     expected_types = {obs_type.upper() for obs_type in observation_types} | {
         "SPAN"
     }  # includes parent span
@@ -2234,12 +2047,12 @@ def test_start_as_current_observation_types():
 
     # Verify each specific observation exists
     for obs_type in observation_types:
-        observations = [
+        matching = [
             obs
-            for obs in trace.observations
+            for obs in observations
             if obs.name == f"test-{obs_type}" and obs.type == obs_type.upper()
         ]
-        assert len(observations) == 1, f"Expected one {obs_type.upper()} observation"
+        assert len(matching) == 1, f"Expected one {obs_type.upper()} observation"
 
 
 def test_that_generation_like_properties_are_actually_created():
@@ -2296,21 +2109,22 @@ def test_that_generation_like_properties_are_actually_created():
 
     langfuse.flush()
 
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    observations = wait_for_observations(
+        trace_id, min_count=len(generation_like_types) + 1
+    )
 
     # Verify that the properties are persisted in the API for generation-like types
     for obs_type in generation_like_types:
-        observations = [
+        matching = [
             obs
-            for obs in trace.observations
+            for obs in observations
             if obs.name == f"test-{obs_type}" and obs.type == obs_type.upper()
         ]
-        assert len(observations) == 1, (
-            f"Expected one {obs_type.upper()} observation, but found {len(observations)}"
+        assert len(matching) == 1, (
+            f"Expected one {obs_type.upper()} observation, but found {len(matching)}"
         )
 
-        obs = observations[0]
+        obs = matching[0]
 
         assert obs.model == test_model, f"{obs_type} should have model property"
         assert obs.model_parameters == test_model_parameters, (
