@@ -356,3 +356,25 @@ async def test_async_mapper_and_evaluator_are_awaited():
     result = await run(runner, mapper=async_mapper, evaluators=[async_evaluator])
 
     assert result.total_scores_created == 2
+
+
+@pytest.mark.asyncio
+async def test_duplicate_rows_for_one_observation_are_evaluated_once():
+    # The events table can briefly return several rows for the same observation.
+    stale = make_observation(1)
+    fresh = make_observation(1).model_copy(
+        update={"output": "fresh answer", "updated_at": BASE_TIME + timedelta(hours=1)}
+    )
+    runner, _, client = make_runner([make_observation(0), stale, fresh])
+    seen: List[ObservationV2] = []
+
+    def recording_mapper(*, item):
+        seen.append(item)
+        return mapper(item=item)
+
+    result = await run(runner, mapper=recording_mapper, fetch_batch_size=2)
+
+    assert sorted(item.id for item in seen) == ["obs-0", "obs-1"]
+    assert [item.output for item in seen if item.id == "obs-1"] == ["fresh answer"]
+    assert result.total_items_processed == 2
+    assert client.create_score.call_count == 2

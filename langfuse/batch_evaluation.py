@@ -18,6 +18,7 @@ from typing import (
     List,
     Optional,
     Protocol,
+    Set,
     Tuple,
     Union,
 )
@@ -895,6 +896,7 @@ class BatchEvaluationRunner:
             and resume_from.last_processed_timestamp
             else None
         )
+        previous_page_ids: Set[Optional[str]] = set()
         batch_number = 0
 
         if verbose:
@@ -983,7 +985,10 @@ class BatchEvaluationRunner:
                     except Exception as e:
                         return (item.id, e)
 
-            items_to_process = [item for item in items if item.id != resumed_item_id]
+            items_to_process = self._deduplicate_page(
+                items, skip_ids=previous_page_ids | {resumed_item_id}
+            )
+            previous_page_ids = {item.id for item in items}
 
             results = await asyncio.gather(
                 *[process_item(item) for item in items_to_process]
@@ -1124,7 +1129,8 @@ class BatchEvaluationRunner:
             Exception: If mapping fails or item processing encounters fatal error.
         """
         if not item.trace_id:
-            raise ValueError(f"Observation {item.id} has no trace_id")
+            message = f"Observation {item.id} has no trace_id"
+            raise ValueError(message)
 
         scores_created = 0
         composite_scores_created = 0
@@ -1365,11 +1371,14 @@ class BatchEvaluationRunner:
             try:
                 parsed = json.loads(filter)
             except json.JSONDecodeError as e:
-                raise ValueError(f"filter must be a JSON array: {e}") from e
+                message = f"filter must be a JSON array: {e}"
+                raise ValueError(message) from e
             if not isinstance(parsed, list):
-                raise ValueError(
-                    f"filter must be a JSON array of conditions, got {type(parsed).__name__}"
+                message = (
+                    "filter must be a JSON array of conditions, "
+                    f"got {type(parsed).__name__}"
                 )
+                raise ValueError(message)
             conditions.extend(parsed)
 
         # Results are ordered by start time descending, so items that remain
@@ -1390,6 +1399,27 @@ class BatchEvaluationRunner:
             )
 
         return json.dumps(conditions) if conditions else None
+
+    @staticmethod
+    def _deduplicate_page(
+        items: List[ObservationV2], *, skip_ids: Set[Optional[str]]
+    ) -> List[ObservationV2]:
+        """Keep one row per observation id, preferring the most recently updated.
+
+        Until ClickHouse merges them, the events table can return several rows
+        for one observation, within a page or across a page boundary.
+        """
+        latest_by_id: Dict[str, ObservationV2] = {}
+        for item in items:
+            if item.id in skip_ids:
+                continue
+            current = latest_by_id.get(item.id)
+            if current is None or (item.updated_at or item.start_time) > (
+                current.updated_at or current.start_time
+            ):
+                latest_by_id[item.id] = item
+
+        return list(latest_by_id.values())
 
     def _build_result(
         self,
