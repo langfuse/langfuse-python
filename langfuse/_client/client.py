@@ -325,15 +325,6 @@ class Langfuse:
             or host
             or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         )
-        if (
-            not base_url
-            and not os.environ.get(LANGFUSE_BASE_URL)
-            and (host or os.environ.get(LANGFUSE_HOST))
-        ):
-            langfuse_logger.warning(
-                "`host` and LANGFUSE_HOST are deprecated. Use `base_url` or "
-                "LANGFUSE_BASE_URL instead."
-            )
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
         )
