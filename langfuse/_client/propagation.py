@@ -5,6 +5,7 @@ attributes (user_id, session_id, metadata, environment, etc.) that automatically
 propagate to all child spans within the context.
 """
 
+import json
 import re
 from typing import (
     Any,
@@ -40,6 +41,7 @@ from opentelemetry.util._decorator import (
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
+from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
 
@@ -153,8 +155,8 @@ def propagate_attributes(
             within a user session (e.g., a conversation thread, multi-turn interaction).
         metadata: Additional key-value metadata to propagate to all spans.
             - Keys must be US-ASCII strings
-            - Values are coerced to strings
-            - Coerced values must be ≤200 characters
+            - Non-string values are serialized as JSON strings, None values are skipped
+            - Values must be ≤200 characters after serialization
             - Use for dimensions like internal correlating identifiers
             - AVOID: large payloads or sensitive data
         version: Version identfier for parts of your application that are independently versioned, e.g. agents
@@ -281,8 +283,9 @@ def propagate_attributes(
         - **Validation**: Attribute values (user_id, session_id, version, tags,
           trace_name) must be strings ≤200 characters. Environment must also match
           Langfuse's environment format: lowercase alphanumeric with optional
-          hyphens or underscores, must be ≤40 characters, and it must not start with "langfuse". Metadata
-          values are coerced to strings before the 200 character limit is applied.
+          hyphens or underscores, must be ≤40 characters, and it must not start with "langfuse". Non-string
+          metadata values are serialized as JSON before the 200 character limit is
+          applied, and None values are skipped.
           Invalid values will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
@@ -393,7 +396,10 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata_value.items():
-            coerced_value = value if isinstance(value, str) else str(value)
+            if value is None:
+                continue
+
+            coerced_value = _coerce_metadata_value(value)
 
             if _validate_string_value(value=coerced_value, key=f"{metadata_key}.{key}"):
                 validated_metadata[key] = coerced_value
@@ -639,6 +645,18 @@ def _validate_propagated_value(
         return None
 
     return value
+
+
+def _coerce_metadata_value(value: Any) -> str:
+    """Coerce a propagated metadata value to a string.
+
+    Strings are kept as they are. Other values are serialized as compact JSON, so
+    e.g. a list is stored as `["a","b"]` instead of its Python repr `['a', 'b']`.
+    """
+    if isinstance(value, str):
+        return value
+
+    return json.dumps(value, cls=EventSerializer, separators=(",", ":"))
 
 
 def _validate_string_value(*, value: str, key: str) -> bool:

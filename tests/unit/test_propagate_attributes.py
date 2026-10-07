@@ -6,7 +6,7 @@ to all child spans within the context.
 """
 
 import concurrent.futures
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from opentelemetry.instrumentation.threading import ThreadingInstrumentor
@@ -464,7 +464,7 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
     def test_non_string_metadata_values_coerced(
         self, langfuse_client, memory_exporter, caplog
     ):
-        """Verify non-string metadata values are coerced instead of dropped."""
+        """Verify non-string metadata values are coerced to JSON instead of dropped."""
 
         caplog.set_level("WARNING", logger="langfuse")
         metadata = {
@@ -472,6 +472,22 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "langgraph_triggers": ["branch:agent"],
             "langgraph_path": ("root", "agent"),
             "max_search_results": 5,
+            "ratio": 0.5,
+            "enabled": True,
+            "config": {"model": "gpt-4", "retries": 2},
+            "started_at": datetime(2024, 1, 1, tzinfo=timezone.utc),
+            "plain": "it's a string",
+        }
+        expected = {
+            "langgraph_step": "1",
+            "langgraph_triggers": '["branch:agent"]',
+            "langgraph_path": '["root","agent"]',
+            "max_search_results": "5",
+            "ratio": "0.5",
+            "enabled": "true",
+            "config": '{"model":"gpt-4","retries":2}',
+            "started_at": '"2024-01-01T00:00:00Z"',
+            "plain": "it's a string",
         }
 
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -481,14 +497,43 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
 
-        for key, value in metadata.items():
+        for key, value in expected.items():
             self.verify_span_attribute(
                 child_span,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}",
-                str(value),
+                value,
             )
 
         assert "value is not a string. Dropping value." not in caplog.text
+
+    def test_none_metadata_values_are_skipped(self, langfuse_client, memory_exporter):
+        """Verify None metadata values are skipped instead of stored as a string."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"missing": None, "present": "ok"}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.missing"
+        )
+        self.verify_span_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.present", "ok"
+        )
+
+    def test_coerced_metadata_value_over_200_characters_is_dropped(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify the 200 character limit applies to the JSON-coerced value."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"long_list": ["x" * 100] * 2}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_missing_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.long_list"
+        )
 
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
