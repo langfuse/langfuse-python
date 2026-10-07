@@ -127,7 +127,6 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: Optional[bool] = None,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
@@ -166,7 +165,6 @@ class LangfuseResourceManager:
                     tracing_enabled=tracing_enabled
                     if tracing_enabled is not None
                     else True,
-                    blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                     should_export_span=should_export_span,
                     additional_headers=additional_headers,
                     tracer_provider=tracer_provider,
@@ -196,7 +194,6 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: bool = True,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
@@ -220,7 +217,6 @@ class LangfuseResourceManager:
         self.release = release
         self.media_upload_thread_count = media_upload_thread_count
         self.sample_rate = sample_rate
-        self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.should_export_span = should_export_span
         self.additional_headers = additional_headers
         self.id_generator = id_generator
@@ -259,7 +255,6 @@ class LangfuseResourceManager:
                 timeout=timeout,
                 flush_at=flush_at,
                 flush_interval=flush_interval,
-                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                 should_export_span=should_export_span,
                 additional_headers=additional_headers,
                 span_exporter=span_exporter,

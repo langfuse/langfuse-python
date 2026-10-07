@@ -15,7 +15,7 @@ import base64
 import logging
 import os
 import threading
-from typing import Callable, Dict, List, Literal, Optional, cast
+from typing import Callable, Dict, Literal, Optional, cast
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -121,7 +121,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         span_exporter: Optional[SpanExporter] = None,
@@ -130,11 +129,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         otel_compression: Optional[Literal["gzip", "none"]] = None,
     ):
         self.public_key = public_key
-        self.blocked_instrumentation_scopes = (
-            blocked_instrumentation_scopes
-            if blocked_instrumentation_scopes is not None
-            else []
-        )
         self._should_export_span = should_export_span or is_default_export_span
 
         self._app_root_lock = threading.Lock()
@@ -258,16 +252,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 )
                 return
 
-            # Do not export spans from blocked instrumentation scopes
-            if self._is_blocked_instrumentation_scope(span):
-                langfuse_logger.debug(
-                    "Trace: Dropping span due to blocked instrumentation scope | "
-                    "span_name='%s' | instrumentation_scope='%s'",
-                    span.name,
-                    self._get_scope_name(span),
-                )
-                return
-
             # Apply custom or default span filter
             try:
                 should_export = self._should_export_span(span)
@@ -342,9 +326,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         ):
             return False
 
-        if self._is_blocked_instrumentation_scope(readable_span):
-            return False
-
         try:
             return bool(self._should_export_span(readable_span))
         except Exception as error:
@@ -358,12 +339,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             )
 
             return False
-
-    def _is_blocked_instrumentation_scope(self, span: ReadableSpan) -> bool:
-        return (
-            span.instrumentation_scope is not None
-            and span.instrumentation_scope.name in self.blocked_instrumentation_scopes
-        )
 
     def _is_langfuse_project_span(self, span: ReadableSpan) -> bool:
         if not is_langfuse_span(span):

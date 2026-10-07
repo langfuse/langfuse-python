@@ -9,7 +9,6 @@ import os
 import re
 import urllib.parse
 import uuid
-import warnings
 from datetime import datetime
 from hashlib import sha256
 from time import time_ns
@@ -251,19 +250,6 @@ class Langfuse:
 
                 langfuse = Langfuse(mask_otel_spans=mask_otel_spans)
                 ```
-        blocked_instrumentation_scopes (Optional[List[str]]): Deprecated. Use `should_export_span` instead. Equivalent behavior:
-            ```python
-            from langfuse.span_filter import is_default_export_span
-            blocked = {"sqlite", "requests"}
-
-            should_export_span = lambda span: (
-                is_default_export_span(span)
-                and (
-                    span.instrumentation_scope is None
-                    or span.instrumentation_scope.name not in blocked
-                )
-            )
-            ```
         should_export_span (Optional[Callable[[ReadableSpan], bool]]): Callback to decide whether to export a span. If omitted, Langfuse uses the default filter (Langfuse SDK spans, spans with `gen_ai.*` attributes, and known LLM instrumentation scopes).
         additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and in the default OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well. If `span_exporter` is provided, these headers are not wired into that exporter and must be configured on the exporter instance directly.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
@@ -330,7 +316,6 @@ class Langfuse:
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
@@ -403,18 +388,6 @@ class Langfuse:
                 "OTEL_SDK_DISABLED is set. Langfuse tracing will be disabled and no traces will appear in the UI."
             )
 
-        if blocked_instrumentation_scopes is not None:
-            warnings.warn(
-                "`blocked_instrumentation_scopes` is deprecated and will be removed in a future release. "
-                "Use `should_export_span` instead. Example: "
-                "from langfuse.span_filter import is_default_export_span; "
-                'blocked={"scope"}; should_export_span=lambda span: '
-                "is_default_export_span(span) and (span.instrumentation_scope is None or "
-                "span.instrumentation_scope.name not in blocked).",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
         # Initialize api and tracer if requirements are met
         self._resources = LangfuseResourceManager(
             public_key=public_key,
@@ -431,7 +404,6 @@ class Langfuse:
             mask=mask,
             mask_otel_spans=mask_otel_spans,
             tracing_enabled=self._tracing_enabled,
-            blocked_instrumentation_scopes=blocked_instrumentation_scopes,
             should_export_span=should_export_span,
             additional_headers=additional_headers,
             tracer_provider=tracer_provider,
@@ -4137,7 +4109,6 @@ class Langfuse:
         Keyword Args:
             name : The name of the prompt to be created.
             prompt : The content of the prompt to be created.
-            is_active [DEPRECATED] : A flag indicating whether the prompt is active or not. This is deprecated and will be removed in a future release. Please use the 'production' label instead.
             labels: The labels of the prompt. Defaults to None. To create a default-served prompt, add the 'production' label.
             tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
             config: Additional structured data to be saved with the prompt. Defaults to None.
