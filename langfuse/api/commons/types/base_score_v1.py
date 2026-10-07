@@ -41,7 +41,9 @@ class BaseScoreV1(UniversalBaseModel):
     Comment on the score
     """
 
-    metadata: typing.Any = pydantic.Field()
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(
+        default=None
+    )
     """
     Metadata associated with the score
     """

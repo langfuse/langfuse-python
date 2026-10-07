@@ -98,6 +98,7 @@ class PromptsClient:
         limit: typing.Optional[int] = None,
         from_updated_at: typing.Optional[dt.datetime] = None,
         to_updated_at: typing.Optional[dt.datetime] = None,
+        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptMetaListResponse:
         """
@@ -122,6 +123,32 @@ class PromptsClient:
 
         to_updated_at : typing.Optional[dt.datetime]
             Optional filter to only include prompt versions created/updated before a certain datetime (ISO 8601)
+
+        filter : typing.Optional[str]
+            JSON string containing an array of filter conditions, combined with AND.
+            When provided, this takes precedence over name, version,
+            label, tag, fromUpdatedAt, and toUpdatedAt. An empty array applies no
+            filters. Project scoping and pagination always apply.
+
+            Each condition requires `type`, `column`, `operator`, and `value`.
+            Supported types and columns:
+            - `string`: `id`, `name`, `type`. Operators: `=`, `contains`, `does not contain`, `starts with`, `ends with`, `is not empty`.
+            - `stringOptions`: `id`, `name`, `type`. Operators: `any of`, `none of`. Value: non-empty string array.
+            - `number`: `version`. Operators: `=`, `>`, `<`, `>=`, `<=`. Value: number.
+            - `datetime`: `createdAt`, `updatedAt`. Operators: `>`, `<`, `>=`, `<=`. Value: ISO 8601 timestamp.
+            - `arrayOptions`: `labels`, `tags`. Operators: `any of`, `all of`, `none of`. Value: non-empty string array.
+            - `stringObject`: `config`. Requires an additional `key` field. Operators: `=`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set`. Value: string (use an empty string for key-presence operators).
+
+            String equality is case-sensitive. String search operators use
+            case-insensitive SQL pattern matching: `%` matches any sequence and
+            `_` matches a single character. A backslash escapes these characters;
+            JSON-escape the backslash in the filter value. Asterisks are literal.
+            For config, an empty search value is treated as `is set`.
+
+            Filters apply to prompt versions before aggregation: returned versions,
+            labels, and lastConfig reflect only matching versions.
+
+            Example: [{"type":"string","column":"name","operator":"starts with","value":"tools/"},{"type":"string","column":"name","operator":"ends with","value":"/description"}]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -152,6 +179,7 @@ class PromptsClient:
             limit=limit,
             from_updated_at=from_updated_at,
             to_updated_at=to_updated_at,
+            filter=filter,
             request_options=request_options,
         )
         return _response.data
@@ -358,6 +386,7 @@ class AsyncPromptsClient:
         limit: typing.Optional[int] = None,
         from_updated_at: typing.Optional[dt.datetime] = None,
         to_updated_at: typing.Optional[dt.datetime] = None,
+        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptMetaListResponse:
         """
@@ -382,6 +411,32 @@ class AsyncPromptsClient:
 
         to_updated_at : typing.Optional[dt.datetime]
             Optional filter to only include prompt versions created/updated before a certain datetime (ISO 8601)
+
+        filter : typing.Optional[str]
+            JSON string containing an array of filter conditions, combined with AND.
+            When provided, this takes precedence over name, version,
+            label, tag, fromUpdatedAt, and toUpdatedAt. An empty array applies no
+            filters. Project scoping and pagination always apply.
+
+            Each condition requires `type`, `column`, `operator`, and `value`.
+            Supported types and columns:
+            - `string`: `id`, `name`, `type`. Operators: `=`, `contains`, `does not contain`, `starts with`, `ends with`, `is not empty`.
+            - `stringOptions`: `id`, `name`, `type`. Operators: `any of`, `none of`. Value: non-empty string array.
+            - `number`: `version`. Operators: `=`, `>`, `<`, `>=`, `<=`. Value: number.
+            - `datetime`: `createdAt`, `updatedAt`. Operators: `>`, `<`, `>=`, `<=`. Value: ISO 8601 timestamp.
+            - `arrayOptions`: `labels`, `tags`. Operators: `any of`, `all of`, `none of`. Value: non-empty string array.
+            - `stringObject`: `config`. Requires an additional `key` field. Operators: `=`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set`. Value: string (use an empty string for key-presence operators).
+
+            String equality is case-sensitive. String search operators use
+            case-insensitive SQL pattern matching: `%` matches any sequence and
+            `_` matches a single character. A backslash escapes these characters;
+            JSON-escape the backslash in the filter value. Asterisks are literal.
+            For config, an empty search value is treated as `is set`.
+
+            Filters apply to prompt versions before aggregation: returned versions,
+            labels, and lastConfig reflect only matching versions.
+
+            Example: [{"type":"string","column":"name","operator":"starts with","value":"tools/"},{"type":"string","column":"name","operator":"ends with","value":"/description"}]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -420,6 +475,7 @@ class AsyncPromptsClient:
             limit=limit,
             from_updated_at=from_updated_at,
             to_updated_at=to_updated_at,
+            filter=filter,
             request_options=request_options,
         )
         return _response.data
