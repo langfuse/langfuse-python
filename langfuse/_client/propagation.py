@@ -5,7 +5,7 @@ attributes (user_id, session_id, metadata, environment, etc.) that automatically
 propagate to all child spans within the context.
 """
 
-import json
+import math
 import re
 from typing import (
     Any,
@@ -285,8 +285,9 @@ def propagate_attributes(
           Langfuse's environment format: lowercase alphanumeric with optional
           hyphens or underscores, must be ≤40 characters, and it must not start with "langfuse". Non-string
           metadata values are serialized like JavaScript's `JSON.stringify`
-          (compact separators, non-ASCII kept as is, None becomes "null")
-          before the 200 character limit is applied.
+          (compact separators, non-ASCII kept as is, None becomes "null",
+          integers keep their exact digits) before the 200 character limit is
+          applied. Values containing NaN or Infinity are dropped.
           Invalid values will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
@@ -398,6 +399,15 @@ def _propagate_attributes(
 
         for key, value in metadata_value.items():
             serialized_value = _serialize_propagated_metadata_value(value)
+
+            if serialized_value is None:
+                langfuse_logger.warning(
+                    "Propagated attribute '%s.%s' contains NaN or Infinity, which "
+                    "is not valid JSON. Dropping value.",
+                    metadata_key,
+                    key,
+                )
+                continue
 
             if _validate_string_value(
                 value=serialized_value, key=f"{metadata_key}.{key}"
@@ -647,18 +657,39 @@ def _validate_propagated_value(
     return value
 
 
-def _serialize_propagated_metadata_value(value: Any) -> str:
-    # Must match JSON.stringify in the JS SDK so both SDKs emit identical values.
+class _PropagatedMetadataSerializer(EventSerializer):
+    """EventSerializer variant that matches the JS SDK for propagated metadata.
+
+    Integers keep their exact digits as JSON numbers at any depth, and values
+    containing NaN or Infinity are flagged so the caller can drop them.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.found_non_finite_number = False
+
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, int) and not isinstance(obj, bool):
+            return obj
+
+        if isinstance(obj, float) and not math.isfinite(obj):
+            self.found_non_finite_number = True
+            return None
+
+        return super().default(obj)
+
+
+def _serialize_propagated_metadata_value(value: Any) -> Optional[str]:
+    """Serialize like JSON.stringify in the JS SDK; None means drop the value."""
     if isinstance(value, str):
         return value
 
-    # EventSerializer quotes ints outside JS's safe range; keep their exact digits.
-    if isinstance(value, int) and not isinstance(value, bool):
-        return str(value)
-
-    return json.dumps(
-        value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
+    serializer = _PropagatedMetadataSerializer(
+        separators=(",", ":"), ensure_ascii=False
     )
+    serialized = serializer.encode(value)
+
+    return None if serializer.found_non_finite_number else serialized
 
 
 def _validate_string_value(*, value: str, key: str) -> bool:
