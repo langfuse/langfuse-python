@@ -4,58 +4,100 @@ import datetime as dt
 import typing
 from json.decoder import JSONDecodeError
 
-from ..commons.errors.access_denied_error import AccessDeniedError
-from ..commons.errors.error import Error
-from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ..commons.errors.not_found_error import NotFoundError
-from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..core.api_error import ApiError
-from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import jsonable_encoder
-from ..core.pydantic_utilities import parse_obj_as
-from ..core.request_options import RequestOptions
-from .types.api_key_deletion_response import ApiKeyDeletionResponse
-from .types.api_key_list import ApiKeyList
-from .types.api_key_response import ApiKeyResponse
-from .types.project import Project
-from .types.project_deletion_response import ProjectDeletionResponse
-from .types.projects import Projects
+from ...commons.errors.access_denied_error import AccessDeniedError
+from ...commons.errors.error import Error
+from ...commons.errors.method_not_allowed_error import MethodNotAllowedError
+from ...commons.errors.not_found_error import NotFoundError
+from ...commons.errors.unauthorized_error import UnauthorizedError
+from ...core.api_error import ApiError
+from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.datetime_utils import serialize_datetime
+from ...core.http_response import AsyncHttpResponse, HttpResponse
+from ...core.jsonable_encoder import jsonable_encoder
+from ...core.pydantic_utilities import parse_obj_as
+from ...core.request_options import RequestOptions
+from ...core.serialization import convert_and_respect_annotation_metadata
+from .types.delete_skill_version_response import DeleteSkillVersionResponse
+from .types.skill_file_contents_response import SkillFileContentsResponse
+from .types.skill_meta_list_response import SkillMetaListResponse
+from .types.skill_version import SkillVersion
+from .types.skill_version_file_create_input import SkillVersionFileCreateInput
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
 
-class RawProjectsClient:
+class RawSkillsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[Projects]:
+    def list(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        tag: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        from_updated_at: typing.Optional[dt.datetime] = None,
+        to_updated_at: typing.Optional[dt.datetime] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[SkillMetaListResponse]:
         """
-        Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
+        List skills with metadata and timestamps from their latest version, shared tags, and the version assigned to production when present.
 
         Parameters
         ----------
+        name : typing.Optional[str]
+            Filter by exact skill name.
+
+        search : typing.Optional[str]
+            Case-insensitive search across skill names and latest-version descriptions.
+
+        tag : typing.Optional[str]
+            Filter by a shared skill tag.
+
+        page : typing.Optional[int]
+
+        limit : typing.Optional[int]
+
+        from_updated_at : typing.Optional[dt.datetime]
+            Include skills whose latest version was updated at or after this timestamp.
+
+        to_updated_at : typing.Optional[dt.datetime]
+            Include skills whose latest version was updated before this timestamp.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[Projects]
+        HttpResponse[SkillMetaListResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/projects",
+            "api/public/unstable/skills",
             method="GET",
+            params={
+                "name": name,
+                "search": search,
+                "tag": tag,
+                "page": page,
+                "limit": limit,
+                "fromUpdatedAt": serialize_datetime(from_updated_at)
+                if from_updated_at is not None
+                else None,
+                "toUpdatedAt": serialize_datetime(to_updated_at)
+                if to_updated_at is not None
+                else None,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Projects,
+                    SkillMetaListResponse,
                     parse_obj_as(
-                        type_=Projects,  # type: ignore
+                        type_=SkillMetaListResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -128,41 +170,39 @@ class RawProjectsClient:
             body=_response_json,
         )
 
-    def create(
+    def create_version(
         self,
         *,
-        name: str,
-        retention: int,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        files: typing.Sequence[SkillVersionFileCreateInput],
+        commit_message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[Project]:
+    ) -> HttpResponse[SkillVersion]:
         """
-        Create a new project (requires organization-scoped API key)
+        Create skill version
 
         Parameters
         ----------
-        name : str
+        files : typing.Sequence[SkillVersionFileCreateInput]
 
-        retention : int
-            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-            Optional metadata for the project
+        commit_message : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[Project]
+        HttpResponse[SkillVersion]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/projects",
+            "api/public/unstable/skills",
             method="POST",
             json={
-                "name": name,
-                "metadata": metadata,
-                "retention": retention,
+                "files": convert_and_respect_annotation_metadata(
+                    object_=files,
+                    annotation=typing.Sequence[SkillVersionFileCreateInput],
+                    direction="write",
+                ),
+                "commitMessage": commit_message,
             },
             request_options=request_options,
             omit=OMIT,
@@ -170,9 +210,122 @@ class RawProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Project,
+                    SkillVersion,
                     parse_obj_as(
-                        type_=Project,  # type: ignore
+                        type_=SkillVersion,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    def get(
+        self,
+        skill_name: str,
+        *,
+        version: typing.Optional[int] = None,
+        label: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[SkillVersion]:
+        """
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+
+        Parameters
+        ----------
+        skill_name : str
+
+        version : typing.Optional[int]
+
+        label : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[SkillVersion]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            method="GET",
+            params={
+                "version": version,
+                "label": label,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SkillVersion,
+                    parse_obj_as(
+                        type_=SkillVersion,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -247,45 +400,33 @@ class RawProjectsClient:
 
     def update(
         self,
-        project_id: str,
+        skill_name: str,
         *,
-        name: str,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        retention: typing.Optional[int] = OMIT,
+        tags: typing.Sequence[str],
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[Project]:
+    ) -> HttpResponse[SkillVersion]:
         """
-        Update a project by ID (requires organization-scoped API key).
+        Replace the shared tags across all versions of a skill. An empty tags list clears all tags. Returns the latest skill version with the updated tags.
 
         Parameters
         ----------
-        project_id : str
+        skill_name : str
 
-        name : str
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-            Optional metadata for the project
-
-        retention : typing.Optional[int]
-            Number of days to retain data.
-            Must be 0 or at least 3 days.
-            Requires data-retention entitlement for non-zero values.
-            Optional. Will retain existing retention setting if omitted.
+        tags : typing.Sequence[str]
+            The complete set of tags to apply to every version of the skill. Pass an empty list to clear all tags.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[Project]
+        HttpResponse[SkillVersion]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}",
-            method="PUT",
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            method="PATCH",
             json={
-                "name": name,
-                "metadata": metadata,
-                "retention": retention,
+                "tags": tags,
             },
             request_options=request_options,
             omit=OMIT,
@@ -293,9 +434,9 @@ class RawProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Project,
+                    SkillVersion,
                     parse_obj_as(
-                        type_=Project,  # type: ignore
+                        type_=SkillVersion,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -368,140 +509,41 @@ class RawProjectsClient:
             body=_response_json,
         )
 
-    def delete(
+    def get_file_contents(
         self,
-        project_id: str,
         *,
+        sha256hashes: str,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ProjectDeletionResponse]:
+    ) -> HttpResponse[SkillFileContentsResponse]:
         """
-        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously.
+        Read a batch of text contents by canonical base64-encoded SHA-256 hashes.
 
         Parameters
         ----------
-        project_id : str
+        sha256hashes : str
+            Comma-separated list of one to 50 canonical base64-encoded SHA-256 hashes from skill file manifests. URL-encode the value, including +, /, and = characters.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[ProjectDeletionResponse]
+        HttpResponse[SkillFileContentsResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ProjectDeletionResponse,
-                    parse_obj_as(
-                        type_=ProjectDeletionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    def get_api_keys(
-        self,
-        project_id: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ApiKeyList]:
-        """
-        Get all API keys for a project (requires organization-scoped API key)
-
-        Parameters
-        ----------
-        project_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ApiKeyList]
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
+            "api/public/unstable/skills/files/content",
             method="GET",
+            params={
+                "sha256Hashes": sha256hashes,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiKeyList,
+                    SkillFileContentsResponse,
                     parse_obj_as(
-                        type_=ApiKeyList,  # type: ignore
+                        type_=SkillFileContentsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -574,55 +616,37 @@ class RawProjectsClient:
             body=_response_json,
         )
 
-    def create_api_key(
+    def set_labels(
         self,
-        project_id: str,
+        skill_name: str,
+        skill_version: int,
         *,
-        name: typing.Optional[str] = OMIT,
-        note: typing.Optional[str] = OMIT,
-        expires_at: typing.Optional[dt.datetime] = OMIT,
-        public_key: typing.Optional[str] = OMIT,
-        secret_key: typing.Optional[str] = OMIT,
+        labels: typing.Sequence[str],
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ApiKeyResponse]:
+    ) -> HttpResponse[SkillVersion]:
         """
-        Create a new API key for a project (requires organization-scoped API key)
+        Replace the labels on a skill version and atomically move them from other versions.
 
         Parameters
         ----------
-        project_id : str
+        skill_name : str
 
-        name : typing.Optional[str]
-            Optional name for the API key. Cannot be provided together with note, even if either value is an empty string.
+        skill_version : int
 
-        note : typing.Optional[str]
-            Deprecated alias for name. Cannot be provided together with name, even if either value is an empty string.
-
-        expires_at : typing.Optional[dt.datetime]
-            Optional expiration timestamp in ISO 8601 format. Must be in the future. Omit or set to null for a key that does not expire.
-
-        public_key : typing.Optional[str]
-            Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
-
-        secret_key : typing.Optional[str]
-            Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
+        labels : typing.Sequence[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[ApiKeyResponse]
+        HttpResponse[SkillVersion]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
-            method="POST",
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
+            method="PATCH",
             json={
-                "name": name,
-                "note": note,
-                "expiresAt": expires_at,
-                "publicKey": public_key,
-                "secretKey": secret_key,
+                "labels": labels,
             },
             request_options=request_options,
             omit=OMIT,
@@ -630,9 +654,9 @@ class RawProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiKeyResponse,
+                    SkillVersion,
                     parse_obj_as(
-                        type_=ApiKeyResponse,  # type: ignore
+                        type_=SkillVersion,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -705,40 +729,40 @@ class RawProjectsClient:
             body=_response_json,
         )
 
-    def delete_api_key(
+    def delete_version(
         self,
-        project_id: str,
-        api_key_id: str,
+        skill_name: str,
+        skill_version: int,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ApiKeyDeletionResponse]:
+    ) -> HttpResponse[DeleteSkillVersionResponse]:
         """
-        Delete an API key for a project (requires organization-scoped API key)
+        Delete one immutable skill version. Unreferenced blobs are retained for asynchronous cleanup.
 
         Parameters
         ----------
-        project_id : str
+        skill_name : str
 
-        api_key_id : str
+        skill_version : int
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[ApiKeyDeletionResponse]
+        HttpResponse[DeleteSkillVersionResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys/{jsonable_encoder(api_key_id)}",
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
             method="DELETE",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiKeyDeletionResponse,
+                    DeleteSkillVersionResponse,
                     parse_obj_as(
-                        type_=ApiKeyDeletionResponse,  # type: ignore
+                        type_=DeleteSkillVersionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -812,36 +836,77 @@ class RawProjectsClient:
         )
 
 
-class AsyncRawProjectsClient:
+class AsyncRawSkillsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[Projects]:
+    async def list(
+        self,
+        *,
+        name: typing.Optional[str] = None,
+        search: typing.Optional[str] = None,
+        tag: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        from_updated_at: typing.Optional[dt.datetime] = None,
+        to_updated_at: typing.Optional[dt.datetime] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[SkillMetaListResponse]:
         """
-        Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
+        List skills with metadata and timestamps from their latest version, shared tags, and the version assigned to production when present.
 
         Parameters
         ----------
+        name : typing.Optional[str]
+            Filter by exact skill name.
+
+        search : typing.Optional[str]
+            Case-insensitive search across skill names and latest-version descriptions.
+
+        tag : typing.Optional[str]
+            Filter by a shared skill tag.
+
+        page : typing.Optional[int]
+
+        limit : typing.Optional[int]
+
+        from_updated_at : typing.Optional[dt.datetime]
+            Include skills whose latest version was updated at or after this timestamp.
+
+        to_updated_at : typing.Optional[dt.datetime]
+            Include skills whose latest version was updated before this timestamp.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[Projects]
+        AsyncHttpResponse[SkillMetaListResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/projects",
+            "api/public/unstable/skills",
             method="GET",
+            params={
+                "name": name,
+                "search": search,
+                "tag": tag,
+                "page": page,
+                "limit": limit,
+                "fromUpdatedAt": serialize_datetime(from_updated_at)
+                if from_updated_at is not None
+                else None,
+                "toUpdatedAt": serialize_datetime(to_updated_at)
+                if to_updated_at is not None
+                else None,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Projects,
+                    SkillMetaListResponse,
                     parse_obj_as(
-                        type_=Projects,  # type: ignore
+                        type_=SkillMetaListResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -914,41 +979,39 @@ class AsyncRawProjectsClient:
             body=_response_json,
         )
 
-    async def create(
+    async def create_version(
         self,
         *,
-        name: str,
-        retention: int,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        files: typing.Sequence[SkillVersionFileCreateInput],
+        commit_message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[Project]:
+    ) -> AsyncHttpResponse[SkillVersion]:
         """
-        Create a new project (requires organization-scoped API key)
+        Create skill version
 
         Parameters
         ----------
-        name : str
+        files : typing.Sequence[SkillVersionFileCreateInput]
 
-        retention : int
-            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-            Optional metadata for the project
+        commit_message : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[Project]
+        AsyncHttpResponse[SkillVersion]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/projects",
+            "api/public/unstable/skills",
             method="POST",
             json={
-                "name": name,
-                "metadata": metadata,
-                "retention": retention,
+                "files": convert_and_respect_annotation_metadata(
+                    object_=files,
+                    annotation=typing.Sequence[SkillVersionFileCreateInput],
+                    direction="write",
+                ),
+                "commitMessage": commit_message,
             },
             request_options=request_options,
             omit=OMIT,
@@ -956,9 +1019,122 @@ class AsyncRawProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Project,
+                    SkillVersion,
                     parse_obj_as(
-                        type_=Project,  # type: ignore
+                        type_=SkillVersion,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def get(
+        self,
+        skill_name: str,
+        *,
+        version: typing.Optional[int] = None,
+        label: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[SkillVersion]:
+        """
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+
+        Parameters
+        ----------
+        skill_name : str
+
+        version : typing.Optional[int]
+
+        label : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[SkillVersion]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            method="GET",
+            params={
+                "version": version,
+                "label": label,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SkillVersion,
+                    parse_obj_as(
+                        type_=SkillVersion,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1033,45 +1209,33 @@ class AsyncRawProjectsClient:
 
     async def update(
         self,
-        project_id: str,
+        skill_name: str,
         *,
-        name: str,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        retention: typing.Optional[int] = OMIT,
+        tags: typing.Sequence[str],
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[Project]:
+    ) -> AsyncHttpResponse[SkillVersion]:
         """
-        Update a project by ID (requires organization-scoped API key).
+        Replace the shared tags across all versions of a skill. An empty tags list clears all tags. Returns the latest skill version with the updated tags.
 
         Parameters
         ----------
-        project_id : str
+        skill_name : str
 
-        name : str
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-            Optional metadata for the project
-
-        retention : typing.Optional[int]
-            Number of days to retain data.
-            Must be 0 or at least 3 days.
-            Requires data-retention entitlement for non-zero values.
-            Optional. Will retain existing retention setting if omitted.
+        tags : typing.Sequence[str]
+            The complete set of tags to apply to every version of the skill. Pass an empty list to clear all tags.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[Project]
+        AsyncHttpResponse[SkillVersion]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}",
-            method="PUT",
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            method="PATCH",
             json={
-                "name": name,
-                "metadata": metadata,
-                "retention": retention,
+                "tags": tags,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1079,9 +1243,9 @@ class AsyncRawProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    Project,
+                    SkillVersion,
                     parse_obj_as(
-                        type_=Project,  # type: ignore
+                        type_=SkillVersion,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1154,140 +1318,41 @@ class AsyncRawProjectsClient:
             body=_response_json,
         )
 
-    async def delete(
+    async def get_file_contents(
         self,
-        project_id: str,
         *,
+        sha256hashes: str,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ProjectDeletionResponse]:
+    ) -> AsyncHttpResponse[SkillFileContentsResponse]:
         """
-        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously.
+        Read a batch of text contents by canonical base64-encoded SHA-256 hashes.
 
         Parameters
         ----------
-        project_id : str
+        sha256hashes : str
+            Comma-separated list of one to 50 canonical base64-encoded SHA-256 hashes from skill file manifests. URL-encode the value, including +, /, and = characters.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[ProjectDeletionResponse]
+        AsyncHttpResponse[SkillFileContentsResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ProjectDeletionResponse,
-                    parse_obj_as(
-                        type_=ProjectDeletionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    async def get_api_keys(
-        self,
-        project_id: str,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ApiKeyList]:
-        """
-        Get all API keys for a project (requires organization-scoped API key)
-
-        Parameters
-        ----------
-        project_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ApiKeyList]
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
+            "api/public/unstable/skills/files/content",
             method="GET",
+            params={
+                "sha256Hashes": sha256hashes,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiKeyList,
+                    SkillFileContentsResponse,
                     parse_obj_as(
-                        type_=ApiKeyList,  # type: ignore
+                        type_=SkillFileContentsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1360,55 +1425,37 @@ class AsyncRawProjectsClient:
             body=_response_json,
         )
 
-    async def create_api_key(
+    async def set_labels(
         self,
-        project_id: str,
+        skill_name: str,
+        skill_version: int,
         *,
-        name: typing.Optional[str] = OMIT,
-        note: typing.Optional[str] = OMIT,
-        expires_at: typing.Optional[dt.datetime] = OMIT,
-        public_key: typing.Optional[str] = OMIT,
-        secret_key: typing.Optional[str] = OMIT,
+        labels: typing.Sequence[str],
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ApiKeyResponse]:
+    ) -> AsyncHttpResponse[SkillVersion]:
         """
-        Create a new API key for a project (requires organization-scoped API key)
+        Replace the labels on a skill version and atomically move them from other versions.
 
         Parameters
         ----------
-        project_id : str
+        skill_name : str
 
-        name : typing.Optional[str]
-            Optional name for the API key. Cannot be provided together with note, even if either value is an empty string.
+        skill_version : int
 
-        note : typing.Optional[str]
-            Deprecated alias for name. Cannot be provided together with name, even if either value is an empty string.
-
-        expires_at : typing.Optional[dt.datetime]
-            Optional expiration timestamp in ISO 8601 format. Must be in the future. Omit or set to null for a key that does not expire.
-
-        public_key : typing.Optional[str]
-            Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
-
-        secret_key : typing.Optional[str]
-            Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
+        labels : typing.Sequence[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[ApiKeyResponse]
+        AsyncHttpResponse[SkillVersion]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
-            method="POST",
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
+            method="PATCH",
             json={
-                "name": name,
-                "note": note,
-                "expiresAt": expires_at,
-                "publicKey": public_key,
-                "secretKey": secret_key,
+                "labels": labels,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1416,9 +1463,9 @@ class AsyncRawProjectsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiKeyResponse,
+                    SkillVersion,
                     parse_obj_as(
-                        type_=ApiKeyResponse,  # type: ignore
+                        type_=SkillVersion,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1491,40 +1538,40 @@ class AsyncRawProjectsClient:
             body=_response_json,
         )
 
-    async def delete_api_key(
+    async def delete_version(
         self,
-        project_id: str,
-        api_key_id: str,
+        skill_name: str,
+        skill_version: int,
         *,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ApiKeyDeletionResponse]:
+    ) -> AsyncHttpResponse[DeleteSkillVersionResponse]:
         """
-        Delete an API key for a project (requires organization-scoped API key)
+        Delete one immutable skill version. Unreferenced blobs are retained for asynchronous cleanup.
 
         Parameters
         ----------
-        project_id : str
+        skill_name : str
 
-        api_key_id : str
+        skill_version : int
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[ApiKeyDeletionResponse]
+        AsyncHttpResponse[DeleteSkillVersionResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys/{jsonable_encoder(api_key_id)}",
+            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
             method="DELETE",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ApiKeyDeletionResponse,
+                    DeleteSkillVersionResponse,
                     parse_obj_as(
-                        type_=ApiKeyDeletionResponse,  # type: ignore
+                        type_=DeleteSkillVersionResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

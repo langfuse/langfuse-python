@@ -4,15 +4,14 @@ import datetime as dt
 import typing
 
 import typing_extensions
-from ..commons.types.create_score_value import CreateScoreValue
 from ..commons.types.score import Score
 from ..commons.types.score_data_type import ScoreDataType
 from ..commons.types.score_source import ScoreSource
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawScoresClient, RawScoresClient
-from .types.create_score_response import CreateScoreResponse
-from .types.create_score_source import CreateScoreSource
+from .types.create_scores_request import CreateScoresRequest
+from .types.create_scores_response import CreateScoresResponse
 from .types.get_scores_response import GetScoresResponse
 
 # this is used as the default value for optional parameters
@@ -37,71 +36,27 @@ class ScoresClient:
     def create(
         self,
         *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
+        request: CreateScoresRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
+    ) -> CreateScoresResponse:
         """
-        Create a score (supports trace, observation, session, and dataset run scores)
+        Create scores asynchronously. Single score: 200 with ID. Batch: 202 if accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; batches return 202 or 207.
 
         Parameters
         ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+        request : CreateScoresRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        CreateScoreResponse
+        CreateScoresResponse
 
         Examples
         --------
         from langfuse import LangfuseAPI
+        from langfuse.scores import CreateScoreRequest
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -112,26 +67,14 @@ class ScoresClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.scores.create(
-            name="name",
-            value=1.1,
+            request=CreateScoreRequest(
+                name="name",
+                value=1.1,
+            ),
         )
         """
         _response = self._raw_client.create(
-            name=name,
-            value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
+            request=request, request_options=request_options
         )
         return _response.data
 
@@ -342,73 +285,29 @@ class AsyncScoresClient:
     async def create(
         self,
         *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
+        request: CreateScoresRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
+    ) -> CreateScoresResponse:
         """
-        Create a score (supports trace, observation, session, and dataset run scores)
+        Create scores asynchronously. Single score: 200 with ID. Batch: 202 if accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; batches return 202 or 207.
 
         Parameters
         ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+        request : CreateScoresRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        CreateScoreResponse
+        CreateScoresResponse
 
         Examples
         --------
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
+        from langfuse.scores import CreateScoreRequest
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -422,29 +321,17 @@ class AsyncScoresClient:
 
         async def main() -> None:
             await client.scores.create(
-                name="name",
-                value=1.1,
+                request=CreateScoreRequest(
+                    name="name",
+                    value=1.1,
+                ),
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
-            name=name,
-            value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
+            request=request, request_options=request_options
         )
         return _response.data
 

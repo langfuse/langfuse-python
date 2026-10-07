@@ -3,7 +3,10 @@
 import typing
 
 import pydantic
+import typing_extensions
+from ...commons.types.deprecation import Deprecation
 from ...core.pydantic_utilities import UniversalBaseModel
+from ...core.serialization import FieldMetadata
 from .ingestion_error import IngestionError
 from .ingestion_success import IngestionSuccess
 
@@ -11,6 +14,9 @@ from .ingestion_success import IngestionSuccess
 class IngestionResponse(UniversalBaseModel):
     successes: typing.List[IngestionSuccess]
     errors: typing.List[IngestionError]
+    deprecation: typing_extensions.Annotated[
+        typing.Optional[Deprecation], FieldMetadata(alias="_deprecation")
+    ] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
