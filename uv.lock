@@ -560,7 +560,7 @@ dev = [
     { name = "langchain-openai", specifier = ">=0.0.5,<0.4" },
     { name = "langgraph", specifier = ">=1,<2" },
     { name = "mypy", specifier = ">=1.0.0,<2" },
-    { name = "openai", specifier = ">=0.27.8" },
+    { name = "openai", specifier = ">=1.0.0" },
     { name = "opentelemetry-instrumentation-threading", specifier = ">=0.59b0,<1" },
     { name = "pre-commit", specifier = ">=3.2.2,<4" },
     { name = "pytest", specifier = ">=7.4,<9.0" },
