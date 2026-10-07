@@ -45,6 +45,7 @@ from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     _flatten_and_serialize_metadata_values,
     _serialize,
+    drop_metadata_over_key_limit,
 )
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
@@ -2994,6 +2995,11 @@ class Langfuse:
                         {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
                     )
 
+                # Don't fail the item when its metadata exceeds the key limit
+                item_observation_metadata = drop_metadata_over_key_limit(
+                    final_observation_metadata
+                )
+
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
                 )
@@ -3014,7 +3020,7 @@ class Langfuse:
                     name="experiment-item-task",
                     as_type="span",
                     input=input_data,
-                    metadata=final_observation_metadata,
+                    metadata=item_observation_metadata,
                 ) as task_span:
                     task_span._otel_span.set_attributes(experiment_span_attributes)
 
@@ -3083,7 +3089,7 @@ class Langfuse:
                 span.update(
                     input=input_data,
                     output=output,
-                    metadata=final_observation_metadata,
+                    metadata=item_observation_metadata,
                 )
 
             except Exception as e:

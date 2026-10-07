@@ -2749,6 +2749,28 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         assert len(experiment_ids) == 1
         assert result.experiment_id == next(iter(experiment_ids))
 
+    def test_experiment_item_with_too_much_metadata_still_runs(
+        self, langfuse_client, memory_exporter
+    ):
+        result = langfuse_client.run_experiment(
+            name="Wide metadata",
+            data=[
+                {
+                    "input": "test",
+                    "metadata": {f"key_{i}": i for i in range(128)},
+                }
+            ],
+            task=lambda *, item, **kwargs: "result",
+        )
+        langfuse_client.flush()
+
+        # The item must not fail because of the metadata key limit
+        assert len(result.item_results) == 1
+        assert result.item_results[0].output == "result"
+
+        span = self.get_span_by_name(memory_exporter, "experiment-item-run")
+        assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA not in span["attributes"]
+
     def test_experiment_run_metadata_overrides_item_metadata(
         self, langfuse_client, memory_exporter
     ):

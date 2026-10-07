@@ -39,7 +39,10 @@ from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
 from wrapt import wrap_function_wrapper
 
-from langfuse._client.attributes import drop_metadata_over_key_limit
+from langfuse._client.attributes import (
+    ObservationMetadataKeyLimitError,
+    drop_metadata_over_key_limit,
+)
 from langfuse._client.environment_variables import (
     LANGFUSE_OPENAI_SKIP_RAW_RESPONSES,
 )
@@ -723,7 +726,13 @@ def _create_langfuse_update(
         update["usage_details"] = _parse_usage(usage)
         update["cost_details"] = _parse_cost(usage)
 
-    generation.update(**update)
+    try:
+        generation.update(**update)
+    except ObservationMetadataKeyLimitError as e:
+        # Drop the metadata, not the output and usage of the whole update
+        logger.warning("Dropping observation metadata: %s", e)
+        update.pop("metadata", None)
+        generation.update(**update)
 
 
 def _parse_usage(usage: Optional[Any] = None) -> Any:

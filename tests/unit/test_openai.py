@@ -593,6 +593,35 @@ def test_chat_completion_error_marks_generation_error(langfuse_memory_client, ge
     assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT not in span.attributes
 
 
+def test_openai_stream_keeps_output_when_metadata_exceeds_key_limit(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    raw_stream = DummyOpenAIStream(_make_chat_stream_chunks(), DummySyncResponse())
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=raw_stream):
+        stream = openai_client.chat.completions.create(
+            name="unit-openai-stream-wide-metadata",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            stream=True,
+            # Fits the limit at start, the streamed finish_reason pushes it over
+            metadata={f"key_{i}": i for i in range(128)},
+        )
+
+    list(stream)
+    stream.close()
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-stream-wide-metadata")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS in span.attributes
+    metadata = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)
+    assert len(metadata) == 128
+    assert "finish_reason" not in metadata
+
+
 def test_openai_stream_preserves_original_stream_contract(
     langfuse_memory_client, get_span, json_attr
 ):

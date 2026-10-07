@@ -27,6 +27,11 @@ from langfuse.types import SpanLevel
 MAX_OBSERVATION_METADATA_KEYS = 128
 """Maximum number of top-level keys allowed in observation metadata."""
 
+
+class ObservationMetadataKeyLimitError(ValueError):
+    """Raised when observation metadata has more than 128 top-level keys."""
+
+
 _FAILED_TO_SERIALIZE = "<failed to serialize>"
 _T = TypeVar("_T")
 _COMPACT_SEPARATORS = (",", ":")
@@ -248,7 +253,7 @@ def merge_observation_metadata(
         serialized values to keep for the next update (None if there are none).
 
     Raises:
-        ValueError: If the merged metadata has more than
+        ObservationMetadataKeyLimitError: If the merged metadata has more than
             MAX_OBSERVATION_METADATA_KEYS top-level keys.
     """
     if serialized is None:
@@ -264,7 +269,7 @@ def merge_observation_metadata(
             f"Observation metadata has {len(merged)} keys, which exceeds the "
             f"maximum of {MAX_OBSERVATION_METADATA_KEYS}."
         )
-        raise ValueError(message)
+        raise ObservationMetadataKeyLimitError(message)
 
     if not merged:
         return None, None

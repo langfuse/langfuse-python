@@ -15,7 +15,13 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 
 from langfuse import propagate_attributes
-from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client import attributes
+from langfuse._client import span as span_module
+from langfuse._client.attributes import (
+    MAX_OBSERVATION_METADATA_KEYS,
+    LangfuseOtelSpanAttributes,
+    ObservationMetadataKeyLimitError,
+)
 from langfuse._client.client import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.media import LangfuseMedia
@@ -1700,8 +1706,6 @@ class TestMetadataHandling(TestOTelBase):
     def test_unserializable_value_does_not_drop_other_keys(
         self, langfuse_client, memory_exporter, monkeypatch
     ):
-        from langfuse._client import attributes
-
         original_dumps = json.dumps
 
         def failing_dumps(value, *args, **kwargs):
@@ -1720,16 +1724,14 @@ class TestMetadataHandling(TestOTelBase):
         ) == {"bad": "<failed to serialize>", "good": 1}
 
     def test_more_than_128_keys_raises(self, langfuse_client, memory_exporter):
-        from langfuse._client.attributes import MAX_OBSERVATION_METADATA_KEYS
-
         too_many = {f"key_{i}": i for i in range(MAX_OBSERVATION_METADATA_KEYS + 1)}
 
-        with pytest.raises(ValueError, match="exceeds the maximum of 128"):
+        with pytest.raises(
+            ObservationMetadataKeyLimitError, match="exceeds the maximum of 128"
+        ):
             langfuse_client.start_observation(name="too-many", metadata=too_many)
 
     def test_exactly_128_keys_is_allowed(self, langfuse_client, memory_exporter):
-        from langfuse._client.attributes import MAX_OBSERVATION_METADATA_KEYS
-
         metadata = {f"key_{i}": i for i in range(MAX_OBSERVATION_METADATA_KEYS)}
         # None values don't count towards the limit
         metadata["ignored"] = None
@@ -1742,8 +1744,6 @@ class TestMetadataHandling(TestOTelBase):
     def test_limit_counts_merged_keys_and_keeps_earlier_metadata(
         self, langfuse_client, memory_exporter
     ):
-        from langfuse._client.attributes import MAX_OBSERVATION_METADATA_KEYS
-
         initial = {f"key_{i}": i for i in range(MAX_OBSERVATION_METADATA_KEYS)}
         span = langfuse_client.start_observation(name="merged-limit", metadata=initial)
 
@@ -1805,6 +1805,20 @@ class TestMetadataHandling(TestOTelBase):
             "base": 0,
             **{f"thread_{i}": i for i in range(20)},
         }
+
+    def test_metadata_lock_is_reset_after_fork(self):
+        lock = span_module._span_metadata_lock
+        lock.acquire()
+        try:
+            # Simulates the os.register_at_fork child handler: the thread holding
+            # the lock in the parent doesn't exist in the child.
+            span_module._reinit_span_metadata_lock_after_fork()
+
+            assert span_module._span_metadata_lock is not lock
+            assert span_module._span_metadata_lock.acquire(blocking=False)
+            span_module._span_metadata_lock.release()
+        finally:
+            lock.release()
 
 
 class TestMultiProjectSetup(TestOTelBase):

@@ -13,6 +13,7 @@ All span classes provide methods for media processing, attribute management,
 and scoring integration specific to Langfuse's observability platform.
 """
 
+import os
 import threading
 import weakref
 from datetime import datetime
@@ -73,6 +74,17 @@ _span_metadata: "weakref.WeakKeyDictionary[otel_trace_api.Span, Dict[str, str]]"
     weakref.WeakKeyDictionary()
 )
 _span_metadata_lock = threading.Lock()
+
+
+def _reinit_span_metadata_lock_after_fork() -> None:
+    # A thread in the parent may hold the lock at fork time. That thread does not
+    # exist in the child, so the lock would never be released.
+    global _span_metadata_lock
+    _span_metadata_lock = threading.Lock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reinit_span_metadata_lock_after_fork)
 
 
 def _set_attributes_with_merged_metadata(
