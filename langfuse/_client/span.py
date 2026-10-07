@@ -99,7 +99,8 @@ def _set_attributes_with_merged_metadata(
         ValueError: If the merged metadata has more than 128 top-level keys.
             Nothing is set on the span in that case.
     """
-    # Serialize outside the lock, only the merge needs to be atomic
+    # Serialize outside the lock. Merge and write must be atomic, so that a stale
+    # merged value can't overwrite a newer one on the same span.
     serialized = serialize_observation_metadata(metadata)
 
     with _span_metadata_lock:
