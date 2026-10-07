@@ -3153,7 +3153,6 @@ class Langfuse:
     def run_batched_evaluation(
         self,
         *,
-        scope: Literal["observations", "root_observations"],
         mapper: MapperFunction,
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
@@ -3188,11 +3187,6 @@ class Langfuse:
         newest first (by start time).
 
         Args:
-            scope: Which observations to evaluate. Must be one of:
-                - "observations": Every observation matching the filter (spans,
-                  generations, events, ...). Scores are attached to the observation.
-                - "root_observations": Only the logical root observation of each trace.
-                  Scores are attached to the trace. Use this to evaluate whole traces.
             mapper: Function that transforms an `ObservationV2` into evaluator inputs.
                 Called as `mapper(item=observation)` and must return an EvaluatorInputs
                 instance with input, output, expected_output, and metadata fields.
@@ -3206,7 +3200,7 @@ class Langfuse:
                 - '[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]'
                 - '[{"type": "string", "column": "traceName", "operator": "=", "value": "chat"}]'
                 - '[{"type": "datetime", "column": "startTime", "operator": ">=", "value": "2026-01-01T00:00:00Z"}]'
-                Default: None (fetches all items of the scope).
+                Default: None (fetches all observations).
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Maximum 1000. Default: 50.
             fields: Comma-separated list of observation field groups to fetch. Available
@@ -3232,7 +3226,8 @@ class Langfuse:
                 long-running evaluations. Default: False.
             resume_from: Optional resume token from a previous run that stopped early
                 (fetch failure or `max_items`). Continues exactly after the last
-                processed page. Pass the same `scope` and `filter`. Default: None.
+                processed page. Pass the same `filter`, or omit it to reuse the
+                token's filter. Default: None.
 
 
         Returns:
@@ -3254,17 +3249,17 @@ class Langfuse:
                 - item_evaluations: Evaluations per observation ID
 
         Raises:
-            ValueError: If an invalid scope or a non-array filter is provided, or the
-                resume token belongs to a different scope.
+            ValueError: If a non-array filter is provided, or the resume token was
+                created for a different filter.
 
         Examples:
-            Evaluate whole traces via their root observations:
+            Evaluate production observations:
             ```python
             from langfuse import Langfuse, EvaluatorInputs, Evaluation
 
             client = Langfuse()
 
-            def root_mapper(*, item):
+            def simple_mapper(*, item):
                 return EvaluatorInputs(
                     input=item.input,
                     output=item.output,
@@ -3279,15 +3274,14 @@ class Langfuse:
                 )
 
             result = client.run_batched_evaluation(
-                scope="root_observations",
-                mapper=root_mapper,
+                mapper=simple_mapper,
                 evaluators=[length_evaluator],
                 filter='[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]',
                 max_items=1000,
                 verbose=True
             )
 
-            print(f"Processed {result.total_items_processed} traces")
+            print(f"Processed {result.total_items_processed} observations")
             print(f"Created {result.total_scores_created} scores")
             ```
 
@@ -3319,7 +3313,6 @@ class Langfuse:
                 return Evaluation(name="composite_score", value=total)
 
             result = client.run_batched_evaluation(
-                scope="observations",
                 mapper=generation_mapper,
                 evaluators=[accuracy_evaluator, relevance_evaluator],
                 composite_evaluator=composite_evaluator,
@@ -3331,7 +3324,6 @@ class Langfuse:
             Continuing a run that stopped early:
             ```python
             result = client.run_batched_evaluation(
-                scope="observations",
                 mapper=generation_mapper,
                 evaluators=[accuracy_evaluator],
                 max_items=10000,
@@ -3339,8 +3331,7 @@ class Langfuse:
 
             while result.resume_token:
                 result = client.run_batched_evaluation(
-                    scope="observations",
-                    mapper=generation_mapper,
+                        mapper=generation_mapper,
                     evaluators=[accuracy_evaluator],
                     max_items=10000,
                     resume_from=result.resume_token,
@@ -3361,7 +3352,6 @@ class Langfuse:
             BatchEvaluationResult,
             run_async_safely(
                 runner.run_async(
-                    scope=scope,
                     mapper=mapper,
                     evaluators=evaluators,
                     filter=filter,

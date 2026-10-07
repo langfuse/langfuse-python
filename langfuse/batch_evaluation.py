@@ -16,13 +16,10 @@ from typing import (
     Awaitable,
     Dict,
     List,
-    Literal,
     Optional,
     Protocol,
-    Set,
     Tuple,
     Union,
-    get_args,
 )
 
 from langfuse.api import ObservationV2
@@ -31,16 +28,6 @@ from langfuse.logger import langfuse_logger as logger
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
-
-BatchEvaluationScope = Literal["observations", "root_observations"]
-"""Which observations a batch evaluation runs on.
-
-- ``"observations"``: every observation matching the filter. Scores are attached
-  to the observation (``observation_id`` + ``trace_id``).
-- ``"root_observations"``: only logical root observations, i.e. one per trace.
-  Scores are attached to the trace (``trace_id`` only), which makes this the
-  replacement for trace-level batch evaluation.
-"""
 
 DEFAULT_BATCH_EVALUATION_FIELDS = "core,basic,io,metadata"
 """Default v2 observation field groups fetched for batch evaluation.
@@ -71,11 +58,11 @@ class EvaluatorInputs:
             or any other relevant data that evaluators might use.
 
     Examples:
-        Simple mapper for root observations:
+        Simple observation mapper:
         ```python
         from langfuse import EvaluatorInputs
 
-        def root_mapper(*, item):
+        def simple_mapper(*, item):
             return EvaluatorInputs(
                 input=item.input,  # raw string as returned by the API
                 output=item.output,
@@ -161,8 +148,7 @@ class MapperFunction(Protocol):
         input/output/expected_output/metadata structure.
 
         Args:
-            item: The `ObservationV2` to transform. With
-                `scope="root_observations"` this is the root observation of a trace.
+            item: The `ObservationV2` to transform.
 
         Returns:
             EvaluatorInputs: A structured container with:
@@ -175,9 +161,9 @@ class MapperFunction(Protocol):
             (for async mappers that need to fetch additional data).
 
         Examples:
-            Basic root observation mapper:
+            Basic observation mapper:
             ```python
-            def map_root(*, item):
+            def map_basic(*, item):
                 return EvaluatorInputs(
                     input=item.input,
                     output=item.output,
@@ -475,8 +461,6 @@ class BatchEvaluationResumeToken:
     items exist (`has_more_items=True`).
 
     Attributes:
-        scope: The scope of the run ("observations" or "root_observations").
-            Resuming requires the same scope.
         filter: The original JSON filter string used to query items. Pass the
             same filter when resuming.
         cursor: Cursor of the next page to fetch. None if no page was fetched yet.
@@ -491,7 +475,6 @@ class BatchEvaluationResumeToken:
         Resuming a run that stopped early:
         ```python
         result = client.run_batched_evaluation(
-            scope="root_observations",
             mapper=my_mapper,
             evaluators=[evaluator1, evaluator2],
             filter=my_filter,
@@ -500,7 +483,6 @@ class BatchEvaluationResumeToken:
 
         if result.resume_token:
             result = client.run_batched_evaluation(
-                scope="root_observations",
                 mapper=my_mapper,
                 evaluators=[evaluator1, evaluator2],
                 filter=my_filter,
@@ -527,7 +509,6 @@ class BatchEvaluationResumeToken:
     def __init__(
         self,
         *,
-        scope: str,
         filter: Optional[str],
         last_processed_timestamp: str,
         last_processed_id: str,
@@ -537,7 +518,6 @@ class BatchEvaluationResumeToken:
         """Initialize BatchEvaluationResumeToken with the provided state.
 
         Args:
-            scope: The scope of the run ("observations" or "root_observations").
             filter: The original JSON filter string.
             last_processed_timestamp: ISO 8601 start time of the oldest processed item.
             last_processed_id: ID of last processed item.
@@ -547,7 +527,6 @@ class BatchEvaluationResumeToken:
         Note:
             All arguments must be provided as keywords.
         """
-        self.scope = scope
         self.filter = filter
         self.cursor = cursor
         self.last_processed_timestamp = last_processed_timestamp
@@ -822,7 +801,6 @@ class BatchEvaluationRunner:
     async def run_async(
         self,
         *,
-        scope: BatchEvaluationScope,
         mapper: MapperFunction,
         evaluators: List[EvaluatorFunction],
         filter: Optional[str] = None,
@@ -845,7 +823,6 @@ class BatchEvaluationRunner:
         statistics.
 
         Args:
-            scope: Which observations to evaluate ("observations", "root_observations").
             mapper: Function to transform `ObservationV2` items to evaluator inputs.
             evaluators: List of evaluation functions to run on each item.
             filter: JSON filter string (v2 observations filter schema).
@@ -856,8 +833,7 @@ class BatchEvaluationRunner:
             composite_evaluator: Optional function to create composite scores.
             metadata: Metadata to add to all created scores.
             _add_observation_scores_to_trace: Private option to duplicate
-                observation-level scores onto the parent trace. Only applies to
-                scope="observations".
+                observation-level scores onto the parent trace.
             max_retries: Maximum retries for failed batch fetches.
             verbose: If True, log progress to console.
             resume_from: Resume token from a previous run. If `filter` is omitted,
@@ -867,21 +843,11 @@ class BatchEvaluationRunner:
             BatchEvaluationResult with comprehensive statistics.
 
         Raises:
-            ValueError: If the scope is invalid, the filter is not a JSON array, or
-                the resume token was created for a different scope or filter.
+            ValueError: If the filter is not a JSON array, or the resume token was
+                created for a different filter.
         """
         start_time = time.time()
 
-        if scope not in get_args(BatchEvaluationScope):
-            raise ValueError(
-                f"Invalid scope: {scope!r}. Expected one of "
-                f"{', '.join(repr(s) for s in get_args(BatchEvaluationScope))}."
-            )
-        if resume_from is not None and resume_from.scope != scope:
-            raise ValueError(
-                f"Resume token was created for scope {resume_from.scope!r}, "
-                f"cannot resume with scope {scope!r}."
-            )
         # The token's cursor only continues the query that produced it.
         if resume_from is not None:
             if filter is None:
@@ -892,9 +858,7 @@ class BatchEvaluationRunner:
                     "same filter, or omit it to reuse the token's filter."
                 )
 
-        effective_filter = self._build_filter(
-            filter=filter, scope=scope, resume_from=resume_from
-        )
+        effective_filter = self._build_filter(filter=filter, resume_from=resume_from)
 
         total_items_fetched = 0
         total_items_processed = 0
@@ -931,11 +895,10 @@ class BatchEvaluationRunner:
             and resume_from.last_processed_timestamp
             else None
         )
-        seen_root_trace_ids: Set[str] = set()
         batch_number = 0
 
         if verbose:
-            logger.info("Starting batch evaluation on %s", scope)
+            logger.info("Starting batch evaluation on observations")
             if fields:
                 logger.info("Fetching observation fields: %s", fields)
             if resume_from:
@@ -947,7 +910,6 @@ class BatchEvaluationRunner:
 
         def build_resume_token() -> BatchEvaluationResumeToken:
             return BatchEvaluationResumeToken(
-                scope=scope,
                 filter=filter,
                 cursor=cursor,
                 last_processed_timestamp=last_item_timestamp,
@@ -1010,7 +972,6 @@ class BatchEvaluationRunner:
                     try:
                         result = await self._process_batch_evaluation_item(
                             item=item,
-                            scope=scope,
                             mapper=mapper,
                             evaluators=evaluators,
                             composite_evaluator=composite_evaluator,
@@ -1023,10 +984,6 @@ class BatchEvaluationRunner:
                         return (item.id, e)
 
             items_to_process = [item for item in items if item.id != resumed_item_id]
-            if scope == "root_observations":
-                items_to_process = self._select_one_root_per_trace(
-                    items_to_process, seen_root_trace_ids
-                )
 
             results = await asyncio.gather(
                 *[process_item(item) for item in items_to_process]
@@ -1141,7 +1098,6 @@ class BatchEvaluationRunner:
     async def _process_batch_evaluation_item(
         self,
         item: ObservationV2,
-        scope: BatchEvaluationScope,
         mapper: MapperFunction,
         evaluators: List[EvaluatorFunction],
         composite_evaluator: Optional[CompositeEvaluatorFunction],
@@ -1153,7 +1109,6 @@ class BatchEvaluationRunner:
 
         Args:
             item: The observation to evaluate.
-            scope: The scope of the run.
             mapper: Function to transform item to evaluator inputs.
             evaluators: List of evaluator functions.
             composite_evaluator: Optional composite evaluator function.
@@ -1207,8 +1162,7 @@ class BatchEvaluationRunner:
                 )
 
         for evaluation in evaluations:
-            scores_created += self._create_score_for_scope(
-                scope=scope,
+            scores_created += self._create_score(
                 item=item,
                 evaluation=evaluation,
                 additional_metadata=metadata,
@@ -1227,8 +1181,7 @@ class BatchEvaluationRunner:
                 )
 
                 for composite_eval in composite_evals:
-                    composite_scores_created += self._create_score_for_scope(
-                        scope=scope,
+                    composite_scores_created += self._create_score(
                         item=item,
                         evaluation=composite_eval,
                         additional_metadata=metadata,
@@ -1343,22 +1296,17 @@ class BatchEvaluationRunner:
         else:
             return []
 
-    def _create_score_for_scope(
+    def _create_score(
         self,
         *,
-        scope: BatchEvaluationScope,
         item: ObservationV2,
         evaluation: Evaluation,
         additional_metadata: Optional[Dict[str, Any]],
         add_observation_score_to_trace: bool = False,
     ) -> int:
-        """Create a score linked to the entity that the scope evaluates.
-
-        `root_observations` scores the trace; `observations` scores the
-        observation and optionally duplicates the score onto its trace.
+        """Create a score on the evaluated observation, optionally duplicated onto its trace.
 
         Args:
-            scope: The scope of the run.
             item: The evaluated observation.
             evaluation: The evaluation result to create a score from.
             additional_metadata: Additional metadata to merge with evaluation metadata.
@@ -1381,10 +1329,6 @@ class BatchEvaluationRunner:
             "config_id": evaluation.config_id,
         }
 
-        if scope == "root_observations":
-            self.client.create_score(trace_id=item.trace_id, **score_kwargs)
-            return 1
-
         self.client.create_score(
             observation_id=item.id, trace_id=item.trace_id, **score_kwargs
         )
@@ -1398,10 +1342,9 @@ class BatchEvaluationRunner:
     def _build_filter(
         *,
         filter: Optional[str],
-        scope: BatchEvaluationScope,
         resume_from: Optional[BatchEvaluationResumeToken],
     ) -> Optional[str]:
-        """Combine the user filter with the scope and resume constraints.
+        """Combine the user filter with the resume constraint.
 
         Constraints are added as JSON filter conditions rather than query
         parameters because the API drops a query-parameter filter whenever the
@@ -1409,7 +1352,6 @@ class BatchEvaluationRunner:
 
         Args:
             filter: The user-provided JSON filter string (a JSON array).
-            scope: The scope of the run.
             resume_from: Optional resume token.
 
         Returns:
@@ -1430,16 +1372,6 @@ class BatchEvaluationRunner:
                 )
             conditions.extend(parsed)
 
-        if scope == "root_observations":
-            conditions.append(
-                {
-                    "type": "boolean",
-                    "column": "isRootObservation",
-                    "operator": "=",
-                    "value": True,
-                }
-            )
-
         # Results are ordered by start time descending, so items that remain
         # after the last processed one started before it. The cursor resumes
         # exactly; the timestamp is the fallback for tokens without a cursor.
@@ -1458,40 +1390,6 @@ class BatchEvaluationRunner:
             )
 
         return json.dumps(conditions) if conditions else None
-
-    @staticmethod
-    def _select_one_root_per_trace(
-        items: List[ObservationV2], seen_trace_ids: Set[str]
-    ) -> List[ObservationV2]:
-        """Keep one root observation per trace.
-
-        The v2 API marks both physical roots and SDK-detected app roots as root
-        observations, so a trace can return several. Prefer the physical root
-        when it is on the same page; otherwise keep the first one seen.
-        """
-        traces_with_physical_root = {
-            item.trace_id
-            for item in items
-            if item.trace_id and not item.parent_observation_id
-        }
-        selected: List[ObservationV2] = []
-
-        for item in items:
-            if item.trace_id is None:
-                selected.append(item)
-                continue
-            if item.trace_id in seen_trace_ids:
-                continue
-            if (
-                item.parent_observation_id
-                and item.trace_id in traces_with_physical_root
-            ):
-                continue
-
-            seen_trace_ids.add(item.trace_id)
-            selected.append(item)
-
-        return selected
 
     def _build_result(
         self,

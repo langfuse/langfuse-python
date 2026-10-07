@@ -104,7 +104,7 @@ def length_evaluator(*, output, **kwargs):
     return Evaluation(name="length", value=float(len(output or "")))
 
 
-def test_observations_scope_evaluates_every_observation(corpus):
+def test_evaluates_every_observation(corpus):
     seen: List[ObservationV2] = []
 
     def recording_mapper(*, item):
@@ -112,7 +112,6 @@ def test_observations_scope_evaluates_every_observation(corpus):
         return io_mapper(item=item)
 
     result = get_client().run_batched_evaluation(
-        scope="observations",
         mapper=recording_mapper,
         evaluators=[length_evaluator],
         filter=corpus.filter,
@@ -133,29 +132,6 @@ def test_observations_scope_evaluates_every_observation(corpus):
     assert child.output == "child answer 0"
 
 
-def test_root_observations_scope_scores_traces(corpus):
-    score_name = f"root-score-{create_uuid()}"
-
-    def root_evaluator(**kwargs):
-        return Evaluation(name=score_name, value=1.0)
-
-    result = get_client().run_batched_evaluation(
-        scope="root_observations",
-        mapper=io_mapper,
-        evaluators=[root_evaluator],
-        filter=corpus.filter,
-    )
-
-    assert result.completed is True
-    assert result.total_items_processed == TRACE_COUNT
-    assert set(result.item_evaluations) == set(corpus.root_ids)
-
-    scores = _wait_for_scores(trace_id=corpus.trace_ids[0], name=score_name)
-    assert len(scores) == 1
-    assert scores[0].subject.kind == "trace"
-    assert scores[0].subject.id == corpus.trace_ids[0]
-
-
 def test_observation_scores_are_attached_to_observations(corpus):
     score_name = f"obs-score-{create_uuid()}"
     child_filter = json.loads(corpus.filter) + [
@@ -171,7 +147,6 @@ def test_observation_scores_are_attached_to_observations(corpus):
         return Evaluation(name=score_name, value=0.5, comment="ok")
 
     result = get_client().run_batched_evaluation(
-        scope="observations",
         mapper=io_mapper,
         evaluators=[observation_evaluator],
         filter=json.dumps(child_filter),
@@ -196,7 +171,6 @@ def test_observation_scores_are_attached_to_observations(corpus):
 def test_max_items_then_resume_covers_corpus_exactly_once(corpus):
     langfuse = get_client()
     run_kwargs: Any = {
-        "scope": "observations",
         "mapper": io_mapper,
         "evaluators": [length_evaluator],
         "filter": corpus.filter,
@@ -230,7 +204,6 @@ def test_fields_control_populated_field_groups(corpus):
         return EvaluatorInputs(input=None, output=None)
 
     get_client().run_batched_evaluation(
-        scope="root_observations",
         mapper=recording_mapper,
         evaluators=[length_evaluator],
         filter=corpus.filter,
@@ -240,7 +213,7 @@ def test_fields_control_populated_field_groups(corpus):
 
     assert len(seen) == 1
     assert seen[0].input is None
-    assert seen[0].is_root_observation is True
+    assert seen[0].output is None
 
 
 def test_composite_evaluator_and_failures(corpus):
@@ -251,19 +224,19 @@ def test_composite_evaluator_and_failures(corpus):
         return Evaluation(name="composite", value=float(len(evaluations)))
 
     result = get_client().run_batched_evaluation(
-        scope="root_observations",
         mapper=io_mapper,
         evaluators=[length_evaluator, failing_evaluator],
         composite_evaluator=composite,
         filter=corpus.filter,
     )
 
-    assert result.total_items_processed == TRACE_COUNT
-    assert result.total_scores_created == TRACE_COUNT
-    assert result.total_composite_scores_created == TRACE_COUNT
-    assert result.total_evaluations_failed == TRACE_COUNT
+    item_count = 2 * TRACE_COUNT
+    assert result.total_items_processed == item_count
+    assert result.total_scores_created == item_count
+    assert result.total_composite_scores_created == item_count
+    assert result.total_evaluations_failed == item_count
     stats = {s.name: s for s in result.evaluator_stats}
-    assert stats["failing_evaluator"].failed_runs == TRACE_COUNT
+    assert stats["failing_evaluator"].failed_runs == item_count
 
 
 def test_mapper_failures_are_reported_per_item(corpus):
@@ -271,21 +244,19 @@ def test_mapper_failures_are_reported_per_item(corpus):
         raise ValueError("intentional")
 
     result = get_client().run_batched_evaluation(
-        scope="root_observations",
         mapper=failing_mapper,
         evaluators=[length_evaluator],
         filter=corpus.filter,
     )
 
     assert result.completed is True
-    assert result.total_items_failed == TRACE_COUNT
-    assert set(result.failed_item_ids) == set(corpus.root_ids)
-    assert result.error_summary == {"ValueError": TRACE_COUNT}
+    assert result.total_items_failed == 2 * TRACE_COUNT
+    assert set(result.failed_item_ids) == set(corpus.root_ids + corpus.child_ids)
+    assert result.error_summary == {"ValueError": 2 * TRACE_COUNT}
 
 
 def test_filter_without_matches_completes_empty():
     result = get_client().run_batched_evaluation(
-        scope="observations",
         mapper=io_mapper,
         evaluators=[length_evaluator],
         filter=_tag_filter(f"nonexistent-{create_uuid()}"),

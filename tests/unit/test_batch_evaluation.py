@@ -103,14 +103,13 @@ def length_evaluator(*, input, output, **kwargs):
 
 
 async def run(runner: BatchEvaluationRunner, **kwargs: Any):
-    kwargs.setdefault("scope", "observations")
     kwargs.setdefault("mapper", mapper)
     kwargs.setdefault("evaluators", [length_evaluator])
     return await runner.run_async(**kwargs)
 
 
 @pytest.mark.asyncio
-async def test_observations_scope_paginates_with_cursor_and_scores_observations():
+async def test_paginates_with_cursor_and_scores_observations():
     runner, api, client = make_runner([make_observation(i) for i in range(5)])
 
     result = await run(runner, fetch_batch_size=2)
@@ -139,40 +138,6 @@ async def test_observations_scope_paginates_with_cursor_and_scores_observations(
         config_id=None,
     )
     client.flush.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_root_observations_scope_filters_roots_and_scores_traces():
-    observations = [make_observation(i, is_root=i % 2 == 0) for i in range(6)]
-    runner, api, client = make_runner(observations)
-    user_filter = [
-        {"type": "string", "column": "traceName", "operator": "=", "value": "chat"}
-    ]
-
-    result = await run(
-        runner,
-        scope="root_observations",
-        filter=json.dumps(user_filter),
-        metadata={"run": "nightly"},
-    )
-
-    assert json.loads(api.calls[0]["filter"]) == user_filter + [
-        {
-            "type": "boolean",
-            "column": "isRootObservation",
-            "operator": "=",
-            "value": True,
-        }
-    ]
-    assert set(result.item_evaluations) == {"obs-0", "obs-2", "obs-4"}
-    scored = [call.kwargs for call in client.create_score.call_args_list]
-    assert sorted(kwargs["trace_id"] for kwargs in scored) == [
-        "trace-0",
-        "trace-2",
-        "trace-4",
-    ]
-    assert all("observation_id" not in kwargs for kwargs in scored)
-    assert all(kwargs["metadata"] == {"run": "nightly"} for kwargs in scored)
 
 
 @pytest.mark.asyncio
@@ -207,21 +172,8 @@ def test_client_and_runner_share_default_fields():
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"scope": "traces"}, "Invalid scope"),
         ({"filter": "not json"}, "JSON array"),
         ({"filter": '{"tags": ["a"]}'}, "JSON array"),
-        (
-            {
-                "resume_from": BatchEvaluationResumeToken(
-                    scope="root_observations",
-                    filter=None,
-                    last_processed_timestamp="",
-                    last_processed_id="",
-                    items_processed=0,
-                )
-            },
-            "scope",
-        ),
     ],
 )
 async def test_invalid_arguments_raise_before_fetching(kwargs, message):
@@ -252,7 +204,6 @@ async def test_max_items_aligns_pages_and_resume_continues_without_gaps():
     assert token is not None
     assert token.cursor == "5"
     assert token.items_processed == 5
-    assert token.scope == "observations"
 
     second = await run(runner, resume_from=token, fetch_batch_size=3)
 
@@ -304,7 +255,6 @@ async def test_resume_without_cursor_falls_back_to_start_time_bound():
         + [make_observation(9, observation_id="obs-tied", start_time=tied_time)]
     )
     token = BatchEvaluationResumeToken(
-        scope="observations",
         filter=None,
         last_processed_timestamp=(BASE_TIME + timedelta(seconds=3)).isoformat(),
         last_processed_id="obs-3",
@@ -332,7 +282,6 @@ async def test_resume_reuses_the_token_filter_and_rejects_a_different_one():
         [{"type": "string", "column": "name", "operator": "=", "value": "x"}]
     )
     token = BatchEvaluationResumeToken(
-        scope="observations",
         filter=token_filter,
         cursor="2",
         last_processed_timestamp=BASE_TIME.isoformat(),
@@ -346,42 +295,6 @@ async def test_resume_reuses_the_token_filter_and_rejects_a_different_one():
 
     with pytest.raises(ValueError, match="different filter"):
         await run(runner, resume_from=token, filter="[]")
-
-
-@pytest.mark.asyncio
-async def test_root_observations_scope_prefers_the_physical_root_of_a_trace():
-    runner, _, client = make_runner(
-        [
-            make_observation(0, trace_id="t1", is_root=True),
-            # SDK-marked app root below the physical root of the same trace.
-            make_observation(
-                1, trace_id="t1", is_root=True, parent_observation_id="obs-0"
-            ),
-        ]
-    )
-
-    result = await run(runner, scope="root_observations")
-
-    assert [c.kwargs["trace_id"] for c in client.create_score.call_args_list] == ["t1"]
-    assert set(result.item_evaluations) == {"obs-0"}
-
-
-@pytest.mark.asyncio
-async def test_root_observations_scope_scores_a_trace_once_across_pages():
-    # Sibling app roots under a parent that was not exported, on separate pages.
-    runner, _, client = make_runner(
-        [
-            make_observation(
-                i, trace_id="t2", is_root=True, parent_observation_id="hidden"
-            )
-            for i in range(3)
-        ]
-    )
-
-    result = await run(runner, scope="root_observations", fetch_batch_size=1)
-
-    assert [c.kwargs["trace_id"] for c in client.create_score.call_args_list] == ["t2"]
-    assert set(result.item_evaluations) == {"obs-2"}
 
 
 @pytest.mark.asyncio
