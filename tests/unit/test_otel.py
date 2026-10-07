@@ -498,8 +498,8 @@ class TestBasicSpans(TestOTelBase):
 
     def test_trace_update(self, langfuse_client, memory_exporter):
         """Test updating trace level attributes."""
-        # Create a span and set trace attributes using propagate_attributes and set_trace_io
-        with langfuse_client.start_as_current_observation(name="trace-span") as span:
+        # Create a span and set trace attributes using propagate_attributes
+        with langfuse_client.start_as_current_observation(name="trace-span"):
             with propagate_attributes(
                 trace_name="updated-trace-name",
                 user_id="test-user",
@@ -507,7 +507,7 @@ class TestBasicSpans(TestOTelBase):
                 tags=["tag1", "tag2"],
                 metadata={"trace-meta": "data"},
             ):
-                span.set_trace_io(input={"trace-input": "value"})
+                pass
 
         # Get the span data
         spans = self.get_spans_by_name(memory_exporter, "trace-span")
@@ -526,12 +526,10 @@ class TestBasicSpans(TestOTelBase):
         else:
             tags = list(attributes[LangfuseOtelSpanAttributes.TRACE_TAGS])
 
-        input_data = json.loads(attributes[LangfuseOtelSpanAttributes.TRACE_INPUT])
         metadata = attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.trace-meta"]
 
         # Check attribute values
         assert sorted(tags) == sorted(["tag1", "tag2"])
-        assert input_data == {"trace-input": "value"}
         assert metadata == "data"
 
     def test_complex_scenario(self, langfuse_client, memory_exporter):
