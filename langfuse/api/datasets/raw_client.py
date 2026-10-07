@@ -250,8 +250,8 @@ class RawDatasetsClient:
         name: str,
         description: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
-        input_schema: typing.Optional[typing.Any] = OMIT,
-        expected_output_schema: typing.Optional[typing.Any] = OMIT,
+        input_schema: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        expected_output_schema: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Dataset]:
         """
@@ -265,10 +265,10 @@ class RawDatasetsClient:
 
         metadata : typing.Optional[typing.Any]
 
-        input_schema : typing.Optional[typing.Any]
+        input_schema : typing.Optional[typing.Dict[str, typing.Any]]
             JSON Schema for validating dataset item inputs. When set, all new and existing dataset items will be validated against this schema.
 
-        expected_output_schema : typing.Optional[typing.Any]
+        expected_output_schema : typing.Optional[typing.Dict[str, typing.Any]]
             JSON Schema for validating dataset item expected outputs. When set, all new and existing dataset items will be validated against this schema.
 
         request_options : typing.Optional[RequestOptions]
@@ -934,8 +934,8 @@ class AsyncRawDatasetsClient:
         name: str,
         description: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
-        input_schema: typing.Optional[typing.Any] = OMIT,
-        expected_output_schema: typing.Optional[typing.Any] = OMIT,
+        input_schema: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        expected_output_schema: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Dataset]:
         """
@@ -949,10 +949,10 @@ class AsyncRawDatasetsClient:
 
         metadata : typing.Optional[typing.Any]
 
-        input_schema : typing.Optional[typing.Any]
+        input_schema : typing.Optional[typing.Dict[str, typing.Any]]
             JSON Schema for validating dataset item inputs. When set, all new and existing dataset items will be validated against this schema.
 
-        expected_output_schema : typing.Optional[typing.Any]
+        expected_output_schema : typing.Optional[typing.Dict[str, typing.Any]]
             JSON Schema for validating dataset item expected outputs. When set, all new and existing dataset items will be validated against this schema.
 
         request_options : typing.Optional[RequestOptions]
