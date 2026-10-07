@@ -48,6 +48,17 @@ F = TypeVar("F", bound=Callable[..., Any])
 P = ParamSpec("P")
 R = TypeVar("R")
 
+# Set by asgiref's markcoroutinefunction on Python < 3.12, which
+# inspect.iscoroutinefunction does not recognize.
+_ASYNCIO_COROUTINE_MARKER = getattr(asyncio.coroutines, "_is_coroutine", None)
+
+
+def _is_coroutine_function(func: Any) -> bool:
+    return inspect.iscoroutinefunction(func) or (
+        _ASYNCIO_COROUTINE_MARKER is not None
+        and getattr(func, "_is_coroutine", None) is _ASYNCIO_COROUTINE_MARKER
+    )
+
 
 class LangfuseDecorator:
     """Implementation of the @observe decorator for seamless Langfuse tracing integration.
@@ -214,7 +225,7 @@ class LangfuseDecorator:
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
                 )
-                if inspect.iscoroutinefunction(func)
+                if _is_coroutine_function(func)
                 else self._sync_observe(
                     func,
                     name=name,
