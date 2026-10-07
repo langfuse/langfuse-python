@@ -38,7 +38,6 @@ from opentelemetry.util._decorator import (
     _agnosticcontextmanager,
 )
 from packaging.version import Version
-from typing_extensions import deprecated
 
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
@@ -213,7 +212,7 @@ class Langfuse:
         release (Optional[str]): Release version/hash of your application. Used for grouping analytics by release.
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
-        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to data set through Langfuse SDK APIs such as `start_observation()`, `update()`, and `set_trace_io()`.
+        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to data set through Langfuse SDK APIs such as `start_observation()` and `update()`.
         mask_otel_spans (Optional[MaskOtelSpansFunction]): Synchronous export-stage hook for masking raw OpenTelemetry span attributes before this Langfuse client sends them to Langfuse. Use this for spans created by third-party OpenTelemetry instrumentations, or when you need to inspect final span attributes after export filtering and Langfuse media handling. It does not modify spans already exported through other OpenTelemetry exporters.
 
             The hook receives one OpenTelemetry export batch. A batch is not guaranteed to contain a complete trace, request, or Langfuse observation tree. The hook usually runs on the OpenTelemetry batch span processor worker thread; during `flush()` and shutdown it may run on the caller thread. Keep it synchronous, deterministic, and fast.
@@ -1532,55 +1531,6 @@ class Langfuse:
                 version=version,
                 level=level,
                 status_message=status_message,
-            )
-
-    @deprecated(
-        "Trace-level input/output is deprecated. "
-        "For trace attributes (user_id, session_id, tags, etc.), use propagate_attributes() instead. "
-        "This method will be removed in a future major version."
-    )
-    def set_current_trace_io(
-        self,
-        *,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-    ) -> None:
-        """Set trace-level input and output for the current span's trace.
-
-        .. deprecated::
-            This is a legacy method for backward compatibility with Langfuse platform
-            features that still rely on trace-level input/output (e.g., legacy LLM-as-a-judge
-            evaluators). It will be removed in a future major version.
-
-            For setting other trace attributes (user_id, session_id, metadata, tags, version),
-            use :func:`langfuse.propagate_attributes` (top-level import) instead.
-
-        Args:
-            input: Input data to associate with the trace.
-            output: Output data to associate with the trace.
-        """
-        if not self._tracing_enabled:
-            langfuse_logger.debug(
-                "Operation skipped: set_current_trace_io - Tracing is disabled or client is in no-op mode."
-            )
-            return
-
-        current_otel_span = self._get_current_otel_span()
-
-        if current_otel_span is not None and current_otel_span.is_recording():
-            span_class = self._get_span_class(
-                self._get_observation_type_from_otel_span(current_otel_span)
-            )
-            span = span_class(
-                otel_span=current_otel_span,
-                langfuse_client=self,
-                environment=self._environment,
-                release=self._release,
-            )
-
-            span.set_trace_io(
-                input=input,
-                output=output,
             )
 
     def set_current_trace_as_public(self) -> None:

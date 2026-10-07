@@ -32,8 +32,6 @@ class LangfuseOtelSpanAttributes:
     TRACE_TAGS = "langfuse.trace.tags"
     TRACE_PUBLIC = "langfuse.trace.public"
     TRACE_METADATA = "langfuse.trace.metadata"
-    TRACE_INPUT = "langfuse.trace.input"
-    TRACE_OUTPUT = "langfuse.trace.output"
 
     # Langfuse-observation attributes
     OBSERVATION_TYPE = "langfuse.observation.type"
@@ -76,13 +74,9 @@ class LangfuseOtelSpanAttributes:
 
 def create_trace_attributes(
     *,
-    input: Optional[Any] = None,
-    output: Optional[Any] = None,
     public: Optional[bool] = None,
 ) -> dict:
     attributes = {
-        LangfuseOtelSpanAttributes.TRACE_INPUT: _serialize(input),
-        LangfuseOtelSpanAttributes.TRACE_OUTPUT: _serialize(output),
         LangfuseOtelSpanAttributes.TRACE_PUBLIC: public,
     }
 

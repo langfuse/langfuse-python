@@ -293,7 +293,6 @@ def test_export_stage_media_processes_string_sequence_attributes():
 @pytest.mark.parametrize(
     ("attribute_key", "expected_field"),
     [
-        ("langfuse.trace.input", "input"),
         ("langfuse.observation.input", "input"),
         ("ai.prompt.messages", "input"),
         ("gcp.vertex.agent.tool_call_args", "input"),
@@ -302,7 +301,6 @@ def test_export_stage_media_processes_string_sequence_attributes():
         ("gen_ai.input.messages", "input"),
         ("gen_ai.prompt.0.content", "input"),
         ("llm.input_messages.0.message.content", "input"),
-        ("langfuse.trace.output", "output"),
         ("langfuse.observation.output", "output"),
         ("ai.response.toolCalls", "output"),
         ("gcp.vertex.agent.tool_response", "output"),
