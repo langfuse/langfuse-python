@@ -3,15 +3,11 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import UniversalBaseModel
+from ...utils.pagination.types.cursor_meta_response import CursorMetaResponse
 
 
-class GetScoresV3Meta(UniversalBaseModel):
+class GetScoresV3Meta(CursorMetaResponse):
     limit: int
-    cursor: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    URL-safe base64 (base64url) cursor for the next page. Absent when there are no more results.
-    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
