@@ -499,3 +499,27 @@ async def test_async_generator_wrapper_del_ends_span_when_abandoned() -> None:
 
     assert span.ended == 1
     assert span.updates == []
+
+
+@pytest.mark.asyncio
+async def test_observe_treats_legacy_marked_coroutine_function_as_async(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    async def work() -> str:
+        await asyncio.sleep(0)
+        return "done"
+
+    def marked() -> Any:
+        return work()
+
+    # The marker asgiref's markcoroutinefunction sets on Python < 3.12.
+    cast(Any, marked)._is_coroutine = asyncio.coroutines._is_coroutine  # type: ignore[attr-defined]
+
+    observed = observe(name="marked")(marked)
+
+    assert await observed() == "done"
+
+    langfuse_memory_client.flush()
+
+    span = _finished_spans_by_name(memory_exporter, "marked")[0]
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "done"
