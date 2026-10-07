@@ -134,6 +134,11 @@ def _serialized_request_size(spans: List[ReadableSpan]) -> int:
     return len(encode_spans(spans).SerializePartialToString())
 
 
+def _uncompressed_size(request: _RecordedRequest) -> int:
+    body = gzip.decompress(request.body) if request.content_encoding else request.body
+    return len(body)
+
+
 def _default_exporter_processor(base_url: str) -> LangfuseSpanProcessor:
     return LangfuseSpanProcessor(
         public_key="pk-test",
@@ -170,7 +175,9 @@ def test_default_exporter_enforces_max_batch_size_bytes_at_boundary(
     expected_requests = (
         [] if expected_result == SpanExportResult.FAILURE else [request_size]
     )
-    assert [len(request.body) for request in received_requests] == expected_requests
+    assert [_uncompressed_size(request) for request in received_requests] == (
+        expected_requests
+    )
 
 
 def test_oversized_batch_is_dropped_on_flush_without_blocking_later_batches(
@@ -199,7 +206,7 @@ def test_oversized_batch_is_dropped_on_flush_without_blocking_later_batches(
     finally:
         processor.shutdown()
 
-    assert [len(request.body) for request in received_requests] == [
+    assert [_uncompressed_size(request) for request in received_requests] == [
         _serialized_request_size(small_spans)
     ]
 
@@ -293,10 +300,46 @@ def test_client_otel_compression_sends_gzip_request(compression_env, otlp_http_s
 @pytest.mark.parametrize(
     ("otel_compression", "env", "expected_encoding"),
     [
-        (None, {LANGFUSE_OTEL_COMPRESSION: " GZIP "}, "gzip"),
+        # Nothing configured: gzip by default.
+        (None, {}, "gzip"),
+        # The argument wins over every environment variable.
         ("gzip", {LANGFUSE_OTEL_COMPRESSION: "none"}, "gzip"),
         ("none", {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"}, None),
-        (None, {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"}, "gzip"),
+        # LANGFUSE_OTEL_COMPRESSION wins over the OTEL variables (case-insensitive).
+        (None, {LANGFUSE_OTEL_COMPRESSION: " GZIP "}, "gzip"),
+        (
+            None,
+            {LANGFUSE_OTEL_COMPRESSION: "None", OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"},
+            None,
+        ),
+        # The traces-specific OTEL variable wins over the generic one.
+        (
+            None,
+            {
+                OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip",
+                OTEL_EXPORTER_OTLP_COMPRESSION: "none",
+            },
+            "gzip",
+        ),
+        (None, {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "NONE"}, None),
+        (None, {OTEL_EXPORTER_OTLP_COMPRESSION: "none"}, None),
+        # Invalid values fall through to the next setting, then gzip.
+        ("brotli", {LANGFUSE_OTEL_COMPRESSION: "none"}, None),
+        ("brotli", {}, "gzip"),
+        (
+            None,
+            {LANGFUSE_OTEL_COMPRESSION: "zstd", OTEL_EXPORTER_OTLP_COMPRESSION: "none"},
+            None,
+        ),
+        (
+            None,
+            {
+                OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "deflate",
+                OTEL_EXPORTER_OTLP_COMPRESSION: "none",
+            },
+            None,
+        ),
+        (None, {OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "bogus"}, "gzip"),
     ],
 )
 def test_default_exporter_compression_precedence(

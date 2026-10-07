@@ -21,6 +21,10 @@ from opentelemetry import context as context_api
 from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.environment_variables import (
+    OTEL_EXPORTER_OTLP_COMPRESSION,
+    OTEL_EXPORTER_OTLP_TRACES_COMPRESSION,
+)
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import format_span_id, format_trace_id
@@ -71,28 +75,53 @@ def _resolve_max_batch_size_bytes() -> Optional[int]:
 _COMPRESSION_BY_NAME = {"gzip": Compression.Gzip, "none": Compression.NoCompression}
 
 
-def _resolve_compression(otel_compression: Optional[str]) -> Optional[Compression]:
-    """Return the configured compression, or None to defer to OTEL_EXPORTER_OTLP_*COMPRESSION."""
-    setting = "otel_compression"
-    raw_value = otel_compression
-    if raw_value is None:
-        setting = LANGFUSE_OTEL_COMPRESSION
-        raw_value = os.environ.get(LANGFUSE_OTEL_COMPRESSION, "")
-
-    value = raw_value.strip().lower()
+def _parse_compression(
+    raw_value: Optional[str], *, setting: str, warn: bool
+) -> Optional[Compression]:
+    value = (raw_value or "").strip().lower()
     if not value:
         return None
 
     compression = _COMPRESSION_BY_NAME.get(value)
-    if compression is None:
+    if compression is None and warn:
         langfuse_logger.warning(
-            "Invalid %s=%r. Expected 'gzip' or 'none'. Falling back to the "
-            "OTEL_EXPORTER_OTLP_*COMPRESSION environment variables.",
+            "Invalid %s=%r. Expected 'gzip' or 'none'. Falling back to the next "
+            "compression setting, then gzip.",
             setting,
             raw_value,
         )
 
     return compression
+
+
+def _resolve_compression(otel_compression: Optional[str]) -> Compression:
+    """Resolve compression for the default exporter; gzip unless configured otherwise.
+
+    Order: the ``otel_compression`` argument, ``LANGFUSE_OTEL_COMPRESSION``,
+    ``OTEL_EXPORTER_OTLP_TRACES_COMPRESSION``, ``OTEL_EXPORTER_OTLP_COMPRESSION``,
+    then gzip. Values are case-insensitive, and an invalid value falls through to
+    the next setting, matching the JS SDK.
+    """
+    candidates = (
+        ("otel_compression", otel_compression, True),
+        (LANGFUSE_OTEL_COMPRESSION, os.environ.get(LANGFUSE_OTEL_COMPRESSION), True),
+        (
+            OTEL_EXPORTER_OTLP_TRACES_COMPRESSION,
+            os.environ.get(OTEL_EXPORTER_OTLP_TRACES_COMPRESSION),
+            False,
+        ),
+        (
+            OTEL_EXPORTER_OTLP_COMPRESSION,
+            os.environ.get(OTEL_EXPORTER_OTLP_COMPRESSION),
+            False,
+        ),
+    )
+    for setting, raw_value, warn in candidates:
+        compression = _parse_compression(raw_value, setting=setting, warn=warn)
+        if compression is not None:
+            return compression
+
+    return Compression.Gzip
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
