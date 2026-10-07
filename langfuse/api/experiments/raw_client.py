@@ -47,7 +47,7 @@ class RawExperimentsClient:
         from_start_time : dt.datetime
             Required. Retrieve only experiments with events on or after this
             datetime. A lower bound is required so the query stays fast on
-            large projects; pair it with `toStartTime` to select a specific
+            large projects; pair it with an upper bound to select a specific
             window.
 
         fields : typing.Optional[str]
@@ -210,7 +210,7 @@ class RawExperimentsClient:
         from_start_time : dt.datetime
             Required. Retrieve only experiment items started on or after this
             datetime. A lower bound is required so the query stays fast on
-            large projects; pair it with `toStartTime` to select a specific
+            large projects; pair it with an upper bound to select a specific
             window.
 
         fields : typing.Optional[str]
@@ -382,7 +382,7 @@ class AsyncRawExperimentsClient:
         from_start_time : dt.datetime
             Required. Retrieve only experiments with events on or after this
             datetime. A lower bound is required so the query stays fast on
-            large projects; pair it with `toStartTime` to select a specific
+            large projects; pair it with an upper bound to select a specific
             window.
 
         fields : typing.Optional[str]
@@ -545,7 +545,7 @@ class AsyncRawExperimentsClient:
         from_start_time : dt.datetime
             Required. Retrieve only experiment items started on or after this
             datetime. A lower bound is required so the query stays fast on
-            large projects; pair it with `toStartTime` to select a specific
+            large projects; pair it with an upper bound to select a specific
             window.
 
         fields : typing.Optional[str]
