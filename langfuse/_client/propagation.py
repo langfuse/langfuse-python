@@ -652,6 +652,10 @@ def _serialize_propagated_metadata_value(value: Any) -> str:
     if isinstance(value, str):
         return value
 
+    # EventSerializer quotes ints outside JS's safe range; keep their exact digits.
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+
     return json.dumps(
         value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
     )
