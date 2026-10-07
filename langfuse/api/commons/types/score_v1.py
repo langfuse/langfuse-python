@@ -35,7 +35,7 @@ class ScoreV1_Numeric(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -73,7 +73,7 @@ class ScoreV1_Categorical(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -111,7 +111,7 @@ class ScoreV1_Boolean(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
@@ -148,7 +148,7 @@ class ScoreV1_Text(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="authorUserId")
     ] = None
     comment: typing.Optional[str] = None
-    metadata: typing.Any
+    metadata: typing.Dict[str, typing.Any]
     config_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="configId")
     ] = None
