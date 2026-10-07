@@ -6,6 +6,7 @@ and result formatting.
 """
 
 import asyncio
+import warnings
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -216,6 +217,14 @@ class Evaluation:
         self.config_id = config_id
 
 
+def _warn_deprecated_alias(old: str, new: str) -> None:
+    warnings.warn(
+        f"{old} is deprecated and will be removed in a future major version. Use {new} instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class ExperimentItemResult:
     """Result structure for individual experiment items.
 
@@ -233,8 +242,8 @@ class ExperimentItemResult:
             contains a name, value, optional comment, and optional metadata.
         trace_id: Optional Langfuse trace ID for this item's execution. Used
             to link the experiment result with the detailed trace in Langfuse UI.
-        dataset_run_id: Optional dataset run ID if this item was part of a
-            Langfuse dataset. None for local experiments.
+        experiment_id: ID of the experiment run this item belongs to.
+        dataset_run_id: Deprecated alias of `experiment_id`.
 
     Examples:
         Accessing item result data:
@@ -275,7 +284,8 @@ class ExperimentItemResult:
         output: Any,
         evaluations: List[Evaluation],
         trace_id: Optional[str],
-        dataset_run_id: Optional[str],
+        experiment_id: Optional[str] = None,
+        dataset_run_id: Optional[str] = None,
     ):
         """Initialize an ExperimentItemResult with the provided data.
 
@@ -284,7 +294,9 @@ class ExperimentItemResult:
             output: The actual output produced by the task function for this item.
             evaluations: List of evaluation results for this item.
             trace_id: Optional Langfuse trace ID for this item's execution.
-            dataset_run_id: Optional dataset run ID if this item was part of a Langfuse dataset.
+            experiment_id: ID of the experiment run this item belongs to.
+            dataset_run_id: Deprecated alias of `experiment_id`. Used only when
+                `experiment_id` is not provided.
 
         Note:
             All arguments must be provided as keywords. Positional arguments will raise a TypeError.
@@ -293,7 +305,13 @@ class ExperimentItemResult:
         self.output = output
         self.evaluations = evaluations
         self.trace_id = trace_id
-        self.dataset_run_id = dataset_run_id
+        self.experiment_id = experiment_id or dataset_run_id
+
+    @property
+    def dataset_run_id(self) -> Optional[str]:
+        """Deprecated alias of `experiment_id`."""
+        _warn_deprecated_alias("ExperimentItemResult.dataset_run_id", "experiment_id")
+        return self.experiment_id
 
 
 class ExperimentResult:
@@ -312,10 +330,13 @@ class ExperimentResult:
         run_evaluations: List of aggregate evaluation results computed across all items,
             such as average scores, statistical summaries, or cross-item analyses.
         experiment_id: ID of the experiment run propagated across all items. For
-            Langfuse datasets, this matches the dataset run ID. For local experiments,
-            this is a stable SDK-generated identifier for the run.
-        dataset_run_id: Optional ID of the dataset run in Langfuse (when using Langfuse datasets).
-        dataset_run_url: Optional direct URL to view the experiment results in Langfuse UI.
+            Langfuse datasets, it is derived from the project, dataset and run name,
+            so re-running with the same `run_name` adds to the same experiment. For
+            local experiments, it is a random SDK-generated identifier for the run.
+        experiment_url: Optional direct URL to view the experiment results in the
+            Langfuse UI. None if the project ID could not be resolved.
+        dataset_run_id: Deprecated alias of `experiment_id`.
+        dataset_run_url: Deprecated alias of `experiment_url`.
 
     Examples:
         Basic usage with local dataset:
@@ -347,8 +368,8 @@ class ExperimentResult:
         )
 
         # View in Langfuse UI
-        if result.dataset_run_url:
-            print(f"View detailed results: {result.dataset_run_url}")
+        if result.experiment_url:
+            print(f"View detailed results: {result.experiment_url}")
         ```
 
         Formatted output:
@@ -373,6 +394,7 @@ class ExperimentResult:
         item_results: List[ExperimentItemResult],
         run_evaluations: List[Evaluation],
         experiment_id: str,
+        experiment_url: Optional[str] = None,
         dataset_run_id: Optional[str] = None,
         dataset_run_url: Optional[str] = None,
     ):
@@ -385,8 +407,11 @@ class ExperimentResult:
             item_results: List of results from processing individual dataset items.
             run_evaluations: List of aggregate evaluation results for the entire run.
             experiment_id: ID of the experiment run.
-            dataset_run_id: Optional ID of the dataset run (for Langfuse datasets).
-            dataset_run_url: Optional URL to view results in Langfuse UI.
+            experiment_url: Optional URL to view results in Langfuse UI.
+            dataset_run_id: Deprecated and ignored; `dataset_run_id` always
+                returns `experiment_id`.
+            dataset_run_url: Deprecated alias of `experiment_url`. Used only when
+                `experiment_url` is not provided.
         """
         self.name = name
         self.run_name = run_name
@@ -394,8 +419,19 @@ class ExperimentResult:
         self.item_results = item_results
         self.run_evaluations = run_evaluations
         self.experiment_id = experiment_id
-        self.dataset_run_id = dataset_run_id
-        self.dataset_run_url = dataset_run_url
+        self.experiment_url = experiment_url or dataset_run_url
+
+    @property
+    def dataset_run_id(self) -> str:
+        """Deprecated alias of `experiment_id`."""
+        _warn_deprecated_alias("ExperimentResult.dataset_run_id", "experiment_id")
+        return self.experiment_id
+
+    @property
+    def dataset_run_url(self) -> Optional[str]:
+        """Deprecated alias of `experiment_url`."""
+        _warn_deprecated_alias("ExperimentResult.dataset_run_url", "experiment_url")
+        return self.experiment_url
 
     def format(self, *, include_item_results: bool = False) -> str:
         r"""Format the experiment result for human-readable display.
@@ -426,7 +462,7 @@ class ExperimentResult:
             - List of all evaluation metrics that were applied
             - Average scores across all items for each numeric metric
             - Run-level evaluation results with comments
-            - Dataset run URL for viewing in Langfuse UI (if applicable)
+            - Experiment URL for viewing in Langfuse UI (if available)
             - Individual item details including inputs, outputs, and scores (if requested)
 
         Examples:
@@ -588,9 +624,8 @@ class ExperimentResult:
                     output += f"\n    💭 {run_eval.comment}"
             output += "\n"
 
-        # Add dataset run URL if available
-        if self.dataset_run_url:
-            output += f"\n🔗 Dataset Run:\n   {self.dataset_run_url}"
+        if self.experiment_url:
+            output += f"\n🔗 Experiment:\n   {self.experiment_url}"
 
         return output
 
@@ -845,7 +880,7 @@ class RunEvaluatorFunction(Protocol):
                 - output: The task function's output for this item
                 - evaluations: List of item-level evaluation results
                 - trace_id: Langfuse trace ID for this execution
-                - dataset_run_id: Dataset run ID (if using Langfuse datasets)
+                - experiment_id: ID of the experiment run
 
                 Note: This list only includes items that were successfully processed.
                 Failed items are excluded but logged separately.
@@ -1106,7 +1141,7 @@ class RunnerContext:
             dataset_version: Optional pinned dataset version. Injected by the
                 action when ``dataset_version`` is configured.
             metadata: Default metadata attached to every experiment trace and
-                the dataset run. The action injects GitHub-sourced tags (SHA,
+                the experiment run. The action injects GitHub-sourced tags (SHA,
                 PR link, workflow run link, branch, GH user, etc.). Merged
                 with any ``metadata`` passed to :meth:`run_experiment`, with
                 user-supplied keys winning on collision.

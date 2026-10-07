@@ -2533,8 +2533,9 @@ class Langfuse:
         Args:
             name: Human-readable name for the experiment. Used for identification
                 in the Langfuse UI.
-            run_name: Optional exact name for the experiment run. If provided, this will be
-                used as the exact dataset run name if the `data` contains Langfuse dataset items.
+            run_name: Optional exact name for the experiment run. If the `data` contains
+                Langfuse dataset items, runs with the same `run_name` on the same dataset
+                share one experiment ID and appear as a single experiment in Langfuse.
                 If not provided, this will default to the experiment name appended with an ISO timestamp.
             description: Optional description explaining the experiment's purpose,
                 methodology, or expected outcomes.
@@ -2558,17 +2559,22 @@ class Langfuse:
                 Controls the number of items processed simultaneously. Adjust based on
                 API rate limits and system resources.
             metadata: Optional metadata dictionary to attach to all experiment traces.
-                This metadata will be included in every trace created during the experiment.
-                If `data` are Langfuse dataset items, the metadata will be attached to the dataset run, too.
+                This metadata will be included in every trace created during the experiment
+                and is shown as the experiment's metadata in Langfuse.
 
         Returns:
             ExperimentResult containing:
-            - run_name: The experiment run name. This is equal to the dataset run name if experiment was on Langfuse dataset.
+            - run_name: The experiment run name, shown as the experiment name in Langfuse.
             - item_results: List of results for each processed item with outputs and evaluations
-            - run_evaluations: List of aggregate evaluation results for the entire run
-            - experiment_id: Stable identifier for the experiment run across all items
-            - dataset_run_id: ID of the dataset run (if using Langfuse datasets)
-            - dataset_run_url: Direct URL to view results in Langfuse UI (if applicable)
+            - run_evaluations: List of aggregate evaluation results for the entire run.
+              They are stored as scores on the experiment run, also for local data.
+            - experiment_id: Identifier for the experiment run across all items. For
+              Langfuse dataset items it is derived from the project ID, dataset ID and
+              run name; for local data it is random.
+            - experiment_url: Direct URL to view results in Langfuse UI (None if the
+              project ID could not be resolved)
+            - dataset_run_id / dataset_run_url: Deprecated aliases of experiment_id /
+              experiment_url
 
         Raises:
             ValueError: If required parameters are missing or invalid
@@ -2666,14 +2672,16 @@ class Langfuse:
             )
 
             # Results automatically linked to dataset in Langfuse UI
-            print(f"View results: {result['dataset_run_url']}")
+            print(f"View results: {result.experiment_url}")
             ```
 
         Note:
             - Task and evaluator functions can be either synchronous or asynchronous
             - Individual item failures are logged but don't stop the experiment
             - All executions are automatically traced and visible in Langfuse UI
-            - When using Langfuse datasets, results are automatically linked for easy comparison
+            - Experiment runs are recorded only through the exported traces; no
+              separate dataset run is created via the API
+            - When using Langfuse datasets, results are automatically linked to the dataset for easy comparison
             - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
             - Async execution is handled automatically with smart event loop detection
         """
@@ -2717,7 +2725,34 @@ class Langfuse:
             "Starting experiment '%s' run '%s' with %s items", name, run_name, len(data)
         )
 
-        shared_fallback_experiment_id = self._create_observation_id()
+        project_id: Optional[str] = None
+        if self._tracing_enabled:
+            try:
+                project_id = await asyncio.to_thread(self._get_project_id)
+            except Exception as e:
+                langfuse_logger.warning(
+                    "Failed to resolve project id for experiment: %s", e
+                )
+
+        # One experiment id per run: mixed-dataset data uses the first dataset item's dataset.
+        experiment_dataset_id = next(
+            (
+                getattr(item, "dataset_id", None)
+                for item in data
+                if not isinstance(item, dict) and getattr(item, "dataset_id", None)
+            ),
+            None,
+        )
+        experiment_id = self._create_experiment_id(
+            project_id=project_id,
+            dataset_id=experiment_dataset_id,
+            run_name=run_name,
+        )
+        experiment_item_version = (
+            self._format_experiment_item_version(dataset_version)
+            if dataset_version is not None
+            else None
+        )
 
         # Set up concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
@@ -2730,12 +2765,12 @@ class Langfuse:
                     task,
                     evaluators,
                     composite_evaluator,
-                    shared_fallback_experiment_id,
+                    experiment_id,
                     name,
                     run_name,
                     description,
                     metadata,
-                    dataset_version,
+                    experiment_item_version,
                 )
 
         # Run all items concurrently
@@ -2761,47 +2796,40 @@ class Langfuse:
             except Exception as e:
                 langfuse_logger.error("Run evaluator failed: %s", e)
 
-        # Generate dataset run URL if applicable
-        dataset_run_id = next(
-            (
-                result.dataset_run_id
-                for result in valid_results
-                if result.dataset_run_id
-            ),
-            None,
+        experiment_url = (
+            f"{self._base_url}/project/{project_id}/experiments/results?baseline={experiment_id}"
+            if project_id
+            else None
         )
-        dataset_run_url = None
-        if dataset_run_id and data:
+
+        # Without an exported item span the experiment does not exist on the server,
+        # so a run score would be orphaned.
+        stored_run_evaluations = (
+            run_evaluations
+            if any(
+                result.trace_id is not None and self._is_trace_sampled(result.trace_id)
+                for result in valid_results
+            )
+            else []
+        )
+        if run_evaluations and not stored_run_evaluations:
+            langfuse_logger.debug(
+                "Skipping run-level scores for experiment %s: all items were sampled out.",
+                experiment_id,
+            )
+
+        # Run-level scores attach to the experiment via dataset_run_id == experiment_id.
+        for evaluation in stored_run_evaluations:
             try:
-                # Check if the first item has dataset_id (for DatasetItem objects)
-                first_item = data[0]
-                dataset_id = None
-
-                if hasattr(first_item, "dataset_id"):
-                    dataset_id = getattr(first_item, "dataset_id", None)
-
-                if dataset_id:
-                    project_id = self._get_project_id()
-
-                    if project_id:
-                        dataset_run_url = f"{self._base_url}/project/{project_id}/datasets/{dataset_id}/runs/{dataset_run_id}"
-
-            except Exception:
-                pass  # URL generation is optional
-
-        # Store run-level evaluations as scores
-        for evaluation in run_evaluations:
-            try:
-                if dataset_run_id:
-                    self.create_score(
-                        dataset_run_id=dataset_run_id,
-                        name=evaluation.name or "<unknown>",
-                        value=evaluation.value,  # type: ignore
-                        comment=evaluation.comment,
-                        metadata=evaluation.metadata,
-                        data_type=evaluation.data_type,  # type: ignore
-                        config_id=evaluation.config_id,
-                    )
+                self.create_score(
+                    dataset_run_id=experiment_id,
+                    name=evaluation.name or "<unknown>",
+                    value=evaluation.value,  # type: ignore
+                    comment=evaluation.comment,
+                    metadata=evaluation.metadata,
+                    data_type=evaluation.data_type,  # type: ignore
+                    config_id=evaluation.config_id,
+                )
 
             except Exception as e:
                 langfuse_logger.error("Failed to store run evaluation: %s", e)
@@ -2815,10 +2843,62 @@ class Langfuse:
             description=description,
             item_results=valid_results,
             run_evaluations=run_evaluations,
-            experiment_id=dataset_run_id or shared_fallback_experiment_id,
-            dataset_run_id=dataset_run_id,
-            dataset_run_url=dataset_run_url,
+            experiment_id=experiment_id,
+            experiment_url=experiment_url,
         )
+
+    def _create_experiment_id(
+        self,
+        *,
+        project_id: Optional[str],
+        dataset_id: Optional[str],
+        run_name: str,
+    ) -> str:
+        if dataset_id is None:
+            return self._create_observation_id()
+
+        if project_id is None:
+            langfuse_logger.warning(
+                "Could not resolve the project id; using a random experiment id for run '%s'. "
+                "Re-runs with the same run name will not be grouped into the same experiment.",
+                run_name,
+            )
+            return self._create_observation_id()
+
+        import json
+
+        # Must match the Langfuse server's stable experiment id derivation byte for
+        # byte (JS JSON.stringify of the same array, SHA-256, first 16 hex chars).
+        payload = json.dumps(
+            ["langfuse-experiment-v1", project_id, dataset_id, run_name],
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+
+        return sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+    def _is_trace_sampled(self, trace_id: str) -> bool:
+        from opentelemetry.sdk.trace.sampling import Decision
+
+        tracer_provider = self._resources.tracer_provider if self._resources else None
+        sampler = getattr(tracer_provider, "sampler", None)
+        if sampler is None:
+            return True
+
+        try:
+            decision = sampler.should_sample(
+                parent_context=None, trace_id=int(trace_id, 16), name="experiment"
+            ).decision
+        except Exception:
+            return True
+
+        return bool(decision == Decision.RECORD_AND_SAMPLE)
+
+    @staticmethod
+    def _format_experiment_item_version(dataset_version: datetime) -> str:
+        from langfuse.api.core.datetime_utils import serialize_datetime
+
+        return serialize_datetime(dataset_version)
 
     async def _process_experiment_item(
         self,
@@ -2826,12 +2906,12 @@ class Langfuse:
         task: Callable,
         evaluators: List[Callable],
         composite_evaluator: Optional[CompositeEvaluatorFunction],
-        fallback_experiment_id: str,
+        experiment_id: str,
         experiment_name: str,
         experiment_run_name: str,
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
-        dataset_version: Optional[datetime] = None,
+        experiment_item_version: Optional[str] = None,
     ) -> ExperimentItemResult:
         with self.start_as_current_observation(name="experiment-item-run") as span:
             try:
@@ -2866,7 +2946,6 @@ class Langfuse:
                 trace_id = span.trace_id
                 dataset_id = None
                 dataset_item_id = None
-                dataset_run_id = None
 
                 if (
                     not isinstance(item, dict)
@@ -2891,6 +2970,9 @@ class Langfuse:
                         LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT: _serialize(
                             expected_output
                         ),
+                        LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_VERSION: (
+                            experiment_item_version if dataset_id else None
+                        ),
                     }.items()
                     if v is not None
                 }
@@ -2904,32 +2986,6 @@ class Langfuse:
                 ) as task_span:
                     task_span._otel_span.set_attributes(experiment_span_attributes)
 
-                    # Link dataset runs to the canonical task observation so their
-                    # latency excludes the subsequent evaluator subtree.
-                    if hasattr(item, "id") and hasattr(item, "dataset_id"):
-                        try:
-                            # Use sync API to avoid event loop issues when
-                            # run_async_safely creates multiple event loops across
-                            # different threads.
-                            dataset_run_item = await asyncio.to_thread(
-                                self.api.dataset_run_items.create,
-                                run_name=experiment_run_name,
-                                run_description=experiment_description,
-                                metadata=experiment_metadata,
-                                dataset_item_id=item.id,  # type: ignore
-                                trace_id=trace_id,
-                                observation_id=task_span.id,
-                                dataset_version=dataset_version,
-                            )
-
-                            dataset_run_id = dataset_run_item.dataset_run_id
-
-                        except Exception as e:
-                            langfuse_logger.error(
-                                "Failed to create dataset run item: %s", e
-                            )
-
-                    experiment_id = dataset_run_id or fallback_experiment_id
                     propagated_experiment_attributes = PropagatedExperimentAttributes(
                         experiment_id=experiment_id,
                         experiment_name=experiment_run_name,
@@ -3131,7 +3187,7 @@ class Langfuse:
                 output=output,
                 evaluations=evaluations,
                 trace_id=trace_id,
-                dataset_run_id=dataset_run_id,
+                experiment_id=experiment_id,
             )
 
     def _create_experiment_run_name(
