@@ -750,3 +750,44 @@ class TestExperimentResultAliases:
 
         assert item_result.experiment_id == "legacy"
         assert result.experiment_url == "http://legacy"
+
+
+class TestExperimentRunScoreGating:
+    def test_run_scores_skipped_when_all_items_are_sampled_out(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        from opentelemetry.sdk.trace.sampling import ALWAYS_OFF
+
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+        monkeypatch.setattr(
+            langfuse_memory_client._resources.tracer_provider, "sampler", ALWAYS_OFF
+        )
+        monkeypatch.setattr(langfuse_memory_client._otel_tracer, "sampler", ALWAYS_OFF)
+
+        result = langfuse_memory_client.run_experiment(
+            name="exp",
+            data=[{"input": "a"}, {"input": "b"}],
+            task=lambda *, item, **kwargs: item["input"],
+            run_evaluators=[lambda **kwargs: Evaluation(name="run", value=1.0)],
+        )
+
+        assert [e.name for e in result.run_evaluations] == ["run"]
+        assert _run_scores(create_score) == []
+
+    def test_tracing_disabled_skips_project_id_lookup(self, monkeypatch):
+        client = Langfuse(
+            public_key="pk", secret_key="sk", base_url="http://x", tracing_enabled=False
+        )
+        get_project_id = MagicMock(return_value="p")
+        monkeypatch.setattr(client, "_get_project_id", get_project_id)
+
+        result = client.run_experiment(
+            name="exp",
+            data=[{"input": "a"}],
+            task=lambda *, item, **kwargs: item["input"],
+        )
+
+        get_project_id.assert_not_called()
+        assert result.experiment_url is None

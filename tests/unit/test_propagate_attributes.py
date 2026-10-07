@@ -507,6 +507,22 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
         assert "value is not a string. Dropping value." not in caplog.text
 
+    def test_large_integer_metadata_keeps_its_digits(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify integers beyond JS's safe range are sent as plain digits."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"snowflake_id": 9007199254740993}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.snowflake_id",
+            "9007199254740993",
+        )
+
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
