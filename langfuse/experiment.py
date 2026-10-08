@@ -5,7 +5,7 @@ allowing users to run experiments on datasets with automatic tracing, evaluation
 and result formatting.
 """
 
-import asyncio
+import inspect
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -1007,7 +1007,7 @@ async def _run_evaluator(
         result = evaluator(**kwargs)
 
         # Handle async evaluators
-        if asyncio.iscoroutine(result):
+        if inspect.isawaitable(result):
             result = await result
 
         return _normalize_evaluator_result(result)
@@ -1026,7 +1026,7 @@ async def _run_task(task: TaskFunction, item: ExperimentItem) -> Any:
     result = task(item=item)
 
     # Handle async tasks
-    if asyncio.iscoroutine(result):
+    if inspect.isawaitable(result):
         result = await result
 
     return result
