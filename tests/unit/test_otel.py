@@ -1545,17 +1545,15 @@ class TestMetadataHandling(TestOTelBase):
 
     def test_complex_metadata_serialization(self):
         """Test the _flatten_and_serialize_metadata function directly."""
-        from langfuse._client.attributes import (
-            _flatten_and_serialize_metadata,
-            _serialize,
-        )
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
 
         # Test case 1: Non-dict metadata
         non_dict_result = _flatten_and_serialize_metadata("string-value", "observation")
         assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA in non_dict_result
-        assert non_dict_result[
-            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
-        ] == _serialize("string-value")
+        assert (
+            non_dict_result[LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+            == '"string-value"'
+        )
 
         # Test case 2: Simple dict
         simple_dict = {"key1": "value1", "key2": 123}
@@ -2070,6 +2068,25 @@ class TestMetadataHandling(TestOTelBase):
 
         assert attributes[f"{prefix}.keep"] == '"first"'
         assert attributes[f"{prefix}.other"] == "2"
+
+    @pytest.mark.parametrize(
+        "metadata, expected",
+        [("foo", '"foo"'), (5, "5"), ([1, "a", None], '[1, "a", null]')],
+    )
+    def test_non_dict_metadata_is_json_encoded(
+        self, langfuse_client, memory_exporter, metadata, expected
+    ):
+        """Non-dict metadata is sent JSON-encoded on the bare key, strings included."""
+        with langfuse_client.start_as_current_observation(
+            name="non-dict-metadata-span", metadata=metadata
+        ):
+            pass
+
+        attributes = self.get_spans_by_name(memory_exporter, "non-dict-metadata-span")[
+            0
+        ]["attributes"]
+
+        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_METADATA] == expected
 
     def test_flatten_metadata_trace_prefix_uses_same_encoding(self):
         """The trace prefix variant encodes values the same way."""

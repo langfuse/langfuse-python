@@ -198,7 +198,11 @@ def _flatten_and_serialize_metadata(
     metadata_attributes: Dict[str, Optional[str]] = {}
 
     if not isinstance(metadata, dict):
-        metadata_attributes[prefix] = _serialize(metadata)
+        # JSON-encode non-dict metadata too, strings included, matching the
+        # per-key values below. None stays None so it is not written.
+        metadata_attributes[prefix] = (
+            None if metadata is None else json.dumps(metadata, cls=EventSerializer)
+        )
     else:
         for key, value in metadata.items():
             # Skip None so an update does not overwrite an earlier value.
