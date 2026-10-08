@@ -1030,6 +1030,9 @@ class Langfuse:
 
         The created observation will be the child of the current span in the context.
 
+        An asyncio.CancelledError escaping the context marks the observation as ERROR
+        with the cancellation message and is re-raised to preserve task cancellation.
+
         Args:
             trace_context: Optional context for connecting to an existing trace
             name: Name of the observation (e.g., function or operation name)
@@ -1389,7 +1392,16 @@ class Langfuse:
                     )
                 # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
 
-                yield span_class(**common_args)  # type: ignore[arg-type]
+                observation = span_class(**common_args)  # type: ignore[arg-type]
+                try:
+                    yield observation
+                except asyncio.CancelledError as error:
+                    if otel_span.is_recording():
+                        observation.update(
+                            level="ERROR",
+                            status_message=str(error) or type(error).__name__,
+                        )
+                    raise
 
             finally:
                 if baggage_token is not None:
