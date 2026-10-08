@@ -215,7 +215,10 @@ def test_default_exporter_uses_64_mib_limit_when_env_unset(monkeypatch):
         processor.shutdown()
 
 
-@pytest.mark.parametrize("raw_value", ["0", "-5", "abc", "1.5"])
+@pytest.mark.parametrize(
+    "raw_value",
+    ["0", "-5", "abc", "1.5", pytest.param("9" * 5000, id="overlong-digits")],
+)
 def test_invalid_max_batch_size_bytes_falls_back_to_default_limit(
     monkeypatch, caplog, raw_value
 ):
