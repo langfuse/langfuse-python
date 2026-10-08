@@ -2947,7 +2947,6 @@ class Langfuse:
                     name="experiment-item-task",
                     as_type="span",
                     input=input_data,
-                    metadata=final_observation_metadata,
                 ) as task_span:
                     _set_span_attributes_within_limit(
                         task_span._otel_span, experiment_span_attributes
@@ -2976,6 +2975,10 @@ class Langfuse:
                                 otel_context_api.get_current()
                             ),
                         )
+                        # Write the observation metadata after the experiment
+                        # attributes, so the span attribute limit trims the
+                        # metadata instead of leaving no room for the output.
+                        task_span.update(metadata=final_observation_metadata)
                         try:
                             output = await _run_task(task, item)
                         except Exception as e:

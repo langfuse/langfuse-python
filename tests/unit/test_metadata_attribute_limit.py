@@ -8,11 +8,13 @@ do not fit. Metadata also leaves room for the reserved observation attributes
 that later updates may write.
 """
 
+import json
 import logging
 from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
+from opentelemetry.trace import format_span_id
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
@@ -497,18 +499,20 @@ def test_hard_guard_never_raises():
     assert _drop_attributes_over_span_limit(span, attributes) is attributes
 
 
-def test_experiment_run_keys_survive_metadata_truncation(
-    langfuse_memory_client, get_span
+def test_experiment_with_large_metadata_keeps_output_and_experiment_attributes(
+    langfuse_memory_client, get_span, find_spans, caplog
 ):
+    item_metadata = {
+        "experiment_name": "user-value",
+        "nested": {"a": 1, "b": {"c": "d"}},
+        **{f"item_{i}": str(i) for i in range(150)},
+    }
     item = DatasetItem(
         id="item-1",
         status=DatasetStatus.ACTIVE,
         input="question",
         expected_output="answer",
-        metadata={
-            "experiment_name": "user-value",
-            **{f"item_{i}": str(i) for i in range(150)},
-        },
+        metadata=item_metadata,
         source_trace_id=None,
         source_observation_id=None,
         dataset_id="dataset-1",
@@ -518,28 +522,81 @@ def test_experiment_run_keys_survive_metadata_truncation(
         media_references=[],
     )
 
-    langfuse_memory_client.run_experiment(
+    def task(**kwargs):
+        langfuse_memory_client.start_observation(name="task-child").end()
+        return "the answer"
+
+    result = langfuse_memory_client.run_experiment(
         name="big-metadata-experiment",
         data=[item],
-        task=lambda **kwargs: "answer",
+        task=task,
+        metadata={"run": "metadata"},
         max_concurrency=1,
     )
     langfuse_memory_client.flush()
 
     task_span = get_span("experiment-item-task")
+    task_span_id = format_span_id(task_span.context.span_id)
     attributes = task_span.attributes
     assert task_span.dropped_attributes == 0
-    assert 0 < len(_metadata_keys(task_span)) < 151
     assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "question"
-    # The run value wins over the user key of the same name.
-    assert attributes[f"{METADATA_PREFIX}experiment_name"] == "big-metadata-experiment"
-    assert attributes[f"{METADATA_PREFIX}experiment_run_name"].startswith(
-        "big-metadata-experiment"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "the answer"
+
+    # Copied experiment metadata is one JSON attribute each, never trimmed.
+    assert (
+        json.loads(attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA])
+        == item_metadata
     )
+    assert json.loads(attributes[LangfuseOtelSpanAttributes.EXPERIMENT_METADATA]) == {
+        "run": "metadata"
+    }
+    assert not [
+        key
+        for key in attributes
+        if key.startswith(LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA + ".")
+    ]
+    assert attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID] == result.experiment_id
+    assert attributes[LangfuseOtelSpanAttributes.EXPERIMENT_NAME] == result.run_name
+    assert attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ID] == "item-1"
+    assert (
+        attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID]
+        == task_span_id
+    )
+
+    # Observation metadata is trimmed, but the run keys survive and the run
+    # value wins over the user key of the same name.
+    assert 0 < len(_metadata_keys(task_span)) < len(item_metadata) + 4
+    assert attributes[f"{METADATA_PREFIX}experiment_name"] == "big-metadata-experiment"
+    assert attributes[f"{METADATA_PREFIX}experiment_run_name"] == result.run_name
     assert attributes[f"{METADATA_PREFIX}dataset_id"] == "dataset-1"
     assert attributes[f"{METADATA_PREFIX}dataset_item_id"] == "item-1"
     assert f"{METADATA_PREFIX}item_149" not in attributes
 
     item_run = get_span("experiment-item-run")
     assert item_run.dropped_attributes == 0
-    assert LangfuseOtelSpanAttributes.EXPERIMENT_ID in item_run.attributes
+    assert item_run.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == (
+        "the answer"
+    )
+    assert (
+        item_run.attributes[f"{METADATA_PREFIX}experiment_run_name"] == result.run_name
+    )
+    assert LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA in item_run.attributes
+
+    (child,) = find_spans("task-child")
+    assert child.dropped_attributes == 0
+    assert len(child.attributes) < 30
+    assert (
+        json.loads(
+            child.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA]
+        )
+        == item_metadata
+    )
+    assert (
+        child.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_METADATA]
+        == attributes[LangfuseOtelSpanAttributes.EXPERIMENT_METADATA]
+    )
+
+    # Only the observation metadata of the task and item-run spans is trimmed.
+    warnings = _limit_warnings(caplog)
+    assert warnings
+    assert all("other attribute(s)" not in w.getMessage() for w in warnings)
