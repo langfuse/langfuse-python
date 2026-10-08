@@ -716,9 +716,6 @@ def _create_langfuse_update(
     if model is not None:
         update["model"] = model
 
-    if metadata is not None:
-        update["metadata"] = metadata
-
     if model_parameters is not None:
         update["model_parameters"] = model_parameters
 
@@ -726,13 +723,15 @@ def _create_langfuse_update(
         update["usage_details"] = _parse_usage(usage)
         update["cost_details"] = _parse_cost(usage)
 
-    try:
-        generation.update(**update)
-    except ObservationMetadataKeyLimitError as e:
-        # Drop the metadata, not the output and usage of the whole update
-        logger.warning("Dropping observation metadata: %s", e)
-        update.pop("metadata", None)
-        generation.update(**update)
+    generation.update(**update)
+
+    # Updated separately, so that metadata over the key limit drops only the
+    # metadata, and the output isn't masked and processed for media twice
+    if metadata is not None:
+        try:
+            generation.update(metadata=metadata)
+        except ObservationMetadataKeyLimitError as e:
+            logger.warning("Dropping observation metadata: %s", e)
 
 
 def _parse_usage(usage: Optional[Any] = None) -> Any:

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 import langfuse.openai as lf_openai_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.span import LangfuseGeneration
 from langfuse.openai import openai as lf_openai
 
 
@@ -620,6 +621,40 @@ def test_openai_stream_keeps_output_when_metadata_exceeds_key_limit(
     metadata = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_METADATA)
     assert len(metadata) == 128
     assert "finish_reason" not in metadata
+
+
+def test_openai_stream_processes_output_once_when_metadata_exceeds_key_limit(
+    langfuse_memory_client, get_span
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    raw_stream = DummyOpenAIStream(_make_chat_stream_chunks(), DummySyncResponse())
+    process = LangfuseGeneration._process_media_and_apply_mask
+    processed_fields = []
+
+    def spy(self, *, data=None, field, span):
+        if data is not None:
+            processed_fields.append(field)
+        return process(self, data=data, field=field, span=span)
+
+    with (
+        patch.object(LangfuseGeneration, "_process_media_and_apply_mask", spy),
+        patch.object(openai_client.chat.completions, "_post", return_value=raw_stream),
+    ):
+        stream = openai_client.chat.completions.create(
+            name="unit-openai-stream-wide-metadata-once",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            stream=True,
+            metadata={f"key_{i}": i for i in range(128)},
+        )
+        list(stream)
+        stream.close()
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-stream-wide-metadata-once")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert processed_fields.count("output") == 1
 
 
 def test_openai_stream_preserves_original_stream_contract(
