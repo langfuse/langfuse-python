@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from hashlib import sha256
 from typing import List, Sequence
@@ -2068,6 +2069,25 @@ class TestMetadataHandling(TestOTelBase):
 
         assert attributes[f"{prefix}.keep"] == '"first"'
         assert attributes[f"{prefix}.other"] == "2"
+
+    def test_none_metadata_value_is_debug_logged(self, caplog):
+        """Skipped None values are logged at debug level, non-None keys are not."""
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
+
+        caplog.set_level(logging.DEBUG, logger="langfuse")
+
+        _flatten_and_serialize_metadata(
+            {"keep": None, "other": 2, "text": "x"}, "observation"
+        )
+
+        messages = [
+            record.getMessage()
+            for record in caplog.records
+            if record.name == "langfuse"
+        ]
+        assert messages == [
+            'Observation metadata key "keep" was not written because its value is None'
+        ]
 
     @pytest.mark.parametrize(
         "metadata, expected",

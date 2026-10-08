@@ -20,6 +20,7 @@ from langfuse._client.constants import (
 )
 from langfuse._utils.serializer import EventSerializer
 from langfuse.api import MapValue
+from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
 from langfuse.types import SpanLevel
 
@@ -214,6 +215,10 @@ def _flatten_and_serialize_metadata(
         for key, value in metadata.items():
             # Skip None so an update does not overwrite an earlier value.
             if value is None:
+                langfuse_logger.debug(
+                    'Observation metadata key "%s" was not written because its value is None',
+                    key,
+                )
                 continue
 
             # JSON-encode every value, strings included, so the server can decode
