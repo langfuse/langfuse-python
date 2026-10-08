@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Sequence, TypeVar
 from uuid import uuid4
 
+from langfuse._version import __version__ as langfuse_version
 from langfuse.api import LangfuseAPI, ObservationV2, ScoreV3
 from tests.support.retry import (
     DEFAULT_RETRY_INTERVAL_SECONDS,
@@ -36,6 +37,19 @@ _EMPTY_AS_NONE_FIELDS = (
     "release",
 )
 _SDK_METADATA_KEY_PREFIXES = ("scope.", "resourceAttributes.")
+
+# The server JSON-decodes per-key observation metadata values only for Python
+# SDK major >= 5 (langfuse/langfuse#18436). Older SDK versions read back the raw
+# JSON string on endpoints that do not parse metadata values on read.
+_SERVER_DECODES_METADATA_VALUES = int(langfuse_version.split(".")[0]) >= 5
+
+
+def raw_metadata_value(value: Any) -> Any:
+    """Per-key metadata value as stored by the server for this SDK version."""
+    if _SERVER_DECODES_METADATA_VALUES:
+        return value
+
+    return json.dumps(value)
 
 
 def _has_filters(kwargs: dict[str, Any]) -> bool:
