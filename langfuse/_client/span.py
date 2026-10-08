@@ -66,6 +66,27 @@ def _is_observation_metadata_key(key: str) -> bool:
     return key == prefix or key.startswith(prefix + ".")
 
 
+# Attributes the SDK may write in later updates of an observation. Metadata
+# leaves room for them, so that a later update (e.g. the output) does not make
+# the OTel SDK evict an earlier attribute. Mirrors langfuse-js.
+_RESERVED_OBSERVATION_ATTRIBUTE_KEYS = (
+    LangfuseOtelSpanAttributes.OBSERVATION_TYPE,
+    LangfuseOtelSpanAttributes.OBSERVATION_LEVEL,
+    LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE,
+    LangfuseOtelSpanAttributes.VERSION,
+    LangfuseOtelSpanAttributes.ENVIRONMENT,
+    LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
+    LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
+    LangfuseOtelSpanAttributes.OBSERVATION_MODEL,
+    LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS,
+    LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS,
+    LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME,
+    LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS,
+    LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
+    LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+)
+
+
 def _drop_metadata_over_attribute_limit(
     span: otel_trace_api.Span, attributes: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -73,6 +94,8 @@ def _drop_metadata_over_attribute_limit(
 
     The OTel SDK evicts the oldest attribute once a span is full, which would
     drop Langfuse core attributes (input, model, ...) written before metadata.
+    The budget counts the attributes already on the span, the new keys, and
+    the reserved keys not yet on the span, which later updates may still write.
     Existing keys and non-metadata attributes are always kept; excess new
     metadata keys are dropped from the tail. Spans without SDK limits (e.g.
     non-recording spans) are left untouched.
@@ -89,12 +112,19 @@ def _drop_metadata_over_attribute_limit(
         for key, value in attributes.items()
         if value is not None and key not in existing
     ]
-    if len(existing) + len(new_keys) <= max_attributes:
+    new_key_set = set(new_keys)
+    reserved_count = sum(
+        1
+        for key in _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
+        if key not in existing and key not in new_key_set
+    )
+    used_count = len(existing) + reserved_count
+    if used_count + len(new_keys) <= max_attributes:
         return attributes
 
     new_metadata_keys = [key for key in new_keys if _is_observation_metadata_key(key)]
     free_slots = max(
-        0, max_attributes - len(existing) - (len(new_keys) - len(new_metadata_keys))
+        0, max_attributes - used_count - (len(new_keys) - len(new_metadata_keys))
     )
     dropped = new_metadata_keys[free_slots:]
     if not dropped:

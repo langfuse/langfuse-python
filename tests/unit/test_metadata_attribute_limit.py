@@ -2,7 +2,8 @@
 
 The OTel SDK evicts the oldest attribute once a span holds more than
 ``SpanLimits.max_span_attributes`` attributes. Langfuse core attributes are
-written first, so unbounded metadata used to evict them.
+written first, so unbounded metadata used to evict them. Metadata also leaves
+room for the reserved observation attributes that later updates may write.
 """
 
 import logging
@@ -11,12 +12,21 @@ import pytest
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.span import _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
 
 METADATA_PREFIX = LangfuseOtelSpanAttributes.OBSERVATION_METADATA + "."
 
 
 def _metadata_keys(span):
     return [key for key in span.attributes if key.startswith(METADATA_PREFIX)]
+
+
+def _missing_reserved_keys(span):
+    return [
+        key
+        for key in _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
+        if key not in span.attributes
+    ]
 
 
 def _limit_warnings(caplog):
@@ -31,7 +41,7 @@ def _limit_warnings(caplog):
 
 @pytest.fixture
 def small_limit_client(monkeypatch, request):
-    monkeypatch.setenv("OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT", "20")
+    monkeypatch.setenv("OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT", "40")
     return request.getfixturevalue("langfuse_memory_client")
 
 
@@ -94,7 +104,7 @@ def test_update_over_limit_keeps_earlier_attributes(
     span = get_span("updated-span")
     attributes = span.attributes
 
-    assert len(attributes) == 128
+    assert len(attributes) + len(_missing_reserved_keys(span)) == 128
     assert span.dropped_attributes == 0
     assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "the input"
     assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "the output"
@@ -132,7 +142,9 @@ def test_overwriting_existing_metadata_keys_at_limit_is_allowed(
         name="overwrite-span", metadata={f"key_{i}": "old" for i in range(30)}
     )
     span_at_start = span_wrapper._otel_span
-    assert len(span_at_start.attributes) == 20
+    assert (
+        len(span_at_start.attributes) + len(_missing_reserved_keys(span_at_start)) == 40
+    )
     kept = _metadata_keys(span_at_start)
     caplog.clear()
 
@@ -142,7 +154,7 @@ def test_overwriting_existing_metadata_keys_at_limit_is_allowed(
 
     span = get_span("overwrite-span")
     assert span.dropped_attributes == 0
-    assert len(span.attributes) == 20
+    assert len(span.attributes) == len(span_at_start.attributes)
     for key in kept:
         assert span.attributes[key] == "new"
     assert _limit_warnings(caplog) == []
@@ -158,14 +170,14 @@ def test_custom_smaller_span_limit_is_respected(small_limit_client, get_span, ca
     small_limit_client.flush()
 
     span = get_span("small-limit-span")
-    assert len(span.attributes) == 20
+    assert len(span.attributes) + len(_missing_reserved_keys(span)) == 40
     assert span.dropped_attributes == 0
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "the input"
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "span"
 
     warnings = _limit_warnings(caplog)
     assert len(warnings) == 1
-    assert "20" in warnings[0].getMessage()
+    assert "40" in warnings[0].getMessage()
 
 
 def test_propagated_trace_attributes_count_toward_limit(
@@ -186,7 +198,7 @@ def test_propagated_trace_attributes_count_toward_limit(
 
     span = get_span("propagated-span")
     attributes = span.attributes
-    assert len(attributes) == 20
+    assert len(attributes) + len(_missing_reserved_keys(span)) == 40
     assert span.dropped_attributes == 0
     assert attributes[LangfuseOtelSpanAttributes.TRACE_USER_ID] == "user-1"
     assert attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID] == "session-1"
@@ -212,3 +224,66 @@ def test_metadata_under_limit_is_unchanged(langfuse_memory_client, get_span, cap
         assert span.attributes[f"{METADATA_PREFIX}key_{i}"] == i
     assert span.attributes[f"{METADATA_PREFIX}extra"] == "value"
     assert _limit_warnings(caplog) == []
+
+
+def test_later_updates_do_not_evict_attributes_after_metadata_cap(
+    langfuse_memory_client, get_span, caplog
+):
+    generation = langfuse_memory_client.start_observation(
+        name="capped-generation",
+        as_type="generation",
+        input="the input",
+        model="gpt-4o",
+        metadata={f"key_{i}": i for i in range(130)},
+    )
+    generation.update(output="the output")
+    generation.update(
+        usage_details={"input": 10, "output": 20},
+        cost_details={"input": 0.1, "output": 0.2},
+    )
+    generation.end()
+    langfuse_memory_client.flush()
+
+    span = get_span("capped-generation")
+    attributes = span.attributes
+
+    assert span.dropped_attributes == 0
+    assert attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "the input"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "the output"
+    assert LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS in attributes
+    assert LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS in attributes
+    assert len(attributes) + len(_missing_reserved_keys(span)) == 128
+    assert len(_limit_warnings(caplog)) == 1
+
+
+def test_reserved_keys_already_written_cost_no_extra_slot(small_limit_client, get_span):
+    metadata = {f"key_{i}": i for i in range(50)}
+    reserved_values = {
+        "input": "the input",
+        "output": "the output",
+        "version": "v1",
+        "level": "WARNING",
+        "status_message": "careful",
+    }
+
+    small_limit_client.start_observation(name="metadata-only", metadata=metadata).end()
+    small_limit_client.start_observation(
+        name="reserved-in-same-write", metadata=metadata, **reserved_values
+    ).end()
+    small_limit_client.start_observation(
+        name="reserved-already-on-span", **reserved_values
+    ).update(metadata=metadata).end()
+    small_limit_client.flush()
+
+    kept_counts = {
+        name: len(_metadata_keys(get_span(name)))
+        for name in (
+            "metadata-only",
+            "reserved-in-same-write",
+            "reserved-already-on-span",
+        )
+    }
+    assert 0 < kept_counts["metadata-only"] < 50
+    assert len(set(kept_counts.values())) == 1, kept_counts
