@@ -932,3 +932,147 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+
+def test_placeholder_message_with_non_string_content():
+    """Placeholder history messages may carry non-string content.
+
+    An assistant tool-call turn has content=None and a multimodal message has a
+    list of content parts. Both are legitimate OpenAI message shapes and must be
+    preserved instead of being fed to the string template parser (which would
+    raise TypeError on None and AttributeError on a list).
+    """
+    prompt_client = ChatPromptClient(
+        Prompt_Chat(
+            type="chat",
+            name="placeholder_non_string_content",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"type": "placeholder", "name": "message_history"},
+                {"role": "user", "content": "Help me with {{task}}"},
+            ],
+        ),
+    )
+
+    message_history = [
+        {"role": "user", "content": "What is the weather in SF?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city": "SF"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "content": "72F sunny", "tool_call_id": "call_1"},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "And this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,AAAA"},
+                },
+            ],
+        },
+    ]
+
+    compiled = prompt_client.compile(task="weather", message_history=message_history)
+
+    assert len(compiled) == 6
+
+    # Assistant tool-call turn: None content preserved, tool_calls intact
+    assert compiled[2]["role"] == "assistant"
+    assert compiled[2]["content"] is None
+    assert compiled[2]["tool_calls"][0]["id"] == "call_1"
+    assert compiled[2]["tool_calls"][0]["function"]["name"] == "get_weather"
+
+    # Multimodal list content preserved untouched
+    assert compiled[4]["role"] == "user"
+    assert compiled[4]["content"] == [
+        {"type": "text", "text": "And this image?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+    ]
+
+    # String content in the injected history and the trailing message still templated
+    assert compiled[1]["content"] == "What is the weather in SF?"
+    assert compiled[5]["content"] == "Help me with weather"
+
+
+def test_get_langchain_prompt_with_non_string_placeholder_content():
+    """get_langchain_prompt() must not crash on non-string placeholder content.
+
+    It compiles first (which preserves None / list content) and then converts
+    each message to a LangChain (role, content) tuple. The string-only converter
+    would raise TypeError on a tool-call turn (content=None) or a multimodal list.
+    """
+    from langchain_core.prompts import ChatPromptTemplate
+
+    prompt_client = ChatPromptClient(
+        Prompt_Chat(
+            type="chat",
+            name="langchain_non_string_content",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"type": "placeholder", "name": "message_history"},
+                {"role": "user", "content": "Help me with {{task}}"},
+            ],
+        ),
+    )
+
+    message_history = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "get_weather", "arguments": "{}"},
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "And this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,AAAA"},
+                },
+            ],
+        },
+    ]
+
+    lc_messages = prompt_client.get_langchain_prompt(
+        task="weather", message_history=message_history
+    )
+
+    # None normalized to "" (LangChain's tool-call convention), list preserved
+    assert ("assistant", "") in lc_messages
+    assert (
+        "user",
+        [
+            {"type": "text", "text": "And this image?"},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+        ],
+    ) in lc_messages
+    # Trailing string message: {{task}} compiled from kwargs, then converted
+    assert ("user", "Help me with weather") in lc_messages
+
+    # The result must be consumable by LangChain without raising
+    ChatPromptTemplate.from_messages(lc_messages).format_messages()
