@@ -22,6 +22,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     Type,
     Union,
     cast,
@@ -69,8 +70,10 @@ def _is_observation_metadata_key(key: str) -> bool:
 
 # Attributes the SDK may write in later updates of an observation. Metadata
 # leaves room for them, so that a later update (e.g. the output) still fits
-# into the span. Mirrors langfuse-js.
-_RESERVED_OBSERVATION_ATTRIBUTE_KEYS = (
+# into the span. Span-like observations and events only use the shared keys;
+# generation-like observations, and writes whose observation type is unknown,
+# also reserve the model keys. Mirrors langfuse-js.
+_RESERVED_SPAN_ATTRIBUTE_KEYS: Tuple[str, ...] = (
     LangfuseOtelSpanAttributes.OBSERVATION_TYPE,
     LangfuseOtelSpanAttributes.OBSERVATION_LEVEL,
     LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE,
@@ -78,6 +81,9 @@ _RESERVED_OBSERVATION_ATTRIBUTE_KEYS = (
     LangfuseOtelSpanAttributes.ENVIRONMENT,
     LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
     LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
+)
+_RESERVED_OBSERVATION_ATTRIBUTE_KEYS: Tuple[str, ...] = (
+    *_RESERVED_SPAN_ATTRIBUTE_KEYS,
     LangfuseOtelSpanAttributes.OBSERVATION_MODEL,
     LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS,
     LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS,
@@ -88,8 +94,20 @@ _RESERVED_OBSERVATION_ATTRIBUTE_KEYS = (
 )
 
 
+def _reserved_attribute_keys(observation_type: Optional[str]) -> Tuple[str, ...]:
+    if (
+        observation_type in get_observation_types_list(ObservationTypeSpanLike)
+        or observation_type == "event"
+    ):
+        return _RESERVED_SPAN_ATTRIBUTE_KEYS
+
+    return _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
+
+
 def _drop_attributes_over_span_limit(
-    span: otel_trace_api.Span, attributes: Dict[str, Any]
+    span: otel_trace_api.Span,
+    attributes: Dict[str, Any],
+    reserved_keys: Tuple[str, ...] = _RESERVED_OBSERVATION_ATTRIBUTE_KEYS,
 ) -> Dict[str, Any]:
     """Drop new attributes that would exceed the span's attribute limit.
 
@@ -101,6 +119,8 @@ def _drop_attributes_over_span_limit(
     1. Metadata budget: counts the attributes already on the span, the new
        keys, and the reserved keys not yet on the span, which later updates
        may still write. Excess new metadata keys are dropped from the tail.
+       ``reserved_keys`` defaults to the full generation set, the safe choice
+       when the observation type is unknown.
     2. Hard guard: if the remaining new keys still exceed the physical
        capacity (limit minus attributes already on the span), the excess new
        keys are dropped from the tail. Reserved slots do not apply here, so
@@ -125,9 +145,7 @@ def _drop_attributes_over_span_limit(
         ]
         new_key_set = set(new_keys)
         reserved_count = sum(
-            1
-            for key in _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
-            if key not in existing and key not in new_key_set
+            1 for key in reserved_keys if key not in existing and key not in new_key_set
         )
         if len(existing) + reserved_count + len(new_keys) <= max_attributes:
             return attributes
@@ -218,10 +236,14 @@ def _warn_dropped_attributes(
 
 
 def _set_span_attributes_within_limit(
-    span: otel_trace_api.Span, attributes: Dict[str, Any]
+    span: otel_trace_api.Span,
+    attributes: Dict[str, Any],
+    reserved_keys: Tuple[str, ...] = _RESERVED_OBSERVATION_ATTRIBUTE_KEYS,
 ) -> None:
     """Set attributes on a span without evicting existing attributes."""
-    span.set_attributes(_drop_attributes_over_span_limit(span, attributes))
+    span.set_attributes(
+        _drop_attributes_over_span_limit(span, attributes, reserved_keys)
+    )
 
 
 class LangfuseObservationWrapper:
@@ -284,8 +306,11 @@ class LangfuseObservationWrapper:
             prompt: Associated prompt template from Langfuse prompt management
         """
         self._otel_span = otel_span
+        reserved_keys = _reserved_attribute_keys(as_type)
         _set_span_attributes_within_limit(
-            self._otel_span, {LangfuseOtelSpanAttributes.OBSERVATION_TYPE: as_type}
+            self._otel_span,
+            {LangfuseOtelSpanAttributes.OBSERVATION_TYPE: as_type},
+            reserved_keys,
         )
         self._langfuse_client = langfuse_client
         self._observation_type = as_type
@@ -303,12 +328,15 @@ class LangfuseObservationWrapper:
             _set_span_attributes_within_limit(
                 self._otel_span,
                 {LangfuseOtelSpanAttributes.ENVIRONMENT: self._environment},
+                reserved_keys,
             )
 
         self._release = release or self._langfuse_client._release
         if self._release is not None:
             _set_span_attributes_within_limit(
-                self._otel_span, {LangfuseOtelSpanAttributes.RELEASE: self._release}
+                self._otel_span,
+                {LangfuseOtelSpanAttributes.RELEASE: self._release},
+                reserved_keys,
             )
 
         # Handle media only if span is sampled
@@ -370,6 +398,7 @@ class LangfuseObservationWrapper:
             _set_span_attributes_within_limit(
                 self._otel_span,
                 {k: v for k, v in attributes.items() if v is not None},
+                reserved_keys,
             )
             # Set OTEL span status if level is ERROR
             self._set_otel_span_status_if_error(
@@ -406,7 +435,11 @@ class LangfuseObservationWrapper:
 
         attributes = create_trace_attributes(public=True)
 
-        _set_span_attributes_within_limit(self._otel_span, attributes)
+        _set_span_attributes_within_limit(
+            self._otel_span,
+            attributes,
+            _reserved_attribute_keys(self._observation_type),
+        )
 
         return self
 
@@ -646,7 +679,11 @@ class LangfuseObservationWrapper:
             )
         )
 
-        _set_span_attributes_within_limit(span, media_processed_attributes)
+        _set_span_attributes_within_limit(
+            span,
+            media_processed_attributes,
+            _reserved_attribute_keys(as_type or self._observation_type),
+        )
 
     def _process_media_and_apply_mask(
         self,
@@ -846,7 +883,11 @@ class LangfuseObservationWrapper:
                 ),
             )
 
-        _set_span_attributes_within_limit(self._otel_span, attributes)
+        _set_span_attributes_within_limit(
+            self._otel_span,
+            attributes,
+            _reserved_attribute_keys(self._observation_type),
+        )
         # Set OTEL span status if level is ERROR
         self._set_otel_span_status_if_error(level=level, status_message=status_message)
 

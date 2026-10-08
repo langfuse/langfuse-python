@@ -18,7 +18,9 @@ from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.span import (
     _RESERVED_OBSERVATION_ATTRIBUTE_KEYS,
+    _RESERVED_SPAN_ATTRIBUTE_KEYS,
     _drop_attributes_over_span_limit,
+    _reserved_attribute_keys,
 )
 from langfuse.api import DatasetItem, DatasetStatus
 
@@ -30,9 +32,10 @@ def _metadata_keys(span):
 
 
 def _missing_reserved_keys(span):
+    observation_type = span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_TYPE)
     return [
         key
-        for key in _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
+        for key in _reserved_attribute_keys(observation_type)
         if key not in span.attributes
     ]
 
@@ -155,7 +158,7 @@ def test_overwriting_existing_metadata_keys_at_limit_is_allowed(
     small_limit_client, get_span, caplog
 ):
     span_wrapper = small_limit_client.start_observation(
-        name="overwrite-span", metadata={f"key_{i}": "old" for i in range(30)}
+        name="overwrite-span", metadata={f"key_{i}": "old" for i in range(40)}
     )
     span_at_start = span_wrapper._otel_span
     assert (
@@ -180,7 +183,7 @@ def test_custom_smaller_span_limit_is_respected(small_limit_client, get_span, ca
     span_wrapper = small_limit_client.start_observation(
         name="small-limit-span",
         input="the input",
-        metadata={f"key_{i}": i for i in range(30)},
+        metadata={f"key_{i}": i for i in range(40)},
     )
     span_wrapper.end()
     small_limit_client.flush()
@@ -303,6 +306,83 @@ def test_reserved_keys_already_written_cost_no_extra_slot(small_limit_client, ge
     }
     assert 0 < kept_counts["metadata-only"] < 50
     assert len(set(kept_counts.values())) == 1, kept_counts
+
+
+def test_reserved_keys_depend_on_observation_type(langfuse_memory_client, get_span):
+    assert len(_RESERVED_SPAN_ATTRIBUTE_KEYS) == 7
+    assert len(_RESERVED_OBSERVATION_ATTRIBUTE_KEYS) == 14
+    for observation_type in ("generation", "embedding", None):
+        assert (
+            _reserved_attribute_keys(observation_type)
+            == _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
+        )
+    for observation_type in (
+        "span",
+        "agent",
+        "tool",
+        "chain",
+        "retriever",
+        "evaluator",
+        "guardrail",
+        "event",
+    ):
+        assert _reserved_attribute_keys(observation_type) == (
+            _RESERVED_SPAN_ATTRIBUTE_KEYS
+        )
+
+    metadata = {f"key_{i}": i for i in range(130)}
+    for as_type in ("span", "generation"):
+        langfuse_memory_client.start_observation(
+            name=f"typed-{as_type}",
+            as_type=as_type,
+            input="the input",
+            metadata=metadata,
+        ).end()
+    langfuse_memory_client.flush()
+
+    span = get_span("typed-span")
+    generation = get_span("typed-generation")
+    span_count = len(_metadata_keys(span))
+    generation_count = len(_metadata_keys(generation))
+    # The span reserves 5 open slots (level, status message, version, output,
+    # plus environment when unset) instead of 12 for the generation.
+    assert span_count - generation_count == 7
+    assert span.dropped_attributes == 0
+    assert generation.dropped_attributes == 0
+    assert len(span.attributes) + len(_missing_reserved_keys(span)) == 128
+    assert len(generation.attributes) + len(_missing_reserved_keys(generation)) == 128
+
+
+def test_generation_keeps_room_for_model_usage_and_output(
+    small_limit_client, get_span, caplog
+):
+    generation = small_limit_client.start_observation(
+        name="roomy-generation",
+        as_type="generation",
+        input="the input",
+        metadata={f"key_{i}": i for i in range(40)},
+    )
+    caplog.clear()
+    generation.update(
+        output="the output",
+        model="gpt-4o",
+        usage_details={"input": 1},
+        cost_details={"input": 0.1},
+        model_parameters={"temperature": 0},
+    )
+    generation.end()
+    small_limit_client.flush()
+
+    span = get_span("roomy-generation")
+    attributes = span.attributes
+    assert span.dropped_attributes == 0
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "the input"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "the output"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o"
+    assert LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS in attributes
+    assert LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS in attributes
+    assert LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS in attributes
+    assert _limit_warnings(caplog) == []
 
 
 def test_warning_message_format(small_limit_client, caplog):
