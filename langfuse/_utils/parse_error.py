@@ -6,7 +6,6 @@ from langfuse._utils.request import APIError, APIErrors
 # fern api errors
 from langfuse.api import (
     AccessDeniedError,
-    Error,
     MethodNotAllowedError,
     NotFoundError,
     ServiceUnavailableError,
@@ -44,7 +43,7 @@ errorResponseByCode = {
 }
 
 
-def generate_error_message_fern(error: Error) -> str:
+def generate_error_message_fern(error: ApiError) -> str:
     if isinstance(error, AccessDeniedError):
         return errorResponseByCode.get(403, defaultErrorResponse)
     elif isinstance(error, MethodNotAllowedError):
@@ -66,7 +65,7 @@ def generate_error_message_fern(error: Error) -> str:
     return defaultErrorResponse  # type: ignore
 
 
-def handle_fern_exception(exception: Error) -> None:
+def handle_fern_exception(exception: ApiError) -> None:
     logger.debug(exception)
     error_message = generate_error_message_fern(exception)
     logger.error(error_message)

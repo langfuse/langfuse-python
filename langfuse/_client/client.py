@@ -115,7 +115,9 @@ from langfuse.api import (
     Prompt_Text,
     ScoreBody,
     TraceBody,
+    UnauthorizedError,
 )
+from langfuse.api.core import ApiError
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -123,6 +125,7 @@ from langfuse.batch_evaluation import (
     CompositeEvaluatorFunction,
     MapperFunction,
 )
+from langfuse.errors import AuthError
 from langfuse.experiment import (
     Evaluation,
     EvaluatorFunction,
@@ -3500,7 +3503,8 @@ class Langfuse:
         """Check if the provided credentials (public and secret key) are valid.
 
         Raises:
-            Exception: If no projects were found for the provided credentials.
+            AuthError: If the API rejects the credentials (401) or no projects
+                were found for the provided credentials.
 
         Note:
             This method is blocking. It is discouraged to use it in production code.
@@ -3511,7 +3515,7 @@ class Langfuse:
                 "Auth check successful, found %s projects", len(projects.data)
             )
             if len(projects.data) == 0:
-                raise Exception(
+                raise AuthError(
                     "Auth check failed, no project found for the keys provided."
                 )
             return True
@@ -3522,8 +3526,10 @@ class Langfuse:
             )
             return False
 
-        except Error as e:
+        except ApiError as e:
             handle_fern_exception(e)
+            if isinstance(e, UnauthorizedError):
+                raise AuthError(f"Auth check failed, invalid credentials: {e}") from e
             raise e
 
     def create_dataset(
