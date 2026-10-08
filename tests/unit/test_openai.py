@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 import pytest
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
 from pydantic import BaseModel
@@ -1374,8 +1375,6 @@ def _mock_transport_openai_client(async_client: bool = False):
 async def test_chat_completion_captures_refusal(
     langfuse_memory_client, get_span, json_attr, async_client, stream
 ):
-    import httpx
-
     refusal = "I cannot help with that request."
     payload = _chat_completion_payload()
     payload["choices"][0]["message"] = {
