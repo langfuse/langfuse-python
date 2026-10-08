@@ -3747,3 +3747,133 @@ class TestPropagateAttributesPrompt(TestPropagateAttributesBase):
         self.verify_missing_attribute(
             after_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME
         )
+
+
+class TestPropagateAttributesMask(TestPropagateAttributesBase):
+    """Tests for applying the client's mask to propagated trace metadata."""
+
+    MASK_FALLBACK = "<fully masked due to failed mask function>"
+
+    @pytest.fixture
+    def masked_langfuse_client(self, monkeypatch, tracer_provider, mock_processor_init):
+        """Create a mocked Langfuse client with a configurable mask."""
+        from langfuse import Langfuse
+
+        def _create_client(mask):
+            monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "test-public-key")
+            monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test-secret-key")
+
+            return Langfuse(
+                public_key="test-public-key",
+                secret_key="test-secret-key",
+                host="http://test-host",
+                tracing_enabled=True,
+                tracer_provider=tracer_provider,
+                mask=mask,
+            )
+
+        return _create_client
+
+    def get_trace_metadata(self, span_data: dict) -> dict:
+        prefix = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}."
+        return {
+            key[len(prefix) :]: value
+            for key, value in span_data["attributes"].items()
+            if key.startswith(prefix)
+        }
+
+    def test_mask_applies_to_current_and_child_spans(
+        self, masked_langfuse_client, memory_exporter
+    ):
+        """Verify each raw value is masked once and keys are kept."""
+        masked_values = []
+
+        def mask(*, data, **kwargs):
+            # Observation input/output/metadata are masked too and are None here
+            if data is None:
+                return None
+            masked_values.append(data)
+            if isinstance(data, dict):
+                return {k: "***" if k == "token" else v for k, v in data.items()}
+            return data.replace("secret", "***")
+
+        langfuse_client = masked_langfuse_client(mask)
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(
+                metadata={"api_key": "secret-key", "auth": {"token": "secret"}}
+            ):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        expected = {"api_key": "***-key", "auth": '{"token":"***"}'}
+        for name in ("parent-span", "child-span"):
+            span_data = self.get_span_by_name(memory_exporter, name)
+            assert self.get_trace_metadata(span_data) == expected
+
+        assert masked_values == ["secret-key", {"token": "secret"}]
+
+    def test_mask_applies_to_baggage(self, masked_langfuse_client):
+        """Verify baggage carries masked values."""
+        from opentelemetry import baggage
+
+        langfuse_client = masked_langfuse_client(lambda *, data, **kwargs: "***")
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"api_key": "secret"}, as_baggage=True):
+                assert baggage.get_baggage("langfuse_metadata_api_key") == "***"
+
+    def test_failed_mask_replaces_only_that_value(
+        self, masked_langfuse_client, memory_exporter
+    ):
+        """Verify a throwing mask gives the fallback for that value only."""
+
+        def mask(*, data, **kwargs):
+            if data == "secret":
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = masked_langfuse_client(mask)
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"api_key": "secret", "env": "prod"}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        for name in ("parent-span", "child-span"):
+            span_data = self.get_span_by_name(memory_exporter, name)
+            assert self.get_trace_metadata(span_data) == {
+                "api_key": self.MASK_FALLBACK,
+                "env": "prod",
+            }
+
+    def test_length_limit_applies_to_masked_value(
+        self, masked_langfuse_client, memory_exporter
+    ):
+        """Verify the 200 character limit is checked after masking."""
+
+        def mask(*, data, **kwargs):
+            if data is None:
+                return None
+            return "x" * 201 if data == "expand" else data[:10]
+
+        langfuse_client = masked_langfuse_client(mask)
+
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"long": "a" * 300, "short": "expand"}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        span_data = self.get_span_by_name(memory_exporter, "child-span")
+        assert self.get_trace_metadata(span_data) == {"long": "a" * 10}
+
+    def test_no_mask_leaves_metadata_unchanged(self, langfuse_client, memory_exporter):
+        """Verify metadata is unchanged when no mask is configured."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"api_key": "secret", "n": 1}):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        for name in ("parent-span", "child-span"):
+            span_data = self.get_span_by_name(memory_exporter, name)
+            assert self.get_trace_metadata(span_data) == {"api_key": "secret", "n": "1"}

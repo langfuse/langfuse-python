@@ -46,6 +46,7 @@ from langfuse._client.attributes import (
     create_trace_attributes,
 )
 from langfuse._client.constants import (
+    MASK_FALLBACK_VALUE,
     ObservationTypeGenerationLike,
     ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
@@ -740,14 +741,13 @@ class LangfuseObservationWrapper:
                 "data. Using fallback masking. Error: %s",
                 e,
             )
-            fallback = "<fully masked due to failed mask function>"
 
             # Dict metadata is written per key, so mask each key instead of
             # writing a plain string to the bare metadata attribute
             if field == "metadata" and isinstance(data, dict):
-                return {key: fallback for key in data}
+                return {key: MASK_FALLBACK_VALUE for key in data}
 
-            return fallback
+            return MASK_FALLBACK_VALUE
 
     def _process_media_in_attribute(
         self,
