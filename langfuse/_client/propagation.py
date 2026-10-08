@@ -41,6 +41,7 @@ from opentelemetry.util._decorator import (
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
+from langfuse._client.span import _set_span_attributes_within_limit
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
@@ -599,14 +600,13 @@ def _set_propagated_attribute(
     if span is not None and span.is_recording():
         if isinstance(value, dict):
             # Handle metadata
-            for k, v in value.items():
-                span.set_attribute(
-                    key=f"{span_key}.{k}",
-                    value=v,
-                )
-
+            span_attributes: Dict[str, Any] = {
+                f"{span_key}.{k}": v for k, v in value.items()
+            }
         else:
-            span.set_attribute(key=span_key, value=value)
+            span_attributes = {span_key: value}
+
+        _set_span_attributes_within_limit(span, span_attributes)
 
     # Set on baggage
     if as_baggage:

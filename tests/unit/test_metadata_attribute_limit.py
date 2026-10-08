@@ -1,18 +1,24 @@
-"""Metadata must stay within the OTel span attribute limit.
+"""Langfuse writes must stay within the OTel span attribute limit.
 
-The OTel SDK evicts the oldest attribute once a span holds more than
-``SpanLimits.max_span_attributes`` attributes. Langfuse core attributes are
-written first, so unbounded metadata used to evict them. Metadata also leaves
-room for the reserved observation attributes that later updates may write.
+The Python OTel SDK evicts the oldest attribute once a span holds more than
+``SpanLimits.max_span_attributes`` attributes, which used to drop Langfuse core
+attributes written first. The SDK now drops the newest attributes instead, like
+OTel JS: excess new metadata keys go first, then any other new keys that still
+do not fit. Metadata also leaves room for the reserved observation attributes
+that later updates may write.
 """
 
 import logging
+from types import SimpleNamespace
 
 import pytest
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
-from langfuse._client.span import _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
+from langfuse._client.span import (
+    _RESERVED_OBSERVATION_ATTRIBUTE_KEYS,
+    _drop_attributes_over_span_limit,
+)
 
 METADATA_PREFIX = LangfuseOtelSpanAttributes.OBSERVATION_METADATA + "."
 
@@ -295,3 +301,115 @@ def test_reserved_keys_already_written_cost_no_extra_slot(small_limit_client, ge
     }
     assert 0 < kept_counts["metadata-only"] < 50
     assert len(set(kept_counts.values())) == 1, kept_counts
+
+
+def test_warning_message_format(small_limit_client, caplog):
+    small_limit_client.start_observation(
+        name="warned-span", metadata={f"key_{i}": i for i in range(40)}
+    ).end()
+
+    warnings = _limit_warnings(caplog)
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    assert message.startswith("Dropped ")
+    assert (
+        " metadata key(s) from observation 'warned-span' to stay within the span "
+        "attribute limit of 40 (SpanLimits.max_span_attributes / "
+        "OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT). Dropped keys include: "
+    ) in message
+    dropped_keys = message.split("Dropped keys include: ")[1].split(", ")
+    assert len(dropped_keys) == 5
+    assert all(key.startswith("key_") for key in dropped_keys)
+
+
+def test_new_attributes_beyond_capacity_drop_newest_instead_of_evicting(
+    small_limit_client, get_span, caplog
+):
+    with small_limit_client.start_as_current_observation(
+        name="full-generation",
+        as_type="generation",
+        input="the input",
+        model="gpt-4o",
+        metadata={f"key_{i}": i for i in range(40)},
+    ) as generation:
+        generation.update(output="the output", usage_details={"input": 1})
+        otel_span = generation._otel_span
+        free_slots = 40 - len(otel_span.attributes)
+        assert 0 < free_slots < 20
+        attributes_before = dict(otel_span.attributes)
+        caplog.clear()
+
+        with propagate_attributes(
+            metadata={f"trace_{i:02d}": str(i) for i in range(20)}
+        ):
+            pass
+    small_limit_client.flush()
+
+    span = get_span("full-generation")
+    attributes = span.attributes
+
+    assert span.dropped_attributes == 0
+    assert len(attributes) == 40
+    for key, value in attributes_before.items():
+        assert attributes[key] == value
+    assert attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "the input"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "the output"
+
+    trace_prefix = LangfuseOtelSpanAttributes.TRACE_METADATA + "."
+    kept_trace_keys = [key for key in attributes if key.startswith(trace_prefix)]
+    assert kept_trace_keys == [
+        f"{trace_prefix}trace_{i:02d}" for i in range(free_slots)
+    ]
+
+    warnings = _limit_warnings(caplog)
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    assert f"0 metadata key(s) and {20 - free_slots} other attribute(s)" in message
+    assert f"{trace_prefix}trace_{free_slots:02d}" in message
+
+
+def _fake_span(limit, existing):
+    return SimpleNamespace(
+        name="fake",
+        attributes=dict(existing),
+        _limits=SimpleNamespace(max_span_attributes=limit),
+    )
+
+
+def test_hard_guard_keeps_overwrites_and_drops_new_tail(caplog):
+    span = _fake_span(5, {f"a_{i}": i for i in range(4)})
+
+    result = _drop_attributes_over_span_limit(
+        span,
+        {
+            "a_0": "overwritten",
+            "b_0": 0,
+            f"{METADATA_PREFIX}m": 1,
+            "b_1": 1,
+            "b_2": 2,
+        },
+    )
+
+    assert result == {"a_0": "overwritten", "b_0": 0}
+    message = _limit_warnings(caplog)[0].getMessage()
+    assert "1 metadata key(s) and 2 other attribute(s)" in message
+    assert "Dropped keys include: m, b_1, b_2" in message
+
+
+def test_hard_guard_never_raises():
+    class BrokenAttributes:
+        def __contains__(self, key):
+            raise RuntimeError("boom")
+
+        def __len__(self):
+            return 1
+
+    span = SimpleNamespace(
+        attributes=BrokenAttributes(),
+        _limits=SimpleNamespace(max_span_attributes=1),
+    )
+    attributes = {"key": "value"}
+
+    assert _drop_attributes_over_span_limit(span, attributes) is attributes

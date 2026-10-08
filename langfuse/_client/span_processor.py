@@ -41,6 +41,7 @@ from langfuse._client.propagation import (
     _get_langfuse_trace_id_from_baggage,
     _get_propagated_attributes_from_context,
 )
+from langfuse._client.span import _set_span_attributes_within_limit
 from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from langfuse._client.span_filter import (
     is_app_root_eligible,
@@ -243,7 +244,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             }
 
         if propagated_attributes:
-            span.set_attributes(propagated_attributes)
+            _set_span_attributes_within_limit(span, propagated_attributes)
 
             langfuse_logger.debug(
                 "Propagated %s attributes to span '%s': %s",
@@ -339,7 +340,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             )
 
         if mark_app_root:
-            span.set_attribute(LangfuseOtelSpanAttributes.IS_APP_ROOT, True)
+            _set_span_attributes_within_limit(
+                span, {LangfuseOtelSpanAttributes.IS_APP_ROOT: True}
+            )
 
     def _cleanup_app_root_state(self, span: ReadableSpan) -> None:
         span_id = format_span_id(span.context.span_id)
