@@ -47,7 +47,7 @@ from langfuse._client.utils import span_formatter
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
-from langfuse.types import MaskOtelSpansFunction
+from langfuse.types import MaskFunction, MaskOtelSpansFunction
 
 
 def _resolve_max_batch_size_bytes() -> Optional[int]:
@@ -126,6 +126,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         additional_headers: Optional[Dict[str, str]] = None,
         span_exporter: Optional[SpanExporter] = None,
         media_manager: Optional[MediaManager] = None,
+        mask: Optional[MaskFunction] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         otel_compression: Optional[Literal["gzip", "none"]] = None,
     ):
@@ -185,11 +186,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 "provided. Configure compression on the exporter instead."
             )
 
-        if media_manager is not None or mask_otel_spans is not None:
+        if media_manager is not None or mask_otel_spans is not None or mask is not None:
             span_exporter = LangfuseTransformingSpanExporter(
                 exporter=span_exporter,
                 media_manager=media_manager,
                 mask_otel_spans=mask_otel_spans,
+                mask_configured=mask is not None,
             )
 
         super().__init__(
