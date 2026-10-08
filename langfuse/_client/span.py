@@ -66,10 +66,11 @@ from langfuse.types import SpanLevel
 # Populated after class definitions
 _OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
 
-# Serialized metadata already written to each span, keyed by top-level key. Kept
-# so that repeated updates merge into the single `langfuse.observation.metadata`
-# attribute instead of overwriting it. Keyed by the OTel span (not the wrapper),
-# because update_current_* helpers create a new wrapper for every update.
+# Encoded `"key":value` metadata members already written to each span, keyed by
+# top-level key. Kept so that repeated updates merge into the single
+# `langfuse.observation.metadata` attribute instead of overwriting it. Keyed by
+# the OTel span (not the wrapper), because update_current_* helpers create a new
+# wrapper for every update.
 _span_metadata: "weakref.WeakKeyDictionary[otel_trace_api.Span, Dict[str, str]]" = (
     weakref.WeakKeyDictionary()
 )

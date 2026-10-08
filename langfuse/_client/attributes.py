@@ -246,12 +246,13 @@ def merge_observation_metadata(
     overwrite keys in `previous`. Non-dict metadata replaces earlier metadata.
 
     Args:
-        previous: Serialized values from earlier updates, keyed by top-level key
+        previous: Encoded `"key":value` JSON members from earlier updates, keyed
+            by top-level key
         serialized: Output of serialize_observation_metadata for this update
 
     Returns:
         The attribute value to write (None if there is nothing to write) and the
-        serialized values to keep for the next update (None if there are none).
+        encoded members to keep for the next update (None if there are none).
 
     Raises:
         ObservationMetadataKeyLimitError: If the merged metadata has more than
@@ -263,7 +264,11 @@ def merge_observation_metadata(
     if isinstance(serialized, str):
         return serialized, None
 
-    merged = {**(previous or {}), **serialized}
+    # Encode only the new members, so an update doesn't re-encode every earlier key
+    merged = {
+        **(previous or {}),
+        **{key: f"{json.dumps(key)}:{value}" for key, value in serialized.items()},
+    }
 
     if len(merged) > MAX_OBSERVATION_METADATA_KEYS:
         message = (
@@ -275,11 +280,7 @@ def merge_observation_metadata(
     if not merged:
         return None, None
 
-    attribute_value = (
-        "{"
-        + ",".join(f"{json.dumps(key)}:{value}" for key, value in merged.items())
-        + "}"
-    )
+    attribute_value = "{" + ",".join(merged.values()) + "}"
 
     return attribute_value, merged
 
