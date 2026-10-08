@@ -706,10 +706,17 @@ class LangfuseObservationWrapper:
             The processed and masked data
         """
         return self._mask_attribute(
-            data=self._process_media_in_attribute(data=data, field=field)
+            data=self._process_media_in_attribute(data=data, field=field), field=field
         )
 
-    def _mask_attribute(self, *, data: Any) -> Any:
+    def _mask_attribute(
+        self,
+        *,
+        data: Any,
+        field: Optional[
+            Union[Literal["input"], Literal["output"], Literal["metadata"]]
+        ] = None,
+    ) -> Any:
         """Apply the configured mask function to data.
 
         Internal method that applies the client's configured masking function to
@@ -717,6 +724,7 @@ class LangfuseObservationWrapper:
 
         Args:
             data: The data to mask
+            field: The attribute the data belongs to
 
         Returns:
             The masked data, or the original data if no mask is configured
@@ -732,8 +740,14 @@ class LangfuseObservationWrapper:
                 "data. Using fallback masking. Error: %s",
                 e,
             )
+            fallback = "<fully masked due to failed mask function>"
 
-            return "<fully masked due to failed mask function>"
+            # Dict metadata is written per key, so mask each key instead of
+            # writing a plain string to the bare metadata attribute
+            if field == "metadata" and isinstance(data, dict):
+                return {key: fallback for key in data}
+
+            return fallback
 
     def _process_media_in_attribute(
         self,

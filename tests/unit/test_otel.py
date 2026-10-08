@@ -1980,6 +1980,89 @@ class TestMetadataHandling(TestOTelBase):
         assert "version" in system_data
         assert "features" in system_data
 
+    MASK_FALLBACK = "<fully masked due to failed mask function>"
+
+    def get_metadata_attributes(self, span_data: dict) -> dict:
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        return {
+            key: value
+            for key, value in span_data["attributes"].items()
+            if key == prefix or key.startswith(f"{prefix}.")
+        }
+
+    def test_failed_mask_on_update_masks_each_metadata_key(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict) and "secret" in data:
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(name="mask-fail", metadata={"a": 1})
+        span.update(metadata={"secret": "pw", "b": 2})
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail")[0]
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        assert self.get_metadata_attributes(span_data) == {
+            f"{prefix}.a": 1,
+            f"{prefix}.secret": self.MASK_FALLBACK,
+            f"{prefix}.b": self.MASK_FALLBACK,
+        }
+
+    def test_failed_mask_on_start_masks_each_metadata_key(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict):
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="mask-fail-start", metadata={"secret": "pw", "b": 2}
+        )
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail-start")[0]
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        assert self.get_metadata_attributes(span_data) == {
+            f"{prefix}.secret": self.MASK_FALLBACK,
+            f"{prefix}.b": self.MASK_FALLBACK,
+        }
+
+    def test_failed_mask_keeps_string_fallback_for_non_dict_values(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if data is not None:
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="mask-fail-non-dict",
+            input={"secret": "pw"},
+            output={"secret": "pw"},
+            metadata="plain-string",
+        )
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail-non-dict")[0]
+        attributes = span_data["attributes"]
+        assert self.get_metadata_attributes(span_data) == {
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.MASK_FALLBACK,
+        }
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+            == self.MASK_FALLBACK
+        )
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+            == self.MASK_FALLBACK
+        )
+
 
 class TestMultiProjectSetup(TestOTelBase):
     """Tests for multi-project setup within the same process.
