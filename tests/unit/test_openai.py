@@ -1,4 +1,5 @@
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -1365,6 +1366,97 @@ def _mock_transport_openai_client(async_client: bool = False):
         api_key="test",
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_client", [False, True])
+@pytest.mark.parametrize("stream", [False, True])
+async def test_chat_completion_captures_refusal(
+    langfuse_memory_client, get_span, json_attr, async_client, stream
+):
+    import httpx
+
+    refusal = "I cannot help with that request."
+    payload = _chat_completion_payload()
+    payload["choices"][0]["message"] = {
+        "role": "assistant",
+        "content": None,
+        "refusal": refusal,
+    }
+
+    def handler(request):
+        if not stream:
+            return httpx.Response(200, json=payload)
+
+        events = []
+        for part in [None, "I cannot help ", "with that request."]:
+            events.append(
+                {
+                    "id": payload["id"],
+                    "object": "chat.completion.chunk",
+                    "created": payload["created"],
+                    "model": payload["model"],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"role": "assistant", "refusal": part},
+                            "finish_reason": None,
+                        }
+                    ],
+                }
+            )
+        events.append(
+            {
+                **events[-1],
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                "usage": payload["usage"],
+            }
+        )
+        body = "".join(f"data: {json.dumps(event)}\n\n" for event in events)
+        return httpx.Response(
+            200,
+            content=body + "data: [DONE]\n\n",
+            headers={"content-type": "text/event-stream"},
+        )
+
+    kwargs = {
+        "model": "gpt-4o-mini",
+        "messages": [{"role": "user", "content": "test request"}],
+        "stream": stream,
+    }
+    if async_client:
+        async with lf_openai.AsyncOpenAI(
+            api_key="test",
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        ) as client:
+            result = await client.chat.completions.create(**kwargs)
+            if stream:
+                result = [chunk async for chunk in result]
+    else:
+        with lf_openai.OpenAI(
+            api_key="test",
+            http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        ) as client:
+            result = client.chat.completions.create(**kwargs)
+            if stream:
+                result = list(result)
+
+    if stream:
+        assert (
+            "".join(chunk.choices[0].delta.refusal or "" for chunk in result) == refusal
+        )
+    else:
+        assert result.choices[0].message.refusal == refusal
+
+    langfuse_memory_client.flush()
+    span = get_span("OpenAI-generation")
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT) == {
+        "role": "assistant",
+        "content": None,
+        "refusal": refusal,
+    }
+    usage = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS)
+    assert usage["total_tokens"] == payload["usage"]["total_tokens"]
 
 
 def test_with_raw_response_chat_completion_captures_output_and_usage(
