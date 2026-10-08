@@ -525,6 +525,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
         completion_start_time: Optional[datetime] = None,
         model: Optional[str] = None,
         model_parameters: Optional[Dict[str, MapValue]] = None,
@@ -546,6 +547,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> LangfuseSpan: ...
 
     @overload
@@ -561,6 +563,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> LangfuseAgent: ...
 
     @overload
@@ -576,6 +579,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> LangfuseTool: ...
 
     @overload
@@ -591,6 +595,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> LangfuseChain: ...
 
     @overload
@@ -606,6 +611,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> LangfuseRetriever: ...
 
     @overload
@@ -621,6 +627,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> LangfuseEvaluator: ...
 
     @overload
@@ -636,6 +643,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
         completion_start_time: Optional[datetime] = None,
         model: Optional[str] = None,
         model_parameters: Optional[Dict[str, MapValue]] = None,
@@ -657,6 +665,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
     ) -> LangfuseGuardrail: ...
 
     def start_observation(
@@ -671,6 +680,7 @@ class Langfuse:
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
+        start_time: Optional[int] = None,
         completion_start_time: Optional[datetime] = None,
         model: Optional[str] = None,
         model_parameters: Optional[Dict[str, MapValue]] = None,
@@ -703,6 +713,7 @@ class Langfuse:
             version: Version identifier for the code or component
             level: Importance level of the observation
             status_message: Optional status message for the observation
+            start_time: Optional explicit start time in nanoseconds since epoch
             completion_start_time: When the model started generating (for generation types)
             model: Name/identifier of the AI model used (for generation types)
             model_parameters: Parameters used for the model (for generation types)
@@ -725,7 +736,9 @@ class Langfuse:
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
-                    otel_span = self._otel_tracer.start_span(name=name)
+                    otel_span = self._otel_tracer.start_span(
+                        name=name, start_time=start_time
+                    )
                     otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
 
                     return self._create_observation_from_otel_span(
@@ -745,7 +758,7 @@ class Langfuse:
                         prompt=prompt,
                     )
 
-        otel_span = self._otel_tracer.start_span(name=name)
+        otel_span = self._otel_tracer.start_span(name=name, start_time=start_time)
 
         return self._create_observation_from_otel_span(
             otel_span=otel_span,
