@@ -196,9 +196,7 @@ _V4_DELETE_HINT = (
 )
 
 
-def _handle_dataset_run_error(
-    exc: ApiError, hint: str = _V4_DATASET_RUN_HINT
-) -> None:
+def _handle_dataset_run_error(exc: ApiError, hint: str = _V4_DATASET_RUN_HINT) -> None:
     """Route a failed dataset-run call: v4 guidance, silence for 404, else log.
 
     A Langfuse v4 deployment answers the legacy dataset-run endpoints with 404,
@@ -238,6 +236,8 @@ def _is_not_found(exc: Exception) -> bool:
     ERROR level, which is also what error alerting keys on.
     """
     status = getattr(exc, "status_code", None)
+    if status is None:
+        return False
     try:
         return int(status) == 404
     except (TypeError, ValueError):
@@ -2605,10 +2605,12 @@ class Langfuse:
         Not available on Langfuse v4 deployments: the underlying
         ``GET /api/public/datasets/{name}/runs/{run_name}`` path is rejected
         with 404 in v4 ``events_only`` mode. Use
-        ``client.api.experiments.list(from_start_time=...)`` and match on ``id``
-        or ``name`` instead -- ``from_start_time`` is required, and
-        ``run_experiment()`` returns that same value as ``dataset_run_id``. See
-        https://langfuse.com/docs/v4.
+        ``client.api.experiments.list(from_start_time=..., dataset_id=...)``
+        instead -- ``from_start_time`` is required, ``dataset_id`` scopes the
+        lookup the way ``dataset_name`` did here, and matching on ``name`` alone
+        is ambiguous when two datasets reuse a run name. Prefer matching on
+        ``id``: ``run_experiment()`` returns the same value as
+        ``dataset_run_id``. See https://langfuse.com/docs/v4.
 
         Args:
             dataset_name (str): The name of the dataset.
