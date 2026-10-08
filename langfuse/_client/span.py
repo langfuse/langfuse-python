@@ -61,6 +61,62 @@ from langfuse.types import SpanLevel
 _OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
 
 
+def _is_observation_metadata_key(key: str) -> bool:
+    prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+    return key == prefix or key.startswith(prefix + ".")
+
+
+def _drop_metadata_over_attribute_limit(
+    span: otel_trace_api.Span, attributes: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Drop new metadata attributes that would exceed the span's attribute limit.
+
+    The OTel SDK evicts the oldest attribute once a span is full, which would
+    drop Langfuse core attributes (input, model, ...) written before metadata.
+    Existing keys and non-metadata attributes are always kept; excess new
+    metadata keys are dropped from the tail. Spans without SDK limits (e.g.
+    non-recording spans) are left untouched.
+    """
+    max_attributes = getattr(
+        getattr(span, "_limits", None), "max_span_attributes", None
+    )
+    if not isinstance(max_attributes, int):
+        return attributes
+
+    existing = getattr(span, "attributes", None) or {}
+    new_keys = [
+        key
+        for key, value in attributes.items()
+        if value is not None and key not in existing
+    ]
+    if len(existing) + len(new_keys) <= max_attributes:
+        return attributes
+
+    new_metadata_keys = [key for key in new_keys if _is_observation_metadata_key(key)]
+    free_slots = max(
+        0, max_attributes - len(existing) - (len(new_keys) - len(new_metadata_keys))
+    )
+    dropped = new_metadata_keys[free_slots:]
+    if not dropped:
+        return attributes
+
+    langfuse_logger.warning(
+        "Dropped %s metadata key(s) from observation '%s' to stay within the span "
+        "attribute limit of %s (OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT). Dropped keys "
+        "include: %s",
+        len(dropped),
+        getattr(span, "name", None),
+        max_attributes,
+        ", ".join(
+            key.removeprefix(LangfuseOtelSpanAttributes.OBSERVATION_METADATA + ".")
+            for key in dropped[:5]
+        ),
+    )
+
+    dropped_keys = set(dropped)
+    return {key: value for key, value in attributes.items() if key not in dropped_keys}
+
+
 class LangfuseObservationWrapper:
     """Abstract base class for all Langfuse span types.
 
@@ -204,7 +260,10 @@ class LangfuseObservationWrapper:
             attributes.pop(LangfuseOtelSpanAttributes.OBSERVATION_TYPE, None)
 
             self._otel_span.set_attributes(
-                {k: v for k, v in attributes.items() if v is not None}
+                _drop_metadata_over_attribute_limit(
+                    self._otel_span,
+                    {k: v for k, v in attributes.items() if v is not None},
+                )
             )
             # Set OTEL span status if level is ERROR
             self._set_otel_span_status_if_error(
@@ -481,7 +540,9 @@ class LangfuseObservationWrapper:
             )
         )
 
-        span.set_attributes(media_processed_attributes)
+        span.set_attributes(
+            _drop_metadata_over_attribute_limit(span, media_processed_attributes)
+        )
 
     def _process_media_and_apply_mask(
         self,
@@ -681,7 +742,9 @@ class LangfuseObservationWrapper:
                 ),
             )
 
-        self._otel_span.set_attributes(attributes=attributes)
+        self._otel_span.set_attributes(
+            attributes=_drop_metadata_over_attribute_limit(self._otel_span, attributes)
+        )
         # Set OTEL span status if level is ERROR
         self._set_otel_span_status_if_error(level=level, status_message=status_message)
 
