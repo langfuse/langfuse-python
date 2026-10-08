@@ -9,6 +9,7 @@ that later updates may write.
 """
 
 import logging
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,7 @@ from langfuse._client.span import (
     _RESERVED_OBSERVATION_ATTRIBUTE_KEYS,
     _drop_attributes_over_span_limit,
 )
+from langfuse.api import DatasetItem, DatasetStatus
 
 METADATA_PREFIX = LangfuseOtelSpanAttributes.OBSERVATION_METADATA + "."
 
@@ -413,3 +415,51 @@ def test_hard_guard_never_raises():
     attributes = {"key": "value"}
 
     assert _drop_attributes_over_span_limit(span, attributes) is attributes
+
+
+def test_experiment_run_keys_survive_metadata_truncation(
+    langfuse_memory_client, get_span
+):
+    item = DatasetItem(
+        id="item-1",
+        status=DatasetStatus.ACTIVE,
+        input="question",
+        expected_output="answer",
+        metadata={
+            "experiment_name": "user-value",
+            **{f"item_{i}": str(i) for i in range(150)},
+        },
+        source_trace_id=None,
+        source_observation_id=None,
+        dataset_id="dataset-1",
+        dataset_name="Dataset",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        media_references=[],
+    )
+
+    langfuse_memory_client.run_experiment(
+        name="big-metadata-experiment",
+        data=[item],
+        task=lambda **kwargs: "answer",
+        max_concurrency=1,
+    )
+    langfuse_memory_client.flush()
+
+    task_span = get_span("experiment-item-task")
+    attributes = task_span.attributes
+    assert task_span.dropped_attributes == 0
+    assert 0 < len(_metadata_keys(task_span)) < 151
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "question"
+    # The run value wins over the user key of the same name.
+    assert attributes[f"{METADATA_PREFIX}experiment_name"] == "big-metadata-experiment"
+    assert attributes[f"{METADATA_PREFIX}experiment_run_name"].startswith(
+        "big-metadata-experiment"
+    )
+    assert attributes[f"{METADATA_PREFIX}dataset_id"] == "dataset-1"
+    assert attributes[f"{METADATA_PREFIX}dataset_item_id"] == "item-1"
+    assert f"{METADATA_PREFIX}item_149" not in attributes
+
+    item_run = get_span("experiment-item-run")
+    assert item_run.dropped_attributes == 0
+    assert LangfuseOtelSpanAttributes.EXPERIMENT_ID in item_run.attributes

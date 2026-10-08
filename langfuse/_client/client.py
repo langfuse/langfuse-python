@@ -2892,16 +2892,14 @@ class Langfuse:
                     else getattr(item, "metadata", None)
                 )
 
-                final_observation_metadata = {
-                    **(item_metadata if isinstance(item_metadata, dict) else {}),
-                    **(experiment_metadata or {}),
-                    "experiment_name": experiment_name,
-                    "experiment_run_name": experiment_run_name,
-                }
-
                 trace_id = span.trace_id
                 dataset_id = None
                 dataset_item_id = None
+
+                experiment_run_metadata: Dict[str, Any] = {
+                    "experiment_name": experiment_name,
+                    "experiment_run_name": experiment_run_name,
+                }
 
                 if (
                     not isinstance(item, dict)
@@ -2911,9 +2909,19 @@ class Langfuse:
                     dataset_id = item.dataset_id
                     dataset_item_id = item.id
 
-                    final_observation_metadata.update(
+                    experiment_run_metadata.update(
                         {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
                     )
+
+                # Experiment run keys go first so the span attribute limit drops
+                # user metadata before them, and last so they still win over
+                # user keys.
+                final_observation_metadata = {
+                    **experiment_run_metadata,
+                    **(item_metadata if isinstance(item_metadata, dict) else {}),
+                    **(experiment_metadata or {}),
+                    **experiment_run_metadata,
+                }
 
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
