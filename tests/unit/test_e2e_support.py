@@ -108,7 +108,7 @@ def test_raw_api_wrapper_retries_not_found_payload(monkeypatch):
 
         return FakeResponse(200, {"id": "trace-123", "observations": []})
 
-    monkeypatch.setattr("tests.support.api_wrapper.httpx.get", fake_get)
+    monkeypatch.setattr("tests.support.api_wrapper.httpx2.get", fake_get)
 
     api = SupportLangfuseAPI(username="user", password="pass", base_url="http://test")
     trace = api.get_trace("trace-123")

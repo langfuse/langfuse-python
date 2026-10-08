@@ -24,7 +24,7 @@ keywords = [
     "monitoring",
 ]
 dependencies = [
-    "httpx>=0.15.4,<1.0",
+    "httpx2>=2.12.0",
     "pydantic>=2,<3",
     "backoff>=1.10.0",
     "wrapt>=1.14,<3",

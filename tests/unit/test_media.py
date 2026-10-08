@@ -138,7 +138,7 @@ def test_media_reference_fetch_uses_configured_httpx_client(monkeypatch):
     configured_httpx_client = Mock()
     configured_httpx_client.get.return_value = response
     httpx_get = Mock()
-    monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+    monkeypatch.setattr("langfuse.media.httpx2.get", httpx_get)
     monkeypatch.setattr(
         LangfuseResourceManager,
         "_instances",
@@ -167,7 +167,7 @@ def test_media_reference_fetch_uses_explicit_client(monkeypatch):
 
     singleton_client = Mock()
     httpx_get = Mock()
-    monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+    monkeypatch.setattr("langfuse.media.httpx2.get", httpx_get)
     monkeypatch.setattr(
         LangfuseResourceManager,
         "_instances",
@@ -186,7 +186,7 @@ def test_media_reference_fetch_uses_explicit_client(monkeypatch):
     explicit_client.get.assert_called_once_with(
         "https://example.com/test.jpg", timeout=5.0
     )
-    # Explicit client wins over the configured singleton and the default httpx.
+    # Explicit client wins over the configured singleton and the default httpx2.
     singleton_client.get.assert_not_called()
     httpx_get.assert_not_called()
 
@@ -200,7 +200,7 @@ def test_media_reference_fetch_falls_back_to_default_with_multiple_clients(
     response.content = b"default-bytes"
     response.raise_for_status.return_value = None
     httpx_get = Mock(return_value=response)
-    monkeypatch.setattr("langfuse.media.httpx.get", httpx_get)
+    monkeypatch.setattr("langfuse.media.httpx2.get", httpx_get)
 
     client_a = Mock()
     client_b = Mock()
@@ -222,7 +222,7 @@ def test_media_reference_fetch_falls_back_to_default_with_multiple_clients(
     with caplog.at_level(logging.WARNING, logger="langfuse"):
         assert reference.fetch_bytes(timeout=8.0) == b"default-bytes"
 
-    # Ambiguous multi-client setup: warn and fall back to the default httpx
+    # Ambiguous multi-client setup: warn and fall back to the default httpx2
     # instead of silently using an arbitrary instance's transport config.
     assert "Multiple Langfuse clients" in caplog.text
     httpx_get.assert_called_once_with("https://example.com/test.jpg", timeout=8.0)

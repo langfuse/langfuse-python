@@ -4,7 +4,7 @@ from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
 
 import backoff
-import httpx
+import httpx2
 from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
@@ -34,7 +34,7 @@ class MediaManager:
         self,
         *,
         api_client: LangfuseAPI,
-        httpx_client: httpx.Client,
+        httpx_client: httpx2.Client,
         media_upload_queue: Queue,
         max_retries: Optional[int] = 3,
     ):
@@ -50,7 +50,7 @@ class MediaManager:
         self,
         *,
         api_client: LangfuseAPI,
-        httpx_client: httpx.Client,
+        httpx_client: httpx2.Client,
         media_upload_queue: Queue,
     ) -> None:
         self._api_client = api_client
@@ -454,7 +454,7 @@ class MediaManager:
             headers["x-ms-blob-type"] = "BlockBlob"
             headers["x-amz-checksum-sha256"] = data["content_sha256_hash"]
 
-        def _upload_with_status_check() -> httpx.Response:
+        def _upload_with_status_check() -> httpx2.Response:
             response = self._httpx_client.put(
                 upload_url,
                 headers=headers,
@@ -468,7 +468,7 @@ class MediaManager:
 
         try:
             upload_response = self._request_with_backoff(_upload_with_status_check)
-        except httpx.HTTPStatusError as e:
+        except httpx2.HTTPStatusError as e:
             upload_time_ms = int((time.time() - upload_start_time) * 1000)
             failed_response = e.response
 
@@ -515,7 +515,7 @@ class MediaManager:
                     and 400 <= e.status_code < 500
                     and e.status_code != 429
                 )
-            if isinstance(e, httpx.HTTPStatusError):
+            if isinstance(e, httpx2.HTTPStatusError):
                 return (
                     e.response is not None
                     and e.response.status_code < 500
