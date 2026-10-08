@@ -49,7 +49,7 @@ def raw_metadata_value(value: Any) -> Any:
     if _SERVER_DECODES_METADATA_VALUES:
         return value
 
-    return json.dumps(value)
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
 
 
 def _has_filters(kwargs: dict[str, Any]) -> bool:

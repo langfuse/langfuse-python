@@ -201,7 +201,14 @@ def _flatten_and_serialize_metadata(
         # JSON-encode non-dict metadata too, strings included, matching the
         # per-key values below. None stays None so it is not written.
         metadata_attributes[prefix] = (
-            None if metadata is None else json.dumps(metadata, cls=EventSerializer)
+            None
+            if metadata is None
+            else json.dumps(
+                metadata,
+                cls=EventSerializer,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
         )
     else:
         for key, value in metadata.items():
@@ -213,8 +220,9 @@ def _flatten_and_serialize_metadata(
             # it back to its original type ("123" vs 123). EventSerializer turns
             # ints outside the JS-safe range and NaN/Infinity into JSON strings
             # and never raises, so one bad value cannot drop the other keys.
+            # Compact separators and raw non-ASCII match JS JSON.stringify.
             metadata_attributes[f"{prefix}.{key}"] = json.dumps(
-                value, cls=EventSerializer
+                value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
             )
 
     return metadata_attributes

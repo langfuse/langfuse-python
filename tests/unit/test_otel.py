@@ -2014,8 +2014,8 @@ class TestMetadataHandling(TestOTelBase):
             "float": "1.5",
             "big_int": '"1180591620717411303424"',
             "nan": '"NaN"',
-            "list": '[1, "a", null]',
-            "nested": '{"a": {"b": [1, 2]}, "c": "d"}',
+            "list": '[1,"a",null]',
+            "nested": '{"a":{"b":[1,2]},"c":"d"}',
             "datetime": '"2024-01-02T03:04:05Z"',
         }
         for key, value in expected.items():
@@ -2071,7 +2071,7 @@ class TestMetadataHandling(TestOTelBase):
 
     @pytest.mark.parametrize(
         "metadata, expected",
-        [("foo", '"foo"'), (5, "5"), ([1, "a", None], '[1, "a", null]')],
+        [("foo", '"foo"'), (5, "5"), ([1, "a", None], '[1,"a",null]')],
     )
     def test_non_dict_metadata_is_json_encoded(
         self, langfuse_client, memory_exporter, metadata, expected
@@ -2098,6 +2098,23 @@ class TestMetadataHandling(TestOTelBase):
 
         prefix = LangfuseOtelSpanAttributes.TRACE_METADATA
         assert result == {f"{prefix}.s": '"x"', f"{prefix}.i": "1"}
+
+    def test_metadata_json_matches_js_json_stringify(self):
+        """Values use compact separators and keep non-ASCII, like JSON.stringify."""
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
+
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        result = _flatten_and_serialize_metadata(
+            {"umlaut": "ü", "nested": {"a": {"b": [1, "x"]}}}, "observation"
+        )
+
+        assert result == {
+            f"{prefix}.umlaut": '"ü"',
+            f"{prefix}.nested": '{"a":{"b":[1,"x"]}}',
+        }
+
+        non_dict_result = _flatten_and_serialize_metadata([1, "ü"], "observation")
+        assert non_dict_result == {prefix: '[1,"ü"]'}
 
 
 class TestMultiProjectSetup(TestOTelBase):
