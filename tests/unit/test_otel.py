@@ -414,7 +414,7 @@ class TestBasicSpans(TestOTelBase):
         # Verify attribute values
         assert input_data == {"prompt": "Test prompt"}
         assert output_data == {"response": "Updated response"}
-        assert metadata_data == "test-session"
+        assert metadata_data == '"test-session"'
         assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "INFO"
         assert (
             attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
@@ -608,7 +608,7 @@ class TestBasicSpans(TestOTelBase):
         proc_metadata = proc["attributes"][
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.step"
         ]
-        assert proc_metadata == "processing"
+        assert proc_metadata == '"processing"'
 
         # Parse input/output JSON
         llm_input = json.loads(
@@ -1568,11 +1568,11 @@ class TestMetadataHandling(TestOTelBase):
         )
         assert (
             simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1"]
-            == "value1"
+            == '"value1"'
         )
         assert (
             simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2"]
-            == 123
+            == "123"
         )
 
         # Test case 3: Nested dict (will be flattened in current implementation)
@@ -1625,7 +1625,7 @@ class TestMetadataHandling(TestOTelBase):
 
         # The nested structures are serialized as JSON strings
         assert json.loads(complex_result[level1_key]) == complex_dict["level1"]
-        assert complex_result[sibling_key] == "value"
+        assert complex_result[sibling_key] == '"value"'
 
     def test_nested_metadata_updates(self):
         """Test that nested metadata updates don't overwrite unrelated keys."""
@@ -1979,6 +1979,108 @@ class TestMetadataHandling(TestOTelBase):
         assert "profile" in user_data
         assert "version" in system_data
         assert "features" in system_data
+
+    def test_metadata_values_are_json_encoded(self, langfuse_client, memory_exporter):
+        """Every per-key metadata value is sent as a JSON-encoded string."""
+        from datetime import timezone
+
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        with langfuse_client.start_as_current_observation(
+            name="json-metadata-span",
+            metadata={
+                "string": "hello",
+                "numeric_string": "123",
+                "bool_string": "true",
+                "int": 5,
+                "bool": True,
+                "float": 1.5,
+                "big_int": 2**70,
+                "nan": float("nan"),
+                "list": [1, "a", None],
+                "nested": {"a": {"b": [1, 2]}, "c": "d"},
+                "datetime": datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+            },
+        ):
+            pass
+
+        attributes = self.get_spans_by_name(memory_exporter, "json-metadata-span")[0][
+            "attributes"
+        ]
+
+        expected = {
+            "string": '"hello"',
+            "numeric_string": '"123"',
+            "bool_string": '"true"',
+            "int": "5",
+            "bool": "true",
+            "float": "1.5",
+            "big_int": '"1180591620717411303424"',
+            "nan": '"NaN"',
+            "list": '[1, "a", null]',
+            "nested": '{"a": {"b": [1, 2]}, "c": "d"}',
+            "datetime": '"2024-01-02T03:04:05Z"',
+        }
+        for key, value in expected.items():
+            assert attributes[f"{prefix}.{key}"] == value, key
+
+        # Decoding restores the original type, so strings and numbers stay distinct.
+        assert json.loads(attributes[f"{prefix}.numeric_string"]) == "123"
+        assert json.loads(attributes[f"{prefix}.int"]) == 5
+        assert json.loads(attributes[f"{prefix}.bool"]) is True
+
+    def test_big_int_metadata_value_survives_otlp_encoding(
+        self, langfuse_client, memory_exporter
+    ):
+        """Ints beyond int64 must not make the OTLP encoder drop the key."""
+        from opentelemetry.exporter.otlp.proto.common.trace_encoder import (
+            encode_spans,
+        )
+
+        with langfuse_client.start_as_current_observation(
+            name="big-int-span", metadata={"big": 2**70, "small": 1}
+        ):
+            pass
+
+        spans = [
+            s for s in memory_exporter.get_finished_spans() if s.name == "big-int-span"
+        ]
+        request = encode_spans(spans)
+        encoded = {
+            kv.key: kv.value.string_value
+            for kv in request.resource_spans[0].scope_spans[0].spans[0].attributes
+        }
+
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        assert encoded[f"{prefix}.big"] == '"1180591620717411303424"'
+        assert encoded[f"{prefix}.small"] == "1"
+
+    def test_none_metadata_value_keeps_earlier_value_on_update(
+        self, langfuse_client, memory_exporter
+    ):
+        """None values are skipped, so they don't overwrite earlier keys."""
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        with langfuse_client.start_as_current_observation(
+            name="none-metadata-span", metadata={"keep": "first", "other": 1}
+        ) as span:
+            span.update(metadata={"keep": None, "other": 2})
+
+        attributes = self.get_spans_by_name(memory_exporter, "none-metadata-span")[0][
+            "attributes"
+        ]
+
+        assert attributes[f"{prefix}.keep"] == '"first"'
+        assert attributes[f"{prefix}.other"] == "2"
+
+    def test_flatten_metadata_trace_prefix_uses_same_encoding(self):
+        """The trace prefix variant encodes values the same way."""
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
+
+        result = _flatten_and_serialize_metadata(
+            {"s": "x", "i": 1, "none": None}, "trace"
+        )
+
+        prefix = LangfuseOtelSpanAttributes.TRACE_METADATA
+        assert result == {f"{prefix}.s": '"x"', f"{prefix}.i": "1"}
 
 
 class TestMultiProjectSetup(TestOTelBase):

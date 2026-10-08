@@ -845,7 +845,7 @@ def test_tool_when_structured_inputs_only_store_in_inputs_attribute_not_metadata
 
     metadata_prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
 
-    assert span.attributes[f"{metadata_prefix}.custom_key"] == "custom_value"
+    assert span.attributes[f"{metadata_prefix}.custom_key"] == '"custom_value"'
     assert f"{metadata_prefix}.inputs" not in span.attributes
 
 

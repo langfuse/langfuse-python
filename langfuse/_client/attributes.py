@@ -195,16 +195,22 @@ def _flatten_and_serialize_metadata(
         else LangfuseOtelSpanAttributes.TRACE_METADATA
     )
 
-    metadata_attributes: Dict[str, Union[str, int, None]] = {}
+    metadata_attributes: Dict[str, Optional[str]] = {}
 
     if not isinstance(metadata, dict):
         metadata_attributes[prefix] = _serialize(metadata)
     else:
         for key, value in metadata.items():
-            metadata_attributes[f"{prefix}.{key}"] = (
-                value
-                if isinstance(value, str) or isinstance(value, int)
-                else _serialize(value)
+            # Skip None so an update does not overwrite an earlier value.
+            if value is None:
+                continue
+
+            # JSON-encode every value, strings included, so the server can decode
+            # it back to its original type ("123" vs 123). EventSerializer turns
+            # ints outside the JS-safe range and NaN/Infinity into JSON strings
+            # and never raises, so one bad value cannot drop the other keys.
+            metadata_attributes[f"{prefix}.{key}"] = json.dumps(
+                value, cls=EventSerializer
             )
 
     return metadata_attributes

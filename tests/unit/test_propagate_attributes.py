@@ -2855,17 +2855,17 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span,
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.shared",
-            "run",
+            '"run"',
         )
         self.verify_span_attribute(
             span,
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.experiment_run_name",
-            "run-name",
+            '"run-name"',
         )
         self.verify_span_attribute(
             span,
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.item_only",
-            "yes",
+            '"yes"',
         )
 
     def test_experiment_attributes_propagate_with_dataset(
