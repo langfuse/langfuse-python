@@ -3867,6 +3867,42 @@ class TestPropagateAttributesMask(TestPropagateAttributesBase):
         span_data = self.get_span_by_name(memory_exporter, "child-span")
         assert self.get_trace_metadata(span_data) == {"long": "a" * 10}
 
+    def test_mask_with_several_clients_needs_public_key_in_context(
+        self, monkeypatch, tracer_provider, mock_processor_init, memory_exporter
+    ):
+        """Verify the known limitation: several clients and no key means no mask."""
+        from langfuse import Langfuse
+        from langfuse._client.get_client import _set_current_public_key
+
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "test-secret-key")
+        masked_client = Langfuse(
+            public_key="pk-masked",
+            secret_key="test-secret-key",
+            host="http://test-host",
+            tracer_provider=tracer_provider,
+            mask=lambda *, data, **kwargs: None if data is None else "***",
+        )
+        Langfuse(
+            public_key="pk-other",
+            secret_key="test-secret-key",
+            host="http://test-host",
+            tracer_provider=tracer_provider,
+        )
+
+        with masked_client.start_as_current_observation(name="no-key-span"):
+            with propagate_attributes(metadata={"api_key": "secret"}):
+                pass
+
+        with _set_current_public_key("pk-masked"):
+            with masked_client.start_as_current_observation(name="key-span"):
+                with propagate_attributes(metadata={"api_key": "secret"}):
+                    pass
+
+        no_key_span = self.get_span_by_name(memory_exporter, "no-key-span")
+        assert self.get_trace_metadata(no_key_span) == {"api_key": "secret"}
+        key_span = self.get_span_by_name(memory_exporter, "key-span")
+        assert self.get_trace_metadata(key_span) == {"api_key": "***"}
+
     def test_no_mask_leaves_metadata_unchanged(self, langfuse_client, memory_exporter):
         """Verify metadata is unchanged when no mask is configured."""
         with langfuse_client.start_as_current_observation(name="parent-span"):

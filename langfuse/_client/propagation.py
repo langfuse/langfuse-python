@@ -163,7 +163,11 @@ def propagate_attributes(
             - Values are coerced to strings
             - If the client has a `mask` function, it is applied to each value
               (not the key) before coercion; if it raises, that value becomes
-              "<fully masked due to failed mask function>"
+              "<fully masked due to failed mask function>". The mask comes from
+              the client for the public key in the execution context, otherwise
+              the only initialized client. With several clients and no public key
+              in context, or with no client yet, values are not masked; pass
+              `langfuse_public_key` via `@observe` or use a single client
             - Coerced values must be ≤200 characters
             - Use for dimensions like internal correlating identifiers
             - AVOID: large payloads or sensitive data
@@ -456,6 +460,8 @@ def _get_current_mask() -> Optional[MaskFunction]:
     Uses the public key in the execution context, otherwise the only initialized
     client. With no client, or several clients and no public key, there is no mask.
     """
+    # Known limitation: in those cases propagated metadata is exported unmasked
+    # even if a client has a mask, since there is no single client to pick
     # Imported here to avoid a circular import via the span processor
     from langfuse._client.get_client import _current_public_key
     from langfuse._client.resource_manager import LangfuseResourceManager
