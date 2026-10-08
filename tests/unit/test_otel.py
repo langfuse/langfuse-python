@@ -24,6 +24,7 @@ from langfuse._client.attributes import (
 )
 from langfuse._client.client import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
+from langfuse._utils.serializer import EventSerializer
 from langfuse.media import LangfuseMedia
 
 
@@ -1709,19 +1710,39 @@ class TestMetadataHandling(TestOTelBase):
         original_dumps = json.dumps
 
         def failing_dumps(value, *args, **kwargs):
-            if value == "boom":
+            if value == ["boom"]:
                 raise ValueError("cannot serialize")
             return original_dumps(value, *args, **kwargs)
 
         monkeypatch.setattr(attributes.json, "dumps", failing_dumps)
 
         langfuse_client.start_observation(
-            name="unserializable", metadata={"bad": "boom", "good": 1}
+            name="unserializable", metadata={"bad": ["boom"], "good": 1}
         ).end()
 
         assert self.get_metadata(
             self.get_span_by_name(memory_exporter, "unserializable")
         ) == {"bad": "<failed to serialize>", "good": 1}
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "text",
+            "\u00fcml\u00e4ut",
+            'quo"te',
+            True,
+            False,
+            0,
+            -7,
+            2**53 - 1,
+            1.5,
+            -0.0,
+        ],
+    )
+    def test_scalar_fast_path_matches_event_serializer(self, value):
+        assert attributes._serialize_metadata_value(value) == json.dumps(
+            value, cls=EventSerializer, separators=(",", ":")
+        )
 
     def test_more_than_128_keys_raises(self, langfuse_client, memory_exporter):
         too_many = {f"key_{i}": i for i in range(MAX_OBSERVATION_METADATA_KEYS + 1)}

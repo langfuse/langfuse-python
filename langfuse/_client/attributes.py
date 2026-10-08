@@ -11,6 +11,7 @@ The module includes:
 """
 
 import json
+import math
 from datetime import datetime
 from typing import Any, Dict, Literal, Optional, Tuple, TypeVar, Union
 
@@ -310,6 +311,17 @@ def drop_metadata_over_key_limit(metadata: _T) -> Optional[_T]:
 def _serialize_metadata_value(value: Any, *, top_level: bool = False) -> str:
     if top_level and isinstance(value, str):
         return value
+
+    # Plain json.dumps encodes these JSON-native scalars exactly like the
+    # EventSerializer call below, at a fraction of the cost (no encoder per call)
+    value_type = type(value)
+    if (
+        value_type is str
+        or value_type is bool
+        or (value_type is int and EventSerializer.is_js_safe_integer(value))
+        or (value_type is float and math.isfinite(value))
+    ):
+        return json.dumps(value)
 
     try:
         return json.dumps(value, cls=EventSerializer, separators=_COMPACT_SEPARATORS)
