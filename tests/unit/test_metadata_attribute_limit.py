@@ -39,6 +39,14 @@ def _limit_warnings(caplog):
     ]
 
 
+@pytest.fixture(autouse=True)
+def default_attribute_limit(monkeypatch):
+    # Pin the OTel default so a custom limit in the environment cannot break
+    # the assertions below that expect 128.
+    monkeypatch.delenv("OTEL_ATTRIBUTE_COUNT_LIMIT", raising=False)
+    monkeypatch.setenv("OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT", "128")
+
+
 @pytest.fixture
 def small_limit_client(monkeypatch, request):
     monkeypatch.setenv("OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT", "40")
