@@ -659,9 +659,12 @@ class LangfuseObservationWrapper:
             fallback = "<fully masked due to failed mask function>"
 
             # Metadata merges by key, so a non-dict fallback would replace
-            # metadata from earlier updates of the span
+            # metadata from earlier updates of the span. Keys set to None keep
+            # their earlier values.
             if field == "metadata" and isinstance(data, dict):
-                return {key: fallback for key in data}
+                return {
+                    key: fallback for key, value in data.items() if value is not None
+                }
 
             return fallback
 
