@@ -1805,6 +1805,24 @@ class TestMetadataHandling(TestOTelBase):
             "b": 2,
         }
 
+    def test_failed_mask_keeps_earlier_metadata(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict) and "fail" in data:
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(name="mask-fail", metadata={"a": 1})
+        span.update(metadata={"fail": True, "b": 2})
+        span.end()
+
+        fallback = "<fully masked due to failed mask function>"
+        assert self.get_metadata(
+            self.get_span_by_name(memory_exporter, "mask-fail")
+        ) == {"a": 1, "fail": fallback, "b": fallback}
+
     def test_thread_safe_metadata_updates(self, langfuse_client, memory_exporter):
         import threading
 
