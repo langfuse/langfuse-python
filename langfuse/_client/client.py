@@ -41,7 +41,6 @@ from packaging.version import Version
 
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
-    _flatten_and_serialize_metadata_values,
     _serialize,
 )
 from langfuse._client.constants import (
@@ -83,6 +82,7 @@ from langfuse._client.span import (
     LangfuseRetriever,
     LangfuseSpan,
     LangfuseTool,
+    _set_span_attributes_within_limit,
 )
 from langfuse._client.utils import (
     get_sha256_hash_hex,
@@ -426,23 +426,17 @@ class Langfuse:
         Semantics that are easy to miss:
 
         - **Ingestion is asynchronous.** `langfuse.flush()` only guarantees delivery to
-          the API, not read visibility: reads such as `api.trace.get(trace_id)` may
-          raise `langfuse.api.NotFoundError` until processing completes (typically
-          within 15-30 seconds; longer under load). The same applies to scores and
-          dataset run reads. Instead of a fixed sleep, retry with a deadline:
+          the API, not read visibility: reads such as
+          `api.observations.get_many(trace_id=...)` may return no data until
+          processing completes (typically within 15-30 seconds; longer under load).
+          The same applies to scores and experiment reads. Instead of a fixed sleep,
+          poll with a deadline (see the ingestion-lag link below).
 
-        - **List endpoints return lightweight views.** `api.trace.list(...)` returns
-          `TraceWithDetails`, where `observations` and `scores` are lists of ID strings.
-          Fetch the full objects with `api.trace.get(trace_id)` (`TraceWithFullDetails`),
-          or prefer `api.observations.get_many(trace_id=...)` for row-level observation
-          queries. The same list-view vs. get-detail pattern applies to other resources.
-
-        - **Prefer the v2 data APIs — they are the defaults since SDK v4.**
-          `api.observations` and `api.metrics` map to the high-performance
-          `/api/public/v2/...` endpoints and are the recommended read path. Their v1
-          equivalents remain available under `api.legacy.observations_v1` /
-          `api.legacy.metrics_v1` but are less performant at scale, not recommended
-          for new workflows, and will be deprecated.
+        - **Observations are the read model.** Read trace data with
+          `api.observations.get_many(trace_id=...)` (`/api/public/v2/observations`,
+          cursor-paginated; request field groups with `fields`). A trace's name,
+          user, session, tags and input/output are on its root observation. Read
+          scores with `api.scores_v3` and experiments with `api.experiments`.
 
         - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
@@ -450,7 +444,7 @@ class Langfuse:
 
         See also: `async_api`,
         https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
-        (ingestion lag: #ingestion-lag, list vs. get: #traces-list-vs-get),
+        (ingestion lag: #ingestion-lag),
         https://langfuse.com/docs/api-and-data-platform/features/observations-api,
         https://langfuse.com/docs/metrics/features/metrics-api
         """
@@ -694,7 +688,9 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self._otel_tracer.start_span(name=name)
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    _set_span_attributes_within_limit(
+                        otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
+                    )
 
                     return self._create_observation_from_otel_span(
                         otel_span=otel_span,
@@ -1284,8 +1280,9 @@ class Langfuse:
                 prompt=prompt,
             ) as langfuse_span:
                 if remote_parent_span is not None:
-                    langfuse_span._otel_span.set_attribute(
-                        LangfuseOtelSpanAttributes.AS_ROOT, True
+                    _set_span_attributes_within_limit(
+                        langfuse_span._otel_span,
+                        {LangfuseOtelSpanAttributes.AS_ROOT: True},
                     )
 
                 yield langfuse_span
@@ -1615,7 +1612,9 @@ class Langfuse:
                     otel_span = self._otel_tracer.start_span(
                         name=name, start_time=timestamp
                     )
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    _set_span_attributes_within_limit(
+                        otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
+                    )
 
                     return cast(
                         LangfuseEvent,
@@ -2247,9 +2246,8 @@ class Langfuse:
             `flush()` guarantees data was *delivered* to the API, not that it is
             *readable* yet: server-side ingestion is asynchronous, so flushed data
             may not be queryable for 15-30 seconds —
-            `api.observations.get_many(trace_id=...)` may return empty results and
-            `api.trace.get()` may raise `langfuse.api.NotFoundError` right after a
-            successful flush. See the `api` property docs for a bounded retry
+            `api.observations.get_many(trace_id=...)` may return empty results right
+            after a successful flush. See the `api` property docs for a bounded retry
             pattern, or
             https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
@@ -2886,16 +2884,14 @@ class Langfuse:
                     else getattr(item, "metadata", None)
                 )
 
-                final_observation_metadata = {
-                    **(item_metadata if isinstance(item_metadata, dict) else {}),
-                    **(experiment_metadata or {}),
-                    "experiment_name": experiment_name,
-                    "experiment_run_name": experiment_run_name,
-                }
-
                 trace_id = span.trace_id
                 dataset_id = None
                 dataset_item_id = None
+
+                experiment_run_metadata: Dict[str, Any] = {
+                    "experiment_name": experiment_name,
+                    "experiment_run_name": experiment_run_name,
+                }
 
                 if (
                     not isinstance(item, dict)
@@ -2905,9 +2901,19 @@ class Langfuse:
                     dataset_id = item.dataset_id
                     dataset_item_id = item.id
 
-                    final_observation_metadata.update(
+                    experiment_run_metadata.update(
                         {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
                     )
+
+                # Experiment run keys go first so the span attribute limit drops
+                # user metadata before them, and last so they still win over
+                # user keys.
+                final_observation_metadata = {
+                    **experiment_run_metadata,
+                    **(item_metadata if isinstance(item_metadata, dict) else {}),
+                    **(experiment_metadata or {}),
+                    **experiment_run_metadata,
+                }
 
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
@@ -2926,25 +2932,26 @@ class Langfuse:
                     }.items()
                     if v is not None
                 }
-                span._otel_span.set_attributes(experiment_span_attributes)
+                _set_span_attributes_within_limit(
+                    span._otel_span, experiment_span_attributes
+                )
 
                 with span.start_as_current_observation(
                     name="experiment-item-task",
                     as_type="span",
                     input=input_data,
-                    metadata=final_observation_metadata,
                 ) as task_span:
-                    task_span._otel_span.set_attributes(experiment_span_attributes)
+                    _set_span_attributes_within_limit(
+                        task_span._otel_span, experiment_span_attributes
+                    )
 
                     propagated_experiment_attributes = PropagatedExperimentAttributes(
                         experiment_id=experiment_id,
                         experiment_name=experiment_run_name,
-                        experiment_metadata=_flatten_and_serialize_metadata_values(
-                            experiment_metadata
-                        ),
+                        experiment_metadata=_serialize(experiment_metadata),
                         experiment_dataset_id=dataset_id,
                         experiment_item_id=experiment_item_id,
-                        experiment_item_metadata=_flatten_and_serialize_metadata_values(
+                        experiment_item_metadata=_serialize(
                             item_metadata if isinstance(item_metadata, dict) else None
                         ),
                         experiment_item_root_observation_id=task_span.id,
@@ -2955,11 +2962,16 @@ class Langfuse:
                     ):
                         # _propagate_attributes updates the current task span and future children.
                         # Explicitly backfill the parent item-run span to preserve experiment association.
-                        span._otel_span.set_attributes(
+                        _set_span_attributes_within_limit(
+                            span._otel_span,
                             _get_propagated_attributes_from_context(
                                 otel_context_api.get_current()
-                            )
+                            ),
                         )
+                        # Write the observation metadata after the experiment
+                        # attributes, so the span attribute limit trims the
+                        # metadata instead of leaving no room for the output.
+                        task_span.update(metadata=final_observation_metadata)
                         try:
                             output = await _run_task(task, item)
                         except Exception as e:
