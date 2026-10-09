@@ -172,6 +172,12 @@ def _assert_consumer_survives(consumer, queue):
     try:
         assert _join_with_timeout(queue), "queue.join() hung: item was not acknowledged"
         assert consumer.is_alive()
+        # task_done() runs in a finally block before an exception can leave run(),
+        # so the first drain alone does not prove the worker survived. A second
+        # item must also be taken and acknowledged.
+        queue.put({"id": "2", "type": "score-create", "body": {}})
+        assert _join_with_timeout(queue), "worker stopped taking new work"
+        assert consumer.is_alive()
     finally:
         consumer.pause()
         consumer.join(timeout=5)
