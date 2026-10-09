@@ -147,7 +147,13 @@ class ScoreIngestionConsumer(threading.Thread):
         try:
             self._upload_batch(batch)
         except Exception as e:
-            handle_exception(e)
+            try:
+                handle_exception(e)
+            except Exception:
+                # error reporting must never kill the consumer thread
+                logger.exception(
+                    "Error while handling score upload failure (original error: %s)", e
+                )
         finally:
             # mark items as acknowledged from queue
             for _ in batch:

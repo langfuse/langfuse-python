@@ -1,5 +1,6 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+import threading
 from queue import Queue
 from types import SimpleNamespace
 from typing import Sequence
@@ -14,6 +15,7 @@ from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
 from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse._utils.request import APIError, APIErrors
 from langfuse.types import MaskOtelSpansResult
 
 
@@ -154,6 +156,62 @@ def test_score_ingestion_consumer_pause_wakes_blocked_thread():
     consumer.join(timeout=0.5)
 
     assert not consumer.is_alive()
+
+
+def _join_with_timeout(queue: Queue, timeout: float = 5) -> bool:
+    """Return True if the queue drained; False (instead of hanging) if it did not."""
+    joiner = threading.Thread(target=queue.join, daemon=True)
+    joiner.start()
+    joiner.join(timeout)
+    return not joiner.is_alive()
+
+
+def _assert_consumer_survives(consumer, queue):
+    queue.put({"id": "1", "type": "score-create", "body": {}})
+    consumer.start()
+    try:
+        assert _join_with_timeout(queue), "queue.join() hung: item was not acknowledged"
+        assert consumer.is_alive()
+    finally:
+        consumer.pause()
+        consumer.join(timeout=5)
+    assert not consumer.is_alive()
+
+
+def test_score_ingestion_consumer_survives_error_handler_failure(monkeypatch):
+    queue = Queue()
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=queue,
+        identifier=0,
+        client=Mock(),
+        public_key="pk-test",
+        flush_interval=0.1,
+    )
+    monkeypatch.setattr(consumer, "_upload_batch", Mock(side_effect=RuntimeError("x")))
+    monkeypatch.setattr(
+        "langfuse._task_manager.score_ingestion_consumer.handle_exception",
+        Mock(side_effect=ValueError("boom")),
+    )
+
+    _assert_consumer_survives(consumer, queue)
+
+
+def test_score_ingestion_consumer_survives_non_numeric_207_status():
+    queue = Queue()
+    client = Mock()
+    client.batch_post.side_effect = APIErrors(
+        [APIError(status="abc", message="m", details="d")]
+    )
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=queue,
+        identifier=0,
+        client=client,
+        public_key="pk-test",
+        flush_interval=0.1,
+        max_retries=1,
+    )
+
+    _assert_consumer_survives(consumer, queue)
 
 
 def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():

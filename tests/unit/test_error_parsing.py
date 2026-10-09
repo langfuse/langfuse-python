@@ -1,6 +1,10 @@
 """@private"""
 
+import pytest
+
 from langfuse._utils.parse_error import (
+    defaultErrorResponse,
+    errorResponseByCode,
     generate_error_message,
     generate_error_message_fern,
 )
@@ -75,3 +79,21 @@ def test_generate_error_message_generic():
     exception = ApiError(status_code=503)
     expected_message = "Service unavailable. This is an unusual occurrence and we are monitoring it closely. For help, please contact support: https://langfuse.com/support."
     assert generate_error_message_fern(exception) == expected_message
+
+
+@pytest.mark.parametrize("status", ["abc", "", None, [400], float("inf")])
+def test_generate_error_message_non_numeric_status(status):
+    expected_default = f"API error occurred: {defaultErrorResponse}"
+    assert generate_error_message(APIError(status=status, message="Bad")) == (
+        expected_default
+    )
+    assert generate_error_message(
+        APIErrors([APIError(status=status, message="Bad")])
+    ) == ("API errors occurred: " + defaultErrorResponse)
+
+
+@pytest.mark.parametrize("status", [404, "404"])
+def test_generate_error_message_numeric_status_unchanged(status):
+    assert errorResponseByCode[404] in generate_error_message(
+        APIError(status=status, message="Not found")
+    )
