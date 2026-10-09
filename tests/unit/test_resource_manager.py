@@ -29,6 +29,32 @@ class NoOpSpanExporter(SpanExporter):
         pass
 
 
+def _join_with_timeout(queue: Queue, timeout: float = 5) -> bool:
+    """Return True if the queue drained; False (instead of hanging) if it did not."""
+    joiner = threading.Thread(target=queue.join, daemon=True)
+    joiner.start()
+    joiner.join(timeout)
+    return not joiner.is_alive()
+
+
+def _assert_consumer_survives(consumer, queue):
+    queue.put({"id": "1", "type": "score-create", "body": {}})
+    consumer.start()
+    try:
+        assert _join_with_timeout(queue), "queue.join() hung: item was not acknowledged"
+        assert consumer.is_alive()
+        # task_done() runs in a finally block before an exception can leave run(),
+        # so the first drain alone does not prove the worker survived. A second
+        # item must also be taken and acknowledged.
+        queue.put({"id": "2", "type": "score-create", "body": {}})
+        assert _join_with_timeout(queue), "worker stopped taking new work"
+        assert consumer.is_alive()
+    finally:
+        consumer.pause()
+        consumer.join(timeout=5)
+    assert not consumer.is_alive()
+
+
 def test_get_client_preserves_all_settings(monkeypatch):
     """Test that get_client() preserves environment and all client settings."""
     with LangfuseResourceManager._lock:
@@ -155,32 +181,6 @@ def test_score_ingestion_consumer_pause_wakes_blocked_thread():
     consumer.pause()
     consumer.join(timeout=0.5)
 
-    assert not consumer.is_alive()
-
-
-def _join_with_timeout(queue: Queue, timeout: float = 5) -> bool:
-    """Return True if the queue drained; False (instead of hanging) if it did not."""
-    joiner = threading.Thread(target=queue.join, daemon=True)
-    joiner.start()
-    joiner.join(timeout)
-    return not joiner.is_alive()
-
-
-def _assert_consumer_survives(consumer, queue):
-    queue.put({"id": "1", "type": "score-create", "body": {}})
-    consumer.start()
-    try:
-        assert _join_with_timeout(queue), "queue.join() hung: item was not acknowledged"
-        assert consumer.is_alive()
-        # task_done() runs in a finally block before an exception can leave run(),
-        # so the first drain alone does not prove the worker survived. A second
-        # item must also be taken and acknowledged.
-        queue.put({"id": "2", "type": "score-create", "body": {}})
-        assert _join_with_timeout(queue), "worker stopped taking new work"
-        assert consumer.is_alive()
-    finally:
-        consumer.pause()
-        consumer.join(timeout=5)
     assert not consumer.is_alive()
 
 
