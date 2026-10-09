@@ -103,7 +103,7 @@ jobs:
       - name: Run score response parsing on pydantic 2.7
         if: ${{ matrix.python-version == '3.11' }}
         run: |
-          uv run --frozen --with "pydantic==2.7.4" python -c "import pydantic; print(pydantic.VERSION)"
+          uv run --frozen --with "pydantic==2.7.4" python -c "import pydantic; assert pydantic.VERSION == '2.7.4', pydantic.VERSION"
           uv run --frozen --with "pydantic==2.7.4" pytest -v tests/unit/test_scores_batch_response.py
 
   e2e-tests:

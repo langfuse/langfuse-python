@@ -1,8 +1,8 @@
 """Parsing of POST /api/public/scores responses into the CreateScoresResponse union.
 
 The union is undiscriminated, so the model is picked from the response body. CI
-also runs this file on the lowest supported pydantic minor version, whose union
-matching differs from current releases.
+also runs this file on pydantic 2.7, an older supported minor whose union matching
+differs from current releases.
 """
 
 import json
