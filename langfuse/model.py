@@ -362,7 +362,7 @@ class ChatPromptClient(BasePromptClient):
                                 compiled_messages.append(
                                     ChatMessageDict(
                                         role="NOT_GIVEN",
-                                        content=str(placeholder_value),
+                                        content=str(msg),
                                     )
                                 )
                                 no_role_content_in_placeholder = f"Placeholder '{placeholder_name}' should contain a list of chat messages with 'role' and 'content' fields. Appended as string."
