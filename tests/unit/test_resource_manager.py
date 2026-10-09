@@ -175,12 +175,51 @@ def test_score_ingestion_consumer_does_not_retry_207_partial_failure(caplog):
     for i in range(2):
         queue.put({"id": str(i), "type": "score-create", "body": {"name": "s"}})
 
-    with caplog.at_level(logging.WARNING, logger="langfuse"):
+    with caplog.at_level(logging.DEBUG, logger="langfuse"):
         consumer.upload()
 
     assert client.batch_post.call_count == 1
     assert "1 of 2 score events were rejected" in caplog.text
     assert "invalid score" in caplog.text
+    # A rejected batch must not also be reported as successfully sent.
+    assert "Successfully sent" not in caplog.text
+
+
+def test_score_ingestion_consumer_207_warning_is_bounded_and_escaped(caplog):
+    long_message = "x" * 300
+    errors = [APIError(400, f"error-{i}", "detail") for i in range(7)]
+    errors[0] = APIError(400, "multi\nline\r\nmessage", long_message)
+    client = Mock()
+    client.batch_post.side_effect = APIErrors(errors)
+    queue: Queue = Queue()
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=queue,
+        identifier=0,
+        client=client,
+        public_key="pk-test",
+        flush_at=2,
+        flush_interval=0.1,
+    )
+    for i in range(2):
+        queue.put({"id": str(i), "type": "score-create", "body": {"name": "s"}})
+
+    with caplog.at_level(logging.DEBUG, logger="langfuse"):
+        consumer.upload()
+
+    assert client.batch_post.call_count == 1
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    message = warnings[0]
+    assert "7 of 2 score events were rejected" in message
+    # Only the first 5 errors are shown.
+    assert "error-4" in message
+    assert "error-5" not in message
+    assert "error-6" not in message
+    # Control characters are escaped, so the log stays on one line.
+    assert "\n" not in message and "\r" not in message
+    assert "multi\\nline\\r\\nmessage" in message
+    # Each error is truncated to 200 characters.
+    assert "x" * 200 not in message
 
 
 def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
