@@ -21,6 +21,11 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationInfo
 from opentelemetry.trace import SpanContext, TraceFlags, TraceState
 
 import langfuse._client.span_exporter as span_exporter_module
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    _flatten_and_serialize_metadata,
+    _serialize_metadata_value,
+)
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.span_processor import LangfuseSpanProcessor
 from langfuse._task_manager.media_manager import MediaManager
@@ -248,6 +253,40 @@ def test_export_stage_media_processes_direct_data_uri_string():
 
     assert exported_span.attributes["gen_ai.prompt"].startswith("@@@langfuseMedia:")
     assert not media_queue.empty()
+
+
+def test_export_stage_media_processes_json_encoded_metadata_data_uri():
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+    data_uri = f"data:image/jpeg;base64,{image_base64}"
+
+    provider = _tracer_provider(exporter=exporter, media_manager=media_manager)
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    observation_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.image"
+    trace_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.image"
+
+    with tracer.start_as_current_span("json-metadata-media-span") as span:
+        span.set_attributes(
+            {
+                **_flatten_and_serialize_metadata({"image": data_uri}, "observation"),
+                trace_key: _serialize_metadata_value(data_uri),
+                # A quoted data URI outside Langfuse metadata is left as is.
+                "custom.payload": _serialize_metadata_value(data_uri),
+            }
+        )
+
+    provider.force_flush()
+
+    attributes = exporter.get_finished_spans()[0].attributes
+
+    for key in (observation_key, trace_key):
+        assert attributes[key].startswith('"@@@langfuseMedia:')
+        assert json.loads(attributes[key]).startswith("@@@langfuseMedia:")
+        assert image_base64 not in attributes[key]
+    assert attributes["custom.payload"] == json.dumps(data_uri)
+    assert media_queue.qsize() == 2
 
 
 def test_export_stage_media_processes_string_sequence_attributes():

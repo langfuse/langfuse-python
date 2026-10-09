@@ -10,7 +10,10 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.util import BoundedList
 from opentelemetry.trace import format_span_id, format_trace_id
 
-from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    _serialize_metadata_value,
+)
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
@@ -211,6 +214,13 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         attribute_key: str,
         value: str,
     ) -> str:
+        if value.startswith('"data:') and _is_langfuse_metadata_attribute(
+            attribute_key
+        ):
+            return self._process_json_encoded_media_string(
+                span=span, attribute_key=attribute_key, value=value
+            )
+
         media_manager = cast(MediaManager, self._media_manager)
         field = _media_field_for_attribute(attribute_key)
 
@@ -259,6 +269,32 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             return value
 
         return _serialize_media_value(processed_json_value, fallback=value)
+
+    def _process_json_encoded_media_string(
+        self,
+        *,
+        span: ReadableSpan,
+        attribute_key: str,
+        value: str,
+    ) -> str:
+        # Langfuse metadata values are JSON-encoded, so a top-level data URI
+        # arrives quoted. Decode it, extract the media, and re-encode the result.
+        try:
+            decoded_value = json.loads(value)
+        except Exception:
+            return value
+
+        if not isinstance(decoded_value, str):
+            return value
+
+        processed_value = self._process_media_string(
+            span=span, attribute_key=attribute_key, value=decoded_value
+        )
+
+        if processed_value == decoded_value:
+            return value
+
+        return _serialize_metadata_value(processed_value)
 
     def _apply_mask_otel_spans(
         self,
@@ -554,6 +590,16 @@ def _is_valid_attribute_key(key: Any) -> bool:
 
 def _is_attribute_sequence(value: AttributeValue) -> bool:
     return isinstance(value, SequenceCollection) and not isinstance(value, (str, bytes))
+
+
+def _is_langfuse_metadata_attribute(attribute_key: str) -> bool:
+    return any(
+        attribute_key == prefix or attribute_key.startswith(f"{prefix}.")
+        for prefix in (
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA,
+            LangfuseOtelSpanAttributes.TRACE_METADATA,
+        )
+    )
 
 
 def _is_base64_data_uri(value: str) -> bool:
