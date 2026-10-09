@@ -1,7 +1,6 @@
-"""Tests for ScoreIngestionConsumer event size enforcement."""
-
+import logging
 from queue import Queue
-from unittest.mock import MagicMock
+from unittest.mock import Mock
 
 from pydantic import BaseModel
 
@@ -9,7 +8,7 @@ from langfuse._task_manager import score_ingestion_consumer as sic
 from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
 
 
-def _consumer(queue: Queue, client: MagicMock, flush_at: int = 15):
+def _consumer(queue: Queue, client: Mock, flush_at: int = 15):
     return ScoreIngestionConsumer(
         ingestion_queue=queue,
         identifier=0,
@@ -24,11 +23,10 @@ def _event(event_id: str, comment: str) -> dict:
     return {"id": event_id, "type": "score-create", "body": {"comment": comment}}
 
 
-def test_oversized_event_is_dropped_and_others_are_sent(monkeypatch):
+def test_oversized_event_is_dropped_and_others_are_sent(monkeypatch, caplog):
     monkeypatch.setattr(sic, "MAX_EVENT_SIZE_BYTES", 1_000)
-    monkeypatch.setattr(sic, "logger", MagicMock())
-    queue: Queue = Queue()
-    client = MagicMock()
+    queue = Queue()
+    client = Mock()
     # flush_at=2 ends the batch once both valid events are read, independent of timing
     consumer = _consumer(queue, client, flush_at=2)
 
@@ -36,19 +34,20 @@ def test_oversized_event_is_dropped_and_others_are_sent(monkeypatch):
     queue.put(_event("big", "x" * 5_000))
     queue.put(_event("c", "small"))
 
-    consumer.upload()
+    with caplog.at_level(logging.ERROR):
+        consumer.upload()
 
     batch = client.batch_post.call_args.kwargs["batch"]
     assert [e["id"] for e in batch] == ["a", "c"]
     assert queue.unfinished_tasks == 0
-    sic.logger.error.assert_called_once()
-    assert "big" in sic.logger.error.call_args.args
+    assert len(caplog.records) == 1
+    assert "Score event big is" in caplog.text
 
 
 def test_only_oversized_event_posts_nothing(monkeypatch):
     monkeypatch.setattr(sic, "MAX_EVENT_SIZE_BYTES", 1_000)
-    queue: Queue = Queue()
-    client = MagicMock()
+    queue = Queue()
+    client = Mock()
     consumer = _consumer(queue, client)
 
     queue.put(_event("big", "x" * 5_000))
@@ -60,8 +59,8 @@ def test_only_oversized_event_posts_nothing(monkeypatch):
 
 
 def test_event_exactly_at_limit_is_sent(monkeypatch):
-    queue: Queue = Queue()
-    client = MagicMock()
+    queue = Queue()
+    client = Mock()
     consumer = _consumer(queue, client, flush_at=1)
     event = _event("edge", "x" * 100)
     size = consumer._get_item_size(event)
@@ -82,8 +81,8 @@ def test_pydantic_body_is_measured_after_dump(monkeypatch):
         comment: str
 
     monkeypatch.setattr(sic, "MAX_EVENT_SIZE_BYTES", 1_000)
-    queue: Queue = Queue()
-    client = MagicMock()
+    queue = Queue()
+    client = Mock()
     consumer = _consumer(queue, client)
 
     queue.put({"id": "big", "type": "score-create", "body": Body(comment="x" * 5_000)})
