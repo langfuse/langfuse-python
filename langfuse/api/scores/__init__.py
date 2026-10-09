@@ -7,9 +7,15 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        CreateScoreBatchError,
+        CreateScoreBatchRequest,
+        CreateScoreBatchResponse,
+        CreateScoreBatchResults,
         CreateScoreRequest,
         CreateScoreResponse,
         CreateScoreSource,
+        CreateScoresRequest,
+        CreateScoresResponse,
         GetScoresResponse,
         GetScoresResponseData,
         GetScoresResponseDataBoolean,
@@ -25,9 +31,15 @@ if typing.TYPE_CHECKING:
         GetScoresResponseTraceData,
     )
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreateScoreBatchError": ".types",
+    "CreateScoreBatchRequest": ".types",
+    "CreateScoreBatchResponse": ".types",
+    "CreateScoreBatchResults": ".types",
     "CreateScoreRequest": ".types",
     "CreateScoreResponse": ".types",
     "CreateScoreSource": ".types",
+    "CreateScoresRequest": ".types",
+    "CreateScoresResponse": ".types",
     "GetScoresResponse": ".types",
     "GetScoresResponseData": ".types",
     "GetScoresResponseDataBoolean": ".types",
@@ -72,9 +84,15 @@ def __dir__():
 
 
 __all__ = [
+    "CreateScoreBatchError",
+    "CreateScoreBatchRequest",
+    "CreateScoreBatchResponse",
+    "CreateScoreBatchResults",
     "CreateScoreRequest",
     "CreateScoreResponse",
     "CreateScoreSource",
+    "CreateScoresRequest",
+    "CreateScoresResponse",
     "GetScoresResponse",
     "GetScoresResponseData",
     "GetScoresResponseDataBoolean",
