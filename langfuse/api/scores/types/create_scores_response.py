@@ -7,5 +7,5 @@ from .create_score_batch_results import CreateScoreBatchResults
 from .create_score_response import CreateScoreResponse
 
 CreateScoresResponse = typing.Union[
-    CreateScoreResponse, CreateScoreBatchResponse, CreateScoreBatchResults
+    CreateScoreBatchResults, CreateScoreResponse, CreateScoreBatchResponse
 ]
