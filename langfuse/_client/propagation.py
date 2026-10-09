@@ -287,10 +287,11 @@ def propagate_attributes(
           Langfuse's environment format: lowercase alphanumeric with optional
           hyphens or underscores, must be ≤40 characters, and it must not start with "langfuse". Metadata
           values, strings included, are JSON-encoded the same way as
-          observation metadata (compact separators, non-ASCII kept as is, None
-          becomes "null", integers outside the JavaScript safe range and
-          NaN/Infinity become JSON strings) before the 200 character limit is
-          applied, so `"123"` stays a string on the server.
+          observation metadata (compact separators, non-ASCII kept as is,
+          integers outside the JavaScript safe range and NaN/Infinity become
+          JSON strings) before the 200 character limit is applied, so `"123"`
+          stays a string on the server. None values are dropped with a warning,
+          like observation metadata skips them.
           Invalid values will be dropped with a warning logged.
         - **OpenTelemetry**: This uses OpenTelemetry context propagation under the hood,
           making it compatible with other OTel-instrumented libraries.
@@ -390,6 +391,14 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata_value.items():
+            if value is None:
+                langfuse_logger.warning(
+                    "Propagated attribute '%s.%s' is None. Dropping value.",
+                    metadata_key,
+                    key,
+                )
+                continue
+
             serialized_value = _serialize_metadata_value(value)
 
             if _validate_string_value(

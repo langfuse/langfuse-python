@@ -485,7 +485,6 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "ratio": 0.5,
             "config": {"model": "gpt-4o", "nested": {"b": [1, None], "a": "ü"}},
             "label": ["Läufe", "🚀"],
-            "empty": None,
         }
         # Byte-identical to JSON.stringify in the JS SDK for the same values.
         expected = {
@@ -497,7 +496,6 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "ratio": "0.5",
             "config": '{"model":"gpt-4o","nested":{"b":[1,null],"a":"ü"}}',
             "label": '["Läufe","🚀"]',
-            "empty": "null",
         }
 
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -515,6 +513,33 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             )
 
         assert "value is not a string. Dropping value." not in caplog.text
+
+    def test_none_metadata_value_is_dropped_with_warning(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        """Verify None values are dropped and don't overwrite an outer value."""
+        caplog.set_level("WARNING", logger="langfuse")
+        prefix = LangfuseOtelSpanAttributes.TRACE_METADATA
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"outer": "kept"}):
+                with propagate_attributes(
+                    metadata={"outer": None, "empty": None, "other": "x"}
+                ):
+                    child = langfuse_client.start_observation(name="child-span")
+                    child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(child_span, f"{prefix}.outer", '"kept"')
+        self.verify_span_attribute(child_span, f"{prefix}.other", '"x"')
+        self.verify_missing_attribute(child_span, f"{prefix}.empty")
+        assert (
+            "Propagated attribute 'metadata.empty' is None. Dropping value."
+            in caplog.text
+        )
+        assert (
+            "Propagated attribute 'metadata.outer' is None. Dropping value."
+            in caplog.text
+        )
 
     def test_large_integer_metadata_becomes_json_string(
         self, langfuse_client, memory_exporter
