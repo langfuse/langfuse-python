@@ -2082,6 +2082,63 @@ class TestMetadataHandling(TestOTelBase):
             == self.MASK_FALLBACK
         )
 
+    def test_unset_attributes_are_never_passed_to_the_mask(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        """Only attributes the caller set may reach the mask function.
+
+        A mask that assumes it always receives a dict (the common shape) must not
+        trigger the fallback for attributes the caller never provided. Otherwise
+        phantom `input`/`metadata` attributes get written to the span.
+        """
+        seen = []
+
+        def mask(*, data, **kwargs):
+            seen.append(data)
+            return {**data, "email": "***"}
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(name="mask-unset")
+        span.update(output={"answer": "42"})
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-unset")[0]
+        attributes = span_data["attributes"]
+
+        assert seen == [{"answer": "42"}]
+        assert json.loads(
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+        ) == {"answer": "42", "email": "***"}
+        assert LangfuseOtelSpanAttributes.OBSERVATION_INPUT not in attributes
+        assert self.get_metadata_attributes(span_data) == {}
+
+    def test_unset_attributes_stay_unset_when_created_with_metadata_only(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        """Creating a span with only metadata must not mask a missing input/output."""
+        seen = []
+
+        def mask(*, data, **kwargs):
+            seen.append(data)
+            return {**data, "email": "***"}
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="mask-unset-start", metadata={"k": 1}
+        )
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-unset-start")[0]
+        attributes = span_data["attributes"]
+
+        assert seen == [{"k": 1}]
+        assert self.get_metadata_attributes(span_data) == {
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.k": 1,
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.email": "***",
+        }
+        assert LangfuseOtelSpanAttributes.OBSERVATION_INPUT not in attributes
+        assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT not in attributes
+
 
 class TestMultiProjectSetup(TestOTelBase):
     """Tests for multi-project setup within the same process.
