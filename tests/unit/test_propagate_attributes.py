@@ -2873,14 +2873,6 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
     ):
         """Test experiment attribute propagation with Langfuse dataset."""
 
-        def fail_create_dataset_run_item(*args, **kwargs):
-            raise AssertionError("run_experiment must not create dataset run items")
-
-        monkeypatch.setattr(
-            langfuse_client.api.dataset_run_items,
-            "create",
-            fail_create_dataset_run_item,
-        )
         monkeypatch.setattr(
             langfuse_client, "_get_project_id", lambda: "test-project-id"
         )

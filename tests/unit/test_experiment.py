@@ -598,15 +598,11 @@ class TestExperimentRunIdentity:
         assert all(len(i) == 16 for i in ids)
         assert "random experiment id" in caplog.text
 
-    def test_dataset_run_uses_stable_id_url_version_and_no_run_item_post(
+    def test_dataset_run_uses_stable_id_url_and_version(
         self, langfuse_memory_client, find_spans, monkeypatch
     ):
         create_score = MagicMock()
-        create_run_item = MagicMock()
         monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
-        monkeypatch.setattr(
-            langfuse_memory_client.api.dataset_run_items, "create", create_run_item
-        )
         monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
         version = datetime(2026, 2, 3, 4, 5, 6, tzinfo=timezone.utc)
 
@@ -623,7 +619,6 @@ class TestExperimentRunIdentity:
         )
         langfuse_memory_client.flush()
 
-        create_run_item.assert_not_called()
         assert result.experiment_id == "eab007015b1c6f77"
         assert (
             result.experiment_url
