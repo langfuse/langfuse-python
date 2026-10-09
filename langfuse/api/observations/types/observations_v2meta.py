@@ -3,17 +3,12 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import UniversalBaseModel
+from ...utils.pagination.types.cursor_meta_response import CursorMetaResponse
 
 
-class ObservationsV2Meta(UniversalBaseModel):
+class ObservationsV2Meta(CursorMetaResponse):
     """
-    Metadata for cursor-based pagination
-    """
-
-    cursor: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Base64-encoded cursor to use for retrieving the next page. If not present, there are no more results.
+    Metadata for cursor-based pagination.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

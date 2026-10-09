@@ -7,13 +7,9 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .create_dataset_request import CreateDatasetRequest
-    from .delete_dataset_run_response import DeleteDatasetRunResponse
-    from .paginated_dataset_runs import PaginatedDatasetRuns
     from .paginated_datasets import PaginatedDatasets
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateDatasetRequest": ".create_dataset_request",
-    "DeleteDatasetRunResponse": ".delete_dataset_run_response",
-    "PaginatedDatasetRuns": ".paginated_dataset_runs",
     "PaginatedDatasets": ".paginated_datasets",
 }
 
@@ -45,9 +41,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "CreateDatasetRequest",
-    "DeleteDatasetRunResponse",
-    "PaginatedDatasetRuns",
-    "PaginatedDatasets",
-]
+__all__ = ["CreateDatasetRequest", "PaginatedDatasets"]
