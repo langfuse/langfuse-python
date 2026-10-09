@@ -41,6 +41,7 @@ from opentelemetry.util._decorator import (
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
+from langfuse._client.span import _set_span_attributes_within_limit
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
@@ -90,10 +91,10 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
 class PropagatedExperimentAttributes(TypedDict):
     experiment_id: str
     experiment_name: str
-    experiment_metadata: Optional[Dict[str, str]]
+    experiment_metadata: Optional[str]  # serialized JSON
     experiment_dataset_id: Optional[str]
     experiment_item_id: str
-    experiment_item_metadata: Optional[Dict[str, str]]
+    experiment_item_metadata: Optional[str]  # serialized JSON
     experiment_item_root_observation_id: str
 
 
@@ -363,17 +364,6 @@ def _propagate_attributes(
         "metadata": metadata,
     }
 
-    if experiment:
-        for key, value in experiment.items():
-            if key in ("experiment_metadata", "experiment_item_metadata"):
-                propagated_metadata_attributes[key] = cast(
-                    Optional[Dict[str, str]], value
-                )
-            else:
-                propagated_string_attributes[key] = cast(
-                    Optional[Union[str, List[str]]], value
-                )
-
     # Filter out None values
     propagated_string_attributes = {
         k: v for k, v in propagated_string_attributes.items() if v is not None
@@ -422,6 +412,19 @@ def _propagate_attributes(
                 span=current_span,
                 as_baggage=as_baggage,
             )
+
+    # Experiment attributes are set by the SDK and already serialized, so they
+    # skip validation. Mirrors langfuse-js.
+    if experiment:
+        for experiment_key, experiment_value in experiment.items():
+            if experiment_value is not None:
+                context = _set_propagated_attribute(
+                    key=experiment_key,
+                    value=cast(str, experiment_value),
+                    context=context,
+                    span=current_span,
+                    as_baggage=as_baggage,
+                )
 
     # Activate context, execute, and detach context
     token = otel_context_api.attach(context=context)
@@ -599,14 +602,13 @@ def _set_propagated_attribute(
     if span is not None and span.is_recording():
         if isinstance(value, dict):
             # Handle metadata
-            for k, v in value.items():
-                span.set_attribute(
-                    key=f"{span_key}.{k}",
-                    value=v,
-                )
-
+            span_attributes: Dict[str, Any] = {
+                f"{span_key}.{k}": v for k, v in value.items()
+            }
         else:
-            span.set_attribute(key=span_key, value=value)
+            span_attributes = {span_key: value}
+
+        _set_span_attributes_within_limit(span, span_attributes)
 
     # Set on baggage
     if as_baggage:

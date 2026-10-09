@@ -1,6 +1,7 @@
 """Tests for ``langfuse.experiment`` — ``RunnerContext`` and ``RegressionError``."""
 
 import inspect
+import json
 import typing
 from datetime import datetime, timezone
 from typing import get_type_hints
@@ -275,16 +276,12 @@ class TestExperimentObservationTree:
             item_run.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_NAME]
             == result.run_name
         )
-        assert (
-            item_run.attributes[f"{LangfuseOtelSpanAttributes.EXPERIMENT_METADATA}.run"]
-            == "metadata"
-        )
-        assert (
-            item_run.attributes[
-                f"{LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA}.item"
-            ]
-            == "metadata"
-        )
+        assert json.loads(
+            item_run.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_METADATA]
+        ) == {"run": "metadata"}
+        assert json.loads(
+            item_run.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA]
+        ) == {"item": "metadata"}
         assert (
             item_run.attributes[
                 LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_ROOT_OBSERVATION_ID

@@ -41,7 +41,6 @@ from packaging.version import Version
 
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
-    _flatten_and_serialize_metadata_values,
     _serialize,
 )
 from langfuse._client.constants import (
@@ -83,6 +82,7 @@ from langfuse._client.span import (
     LangfuseRetriever,
     LangfuseSpan,
     LangfuseTool,
+    _set_span_attributes_within_limit,
 )
 from langfuse._client.utils import (
     get_sha256_hash_hex,
@@ -688,7 +688,9 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self._otel_tracer.start_span(name=name)
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    _set_span_attributes_within_limit(
+                        otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
+                    )
 
                     return self._create_observation_from_otel_span(
                         otel_span=otel_span,
@@ -1278,8 +1280,9 @@ class Langfuse:
                 prompt=prompt,
             ) as langfuse_span:
                 if remote_parent_span is not None:
-                    langfuse_span._otel_span.set_attribute(
-                        LangfuseOtelSpanAttributes.AS_ROOT, True
+                    _set_span_attributes_within_limit(
+                        langfuse_span._otel_span,
+                        {LangfuseOtelSpanAttributes.AS_ROOT: True},
                     )
 
                 yield langfuse_span
@@ -1609,7 +1612,9 @@ class Langfuse:
                     otel_span = self._otel_tracer.start_span(
                         name=name, start_time=timestamp
                     )
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    _set_span_attributes_within_limit(
+                        otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
+                    )
 
                     return cast(
                         LangfuseEvent,
@@ -2879,16 +2884,14 @@ class Langfuse:
                     else getattr(item, "metadata", None)
                 )
 
-                final_observation_metadata = {
-                    **(item_metadata if isinstance(item_metadata, dict) else {}),
-                    **(experiment_metadata or {}),
-                    "experiment_name": experiment_name,
-                    "experiment_run_name": experiment_run_name,
-                }
-
                 trace_id = span.trace_id
                 dataset_id = None
                 dataset_item_id = None
+
+                experiment_run_metadata: Dict[str, Any] = {
+                    "experiment_name": experiment_name,
+                    "experiment_run_name": experiment_run_name,
+                }
 
                 if (
                     not isinstance(item, dict)
@@ -2898,9 +2901,19 @@ class Langfuse:
                     dataset_id = item.dataset_id
                     dataset_item_id = item.id
 
-                    final_observation_metadata.update(
+                    experiment_run_metadata.update(
                         {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
                     )
+
+                # Experiment run keys go first so the span attribute limit drops
+                # user metadata before them, and last so they still win over
+                # user keys.
+                final_observation_metadata = {
+                    **experiment_run_metadata,
+                    **(item_metadata if isinstance(item_metadata, dict) else {}),
+                    **(experiment_metadata or {}),
+                    **experiment_run_metadata,
+                }
 
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
@@ -2919,25 +2932,26 @@ class Langfuse:
                     }.items()
                     if v is not None
                 }
-                span._otel_span.set_attributes(experiment_span_attributes)
+                _set_span_attributes_within_limit(
+                    span._otel_span, experiment_span_attributes
+                )
 
                 with span.start_as_current_observation(
                     name="experiment-item-task",
                     as_type="span",
                     input=input_data,
-                    metadata=final_observation_metadata,
                 ) as task_span:
-                    task_span._otel_span.set_attributes(experiment_span_attributes)
+                    _set_span_attributes_within_limit(
+                        task_span._otel_span, experiment_span_attributes
+                    )
 
                     propagated_experiment_attributes = PropagatedExperimentAttributes(
                         experiment_id=experiment_id,
                         experiment_name=experiment_run_name,
-                        experiment_metadata=_flatten_and_serialize_metadata_values(
-                            experiment_metadata
-                        ),
+                        experiment_metadata=_serialize(experiment_metadata),
                         experiment_dataset_id=dataset_id,
                         experiment_item_id=experiment_item_id,
-                        experiment_item_metadata=_flatten_and_serialize_metadata_values(
+                        experiment_item_metadata=_serialize(
                             item_metadata if isinstance(item_metadata, dict) else None
                         ),
                         experiment_item_root_observation_id=task_span.id,
@@ -2948,11 +2962,16 @@ class Langfuse:
                     ):
                         # _propagate_attributes updates the current task span and future children.
                         # Explicitly backfill the parent item-run span to preserve experiment association.
-                        span._otel_span.set_attributes(
+                        _set_span_attributes_within_limit(
+                            span._otel_span,
                             _get_propagated_attributes_from_context(
                                 otel_context_api.get_current()
-                            )
+                            ),
                         )
+                        # Write the observation metadata after the experiment
+                        # attributes, so the span attribute limit trims the
+                        # metadata instead of leaving no room for the output.
+                        task_span.update(metadata=final_observation_metadata)
                         try:
                             output = await _run_task(task, item)
                         except Exception as e:
