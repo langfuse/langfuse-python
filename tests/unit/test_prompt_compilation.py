@@ -937,7 +937,7 @@ def test_tool_calls_preservation_in_message_placeholder():
 def test_non_dict_placeholder_items_each_get_own_message():
     prompt = ChatPromptClient(
         Prompt_Chat(
-            name="p",
+            name="placeholder_non_dict_items_test",
             version=1,
             type="chat",
             config={},
