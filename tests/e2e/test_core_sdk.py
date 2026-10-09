@@ -37,7 +37,7 @@ async def test_concurrency():
                 )
 
                 # Update generation with metadata
-                generation.update(metadata={"count": str(i)})
+                generation.update(metadata={"count": i})
 
                 # End the generation
                 generation.end()

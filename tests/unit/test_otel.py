@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from hashlib import sha256
 from typing import List, Sequence
@@ -414,7 +415,7 @@ class TestBasicSpans(TestOTelBase):
         # Verify attribute values
         assert input_data == {"prompt": "Test prompt"}
         assert output_data == {"response": "Updated response"}
-        assert metadata_data == "test-session"
+        assert metadata_data == '"test-session"'
         assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "INFO"
         assert (
             attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
@@ -530,7 +531,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Check attribute values
         assert sorted(tags) == sorted(["tag1", "tag2"])
-        assert metadata == "data"
+        assert metadata == '"data"'
 
     def test_complex_scenario(self, langfuse_client, memory_exporter):
         """Test a more complex scenario with multiple operations and nesting."""
@@ -608,7 +609,7 @@ class TestBasicSpans(TestOTelBase):
         proc_metadata = proc["attributes"][
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.step"
         ]
-        assert proc_metadata == "processing"
+        assert proc_metadata == '"processing"'
 
         # Parse input/output JSON
         llm_input = json.loads(
@@ -1545,17 +1546,15 @@ class TestMetadataHandling(TestOTelBase):
 
     def test_complex_metadata_serialization(self):
         """Test the _flatten_and_serialize_metadata function directly."""
-        from langfuse._client.attributes import (
-            _flatten_and_serialize_metadata,
-            _serialize,
-        )
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
 
         # Test case 1: Non-dict metadata
         non_dict_result = _flatten_and_serialize_metadata("string-value", "observation")
         assert LangfuseOtelSpanAttributes.OBSERVATION_METADATA in non_dict_result
-        assert non_dict_result[
-            LangfuseOtelSpanAttributes.OBSERVATION_METADATA
-        ] == _serialize("string-value")
+        assert (
+            non_dict_result[LangfuseOtelSpanAttributes.OBSERVATION_METADATA]
+            == '"string-value"'
+        )
 
         # Test case 2: Simple dict
         simple_dict = {"key1": "value1", "key2": 123}
@@ -1568,11 +1567,11 @@ class TestMetadataHandling(TestOTelBase):
         )
         assert (
             simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key1"]
-            == "value1"
+            == '"value1"'
         )
         assert (
             simple_result[f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.key2"]
-            == 123
+            == "123"
         )
 
         # Test case 3: Nested dict (will be flattened in current implementation)
@@ -1625,7 +1624,7 @@ class TestMetadataHandling(TestOTelBase):
 
         # The nested structures are serialized as JSON strings
         assert json.loads(complex_result[level1_key]) == complex_dict["level1"]
-        assert complex_result[sibling_key] == "value"
+        assert complex_result[sibling_key] == '"value"'
 
     def test_nested_metadata_updates(self):
         """Test that nested metadata updates don't overwrite unrelated keys."""
@@ -1980,7 +1979,206 @@ class TestMetadataHandling(TestOTelBase):
         assert "version" in system_data
         assert "features" in system_data
 
+    def test_metadata_values_are_json_encoded(self, langfuse_client, memory_exporter):
+        """Every per-key metadata value is sent as a JSON-encoded string."""
+        from datetime import timezone
+
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        with langfuse_client.start_as_current_observation(
+            name="json-metadata-span",
+            metadata={
+                "string": "hello",
+                "numeric_string": "123",
+                "bool_string": "true",
+                "int": 5,
+                "bool": True,
+                "float": 1.5,
+                "big_int": 2**70,
+                "nan": float("nan"),
+                "list": [1, "a", None],
+                "nested": {"a": {"b": [1, 2]}, "c": "d"},
+                "datetime": datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+            },
+        ):
+            pass
+
+        attributes = self.get_spans_by_name(memory_exporter, "json-metadata-span")[0][
+            "attributes"
+        ]
+
+        expected = {
+            "string": '"hello"',
+            "numeric_string": '"123"',
+            "bool_string": '"true"',
+            "int": "5",
+            "bool": "true",
+            "float": "1.5",
+            "big_int": '"1180591620717411303424"',
+            "nan": '"NaN"',
+            "list": '[1,"a",null]',
+            "nested": '{"a":{"b":[1,2]},"c":"d"}',
+            "datetime": '"2024-01-02T03:04:05Z"',
+        }
+        for key, value in expected.items():
+            assert attributes[f"{prefix}.{key}"] == value, key
+
+        # Decoding restores the original type, so strings and numbers stay distinct.
+        assert json.loads(attributes[f"{prefix}.numeric_string"]) == "123"
+        assert json.loads(attributes[f"{prefix}.int"]) == 5
+        assert json.loads(attributes[f"{prefix}.bool"]) is True
+
+    def test_big_int_metadata_value_survives_otlp_encoding(
+        self, langfuse_client, memory_exporter
+    ):
+        """Ints beyond int64 must not make the OTLP encoder drop the key."""
+        from opentelemetry.exporter.otlp.proto.common.trace_encoder import (
+            encode_spans,
+        )
+
+        with langfuse_client.start_as_current_observation(
+            name="big-int-span", metadata={"big": 2**70, "small": 1}
+        ):
+            pass
+
+        spans = [
+            s for s in memory_exporter.get_finished_spans() if s.name == "big-int-span"
+        ]
+        request = encode_spans(spans)
+        encoded = {
+            kv.key: kv.value.string_value
+            for kv in request.resource_spans[0].scope_spans[0].spans[0].attributes
+        }
+
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        assert encoded[f"{prefix}.big"] == '"1180591620717411303424"'
+        assert encoded[f"{prefix}.small"] == "1"
+
+    def test_none_metadata_value_keeps_earlier_value_on_update(
+        self, langfuse_client, memory_exporter
+    ):
+        """None values are skipped, so they don't overwrite earlier keys."""
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        with langfuse_client.start_as_current_observation(
+            name="none-metadata-span", metadata={"keep": "first", "other": 1}
+        ) as span:
+            span.update(metadata={"keep": None, "other": 2})
+
+        attributes = self.get_spans_by_name(memory_exporter, "none-metadata-span")[0][
+            "attributes"
+        ]
+
+        assert attributes[f"{prefix}.keep"] == '"first"'
+        assert attributes[f"{prefix}.other"] == "2"
+
+    def test_none_metadata_value_is_debug_logged(self, caplog):
+        """Skipped None values are logged at debug level, non-None keys are not."""
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
+
+        caplog.set_level(logging.DEBUG, logger="langfuse")
+
+        _flatten_and_serialize_metadata(
+            {"keep": None, "other": 2, "text": "x"}, "observation"
+        )
+
+        messages = [
+            record.getMessage()
+            for record in caplog.records
+            if record.name == "langfuse"
+        ]
+        assert messages == [
+            'Observation metadata key "keep" was not written because its value is None'
+        ]
+
+    @pytest.mark.parametrize(
+        "metadata, expected",
+        [("foo", '"foo"'), (5, "5"), ([1, "a", None], '[1,"a",null]')],
+    )
+    def test_non_dict_metadata_is_json_encoded(
+        self, langfuse_client, memory_exporter, metadata, expected
+    ):
+        """Non-dict metadata is sent JSON-encoded on the bare key, strings included."""
+        with langfuse_client.start_as_current_observation(
+            name="non-dict-metadata-span", metadata=metadata
+        ):
+            pass
+
+        attributes = self.get_spans_by_name(memory_exporter, "non-dict-metadata-span")[
+            0
+        ]["attributes"]
+
+        assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_METADATA] == expected
+
+    def test_flatten_metadata_trace_prefix_uses_same_encoding(self):
+        """The trace prefix variant encodes values the same way."""
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
+
+        result = _flatten_and_serialize_metadata(
+            {"s": "x", "i": 1, "none": None}, "trace"
+        )
+
+        prefix = LangfuseOtelSpanAttributes.TRACE_METADATA
+        assert result == {f"{prefix}.s": '"x"', f"{prefix}.i": "1"}
+
+    def test_metadata_json_matches_js_json_stringify(self):
+        """Values use compact separators and keep non-ASCII, like JSON.stringify."""
+        from langfuse._client.attributes import _flatten_and_serialize_metadata
+
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        result = _flatten_and_serialize_metadata(
+            {"umlaut": "ü", "nested": {"a": {"b": [1, "x"]}}}, "observation"
+        )
+
+        assert result == {
+            f"{prefix}.umlaut": '"ü"',
+            f"{prefix}.nested": '{"a":{"b":[1,"x"]}}',
+        }
+
+        non_dict_result = _flatten_and_serialize_metadata([1, "ü"], "observation")
+        assert non_dict_result == {prefix: '[1,"ü"]'}
+
+    # Expected values are the output of JSON.stringify in Node.
+    @pytest.mark.parametrize(
+        "value, js_json_stringify",
+        [
+            ("prod", '"prod"'),
+            ("123", '"123"'),
+            ("", '""'),
+            ('a"b\\c', '"a\\"b\\\\c"'),
+            ("line\nbreak\ttab\b\f\r", '"line\\nbreak\\ttab\\b\\f\\r"'),
+            ("\x00\x1f\x7f", '"\\u0000\\u001f\x7f"'),
+            ("\u2028\u2029", '"\u2028\u2029"'),
+            ("ü Läufe 🚀 日本", '"ü Läufe 🚀 日本"'),
+            ("</script>", '"</script>"'),
+        ],
+    )
+    def test_string_fast_path_matches_event_serializer_and_js(
+        self, value, js_json_stringify
+    ):
+        """Plain strings skip EventSerializer but must encode to the same bytes."""
+        from langfuse._client.attributes import _serialize_metadata_value
+        from langfuse._utils.serializer import EventSerializer
+
+        via_event_serializer = json.dumps(
+            value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
+        )
+
+        assert _serialize_metadata_value(value) == via_event_serializer
+        assert _serialize_metadata_value(value) == js_json_stringify
+
+    def test_str_subclass_metadata_goes_through_event_serializer(self):
+        """str subclasses keep EventSerializer handling, e.g. str enums."""
+        from enum import Enum
+
+        from langfuse._client.attributes import _serialize_metadata_value
+
+        class Stage(str, Enum):
+            PROD = "prod"
+
+        assert _serialize_metadata_value(Stage.PROD) == '"prod"'
+
     MASK_FALLBACK = "<fully masked due to failed mask function>"
+    # Metadata attributes carry the fallback JSON-encoded like any other value.
+    ENCODED_MASK_FALLBACK = json.dumps(MASK_FALLBACK)
 
     def get_metadata_attributes(self, span_data: dict) -> dict:
         prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
@@ -2006,9 +2204,9 @@ class TestMetadataHandling(TestOTelBase):
         span_data = self.get_spans_by_name(memory_exporter, "mask-fail")[0]
         prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
         assert self.get_metadata_attributes(span_data) == {
-            f"{prefix}.a": 1,
-            f"{prefix}.secret": self.MASK_FALLBACK,
-            f"{prefix}.b": self.MASK_FALLBACK,
+            f"{prefix}.a": "1",
+            f"{prefix}.secret": self.ENCODED_MASK_FALLBACK,
+            f"{prefix}.b": self.ENCODED_MASK_FALLBACK,
         }
 
     def test_failed_mask_on_start_masks_each_metadata_key(
@@ -2028,8 +2226,8 @@ class TestMetadataHandling(TestOTelBase):
         span_data = self.get_spans_by_name(memory_exporter, "mask-fail-start")[0]
         prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
         assert self.get_metadata_attributes(span_data) == {
-            f"{prefix}.secret": self.MASK_FALLBACK,
-            f"{prefix}.b": self.MASK_FALLBACK,
+            f"{prefix}.secret": self.ENCODED_MASK_FALLBACK,
+            f"{prefix}.b": self.ENCODED_MASK_FALLBACK,
         }
 
     def test_failed_mask_keeps_string_fallback_for_empty_dict_metadata(
@@ -2048,7 +2246,7 @@ class TestMetadataHandling(TestOTelBase):
 
         span_data = self.get_spans_by_name(memory_exporter, "mask-fail-empty-dict")[0]
         assert self.get_metadata_attributes(span_data) == {
-            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.MASK_FALLBACK,
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.ENCODED_MASK_FALLBACK,
         }
 
     def test_failed_mask_keeps_string_fallback_for_non_dict_values(
@@ -2071,7 +2269,7 @@ class TestMetadataHandling(TestOTelBase):
         span_data = self.get_spans_by_name(memory_exporter, "mask-fail-non-dict")[0]
         attributes = span_data["attributes"]
         assert self.get_metadata_attributes(span_data) == {
-            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.MASK_FALLBACK,
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.ENCODED_MASK_FALLBACK,
         }
         assert (
             attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
