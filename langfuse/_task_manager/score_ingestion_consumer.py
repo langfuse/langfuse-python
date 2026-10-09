@@ -82,6 +82,19 @@ class ScoreIngestionConsumer(threading.Thread):
 
                 item_size = self._get_item_size(event)
 
+                if item_size > MAX_EVENT_SIZE_BYTES:
+                    logger.error(
+                        "Data error: Score event %s is %s bytes, exceeding the maximum "
+                        "event size of %s bytes (LANGFUSE_MAX_EVENT_SIZE_BYTES). Score "
+                        "will be dropped.",
+                        event.get("id"),
+                        item_size,
+                        MAX_EVENT_SIZE_BYTES,
+                    )
+                    self._ingestion_queue.task_done()
+
+                    continue
+
                 # check for serialization errors
                 try:
                     json.dumps(event, cls=EventSerializer)
