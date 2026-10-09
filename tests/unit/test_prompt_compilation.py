@@ -932,3 +932,21 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+
+def test_non_dict_placeholder_items_each_get_own_message():
+    prompt = ChatPromptClient(
+        Prompt_Chat(
+            name="p",
+            version=1,
+            type="chat",
+            config={},
+            labels=[],
+            tags=[],
+            prompt=[{"type": "placeholder", "name": "history"}],
+        )
+    )
+
+    compiled = prompt.compile(history=["a", "b"])
+
+    assert [m["content"] for m in compiled] == ["a", "b"]
