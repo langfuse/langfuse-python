@@ -40,15 +40,11 @@ from opentelemetry.util._decorator import (
 )
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
-from langfuse._client.constants import (
-    LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
-    MASK_FALLBACK_VALUE,
-)
+from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from langfuse._client.span import _set_span_attributes_within_limit
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
-from langfuse.types import MaskFunction
 
 PropagatedKeys = Literal[
     "user_id",
@@ -161,13 +157,6 @@ def propagate_attributes(
         metadata: Additional key-value metadata to propagate to all spans.
             - Keys must be US-ASCII strings
             - Values are coerced to strings
-            - If the client has a `mask` function, it is applied to each value
-              (not the key) before coercion; if it raises, that value becomes
-              "<fully masked due to failed mask function>". The mask comes from
-              the client for the public key in the execution context, otherwise
-              the only initialized client. With several clients and no public key
-              in context, or with no client yet, values are not masked; pass
-              `langfuse_public_key` via `@observe` or use a single client
             - Coerced values must be ≤200 characters
             - Use for dimensions like internal correlating identifiers
             - AVOID: large payloads or sensitive data
@@ -392,10 +381,6 @@ def _propagate_attributes(
                 as_baggage=as_baggage,
             )
 
-    # Mask once here: the masked values are stored in the context and baggage,
-    # so the current span and every child span receive them
-    mask = _get_current_mask() if metadata else None
-
     for metadata_key, metadata_value in propagated_metadata_attributes.items():
         if metadata_value is None:
             continue
@@ -403,9 +388,6 @@ def _propagate_attributes(
         validated_metadata: Dict[str, str] = {}
 
         for key, value in metadata_value.items():
-            if mask is not None and metadata_key == "metadata":
-                value = _mask_propagated_metadata_value(mask=mask, value=value)
-
             serialized_value = _serialize_propagated_metadata_value(value)
 
             if serialized_value is None:
@@ -452,45 +434,6 @@ def _propagate_attributes(
 
     finally:
         _detach_context_token_safely(token)
-
-
-def _get_current_mask() -> Optional[MaskFunction]:
-    """Return the mask of the client that get_client() would resolve, if any.
-
-    Uses the public key in the execution context, otherwise the only initialized
-    client. With no client, or several clients and no public key, there is no mask.
-    """
-    # Known limitation: in those cases propagated metadata is exported unmasked
-    # even if a client has a mask, since there is no single client to pick
-    # Imported here to avoid a circular import via the span processor
-    from langfuse._client.get_client import _current_public_key
-    from langfuse._client.resource_manager import LangfuseResourceManager
-
-    with LangfuseResourceManager._lock:
-        instances = LangfuseResourceManager._instances
-        public_key = _current_public_key.get(None)
-
-        if public_key:
-            instance = instances.get(public_key)
-        elif len(instances) == 1:
-            instance = next(iter(instances.values()))
-        else:
-            instance = None
-
-        return instance.mask if instance is not None else None
-
-
-def _mask_propagated_metadata_value(*, mask: MaskFunction, value: Any) -> Any:
-    try:
-        return mask(data=value)
-    except Exception as e:
-        langfuse_logger.error(
-            "Masking error: Custom mask function threw exception when processing "
-            "propagated metadata. Using fallback masking. Error: %s",
-            e,
-        )
-
-        return MASK_FALLBACK_VALUE
 
 
 def _extract_propagated_prompt(
