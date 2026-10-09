@@ -2032,6 +2032,25 @@ class TestMetadataHandling(TestOTelBase):
             f"{prefix}.b": self.MASK_FALLBACK,
         }
 
+    def test_failed_mask_keeps_string_fallback_for_empty_dict_metadata(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict):
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="mask-fail-empty-dict", metadata={}
+        )
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail-empty-dict")[0]
+        assert self.get_metadata_attributes(span_data) == {
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.MASK_FALLBACK,
+        }
+
     def test_failed_mask_keeps_string_fallback_for_non_dict_values(
         self, configurable_langfuse_client, memory_exporter
     ):
