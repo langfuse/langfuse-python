@@ -581,9 +581,8 @@ def test_experiment_with_large_metadata_keeps_output_and_experiment_attributes(
     assert item_run.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == (
         "the answer"
     )
-    assert (
-        item_run.attributes[f"{METADATA_PREFIX}experiment_run_name"]
-        == json.dumps(result.run_name)
+    assert item_run.attributes[f"{METADATA_PREFIX}experiment_run_name"] == json.dumps(
+        result.run_name
     )
     assert LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA in item_run.attributes
 
