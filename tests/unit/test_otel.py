@@ -531,7 +531,7 @@ class TestBasicSpans(TestOTelBase):
 
         # Check attribute values
         assert sorted(tags) == sorted(["tag1", "tag2"])
-        assert metadata == "data"
+        assert metadata == '"data"'
 
     def test_complex_scenario(self, langfuse_client, memory_exporter):
         """Test a more complex scenario with multiple operations and nesting."""
@@ -2135,6 +2135,46 @@ class TestMetadataHandling(TestOTelBase):
 
         non_dict_result = _flatten_and_serialize_metadata([1, "ü"], "observation")
         assert non_dict_result == {prefix: '[1,"ü"]'}
+
+    # Expected values are the output of JSON.stringify in Node.
+    @pytest.mark.parametrize(
+        "value, js_json_stringify",
+        [
+            ("prod", '"prod"'),
+            ("123", '"123"'),
+            ("", '""'),
+            ('a"b\\c', '"a\\"b\\\\c"'),
+            ("line\nbreak\ttab\b\f\r", '"line\\nbreak\\ttab\\b\\f\\r"'),
+            ("\x00\x1f\x7f", '"\\u0000\\u001f\x7f"'),
+            ("\u2028\u2029", '"\u2028\u2029"'),
+            ("ü Läufe 🚀 日本", '"ü Läufe 🚀 日本"'),
+            ("</script>", '"</script>"'),
+        ],
+    )
+    def test_string_fast_path_matches_event_serializer_and_js(
+        self, value, js_json_stringify
+    ):
+        """Plain strings skip EventSerializer but must encode to the same bytes."""
+        from langfuse._client.attributes import _serialize_metadata_value
+        from langfuse._utils.serializer import EventSerializer
+
+        via_event_serializer = json.dumps(
+            value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
+        )
+
+        assert _serialize_metadata_value(value) == via_event_serializer
+        assert _serialize_metadata_value(value) == js_json_stringify
+
+    def test_str_subclass_metadata_goes_through_event_serializer(self):
+        """str subclasses keep EventSerializer handling, e.g. str enums."""
+        from enum import Enum
+
+        from langfuse._client.attributes import _serialize_metadata_value
+
+        class Stage(str, Enum):
+            PROD = "prod"
+
+        assert _serialize_metadata_value(Stage.PROD) == '"prod"'
 
     MASK_FALLBACK = "<fully masked due to failed mask function>"
     # Metadata attributes carry the fallback JSON-encoded like any other value.

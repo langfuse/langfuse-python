@@ -161,6 +161,26 @@ def _serialize(obj: Any) -> Optional[str]:
     return json.dumps(obj, cls=EventSerializer)
 
 
+def _serialize_metadata_value(value: Any) -> str:
+    """JSON-encode one metadata value, strings included.
+
+    The server decodes metadata values from v5 SDKs, so encoding every value
+    keeps "123" and 123 distinct. EventSerializer turns ints outside the
+    JS-safe range and NaN/Infinity into JSON strings and never raises, so one
+    bad value cannot drop the other keys. Compact separators and raw non-ASCII
+    match JS JSON.stringify.
+    """
+    # Plain strings skip EventSerializer, which returns them unchanged and then
+    # uses the same string encoder, so the output is identical but cheaper.
+    # str subclasses (e.g. str enums) still go through EventSerializer.
+    if type(value) is str:
+        return json.dumps(value, ensure_ascii=False)
+
+    return json.dumps(
+        value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
+    )
+
+
 def _flatten_and_serialize_metadata(
     metadata: Any, type: Literal["observation", "trace"]
 ) -> dict:
@@ -176,14 +196,7 @@ def _flatten_and_serialize_metadata(
         # JSON-encode non-dict metadata too, strings included, matching the
         # per-key values below. None stays None so it is not written.
         metadata_attributes[prefix] = (
-            None
-            if metadata is None
-            else json.dumps(
-                metadata,
-                cls=EventSerializer,
-                separators=(",", ":"),
-                ensure_ascii=False,
-            )
+            None if metadata is None else _serialize_metadata_value(metadata)
         )
     else:
         for key, value in metadata.items():
@@ -195,13 +208,6 @@ def _flatten_and_serialize_metadata(
                 )
                 continue
 
-            # JSON-encode every value, strings included, so the server can decode
-            # it back to its original type ("123" vs 123). EventSerializer turns
-            # ints outside the JS-safe range and NaN/Infinity into JSON strings
-            # and never raises, so one bad value cannot drop the other keys.
-            # Compact separators and raw non-ASCII match JS JSON.stringify.
-            metadata_attributes[f"{prefix}.{key}"] = json.dumps(
-                value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
-            )
+            metadata_attributes[f"{prefix}.{key}"] = _serialize_metadata_value(value)
 
     return metadata_attributes
