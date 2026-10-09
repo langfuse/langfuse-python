@@ -72,21 +72,20 @@ def handle_fern_exception(exception: Error) -> None:
     logger.error(error_message)
 
 
+def _error_response_for_status(status: Union[int, str, None]) -> str:
+    """Look up the message for a status; non-numeric/missing statuses fall back to the default."""
+    try:
+        return errorResponseByCode.get(int(status), defaultErrorResponse)  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return defaultErrorResponse
+
+
 def generate_error_message(exception: Union[APIError, APIErrors, Exception]) -> str:
     if isinstance(exception, APIError):
-        status_code = (
-            int(exception.status)
-            if isinstance(exception.status, str)
-            else exception.status
-        )
-        return f"API error occurred: {errorResponseByCode.get(status_code, defaultErrorResponse)}"
+        return f"API error occurred: {_error_response_for_status(exception.status)}"
     elif isinstance(exception, APIErrors):
         error_messages = [
-            errorResponseByCode.get(
-                int(error.status) if isinstance(error.status, str) else error.status,
-                defaultErrorResponse,
-            )
-            for error in exception.errors
+            _error_response_for_status(error.status) for error in exception.errors
         ]
         return "API errors occurred: " + "\n".join(error_messages)
     else:
