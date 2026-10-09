@@ -9,7 +9,7 @@ import backoff
 from pydantic import BaseModel
 
 from langfuse._utils.parse_error import handle_exception
-from langfuse._utils.request import APIError, LangfuseClient
+from langfuse._utils.request import APIError, APIErrors, LangfuseClient
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger as logger
 
@@ -181,6 +181,23 @@ class ScoreIngestionConsumer(threading.Thread):
         def execute_task_with_backoff(batch: List[Any]) -> None:
             try:
                 self._client.batch_post(batch=batch, metadata=metadata)
+                logger.debug(
+                    "API: Successfully sent %s score events to Langfuse API in batch mode",
+                    len(batch),
+                )
+            except APIErrors as e:
+                # 207 partial failure: the other items were already accepted, so
+                # re-posting the whole batch cannot fix the rejected ones.
+                # Known limitation: per-item 429/5xx are dropped too; retrying only those
+                # needs the item id, which APIErrors does not carry yet.
+                logger.warning(
+                    "API: %s of %s score events were rejected by Langfuse "
+                    "(showing up to 5): %s",
+                    len(e.errors),
+                    len(batch),
+                    "; ".join(repr(str(err))[:200] for err in e.errors[:5]),
+                )
+                return
             except Exception as e:
                 if (
                     isinstance(e, APIError)
@@ -192,7 +209,3 @@ class ScoreIngestionConsumer(threading.Thread):
                 raise e
 
         execute_task_with_backoff(batch)
-        logger.debug(
-            "API: Successfully sent %s score events to Langfuse API in batch mode",
-            len(batch),
-        )
