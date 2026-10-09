@@ -1,5 +1,6 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+import logging
 from queue import Queue
 from types import SimpleNamespace
 from typing import Sequence
@@ -14,6 +15,7 @@ from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
 from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse._utils.request import APIError, APIErrors
 from langfuse.types import MaskOtelSpansResult
 
 
@@ -154,6 +156,31 @@ def test_score_ingestion_consumer_pause_wakes_blocked_thread():
     consumer.join(timeout=0.5)
 
     assert not consumer.is_alive()
+
+
+def test_score_ingestion_consumer_does_not_retry_207_partial_failure(caplog):
+    client = Mock()
+    client.batch_post.side_effect = APIErrors(
+        [APIError(400, "invalid score", "bad value")]
+    )
+    queue: Queue = Queue()
+    consumer = ScoreIngestionConsumer(
+        ingestion_queue=queue,
+        identifier=0,
+        client=client,
+        public_key="pk-test",
+        flush_at=2,
+        flush_interval=0.1,
+    )
+    for i in range(2):
+        queue.put({"id": str(i), "type": "score-create", "body": {"name": "s"}})
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        consumer.upload()
+
+    assert client.batch_post.call_count == 1
+    assert "1 of 2 score events were rejected" in caplog.text
+    assert "invalid score" in caplog.text
 
 
 def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
