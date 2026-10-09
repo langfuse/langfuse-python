@@ -181,14 +181,21 @@ class ScoreIngestionConsumer(threading.Thread):
         def execute_task_with_backoff(batch: List[Any]) -> None:
             try:
                 self._client.batch_post(batch=batch, metadata=metadata)
+                logger.debug(
+                    "API: Successfully sent %s score events to Langfuse API in batch mode",
+                    len(batch),
+                )
             except APIErrors as e:
-                # 207 partial failure: the API already accepted the other items,
-                # so re-posting the whole batch would duplicate them.
+                # 207 partial failure: the other items were already accepted, so
+                # re-posting the whole batch cannot fix the rejected ones.
+                # Known limitation: per-item 429/5xx are dropped too; retrying only those
+                # needs the item id, which APIErrors does not carry yet.
                 logger.warning(
-                    "API: %s of %s score events were rejected by Langfuse: %s",
+                    "API: %s of %s score events were rejected by Langfuse "
+                    "(showing up to 5): %s",
                     len(e.errors),
                     len(batch),
-                    e,
+                    "; ".join(repr(str(err))[:200] for err in e.errors[:5]),
                 )
                 return
             except Exception as e:
@@ -202,7 +209,3 @@ class ScoreIngestionConsumer(threading.Thread):
                 raise e
 
         execute_task_with_backoff(batch)
-        logger.debug(
-            "API: Successfully sent %s score events to Langfuse API in batch mode",
-            len(batch),
-        )
