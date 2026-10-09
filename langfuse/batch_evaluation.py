@@ -51,8 +51,54 @@ _TRACE_FILTER_COLUMN_REWRITES = {
     "timestamp": "startTime",
 }
 
+# ``scope='traces'`` evaluates one observation per trace, so the request is
+# narrowed to root observations. The v2 endpoint pages by cursor over
+# observations, not traces: a trace's root and its children can straddle a page
+# boundary, so picking a representative per page would let whichever page
+# arrives first decide the representative for the whole run. Asking the server
+# for roots makes the selection global, and one root per trace means each page
+# yields at most one observation per trace.
+_TRACE_ROOT_CONDITION = {
+    "type": "boolean",
+    "column": "isRootObservation",
+    "operator": "=",
+    "value": True,
+}
 
-def _translate_trace_filter(filter_json: Optional[str]) -> Optional[str]:
+
+def _validate_trace_filter(filter_json: Optional[str]) -> None:
+    """Reject a ``scope='traces'`` filter that is not a JSON array.
+
+    ``_translate_trace_filter`` has to merge the root condition into the
+    caller's filter array. A filter that does not parse as a JSON array
+    therefore cannot be honoured: forwarding it would drop the caller's
+    constraints, and raising later -- inside the fetch loop -- would be
+    swallowed into a generic "failed to fetch batch" result whose resume token
+    carries an empty timestamp bound.
+
+    Raises:
+        ValueError: If ``filter_json`` is set but is not a JSON array of
+            conditions.
+    """
+    if not filter_json:
+        return
+    try:
+        conditions = json.loads(filter_json)
+    except (TypeError, ValueError) as exc:
+        message = (
+            "batch_evaluation expects the filter to be a JSON array of conditions, "
+            f"but it could not be parsed: {filter_json!r}"
+        )
+        raise ValueError(message) from exc
+    if not isinstance(conditions, list):
+        message = (
+            "batch_evaluation expects the filter to be a JSON array of conditions, "
+            f"but it parsed as a {type(conditions).__name__}: {filter_json!r}"
+        )
+        raise ValueError(message)
+
+
+def _translate_trace_filter(filter_json: Optional[str]) -> str:
     """Rewrite a v3-shaped trace filter into a v2 observations filter.
 
     The v2 endpoint cannot filter directly on trace-level columns like ``name``
@@ -60,22 +106,39 @@ def _translate_trace_filter(filter_json: Optional[str]) -> Optional[str]:
     as ``traceName`` and ``startTime``. We translate the JSON filter in place
     for ``scope='traces'`` callers so that existing trace-level filters
     continue to select the same set of traces.
+
+    The root narrowing is applied here too, because the v2 endpoint ignores
+    query-parameter filters whenever a ``filter`` string is supplied -- sending
+    ``is_root_observation=True`` alongside a caller filter would be silently
+    ignored. A caller condition on the same column is dropped rather than
+    appended, because this function decides that column: a filter that excluded
+    roots would otherwise combine with the narrowing to return nothing.
+
+    Returns:
+        A JSON array string that always carries the root condition, so the
+        result is never empty and never ``None``.
     """
-    if not filter_json:
-        return filter_json
-    try:
-        conditions = json.loads(filter_json)
-    except (TypeError, ValueError):
-        return filter_json
-    if not isinstance(conditions, list):
-        return filter_json
+    _validate_trace_filter(filter_json)
+
+    conditions: list[Any] = json.loads(filter_json) if filter_json else []
+
+    translated: list[Any] = []
     for cond in conditions:
         if not isinstance(cond, dict):
+            translated.append(cond)
             continue
+        # ``column`` is read before the rewrite below; the two candidate sets
+        # (_TRACE_FILTER_COLUMN_REWRITES keys and "isRootObservation") are
+        # disjoint, so the pre-rewrite value is the right one for both checks.
         column = cond.get("column")
         if column in _TRACE_FILTER_COLUMN_REWRITES:
             cond["column"] = _TRACE_FILTER_COLUMN_REWRITES[column]
-    return json.dumps(conditions)
+        if column == "isRootObservation":
+            # Owned by the root narrowing below, whatever the caller sent.
+            continue
+        translated.append(cond)
+    translated.append(dict(_TRACE_ROOT_CONDITION))
+    return json.dumps(translated)
 
 
 def _v2_observations_fields(fetch_fields: Optional[str]) -> str:
@@ -109,8 +172,11 @@ def _collapse_observations_to_traces(
     page.
 
     ``seen_trace_ids``, when provided, holds the trace IDs already processed
-    in earlier pages. Observations for those traces are skipped so the same
-    trace is never evaluated twice across cursor pages.
+    earlier in the run. Observations for those traces are skipped so the same
+    trace is not evaluated twice. Now that ``scope='traces'`` asks the server
+    for root observations only, a well-behaved response already carries at most
+    one row per trace, so this is a safety net rather than the mechanism that
+    makes the collapse correct across pages.
     """
     chosen: Dict[str, ObservationV2] = {}
     for observation in observations:
@@ -973,9 +1039,15 @@ class BatchEvaluationRunner:
         This runner reads both scopes from `GET /api/public/v2/observations`
         with cursor pagination. That endpoint is the only read path available on
         Langfuse platform v4 events_only deployments and remains available on
-        v3. For `scope='traces'`, observations are collapsed to one
-        representative per trace (preferring the root observation), since the
-        v2 endpoint has no trace-level read.
+        v3. For `scope='traces'`, the request itself is narrowed to root
+        observations, so the v2 endpoint returns at most one observation per
+        trace. The narrowing has to happen server-side: the endpoint pages by
+        cursor over observations rather than traces, so a trace's root and its
+        children can straddle a page boundary, and collapsing each page
+        independently would let whichever page arrived first fix the
+        representative for the whole run. A consequence worth knowing: a trace
+        with no observation the server marks as a root is not returned, and so
+        is not evaluated.
 
         Args:
             scope: The type of items to evaluate ("traces", "observations").
@@ -1030,6 +1102,14 @@ class BatchEvaluationRunner:
         }
 
         # Handle resume token by modifying filter
+        if scope == "traces":
+            # Validate before the fetch loop: `_translate_trace_filter` merges
+            # the root condition into the caller's filter array, so a filter
+            # that is not a JSON array cannot be forwarded. Validating here
+            # rather than inside the fetch means the caller sees the bad filter
+            # instead of a swallowed fetch failure carrying an empty resume
+            # timestamp.
+            _validate_trace_filter(filter)
         effective_filter = self._build_timestamp_filter(filter, resume_from)
         normalized_additional_trace_tags = (
             self._dedupe_tags(_additional_trace_tags)

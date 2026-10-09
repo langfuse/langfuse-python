@@ -16,6 +16,7 @@ import pytest
 
 from langfuse.batch_evaluation import (
     BatchEvaluationRunner,
+    _collapse_observations_to_traces,
     _v2_observations_fields,
 )
 
@@ -389,6 +390,296 @@ async def test_fetch_batch_does_not_translate_filter_for_observations_scope() ->
 
     sent_filter = _json.loads(kwargs["filter"])
     assert sent_filter[0]["column"] == "name"
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_requests_root_observations_for_traces_scope() -> None:
+    """For ``scope='traces'`` the v2 request is narrowed to root observations.
+
+    Root selection has to be global to the run. Choosing a representative per
+    page cannot work: a trace's root and its children can straddle a cursor
+    page boundary, and the page that happens to arrive first would fix the
+    representative for the whole run. Asking the server for
+    ``isRootObservation = true`` makes every returned row a root, so each page
+    yields at most one observation per trace.
+    """
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(
+            items=[_obs(id="root-t1", trace_id="t1", is_root=True)], cursor=None
+        ),
+    ]
+
+    await runner._fetch_batch_with_retry(
+        scope="traces",
+        filter=None,
+        cursor=None,
+        limit=50,
+        max_retries=1,
+        fields=None,
+    )
+
+    kwargs = runner.client.api.observations.get_many.call_args.kwargs
+    import json as _json
+
+    conditions = _json.loads(kwargs["filter"])
+    root_conditions = [c for c in conditions if c["column"] == "isRootObservation"]
+    assert root_conditions == [
+        {
+            "type": "boolean",
+            "column": "isRootObservation",
+            "operator": "=",
+            "value": True,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_keeps_caller_root_condition_when_filter_supplied() -> None:
+    """A caller filter that already constrains ``isRootObservation`` is not
+    duplicated, and the trace-scope translation still applies alongside it."""
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(
+            items=[_obs(id="root-t1", trace_id="t1", is_root=True)], cursor=None
+        ),
+    ]
+
+    filter_json = (
+        '[{"type":"string","column":"name","operator":"=","value":"checkout"},'
+        '{"type":"boolean","column":"isRootObservation","operator":"=","value":false}]'
+    )
+
+    await runner._fetch_batch_with_retry(
+        scope="traces",
+        filter=filter_json,
+        cursor=None,
+        limit=50,
+        max_retries=1,
+        fields=None,
+    )
+
+    kwargs = runner.client.api.observations.get_many.call_args.kwargs
+    import json as _json
+
+    conditions = _json.loads(kwargs["filter"])
+    assert [c["column"] for c in conditions].count("isRootObservation") == 1
+    # The conflicting caller condition is replaced rather than merely deduped,
+    # otherwise the request could return no rows at all.
+    root_conditions = [c for c in conditions if c["column"] == "isRootObservation"]
+    assert root_conditions[0]["value"] is True
+    assert "traceName" in {c["column"] for c in conditions}
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_does_not_request_roots_for_observations_scope() -> None:
+    """``scope='observations'`` evaluates every observation, so the root
+    narrowing must not be applied there."""
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(items=[_obs(id="o1", trace_id="t1")], cursor=None),
+    ]
+
+    await runner._fetch_batch_with_retry(
+        scope="observations",
+        filter=None,
+        cursor=None,
+        limit=50,
+        max_retries=1,
+        fields=None,
+    )
+
+    kwargs = runner.client.api.observations.get_many.call_args.kwargs
+    assert kwargs["filter"] is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_batch_sends_root_filter_on_every_cursor_page() -> None:
+    """The root narrowing is re-derived per page, not carried over from page 1.
+
+    ``_translate_trace_filter`` re-parses the filter string on every request, so
+    a resumed or multi-page run could lose the condition if the merge were
+    stateful. Each page's request must carry it independently.
+    """
+
+    runner = _StubRunner()
+    runner._process_batch_evaluation_item = MagicMock(  # type: ignore[method-assign]
+        return_value=(0, 0, 0, [])
+    )
+
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(
+            items=[_obs(id="root-tb", trace_id="tb", is_root=True)], cursor="c-2"
+        ),
+        _v2_response(
+            items=[_obs(id="root-ta", trace_id="ta", is_root=True)], cursor=None
+        ),
+    ]
+
+    seen: list = []
+    cursor: Any = None
+    for _ in range(3):
+        batch, cursor = await runner._fetch_batch_with_retry(
+            scope="traces",
+            filter=None,
+            cursor=cursor,
+            limit=50,
+            max_retries=1,
+            fields=None,
+        )
+        seen.extend(item.id for item in batch)
+        if cursor is None:
+            break
+
+    assert seen == ["root-tb", "root-ta"]
+    assert runner.client.api.observations.get_many.call_count == 2
+    import json as _json
+
+    for call in runner.client.api.observations.get_many.call_args_list:
+        conditions = _json.loads(call.kwargs["filter"])
+        assert any(c["column"] == "isRootObservation" for c in conditions)
+
+
+def test_page_local_collapse_would_lose_a_root_on_a_later_page() -> None:
+    """Why the narrowing has to be server-side, shown directly on the helper.
+
+    A v2 page can carry a trace's child while its root sits on a later page.
+    Given only that page, ``_collapse_observations_to_traces`` picks the child --
+    it cannot see the root -- and once the trace is marked seen the root is
+    never evaluated at all. This is the defect the request-level root filter
+    removes; it is pinned here so the fallback cannot silently become the
+    primary path again.
+    """
+
+    page_with_only_a_child = [
+        _obs(id="child-ta", trace_id="ta", is_root=False),
+    ]
+    later_page_with_the_root = [
+        _obs(id="root-ta", trace_id="ta", is_root=True),
+    ]
+
+    seen: set = set()
+    first = _collapse_observations_to_traces(page_with_only_a_child, seen)
+    second = _collapse_observations_to_traces(later_page_with_the_root, seen)
+
+    assert [o.id for o in first] == ["child-ta"]
+    # The root is suppressed, so the trace is evaluated on its child alone.
+    assert second == []
+    assert "root-ta" not in {o.id for o in first + second}
+
+
+def test_collapse_prefers_root_when_a_page_carries_both() -> None:
+    """Within a single page the root still wins, which is why the helper keeps
+    its preference logic even though the request now asks for roots only."""
+
+    collapsed = _collapse_observations_to_traces(
+        [
+            _obs(id="child-a", trace_id="ta", is_root=False),
+            _obs(id="root-a", trace_id="ta", is_root=True),
+        ]
+    )
+
+    assert [o.id for o in collapsed] == ["root-a"]
+
+
+@pytest.mark.asyncio
+async def test_run_async_raises_on_malformed_filter_instead_of_resuming() -> None:
+    """A filter that is not a JSON array must fail at the call site.
+
+    ``_translate_trace_filter`` merges the root condition into the caller's
+    filter array, so a malformed filter cannot be honoured. Validating inside
+    the fetch loop would be swallowed by its ``except Exception`` into a
+    ``completed=False`` result whose resume token carries an empty timestamp
+    bound -- a guaranteed 400 on the next run, with no indication that the
+    filter was the cause.
+    """
+
+    runner = _StubRunner()
+
+    with pytest.raises(ValueError, match="JSON array"):
+        await runner.run_async(
+            scope="traces",
+            filter='{"column":"name","operator":"=","value":"checkout"}',
+            mapper=lambda **kw: None,
+            evaluators=[],
+        )
+
+    # The run must not have started fetching, and no resume token is produced.
+    assert runner.client.api.observations.get_many.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_run_async_raises_on_unparseable_filter() -> None:
+    runner = _StubRunner()
+
+    with pytest.raises(ValueError, match="JSON array"):
+        await runner.run_async(
+            scope="traces",
+            filter="not json at all",
+            mapper=lambda **kw: None,
+            evaluators=[],
+        )
+
+    assert runner.client.api.observations.get_many.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_run_async_accepts_a_valid_filter_for_traces_scope() -> None:
+    """The validation must not reject the ordinary case."""
+
+    runner = _StubRunner()
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(items=[], cursor=None),
+    ]
+
+    result = await runner.run_async(
+        scope="traces",
+        filter='[{"type":"string","column":"name","operator":"=","value":"checkout"}]',
+        mapper=lambda **kw: None,
+        evaluators=[],
+    )
+
+    assert result.completed is True
+    kwargs = runner.client.api.observations.get_many.call_args.kwargs
+    import json as _json
+
+    conditions = _json.loads(kwargs["filter"])
+    assert {c["column"] for c in conditions} == {"traceName", "isRootObservation"}
+
+
+@pytest.mark.asyncio
+async def test_run_async_does_not_validate_filter_for_observations_scope() -> None:
+    """``scope='observations'`` forwards the caller's filter unchanged, so the
+    traces-scope array requirement does not apply to it."""
+
+    runner = _StubRunner()
+    runner.client.api.observations.get_many.side_effect = [
+        _v2_response(items=[], cursor=None),
+    ]
+
+    result = await runner.run_async(
+        scope="observations",
+        filter="not json at all",
+        mapper=lambda **kw: None,
+        evaluators=[],
+    )
+
+    assert result.completed is True
 
 
 def test_get_item_id_returns_trace_id_for_scope_traces() -> None:
