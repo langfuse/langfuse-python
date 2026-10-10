@@ -13,7 +13,9 @@ tests seed a wide trace so the root cannot share a page with all its children,
 which is the shape that triggers it.
 """
 
+import base64
 import json
+import os
 import time
 
 from langfuse import get_client
@@ -225,4 +227,173 @@ def test_run_batched_evaluation_on_traces_evaluates_the_root():
     assert root.id in seen_ids, "the root observation was never evaluated"
     assert CHILD_OUTPUT not in [o for o in seen_outputs if o is not None], (
         "a child observation was evaluated instead of the root"
+    )
+
+
+def test_multiple_flagged_roots_on_one_trace_still_collapse_to_one():
+    """The server can flag more than one root on a single trace.
+
+    Two sibling spans on the same trace have both been observed carrying
+    ``isRootObservation=True``, so "one root per trace" is not a guarantee the
+    filter provides. What has to hold is that the runner still evaluates such a
+    trace exactly once, which is the collapse's job rather than the filter's.
+    """
+    langfuse_client = get_client()
+    trace_id = create_uuid().replace("-", "")
+    name = f"multi-root-{create_uuid()}"
+
+    # Siblings: neither is nested in the other, so both are eligible app roots.
+    for index in range(2):
+        with langfuse_client.start_as_current_observation(
+            name=f"{name}-sibling-{index}",
+            trace_context={"trace_id": trace_id},
+            input=f"{name}-in-{index}",
+            output=f"sibling-out-{index}",
+        ):
+            pass
+    langfuse_client.flush()
+
+    rows = _wait_for_trace_observations(trace_id, expected_min=2)
+    flagged = [row for row in rows if row.is_root_observation]
+    root_pages = _fetch_observations(trace_id, root_only=True)
+    filtered = [row for page in root_pages for row in page]
+
+    print(
+        f"\n[info] observations={len(rows)} flagged_roots={len(flagged)} "
+        f"root_filter_returned={len(filtered)}"
+    )
+
+    # Whether the server flags one root or several here is server behaviour, not
+    # something this test should pin. Either way the runner must collapse the
+    # page to one item for the trace.
+    seen: set = set()
+    collapsed = _collapse_observations_to_traces(filtered, seen)
+    assert len(collapsed) == 1, (
+        f"expected one representative for the trace, got {[c.name for c in collapsed]}"
+    )
+    assert collapsed[0].is_root_observation
+
+    # And across pages: two flagged roots on separate pages must still yield one
+    # evaluation, which is what `seen_trace_ids` is for.
+    if len(flagged) > 1:
+        seen_across: set = set()
+        first = _collapse_observations_to_traces([flagged[0]], seen_across)
+        second = _collapse_observations_to_traces(flagged[1:], seen_across)
+        assert len(first) + len(second) == 1, (
+            f"a multi-root trace was evaluated {len(first) + len(second)} times"
+        )
+
+
+def test_trace_with_no_flagged_root_is_not_evaluated():
+    """A trace whose observations carry no root is silently skipped.
+
+    Traces ingested by other clients -- an OTel collector, another language SDK,
+    direct OTLP -- never pass through this SDK's app-root marking, so nothing on
+    them is flagged. The root filter then returns nothing for them and
+    `scope='traces'` never evaluates them.
+
+    The span is written through the OTLP endpoint with a parent id that does not
+    exist, so there is no parent-less observation either. The observation write
+    endpoints refuse observation creates on an events_only deployment
+    (`/api/public/observations` answers 405, `/api/public/ingestion` answers
+    "Event type not accepted ... only accepts score events"), and the error names
+    the OTLP path as the events_only-compatible route, so that is what is used.
+    """
+    import httpx
+
+    client = get_client()
+    trace_id = create_uuid().replace("-", "")
+    span_id = create_uuid().replace("-", "")[:16]
+    name = f"no-root-{create_uuid()}"
+
+    public_key = os.environ["LANGFUSE_PUBLIC_KEY"]
+    secret_key = os.environ["LANGFUSE_SECRET_KEY"]
+    base_url = os.environ.get("LANGFUSE_BASE_URL", "http://localhost:3000")
+
+    payload = {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [
+                        {"key": "service.name", "value": {"stringValue": name}},
+                    ]
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": name},
+                        "spans": [
+                            {
+                                "traceId": trace_id,
+                                "spanId": span_id,
+                                # A parent that does not exist: no observation
+                                # is parent-less, and nothing is flagged.
+                                "parentSpanId": create_uuid().replace("-", "")[:16],
+                                "name": name,
+                                "kind": 1,
+                                "startTimeUnixNano": "1767225600000000000",
+                                "endTimeUnixNano": "1767225601000000000",
+                                "attributes": [
+                                    {
+                                        "key": "langfuse.observation.type",
+                                        "value": {"stringValue": "SPAN"},
+                                    },
+                                    {
+                                        "key": "langfuse.trace.name",
+                                        "value": {"stringValue": name},
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    response = httpx.post(
+        f"{base_url}/api/public/otel/v1/traces",
+        json=payload,
+        headers={
+            "Authorization": "Basic "
+            + base64.b64encode(f"{public_key}:{secret_key}".encode()).decode("ascii"),
+            "x-langfuse-sdk-name": "python",
+            "x-langfuse-sdk-version": "e2e",
+            "x-langfuse-public-key": public_key,
+            "Content-Type": "application/json",
+        },
+        timeout=30.0,
+    )
+    assert response.status_code == 200, (
+        f"OTLP ingest failed: {response.status_code} {response.text[:200]}"
+    )
+    client.flush()
+
+    rows = _wait_for_trace_observations(trace_id, expected_min=1)
+    assert rows, (
+        "the OTLP span never became readable; the no-root case was not exercised"
+    )
+    assert all(not row.is_root_observation for row in rows), (
+        "the span was flagged as a root, so this deployment does not reproduce the no-root case"
+    )
+
+    root_pages = _fetch_observations(trace_id, root_only=True)
+    assert root_pages == [], "the root filter returned rows for a trace with no root"
+
+    # The consequence: scope='traces' never sees this trace at all.
+    seen_ids: list = []
+
+    def mapper(*, item):
+        seen_ids.append(item.id)
+        return None
+
+    get_client().run_batched_evaluation(
+        scope="traces",
+        mapper=mapper,
+        evaluators=[],
+        fetch_batch_size=2,
+    )
+    get_client().flush()
+
+    assert not any(row.id in seen_ids for row in rows), (
+        "a trace with no flagged root was evaluated; the documented consequence changed"
     )

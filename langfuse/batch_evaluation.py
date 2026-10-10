@@ -56,8 +56,13 @@ _TRACE_FILTER_COLUMN_REWRITES = {
 # observations, not traces: a trace's root and its children can straddle a page
 # boundary, so picking a representative per page would let whichever page
 # arrives first decide the representative for the whole run. Asking the server
-# for roots makes the selection global, and one root per trace means each page
-# yields at most one observation per trace.
+# for roots makes the selection global to the run.
+#
+# The server does not guarantee a single root per trace -- two sibling spans on
+# the same trace have both been observed flagged as roots. The collapse is what
+# reduces a page to one observation per trace, and ``seen_trace_ids`` keeps it
+# to one across pages, so the guarantee comes from those two rather than from the
+# filter. A trace with no flagged root is not returned at all.
 _TRACE_ROOT_CONDITION = {
     "type": "boolean",
     "column": "isRootObservation",
@@ -333,14 +338,17 @@ class MapperFunction(Protocol):
             (for async mappers that need to fetch additional data).
 
         Examples:
-            Basic trace mapper:
+            Basic mapper for ``scope='traces'``:
             ```python
             def map_trace(trace):
+                # For scope='traces' the item is the trace's root observation,
+                # not a whole trace: `id` is the observation ID and `trace_id`
+                # is the trace. Scores are written against `trace_id`.
                 return EvaluatorInputs(
                     input=trace.input,
                     output=trace.output,
                     expected_output=None,
-                    metadata={"trace_id": trace.id, "user": trace.user_id}
+                    metadata={"trace_id": trace.trace_id, "user": trace.user_id}
                 )
             ```
 
