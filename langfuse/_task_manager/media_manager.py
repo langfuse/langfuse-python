@@ -509,12 +509,10 @@ class MediaManager:
         self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
     ) -> T:
         def _should_give_up(e: Exception) -> bool:
+            # The API client already retried 408/409/429/5xx responses before
+            # raising, so retrying here would multiply the requests.
             if isinstance(e, ApiError):
-                return (
-                    e.status_code is not None
-                    and 400 <= e.status_code < 500
-                    and e.status_code != 429
-                )
+                return True
             if isinstance(e, httpx.HTTPStatusError):
                 return (
                     e.response is not None
