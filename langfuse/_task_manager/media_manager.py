@@ -3,14 +3,14 @@ import time
 from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
 
-import backoff
 import httpx
 from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
 from langfuse._utils import _get_timestamp
+from langfuse._utils.retry import call_with_retries, is_retryable_status
 from langfuse.api import LangfuseAPI, MediaContentType
-from langfuse.api.core import ApiError
+from langfuse.api.core import ApiError, RequestOptions
 from langfuse.logger import langfuse_logger as logger
 from langfuse.media import LangfuseMedia
 
@@ -18,6 +18,9 @@ from .media_upload_queue import UploadMediaJob
 
 T = TypeVar("T")
 P = ParamSpec("P")
+
+# Retries happen in _request_with_backoff, so the API client must not retry too.
+_NO_CLIENT_RETRIES: RequestOptions = {"max_retries": 0}
 _SHUTDOWN_SENTINEL = object()
 
 
@@ -41,7 +44,7 @@ class MediaManager:
         self._api_client = api_client
         self._httpx_client = httpx_client
         self._queue = media_upload_queue
-        self._max_retries = max_retries
+        self._max_retries = max_retries if max_retries is not None else 3
         self._enabled = os.environ.get(
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
@@ -422,6 +425,7 @@ class MediaManager:
             dataset_id=data["dataset_id"],
             dataset_item_id=data["dataset_item_id"],
             field=data["field"],
+            request_options=_NO_CLIENT_RETRIES,
         )
 
         upload_url = upload_url_response.upload_url
@@ -480,6 +484,7 @@ class MediaManager:
                     upload_http_status=failed_response.status_code,
                     upload_http_error=failed_response.text,
                     upload_time_ms=upload_time_ms,
+                    request_options=_NO_CLIENT_RETRIES,
                 )
 
             raise
@@ -493,6 +498,7 @@ class MediaManager:
             upload_http_status=upload_response.status_code,
             upload_http_error=upload_response.text,
             upload_time_ms=upload_time_ms,
+            request_options=_NO_CLIENT_RETRIES,
         )
 
         logger.debug(
@@ -508,27 +514,18 @@ class MediaManager:
     def _request_with_backoff(
         self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
     ) -> T:
-        def _should_give_up(e: Exception) -> bool:
-            # The API client already retried 408/409/429/5xx responses before
-            # raising, so retrying here would multiply the requests.
+        def _should_retry(e: Exception) -> bool:
             if isinstance(e, ApiError):
-                return True
+                return e.status_code is not None and is_retryable_status(e.status_code)
             if isinstance(e, httpx.HTTPStatusError):
-                return (
-                    e.response is not None
-                    and e.response.status_code < 500
-                    and e.response.status_code != 429
+                return e.response is not None and is_retryable_status(
+                    e.response.status_code
                 )
-            return False
+            return True
 
-        @backoff.on_exception(
-            backoff.expo,
-            Exception,
-            max_tries=self._max_retries,
-            giveup=_should_give_up,
-            logger=None,
+        # API client calls pass max_retries=0, so this is the only retry layer.
+        return call_with_retries(
+            lambda: func(*args, **kwargs),
+            max_retries=max(self._max_retries - 1, 0),
+            should_retry=_should_retry,
         )
-        def execute_task_with_backoff() -> T:
-            return func(*args, **kwargs)
-
-        return execute_task_with_backoff()
