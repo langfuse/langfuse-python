@@ -1,3 +1,4 @@
+import time
 from queue import Queue
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -6,6 +7,8 @@ import httpx
 import pytest
 
 from langfuse._task_manager.media_manager import MediaManager
+from langfuse.api import LangfuseAPI
+from langfuse.api.core.api_error import ApiError
 from langfuse.media import LangfuseMedia
 
 
@@ -277,3 +280,32 @@ def test_find_and_process_media_gemini_inline_data_non_string_data_passes_throug
 
     assert result == data
     assert queue.empty()
+
+
+@pytest.mark.parametrize("status_code", [429, 503])
+def test_media_api_calls_do_not_multiply_client_retries(monkeypatch, status_code):
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(status_code, json={})
+
+    api_client = LangfuseAPI(
+        base_url="http://test-host",
+        username="pk",
+        password="sk",
+        httpx_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    manager = MediaManager(
+        api_client=api_client,
+        httpx_client=Mock(),
+        media_upload_queue=Queue(),
+        max_retries=3,
+    )
+
+    with pytest.raises(ApiError):
+        manager._process_upload_media_job(data=_upload_job())
+
+    # the API client's own retries (2) are the only ones: 3 requests in total
+    assert len(requests) == 3
