@@ -307,5 +307,35 @@ def test_media_api_calls_do_not_multiply_client_retries(monkeypatch, status_code
     with pytest.raises(ApiError):
         manager._process_upload_media_job(data=_upload_job())
 
-    # the API client's own retries (2) are the only ones: 3 requests in total
+    # max_retries=3 means 3 attempts in total, with no nested client retries
+    assert len(requests) == 3
+
+
+def test_media_api_calls_share_one_retry_budget_across_failure_kinds(monkeypatch):
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) % 2 == 0:
+            raise httpx.ConnectError("connection reset", request=request)
+
+        return httpx.Response(429, json={})
+
+    api_client = LangfuseAPI(
+        base_url="http://test-host",
+        username="pk",
+        password="sk",
+        httpx_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    manager = MediaManager(
+        api_client=api_client,
+        httpx_client=Mock(),
+        media_upload_queue=Queue(),
+        max_retries=3,
+    )
+
+    with pytest.raises(ApiError):
+        manager._process_upload_media_job(data=_upload_job())
+
     assert len(requests) == 3

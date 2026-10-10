@@ -211,7 +211,7 @@ def test_get_fresh_prompt(langfuse):
         prompt_name,
         version=None,
         label=None,
-        request_options={"max_retries": 2},
+        request_options={"max_retries": 0},
     )
 
     assert result == TextPromptClient(prompt)
@@ -256,7 +256,7 @@ def test_using_custom_prompt_timeouts(langfuse):
         prompt_name,
         version=None,
         label=None,
-        request_options={"max_retries": 2, "timeout_in_seconds": 1000},
+        request_options={"max_retries": 0, "timeout_in_seconds": 1000},
     )
 
     assert result == TextPromptClient(prompt)
@@ -841,3 +841,42 @@ def test_get_prompt_retries_network_errors_with_exponential_backoff(
     assert result.prompt == "Make me laugh"
     assert len(requests) == 3
     assert sleeps == [1, 2]
+
+
+def test_get_prompt_shares_one_retry_budget_across_failure_kinds(langfuse, sleeps):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) % 2 == 0:
+            raise httpx.ConnectError("connection reset", request=request)
+
+        return httpx.Response(503, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises(httpx.ConnectError):
+        langfuse.get_prompt("degraded_server_prompt", max_retries=3)
+
+    assert len(requests) == 4
+    assert len(sleeps) == 3
+
+
+@pytest.mark.parametrize("failure", ["rate_limited", "network_error"])
+def test_get_prompt_with_zero_retries_sends_one_request(langfuse, sleeps, failure):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if failure == "network_error":
+            raise httpx.ConnectError("connection refused", request=request)
+
+        return httpx.Response(429, headers={"Retry-After": "1"}, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises((ApiError, httpx.ConnectError)):
+        langfuse.get_prompt("no_retry_prompt", max_retries=0)
+
+    assert len(requests) == 1
+    assert sleeps == []
