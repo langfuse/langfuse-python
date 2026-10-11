@@ -124,6 +124,7 @@ class DatasetClient:
             run_evaluators: List of functions to evaluate the entire experiment run.
                 Useful for computing aggregate statistics across all dataset items.
             max_concurrency: Maximum number of concurrent task executions (default: 50).
+                Must be greater than 0, including for empty datasets.
                 Adjust based on API rate limits and system resources.
             metadata: Optional metadata to attach to the experiment run and all traces.
                 Will be combined with individual item metadata.
