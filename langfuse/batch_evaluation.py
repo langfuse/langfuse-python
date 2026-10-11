@@ -178,10 +178,8 @@ def _collapse_observations_to_traces(
 
     ``seen_trace_ids``, when provided, holds the trace IDs already processed
     earlier in the run. Observations for those traces are skipped so the same
-    trace is not evaluated twice. Now that ``scope='traces'`` asks the server
-    for root observations only, a well-behaved response already carries at most
-    one row per trace, so this is a safety net rather than the mechanism that
-    makes the collapse correct across pages.
+    trace is not evaluated twice. A trace can have multiple root observations,
+    so even root-only pages need deduplication within and across pages.
     """
     chosen: Dict[str, ObservationV2] = {}
     for observation in observations:
@@ -1048,8 +1046,8 @@ class BatchEvaluationRunner:
         with cursor pagination. That endpoint is the only read path available on
         Langfuse platform v4 events_only deployments and remains available on
         v3. For `scope='traces'`, the request itself is narrowed to root
-        observations, so the v2 endpoint returns at most one observation per
-        trace. The narrowing has to happen server-side: the endpoint pages by
+        observations, then multiple roots for the same trace are deduplicated
+        across pages. The narrowing has to happen server-side: the endpoint pages by
         cursor over observations rather than traces, so a trace's root and its
         children can straddle a page boundary, and collapsing each page
         independently would let whichever page arrived first fix the
@@ -1200,21 +1198,19 @@ class BatchEvaluationRunner:
                     item_evaluations=item_evaluations,
                 )
 
-            # Advance the cursor and stop when the server reports it is
-            # done. An empty page is also treated as the end of the stream:
-            # under v2 semantics an empty page typically coincides with
-            # ``cursor=None``, and breaking here matches the pre-v3 path's
-            # behaviour.
+            # A page can be empty after deduplicating previously seen traces
+            # even when the server has more root observations to return.
             cursor = next_cursor
             if cursor is None:
                 has_more = False
 
             # Check if we got any items
             if not items:
-                has_more = False
-                if verbose:
-                    logger.info("No more items to fetch")
-                break
+                if cursor is None:
+                    if verbose:
+                        logger.info("No more items to fetch")
+                    break
+                continue
 
             total_items_fetched += len(items)
 
