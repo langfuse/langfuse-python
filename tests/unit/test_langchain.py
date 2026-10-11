@@ -357,6 +357,51 @@ def test_control_flow_errors_use_default_level_and_keep_status_message(
         )
 
 
+def test_streamed_llm_error_cleans_only_its_completion_start_time_memo(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+    failed_run_id = uuid4()
+    active_run_id = uuid4()
+    failed_context = copy_context()
+    active_context = copy_context()
+
+    for context, run_id in (
+        (failed_context, failed_run_id),
+        (active_context, active_run_id),
+    ):
+        context.run(
+            handler.on_llm_start,
+            {"name": "TestLLM"},
+            ["prompt"],
+            run_id=run_id,
+            metadata={"ls_model_name": "test-model"},
+            invocation_params={},
+        )
+        context.run(handler.on_llm_new_token, "first token", run_id=run_id)
+
+    response = LLMResult(generations=[[Generation(text="done")]], llm_output={})
+
+    try:
+        assert failed_run_id in handler._updated_completion_start_time_memo
+        assert active_run_id in handler._updated_completion_start_time_memo
+
+        failed_context.run(
+            handler.on_llm_error,
+            RuntimeError("synthetic failure"),
+            run_id=failed_run_id,
+        )
+
+        assert active_run_id in handler._updated_completion_start_time_memo
+        assert failed_run_id not in handler._updated_completion_start_time_memo
+    finally:
+        active_context.run(
+            handler.on_llm_end,
+            response,
+            run_id=active_run_id,
+        )
+
+
 def test_control_flow_resume_uses_thread_keyed_explicit_resume_context(
     memory_exporter, langfuse_memory_client, monkeypatch
 ):
