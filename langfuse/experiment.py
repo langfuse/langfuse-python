@@ -6,7 +6,9 @@ and result formatting.
 """
 
 import asyncio
+import inspect
 from datetime import datetime
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -607,6 +609,10 @@ class TaskFunction(Protocol):
     - Return any type of output (will be passed to evaluators)
     - Can be either synchronous or asynchronous
     - Should handle their own errors gracefully (exceptions will be logged)
+
+    Synchronous task functions run in worker threads so blocking calls can run
+    concurrently. Asynchronous task functions, including their decorated wrappers,
+    run on the experiment's event loop.
     """
 
     def __call__(
@@ -1021,9 +1027,40 @@ async def _run_evaluator(
         return []
 
 
+def _is_async_task(task: Any) -> bool:
+    """Inspect async task metadata without replacing the callable we invoke."""
+    seen: set[int] = set()
+    check_call = True
+    for _ in range(100):
+        if id(task) in seen:
+            return False
+        seen.add(id(task))
+        if isinstance(task, partial):
+            task = task.func
+            continue
+        try:
+            unwrapped = inspect.unwrap(task, stop=inspect.iscoroutinefunction)
+        except ValueError:
+            return False
+        if inspect.iscoroutinefunction(unwrapped):
+            return True
+        if unwrapped is not task:
+            task = unwrapped
+        elif check_call:
+            task = getattr(task, "__call__", None)
+            check_call = False
+        else:
+            return False
+    return False
+
+
 async def _run_task(task: TaskFunction, item: ExperimentItem) -> Any:
     """Run a task function and handle sync/async."""
-    result = task(item=item)
+    result: Any
+    if _is_async_task(task):
+        result = task(item=item)
+    else:
+        result = await asyncio.to_thread(task, item=item)
 
     # Handle async tasks
     if asyncio.iscoroutine(result):

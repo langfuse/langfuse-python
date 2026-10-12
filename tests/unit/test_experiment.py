@@ -1,18 +1,23 @@
 """Tests for ``langfuse.experiment`` — ``RunnerContext`` and ``RegressionError``."""
 
+import asyncio
 import inspect
 import typing
 from datetime import datetime
+from functools import partial, wraps
+from threading import Barrier, get_ident
 from typing import get_type_hints
 from unittest.mock import MagicMock
 
 import pytest
+from opentelemetry import context as otel_context
 from opentelemetry import trace as otel_trace_api
 
 from langfuse import Evaluation, RegressionError, RunnerContext
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
+from langfuse.experiment import _run_task
 
 
 def _noop_task(*, item, **kwargs):  # pragma: no cover - never invoked via mock
@@ -23,6 +28,66 @@ def _make_ctx(**kwargs) -> RunnerContext:
     client = MagicMock(spec=Langfuse)
     client.run_experiment.return_value = "result-sentinel"
     return RunnerContext(client=client, **kwargs)
+
+
+def _task_form(task, form):
+    if "callable" in form:
+        wrapped_task = task
+
+        class CallableTask:
+            @wraps(wrapped_task)
+            def __call__(self, **kwargs):
+                return wrapped_task(**kwargs)
+
+        task = CallableTask()
+
+    if "partial" in form:
+        task = partial(task, prefix="partial")
+
+    return task
+
+
+@pytest.mark.asyncio
+async def test_async_task_stays_on_experiment_event_loop():
+    loop = asyncio.get_running_loop()
+
+    async def task(*, item):
+        assert asyncio.get_running_loop() is loop
+        return item["input"]
+
+    assert await _run_task(task, {"input": "async-result"}) == "async-result"
+
+
+@pytest.mark.asyncio
+async def test_sync_task_returning_coroutine_is_awaited():
+    loop = asyncio.get_running_loop()
+
+    async def async_result():
+        assert asyncio.get_running_loop() is loop
+        return "coroutine-result"
+
+    def task(*, item):
+        return async_result()
+
+    assert await _run_task(task, {"input": "question"}) == "coroutine-result"
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(3)
+@pytest.mark.parametrize("cycle", ["wrapped", "partial"])
+async def test_cyclic_wrapper_metadata_keeps_sync_task_execution(cycle):
+    caller_thread = get_ident()
+    worker_threads = []
+
+    def task(*, item):
+        worker_threads.append(get_ident())
+        return item["input"]
+
+    task.__wrapped__ = task if cycle == "wrapped" else partial(task)
+
+    assert await _run_task(task, {"input": "cycle-result"}) == "cycle-result"
+    assert len(worker_threads) == 1
+    assert worker_threads[0] != caller_thread
 
 
 class TestRunnerContextDefaults:
@@ -245,6 +310,172 @@ class TestSignatureDriftGuard:
 
 
 class TestExperimentObservationTree:
+    @pytest.mark.skipif(
+        not hasattr(inspect, "markcoroutinefunction"),
+        reason="explicit coroutine markers require Python 3.12+",
+    )
+    @pytest.mark.parametrize("task_form", ["marked", "partial", "wrapped"])
+    def test_marked_coroutine_factory_runs_on_experiment_loop(
+        self, task_form, langfuse_memory_client
+    ):
+        def sync_target(*, item, prefix):
+            return "the wrapped target must not be invoked"
+
+        @wraps(sync_target)
+        def factory(*, item, prefix="marked"):
+            asyncio.get_running_loop()
+
+            async def result():
+                return f"{prefix}:{item['input']}"
+
+            return result()
+
+        marked = inspect.markcoroutinefunction(factory)
+        task = marked
+        expected_prefix = "marked"
+        if task_form == "partial":
+            task = partial(marked, prefix="partial")
+            expected_prefix = "partial"
+        elif task_form == "wrapped":
+
+            @wraps(marked)
+            def wrapped(**kwargs):
+                return marked(**kwargs)
+
+            task = wrapped
+
+        result = langfuse_memory_client.run_experiment(
+            name="marked-coroutine-factory",
+            data=[{"input": "question"}],
+            task=task,
+            max_concurrency=1,
+        )
+        assert [item.output for item in result.item_results] == [
+            f"{expected_prefix}:question"
+        ]
+
+    @pytest.mark.parametrize(
+        "task_form,expected_prefix",
+        [
+            ("wrapped", "wrapped"),
+            ("partial", "partial"),
+            ("callable", "wrapped"),
+            ("partial-callable", "partial"),
+        ],
+    )
+    def test_wrapped_async_task_invokes_wrapper_on_event_loop(
+        self, task_form, expected_prefix, langfuse_memory_client
+    ):
+        wrapper_calls = []
+
+        async def native_async(*, item, prefix):
+            return f"{prefix}:{item['input']}"
+
+        @wraps(native_async)
+        def wrapped(*, item, prefix="wrapped"):
+            wrapper_calls.append(asyncio.get_running_loop().is_running())
+            return native_async(item=item, prefix=prefix)
+
+        result = langfuse_memory_client.run_experiment(
+            name="wrapped-async-loop",
+            data=[{"input": "question"}],
+            task=_task_form(wrapped, task_form),
+            max_concurrency=1,
+        )
+
+        assert [item.output for item in result.item_results] == [
+            f"{expected_prefix}:question"
+        ]
+        assert wrapper_calls == [True]
+
+    @pytest.mark.parametrize(
+        "task_form,expected_prefix",
+        [
+            ("wrapped", "wrapped"),
+            ("partial", "partial"),
+            ("callable", "wrapped"),
+            ("partial-callable", "partial"),
+        ],
+    )
+    def test_wrapped_async_task_preserves_wrapper_otel_context(
+        self, task_form, expected_prefix, langfuse_memory_client, get_span
+    ):
+        key = otel_context.create_key("wrapped-task-context")
+
+        async def read_context(*, item, prefix):
+            await asyncio.sleep(0)
+            with langfuse_memory_client.start_as_current_observation(
+                name="wrapped-async-child"
+            ):
+                return f"{prefix}:{otel_context.get_value(key)}"
+
+        @wraps(read_context)
+        def contextual_wrapper(*, item, prefix="wrapped"):
+            token = otel_context.attach(
+                otel_context.set_value(key, "wrapped-otel-context")
+            )
+
+            async def finish():
+                try:
+                    return await read_context(item=item, prefix=prefix)
+                finally:
+                    otel_context.detach(token)
+
+            return finish()
+
+        result = langfuse_memory_client.run_experiment(
+            name="wrapped-async-context",
+            data=[{"input": "question"}],
+            task=_task_form(contextual_wrapper, task_form),
+            max_concurrency=1,
+        )
+
+        assert [item.output for item in result.item_results] == [
+            f"{expected_prefix}:wrapped-otel-context"
+        ]
+        child = get_span("wrapped-async-child")
+        parent = get_span("experiment-item-task")
+        assert child.parent.span_id == parent.context.span_id
+        assert child.context.trace_id == parent.context.trace_id
+
+    def test_sync_tasks_run_concurrently_with_trace_context(
+        self, langfuse_memory_client, memory_exporter
+    ):
+        barrier = Barrier(2, timeout=3)
+
+        def task(*, item):
+            with langfuse_memory_client.start_as_current_observation(
+                name=f"worker-{item['input']}"
+            ):
+                barrier.wait()
+                return item["input"].upper()
+
+        result = langfuse_memory_client.run_experiment(
+            name="sync-task-concurrency",
+            data=[{"input": "first"}, {"input": "second"}],
+            task=task,
+            max_concurrency=2,
+        )
+
+        assert [item.output for item in result.item_results] == ["FIRST", "SECOND"]
+
+        spans = memory_exporter.get_finished_spans()
+        tasks_by_id = {
+            span.context.span_id: span
+            for span in spans
+            if span.name == "experiment-item-task"
+        }
+        workers = [span for span in spans if span.name.startswith("worker-")]
+        assert len(workers) == 2
+        assert len({span.parent.span_id for span in workers}) == 2
+        for worker in workers:
+            parent = tasks_by_id[worker.parent.span_id]
+            assert worker.context.trace_id == parent.context.trace_id
+            assert (
+                worker.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+                == result.experiment_id
+            )
+
     def test_failed_task_preserves_experiment_attributes_on_item_run(
         self,
         langfuse_memory_client,
