@@ -3,12 +3,12 @@
 import typing
 
 import pydantic
-from .base_event import BaseEvent
-from .sdk_log_body import SdkLogBody
+from ....core.pydantic_utilities import UniversalBaseModel
+from .skill_file_content import SkillFileContent
 
 
-class SdkLogEvent(BaseEvent):
-    body: SdkLogBody
+class SkillFileContentsResponse(UniversalBaseModel):
+    data: typing.List[SkillFileContent]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

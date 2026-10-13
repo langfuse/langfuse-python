@@ -23,7 +23,6 @@ if typing.TYPE_CHECKING:
         IngestionEvent_ObservationCreate,
         IngestionEvent_ObservationUpdate,
         IngestionEvent_ScoreCreate,
-        IngestionEvent_SdkLog,
         IngestionEvent_SpanCreate,
         IngestionEvent_SpanUpdate,
         IngestionEvent_TraceCreate,
@@ -39,8 +38,6 @@ if typing.TYPE_CHECKING:
     from .optional_observation_body import OptionalObservationBody
     from .score_body import ScoreBody
     from .score_event import ScoreEvent
-    from .sdk_log_body import SdkLogBody
-    from .sdk_log_event import SdkLogEvent
     from .trace_body import TraceBody
     from .trace_event import TraceEvent
     from .update_event_body import UpdateEventBody
@@ -67,7 +64,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "IngestionEvent_ObservationCreate": ".ingestion_event",
     "IngestionEvent_ObservationUpdate": ".ingestion_event",
     "IngestionEvent_ScoreCreate": ".ingestion_event",
-    "IngestionEvent_SdkLog": ".ingestion_event",
     "IngestionEvent_SpanCreate": ".ingestion_event",
     "IngestionEvent_SpanUpdate": ".ingestion_event",
     "IngestionEvent_TraceCreate": ".ingestion_event",
@@ -82,8 +78,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "OptionalObservationBody": ".optional_observation_body",
     "ScoreBody": ".score_body",
     "ScoreEvent": ".score_event",
-    "SdkLogBody": ".sdk_log_body",
-    "SdkLogEvent": ".sdk_log_event",
     "TraceBody": ".trace_body",
     "TraceEvent": ".trace_event",
     "UpdateEventBody": ".update_event_body",
@@ -140,7 +134,6 @@ __all__ = [
     "IngestionEvent_ObservationCreate",
     "IngestionEvent_ObservationUpdate",
     "IngestionEvent_ScoreCreate",
-    "IngestionEvent_SdkLog",
     "IngestionEvent_SpanCreate",
     "IngestionEvent_SpanUpdate",
     "IngestionEvent_TraceCreate",
@@ -155,8 +148,6 @@ __all__ = [
     "OptionalObservationBody",
     "ScoreBody",
     "ScoreEvent",
-    "SdkLogBody",
-    "SdkLogEvent",
     "TraceBody",
     "TraceEvent",
     "UpdateEventBody",

@@ -8,6 +8,10 @@ from .create_span_body import CreateSpanBody
 
 
 class CreateSpanEvent(BaseEvent):
+    """
+    Sunset warning: this is the deprecated Langfuse v3 ingestion API. It is shut down on November 16, 2026, except for score events: from that date it accepts only `score-create` events and rejects all other event types, including this one. To write scores, prefer `POST /api/public/scores`; see the [Scores API docs](https://langfuse.com/docs/api-and-data-platform/features/scores-api). To write traces and observations, always prefer upgrading to the current Python and JS SDKs. If you use custom auto-instrumentation, send them to the OpenTelemetry endpoint (`POST /api/public/otel/v1/traces`), for example with curl; see the [OpenTelemetry integration docs](https://langfuse.com/integrations/native/opentelemetry). To read data back, use the v4 read APIs; see the [Observations API docs](https://langfuse.com/docs/api-and-data-platform/features/observations-api) and the [Metrics API docs](https://langfuse.com/docs/metrics/features/metrics-api). The only path to live data is OpenTelemetry ingestion combined with `GET /api/public/v2/observations` and `GET /api/public/v2/metrics`. All other public APIs may have data delays of several minutes.
+    """
+
     body: CreateSpanBody
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

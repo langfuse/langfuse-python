@@ -10,7 +10,6 @@ from ..commons.errors.error import Error
 from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
 from ..commons.errors.not_found_error import NotFoundError
 from ..commons.errors.unauthorized_error import UnauthorizedError
-from ..commons.types.create_score_value import CreateScoreValue
 from ..commons.types.score import Score
 from ..commons.types.score_data_type import ScoreDataType
 from ..commons.types.score_source import ScoreSource
@@ -22,8 +21,8 @@ from ..core.jsonable_encoder import jsonable_encoder
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
-from .types.create_score_response import CreateScoreResponse
-from .types.create_score_source import CreateScoreSource
+from .types.create_scores_request import CreateScoresRequest
+from .types.create_scores_response import CreateScoresResponse
 from .types.get_scores_response import GetScoresResponse
 
 # this is used as the default value for optional parameters
@@ -37,98 +36,38 @@ class RawScoresClient:
     def create(
         self,
         *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
+        request: CreateScoresRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[CreateScoreResponse]:
+    ) -> HttpResponse[CreateScoresResponse]:
         """
-        Create a score (supports trace, observation, session, and dataset run scores)
+        Create scores asynchronously. Single score: 200 with ID. Batch: 202 if accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; batches return 202 or 207.
 
         Parameters
         ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+        request : CreateScoresRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[CreateScoreResponse]
+        HttpResponse[CreateScoresResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/public/scores",
             method="POST",
-            json={
-                "id": id,
-                "traceId": trace_id,
-                "sessionId": session_id,
-                "observationId": observation_id,
-                "datasetRunId": dataset_run_id,
-                "name": name,
-                "value": convert_and_respect_annotation_metadata(
-                    object_=value, annotation=CreateScoreValue, direction="write"
-                ),
-                "comment": comment,
-                "metadata": metadata,
-                "environment": environment,
-                "queueId": queue_id,
-                "dataType": data_type,
-                "configId": config_id,
-                "source": source,
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateScoresRequest, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    CreateScoreResponse,
+                    CreateScoresResponse,
                     parse_obj_as(
-                        type_=CreateScoreResponse,  # type: ignore
+                        type_=CreateScoresResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -529,98 +468,38 @@ class AsyncRawScoresClient:
     async def create(
         self,
         *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
+        request: CreateScoresRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[CreateScoreResponse]:
+    ) -> AsyncHttpResponse[CreateScoresResponse]:
         """
-        Create a score (supports trace, observation, session, and dataset run scores)
+        Create scores asynchronously. Single score: 200 with ID. Batch: 202 if accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; batches return 202 or 207.
 
         Parameters
         ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+        request : CreateScoresRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[CreateScoreResponse]
+        AsyncHttpResponse[CreateScoresResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/public/scores",
             method="POST",
-            json={
-                "id": id,
-                "traceId": trace_id,
-                "sessionId": session_id,
-                "observationId": observation_id,
-                "datasetRunId": dataset_run_id,
-                "name": name,
-                "value": convert_and_respect_annotation_metadata(
-                    object_=value, annotation=CreateScoreValue, direction="write"
-                ),
-                "comment": comment,
-                "metadata": metadata,
-                "environment": environment,
-                "queueId": queue_id,
-                "dataType": data_type,
-                "configId": config_id,
-                "source": source,
-            },
+            json=convert_and_respect_annotation_metadata(
+                object_=request, annotation=CreateScoresRequest, direction="write"
+            ),
             request_options=request_options,
             omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    CreateScoreResponse,
+                    CreateScoresResponse,
                     parse_obj_as(
-                        type_=CreateScoreResponse,  # type: ignore
+                        type_=CreateScoresResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

@@ -10,7 +10,11 @@ from .create_text_prompt_type import CreateTextPromptType
 
 
 class CreateTextPromptRequest(UniversalBaseModel):
-    name: str
+    name: str = pydantic.Field()
+    """
+    The full prompt name, including any folder path, with at most 255 characters.
+    """
+
     prompt: str
     config: typing.Optional[typing.Any] = None
     type: typing.Optional[CreateTextPromptType] = None

@@ -4,10 +4,17 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
+from .create_score_batch_error import CreateScoreBatchError
 
 
-class SdkLogBody(UniversalBaseModel):
-    log: typing.Any
+class CreateScoreBatchResults(UniversalBaseModel):
+    """
+    Acceptance counts and errors (HTTP 207).
+    """
+
+    accepted: int
+    rejected: int
+    errors: typing.List[CreateScoreBatchError]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
