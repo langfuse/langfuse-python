@@ -405,7 +405,7 @@ def get_scores(
     cursor = None
 
     while True:
-        response = api.scores_v3.get_many_v3(
+        response = api.scores.get_many(
             fields=fields, limit=100, cursor=cursor, **filters
         )
         scores.extend(response.data)
