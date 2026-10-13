@@ -8,7 +8,7 @@ and result formatting.
 import asyncio
 import inspect
 import warnings
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextvars import copy_context
 from datetime import datetime
 from functools import partial
@@ -1110,12 +1110,23 @@ async def _run_task(
     if executor is None or _is_async_task(task):
         result = task(item=item)
     else:
-        # run_in_executor does not propagate ContextVars itself. Copy separately
-        # for every item so worker spans inherit that item's tracing context.
+        # Copy separately for every item so worker spans inherit that item's
+        # tracing context. Keep the source future to dispose of a late coroutine
+        # if cancellation prevents the caller from awaiting it.
         context = copy_context()
-        result = await asyncio.get_running_loop().run_in_executor(
-            executor, context.run, partial(task, item=item)
-        )
+        future = executor.submit(context.run, partial(task, item=item))
+        try:
+            result = await asyncio.wrap_future(future)
+        except asyncio.CancelledError:
+
+            def discard_result(done: Future[Any]) -> None:
+                if not done.cancelled() and done.exception() is None:
+                    value = done.result()
+                    if asyncio.iscoroutine(value):
+                        value.close()
+
+            future.add_done_callback(discard_result)
+            raise
 
     # Handle async tasks
     if asyncio.iscoroutine(result):

@@ -133,6 +133,42 @@ async def test_sync_task_returning_coroutine_is_awaited(offload, task_executor):
 
 
 @pytest.mark.asyncio
+async def test_cancelled_sync_factory_closes_its_unawaited_coroutine(task_executor):
+    loop = asyncio.get_running_loop()
+    started = asyncio.Event()
+    release = Event()
+    results = []
+
+    async def result():
+        return "cancelled-result"
+
+    def task(*, item):
+        loop.call_soon_threadsafe(started.set)
+        release.wait(timeout=3)
+        coroutine = result()
+        results.append(coroutine)
+        return coroutine
+
+    running = asyncio.create_task(
+        _run_task(task, {"input": "A"}, executor=task_executor)
+    )
+    try:
+        await asyncio.wait_for(started.wait(), timeout=2)
+        running.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await running
+        release.set()
+        await asyncio.to_thread(task_executor.shutdown, wait=True)
+        assert len(results) == 1
+        assert inspect.getcoroutinestate(results[0]) == inspect.CORO_CLOSED
+    finally:
+        release.set()
+        await asyncio.to_thread(task_executor.shutdown, wait=True)
+        for coroutine in results:
+            coroutine.close()
+
+
+@pytest.mark.asyncio
 @pytest.mark.timeout(3)
 @pytest.mark.parametrize("cycle", ["wrapped", "partial"])
 async def test_cyclic_wrapper_metadata_keeps_sync_task_execution(cycle, task_executor):
