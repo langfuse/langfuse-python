@@ -4,8 +4,5 @@ import typing
 
 from .create_score_batch_response import CreateScoreBatchResponse
 from .create_score_batch_results import CreateScoreBatchResults
-from .create_score_response import CreateScoreResponse
 
-CreateScoresResponse = typing.Union[
-    CreateScoreBatchResults, CreateScoreResponse, CreateScoreBatchResponse
-]
+CreateScoresResponse = typing.Union[CreateScoreBatchResults, CreateScoreBatchResponse]
