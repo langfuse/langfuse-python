@@ -706,6 +706,9 @@ class LangfuseObservationWrapper:
         Returns:
             The processed and masked data
         """
+        if data is None:
+            return None
+
         return self._mask_attribute(
             data=self._process_media_in_attribute(data=data, field=field), field=field
         )
