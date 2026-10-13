@@ -21,6 +21,28 @@ from langfuse.logger import langfuse_logger as logger
 # POST /api/public/scores uses the default Next.js body limit of 1 MiB.
 MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 1_000_000))
 _SHUTDOWN_SENTINEL = object()
+MIN_SERVER_VERSION_FOR_SCORE_BATCHES = "v4.55.0"
+
+_min_server_version_hint_lock = threading.Lock()
+_min_server_version_hint_logged = False
+
+
+def _log_min_server_version_hint_once(batch_size: int) -> None:
+    # Servers before v4.55.0 reject list bodies on POST /scores with a 400. A 400
+    # can also be a validation error, so the hint is logged once per process.
+    global _min_server_version_hint_logged
+    with _min_server_version_hint_lock:
+        if _min_server_version_hint_logged:
+            return
+        _min_server_version_hint_logged = True
+
+    logger.error(
+        "Failed to export score batch. Batched score creation requires Langfuse "
+        "server %s or later; dropped %s score(s). Upgrade your Langfuse server if "
+        "it is older. This hint is logged once per process.",
+        MIN_SERVER_VERSION_FOR_SCORE_BATCHES,
+        batch_size,
+    )
 
 
 def _is_retryable(error: Exception) -> bool:
@@ -174,6 +196,8 @@ class ScoreConsumer(threading.Thread):
         try:
             self._upload_batch(batch)
         except ApiError as e:
+            if e.status_code == 400:
+                _log_min_server_version_hint_once(len(batch))
             handle_fern_exception(e)
         except Exception as e:
             logger.error(
