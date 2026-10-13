@@ -18,12 +18,27 @@ class ApiKeyResponse(UniversalBaseModel):
     created_at: typing_extensions.Annotated[
         dt.datetime, FieldMetadata(alias="createdAt")
     ]
+    expires_at: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="expiresAt")
+    ] = pydantic.Field(default=None)
+    """
+    Expiration timestamp. Null if the key does not expire.
+    """
+
     public_key: typing_extensions.Annotated[str, FieldMetadata(alias="publicKey")]
     secret_key: typing_extensions.Annotated[str, FieldMetadata(alias="secretKey")]
     display_secret_key: typing_extensions.Annotated[
         str, FieldMetadata(alias="displaySecretKey")
     ]
-    note: typing.Optional[str] = None
+    name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Name of the API key. Contains the same value as note; null if no name was provided.
+    """
+
+    note: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Deprecated alias for name. Contains the same value as name.
+    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

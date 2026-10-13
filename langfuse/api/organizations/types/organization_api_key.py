@@ -16,11 +16,24 @@ class OrganizationApiKey(UniversalBaseModel):
     ]
     expires_at: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="expiresAt")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    Expiration timestamp. Null if the key does not expire.
+    """
+
     last_used_at: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="lastUsedAt")
     ] = None
-    note: typing.Optional[str] = None
+    name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Name of the API key. Contains the same value as note; null if no name was provided.
+    """
+
+    note: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Deprecated alias for name. Contains the same value as name.
+    """
+
     public_key: typing_extensions.Annotated[str, FieldMetadata(alias="publicKey")]
     display_secret_key: typing_extensions.Annotated[
         str, FieldMetadata(alias="displaySecretKey")
