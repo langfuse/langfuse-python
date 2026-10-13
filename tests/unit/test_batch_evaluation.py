@@ -157,6 +157,16 @@ async def test_mapper_receives_raw_string_io_and_requested_fields():
     assert seen[0].input == '{"question": 1}'
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fields", [None, ""])
+async def test_unset_fields_request_the_api_defaults_plus_time(fields):
+    runner, api, _ = make_runner([make_observation(1)])
+
+    await run(runner, fields=fields)
+
+    assert api.calls[0]["fields"] == "core,basic,time"
+
+
 def test_client_and_runner_share_default_fields():
     client_default = (
         inspect.signature(Langfuse.run_batched_evaluation).parameters["fields"].default

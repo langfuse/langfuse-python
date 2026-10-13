@@ -39,11 +39,12 @@ metadata, model, usage, prompt, metrics, trace_context.
 """
 
 
-def _with_time_fields(fields: Optional[str]) -> Optional[str]:
+def _with_time_fields(fields: Optional[str]) -> str:
     """Add the ``time`` group, whose ``updatedAt`` picks the newest duplicate row."""
-    if fields is None:
-        return None
-    groups = [group.strip() for group in fields.split(",") if group.strip()]
+    groups = [group.strip() for group in (fields or "").split(",") if group.strip()]
+    if not groups:
+        # The API's default when no groups are requested.
+        groups = ["core", "basic"]
     if "time" not in groups:
         groups.append("time")
     return ",".join(groups)
