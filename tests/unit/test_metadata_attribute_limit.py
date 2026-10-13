@@ -229,6 +229,35 @@ def test_propagated_trace_attributes_count_toward_limit(
     assert len(_limit_warnings(caplog)) == 1
 
 
+def test_propagated_metadata_over_limit_keeps_core_attributes(
+    small_limit_client, get_span
+):
+    with propagate_attributes(
+        metadata={f"trace_{i}": str(i) for i in range(60)},
+    ):
+        generation = small_limit_client.start_observation(
+            name="propagated-generation",
+            as_type="generation",
+            input="the input",
+            model="gpt-4o",
+        )
+        generation.update(output="the output")
+        generation.end()
+    small_limit_client.flush()
+
+    span = get_span("propagated-generation")
+    attributes = span.attributes
+    assert span.dropped_attributes == 0
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "generation"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "the input"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o"
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "the output"
+    assert any(
+        key.startswith(LangfuseOtelSpanAttributes.TRACE_METADATA + ".")
+        for key in attributes
+    )
+
+
 def test_metadata_under_limit_is_unchanged(langfuse_memory_client, get_span, caplog):
     metadata = {f"key_{i}": i for i in range(50)}
     span_wrapper = langfuse_memory_client.start_observation(
@@ -406,7 +435,7 @@ def test_warning_message_format(small_limit_client, caplog):
     assert all(key.startswith("key_") for key in dropped_keys)
 
 
-def test_new_attributes_beyond_capacity_drop_newest_instead_of_evicting(
+def test_propagated_metadata_on_full_span_drops_newest_instead_of_evicting(
     small_limit_client, get_span, caplog
 ):
     with small_limit_client.start_as_current_observation(
@@ -420,6 +449,9 @@ def test_new_attributes_beyond_capacity_drop_newest_instead_of_evicting(
         otel_span = generation._otel_span
         free_slots = 40 - len(otel_span.attributes)
         assert 0 < free_slots < 20
+        # The free slots are the ones reserved for later updates, so propagated
+        # metadata gets none of them.
+        metadata_slots = max(0, free_slots - len(_missing_reserved_keys(otel_span)))
         attributes_before = dict(otel_span.attributes)
         caplog.clear()
 
@@ -433,7 +465,7 @@ def test_new_attributes_beyond_capacity_drop_newest_instead_of_evicting(
     attributes = span.attributes
 
     assert span.dropped_attributes == 0
-    assert len(attributes) == 40
+    assert len(attributes) == 40 - free_slots + metadata_slots
     for key, value in attributes_before.items():
         assert attributes[key] == value
     assert attributes[LangfuseOtelSpanAttributes.IS_APP_ROOT] is True
@@ -444,14 +476,14 @@ def test_new_attributes_beyond_capacity_drop_newest_instead_of_evicting(
     trace_prefix = LangfuseOtelSpanAttributes.TRACE_METADATA + "."
     kept_trace_keys = [key for key in attributes if key.startswith(trace_prefix)]
     assert kept_trace_keys == [
-        f"{trace_prefix}trace_{i:02d}" for i in range(free_slots)
+        f"{trace_prefix}trace_{i:02d}" for i in range(metadata_slots)
     ]
 
     warnings = _limit_warnings(caplog)
     assert len(warnings) == 1
     message = warnings[0].getMessage()
-    assert f"0 metadata key(s) and {20 - free_slots} other attribute(s)" in message
-    assert f"{trace_prefix}trace_{free_slots:02d}" in message
+    assert f"Dropped {20 - metadata_slots} metadata key(s) from" in message
+    assert f"{trace_prefix}trace_{metadata_slots:02d}" in message
 
 
 def _fake_span(limit, existing):

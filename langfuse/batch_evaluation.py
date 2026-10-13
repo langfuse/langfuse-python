@@ -39,6 +39,17 @@ metadata, model, usage, prompt, metrics, trace_context.
 """
 
 
+def _with_time_fields(fields: Optional[str]) -> str:
+    """Add the ``time`` group, whose ``updatedAt`` picks the newest duplicate row."""
+    groups = [group.strip() for group in (fields or "").split(",") if group.strip()]
+    if not groups:
+        # The API's default when no groups are requested.
+        groups = ["core", "basic"]
+    if "time" not in groups:
+        groups.append("time")
+    return ",".join(groups)
+
+
 class EvaluatorInputs:
     """Input data structure for evaluators, returned by mapper functions.
 
@@ -469,6 +480,9 @@ class BatchEvaluationResumeToken:
             observation. Only used to resume when `cursor` is None, by fetching
             observations that started strictly before this timestamp.
         last_processed_id: The ID of the last processed observation, for reference.
+        last_page_ids: IDs of the observations on the last processed page. A
+            resumed run skips these, because unmerged duplicate rows of one
+            observation can span a page boundary.
         items_processed: Number of items successfully processed so far, including
             items processed by the runs this token was resumed from.
 
@@ -515,6 +529,7 @@ class BatchEvaluationResumeToken:
         last_processed_id: str,
         items_processed: int,
         cursor: Optional[str] = None,
+        last_page_ids: Optional[List[str]] = None,
     ):
         """Initialize BatchEvaluationResumeToken with the provided state.
 
@@ -524,6 +539,7 @@ class BatchEvaluationResumeToken:
             last_processed_id: ID of last processed item.
             items_processed: Count of items processed before interruption.
             cursor: Cursor of the next page to fetch.
+            last_page_ids: IDs of the observations on the last processed page.
 
         Note:
             All arguments must be provided as keywords.
@@ -533,6 +549,7 @@ class BatchEvaluationResumeToken:
         self.last_processed_timestamp = last_processed_timestamp
         self.last_processed_id = last_processed_id
         self.items_processed = items_processed
+        self.last_page_ids = last_page_ids
 
 
 class BatchEvaluationResult:
@@ -896,7 +913,9 @@ class BatchEvaluationRunner:
             and resume_from.last_processed_timestamp
             else None
         )
-        previous_page_ids: Set[Optional[str]] = set()
+        previous_page_ids: Set[Optional[str]] = set(
+            (resume_from.last_page_ids or []) if resume_from else []
+        )
         batch_number = 0
 
         if verbose:
@@ -917,6 +936,9 @@ class BatchEvaluationRunner:
                 last_processed_timestamp=last_item_timestamp,
                 last_processed_id=last_item_id,
                 items_processed=previously_processed + total_items_processed,
+                last_page_ids=sorted(
+                    item_id for item_id in previous_page_ids if item_id is not None
+                ),
             )
 
         while True:
@@ -1091,7 +1113,7 @@ class BatchEvaluationRunner:
         """
         response = await asyncio.to_thread(
             self.client.api.observations.get_many,
-            fields=fields,
+            fields=_with_time_fields(fields),
             limit=limit,
             cursor=cursor,
             filter=filter,

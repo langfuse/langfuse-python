@@ -768,6 +768,80 @@ class TestExperimentRunScoreGating:
         assert [e.name for e in result.run_evaluations] == ["run"]
         assert _run_scores(create_score) == []
 
+    def test_run_scores_follow_the_item_span_sampling_decision(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        from opentelemetry.sdk.trace.sampling import (
+            Decision,
+            Sampler,
+            SamplingResult,
+        )
+
+        class ItemSpanSampler(Sampler):
+            def should_sample(self, parent_context, trace_id, name, *args, **kwargs):
+                decision = (
+                    Decision.RECORD_AND_SAMPLE
+                    if name.startswith("experiment-item")
+                    else Decision.DROP
+                )
+                return SamplingResult(decision)
+
+            def get_description(self):
+                return "ItemSpanSampler"
+
+        sampler = ItemSpanSampler()
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+        monkeypatch.setattr(
+            langfuse_memory_client._resources.tracer_provider, "sampler", sampler
+        )
+        monkeypatch.setattr(langfuse_memory_client._otel_tracer, "sampler", sampler)
+
+        langfuse_memory_client.run_experiment(
+            name="exp",
+            data=[{"input": "a"}],
+            task=lambda *, item, **kwargs: item["input"],
+            run_evaluators=[lambda **kwargs: Evaluation(name="run", value=1.0)],
+        )
+
+        assert len(_run_scores(create_score)) == 1
+
+    def test_run_scores_skipped_when_all_items_fail_before_experiment_attributes(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+
+        langfuse_memory_client.run_experiment(
+            name="exp",
+            data=[{"input": None}],
+            task=lambda *, item, **kwargs: item["input"],
+            run_evaluators=[lambda **kwargs: Evaluation(name="run", value=1.0)],
+        )
+
+        assert _run_scores(create_score) == []
+
+    def test_run_scores_kept_when_the_task_fails_after_experiment_attributes(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        def failing_task(*, item, **kwargs):
+            raise RuntimeError("boom")
+
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+
+        langfuse_memory_client.run_experiment(
+            name="exp",
+            data=[{"input": "a"}],
+            task=failing_task,
+            run_evaluators=[lambda **kwargs: Evaluation(name="run", value=1.0)],
+        )
+
+        assert len(_run_scores(create_score)) == 1
+
     def test_tracing_disabled_skips_project_id_lookup(self, monkeypatch):
         client = Langfuse(
             public_key="pk", secret_key="sk", base_url="http://x", tracing_enabled=False
