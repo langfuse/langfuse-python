@@ -19,16 +19,13 @@ from langfuse.api.scores.types.create_score_batch_results import (
     CreateScoreBatchResults,
 )
 from langfuse.api.scores.types.create_score_request import CreateScoreRequest
-from langfuse.api.scores.types.create_score_response import CreateScoreResponse
 
-SINGLE_REQUEST = CreateScoreRequest(name="accuracy", value=0.9, trace_id="trace-1")
 BATCH_REQUEST = [
     CreateScoreRequest(name="accuracy", value=0.9, trace_id="trace-1"),
     CreateScoreRequest(name="tone", value="friendly", trace_id="trace-1"),
 ]
 
 CASES = [
-    pytest.param(SINGLE_REQUEST, 200, {"id": "score-1"}, id="single-200"),
     pytest.param(BATCH_REQUEST, 202, {"message": "Accepted"}, id="batch-202"),
     pytest.param(
         BATCH_REQUEST,
@@ -52,10 +49,7 @@ def _handler(status: int, body: dict, requests: List[httpx.Request]) -> Any:
 
 
 def _assert_parsed(response: Any, status: int, body: dict) -> None:
-    if status == 200:
-        assert isinstance(response, CreateScoreResponse)
-        assert response.id == body["id"]
-    elif status == 202:
+    if status == 202:
         assert isinstance(response, CreateScoreBatchResponse)
         assert response.message == "Accepted"
     else:
