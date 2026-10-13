@@ -72,6 +72,43 @@ class ScoresClient:
         )
         return _response.data
 
+    def delete(
+        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> None:
+        """
+        Delete a score (supports both trace and session scores)
+
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.scores.delete(
+            score_id="scoreId",
+        )
+        """
+        _response = self._raw_client.delete(score_id, request_options=request_options)
+        return _response.data
+
 
 class AsyncScoresClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -138,5 +175,52 @@ class AsyncScoresClient:
         """
         _response = await self._raw_client.create(
             request=request, request_options=request_options
+        )
+        return _response.data
+
+    async def delete(
+        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> None:
+        """
+        Delete a score (supports both trace and session scores)
+
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.scores.delete(
+                score_id="scoreId",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(
+            score_id, request_options=request_options
         )
         return _response.data
