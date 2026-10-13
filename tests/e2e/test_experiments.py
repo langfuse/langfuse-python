@@ -110,7 +110,7 @@ def get_observations(trace_id: str, *, is_ready: Callable[[list], bool]) -> list
 def get_trace_scores(trace_id: str, *, expected_count: int) -> list:
     api = get_api()
     return poll(
-        lambda: api.scores_v3.get_many_v3(trace_id=trace_id, fields="subject").data,
+        lambda: api.scores.get_many(trace_id=trace_id, fields="subject").data,
         lambda scores: len(scores) >= expected_count,
     )
 
