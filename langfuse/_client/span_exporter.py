@@ -10,10 +10,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.util import BoundedList
 from opentelemetry.trace import format_span_id, format_trace_id
 
-from langfuse._client.attributes import (
-    LangfuseOtelSpanAttributes,
-    _serialize_metadata_value,
-)
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._utils.serializer import EventSerializer
 from langfuse.logger import langfuse_logger
@@ -90,6 +87,9 @@ _OUTPUT_MEDIA_ATTRIBUTE_PREFIXES = (
     "gen_ai.completion",
     "llm.output_messages",
 )
+
+# Includes the leading quote of a JSON-encoded data URI.
+_MAX_DATA_URI_HEADER_LENGTH = 256
 
 
 class LangfuseTransformingSpanExporter(SpanExporter):
@@ -278,23 +278,31 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         value: str,
     ) -> str:
         # Langfuse metadata values are JSON-encoded, so a top-level data URI
-        # arrives quoted. Decode it, extract the media, and re-encode the result.
-        try:
-            decoded_value = json.loads(value)
-        except Exception:
+        # arrives quoted. A JSON string without backslashes holds its characters
+        # literally, so stripping the outer quotes yields the data URI without
+        # json.loads. The media reference is built from that backslash- and
+        # quote-free data URI, so quoting it again is valid JSON. Escaped or
+        # malformed values are left unchanged.
+        header_end = value.find(",", 0, _MAX_DATA_URI_HEADER_LENGTH)
+
+        if (
+            header_end == -1
+            or not value.endswith('"')
+            or not value[:header_end].endswith(";base64")
+            or "\\" in value
+            or value.find('"', 1, -1) != -1
+        ):
             return value
 
-        if not isinstance(decoded_value, str):
-            return value
-
+        data_uri = value[1:-1]
         processed_value = self._process_media_string(
-            span=span, attribute_key=attribute_key, value=decoded_value
+            span=span, attribute_key=attribute_key, value=data_uri
         )
 
-        if processed_value == decoded_value:
+        if processed_value == data_uri:
             return value
 
-        return _serialize_metadata_value(processed_value)
+        return f'"{processed_value}"'
 
     def _apply_mask_otel_spans(
         self,
