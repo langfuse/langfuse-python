@@ -1398,7 +1398,6 @@ async def _wrap_async(
             generation.update(
                 model=model,
                 output=completion,
-                usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
                 cost_details=_parse_cost(parsed_response.usage)
                 if hasattr(parsed_response, "usage")
