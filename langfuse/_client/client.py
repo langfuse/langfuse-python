@@ -437,7 +437,7 @@ class Langfuse:
           `api.observations.get_many(trace_id=...)` (`/api/public/v2/observations`,
           cursor-paginated; request field groups with `fields`). A trace's name,
           user, session, tags and input/output are on its root observation. Read
-          scores with `api.scores_v3` and experiments with `api.experiments`.
+          scores with `api.scores.get_many` and experiments with `api.experiments`.
 
         - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
