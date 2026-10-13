@@ -41,6 +41,10 @@ from opentelemetry.util._decorator import (
 )
 from packaging.version import Version
 
+from langfuse._client.api_compat import (
+    AsyncLangfuseAPIWithCompat,
+    LangfuseAPIWithCompat,
+)
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     _serialize,
@@ -96,7 +100,6 @@ from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import (
-    AsyncLangfuseAPI,
     CreateChatPromptRequest,
     CreateChatPromptType,
     CreateScoreRequest,
@@ -106,7 +109,6 @@ from langfuse.api import (
     DatasetItemMediaReferenceField,
     DatasetStatus,
     Error,
-    LangfuseAPI,
     MapValue,
     NotFoundError,
     Prompt_Chat,
@@ -418,7 +420,7 @@ class Langfuse:
         )
 
     @property
-    def api(self) -> LangfuseAPI:
+    def api(self) -> LangfuseAPIWithCompat:
         """Synchronous client for the full Langfuse REST API (traces, observations, scores, datasets, prompts, ...).
 
         Use this to read or manage data on the Langfuse server; use the tracing methods
@@ -456,21 +458,21 @@ class Langfuse:
         return self._resources.api
 
     @api.setter
-    def api(self, value: LangfuseAPI) -> None:
+    def api(self, value: LangfuseAPIWithCompat) -> None:
         if self._resources is None:
             raise AttributeError("Langfuse client is not initialized")
 
         self._resources.api = value
 
     @property
-    def async_api(self) -> AsyncLangfuseAPI:
+    def async_api(self) -> AsyncLangfuseAPIWithCompat:
         if self._resources is None:
             raise AttributeError("Langfuse client is not initialized")
 
         return self._resources.async_api
 
     @async_api.setter
-    def async_api(self, value: AsyncLangfuseAPI) -> None:
+    def async_api(self, value: AsyncLangfuseAPIWithCompat) -> None:
         if self._resources is None:
             raise AttributeError("Langfuse client is not initialized")
 

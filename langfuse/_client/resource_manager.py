@@ -32,6 +32,10 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from opentelemetry.trace import Tracer
 
+from langfuse._client.api_compat import (
+    AsyncLangfuseAPIWithCompat,
+    LangfuseAPIWithCompat,
+)
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.environment_variables import (
@@ -46,7 +50,6 @@ from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
 from langfuse._task_manager.score_consumer import ScoreConsumer
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction, MaskOtelSpansFunction
 
@@ -344,7 +347,7 @@ class LangfuseResourceManager:
                 timeout=self.timeout, headers=client_headers
             )
 
-        self.api = LangfuseAPI(
+        self.api = LangfuseAPIWithCompat(
             base_url=self.base_url,
             username=self.public_key,
             password=self.secret_key,
@@ -354,7 +357,7 @@ class LangfuseResourceManager:
             httpx_client=self.httpx_client,
             timeout=self.timeout,
         )
-        self.async_api = AsyncLangfuseAPI(
+        self.async_api = AsyncLangfuseAPIWithCompat(
             base_url=self.base_url,
             username=self.public_key,
             password=self.secret_key,

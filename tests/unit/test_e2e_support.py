@@ -176,7 +176,7 @@ def test_wait_for_trace_snapshot_waits_for_root_and_scores(monkeypatch):
     _install_client(
         monkeypatch,
         observations=SimpleNamespace(get_many=get_many),
-        scores_v3=SimpleNamespace(get_many_v3=get_many_v3),
+        scores=SimpleNamespace(get_many=get_many_v3),
     )
 
     snapshot = wait_for_trace_snapshot(
@@ -250,7 +250,7 @@ def test_wait_for_scores_follows_cursor_and_polls(monkeypatch):
             return _page(["score-1"], cursor="next")
         return _page(["score-2"])
 
-    _install_client(monkeypatch, scores_v3=SimpleNamespace(get_many_v3=get_many_v3))
+    _install_client(monkeypatch, scores=SimpleNamespace(get_many=get_many_v3))
 
     scores = wait_for_scores(min_count=2, trace_id="trace-123")
 

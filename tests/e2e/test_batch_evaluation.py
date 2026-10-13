@@ -54,7 +54,7 @@ def _wait_for_observations(filter_json: str, expected_count: int) -> List[Any]:
 def _wait_for_scores(**kwargs: Any) -> List[Any]:
     api = get_api(retry=False)
     response = wait_for_result(
-        lambda: api.scores_v3.get_many_v3(fields="details,subject", **kwargs),
+        lambda: api.scores.get_many(fields="details,subject", **kwargs),
         is_result_ready=lambda r: len(r.data) > 0,
     )
     return list(response.data)
