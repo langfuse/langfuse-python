@@ -79,7 +79,7 @@ class CreateScoreRequest(UniversalBaseModel):
 
     timestamp: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
-    The time of the score. Defaults to the time the request is received.
+    The timestamp of the score, as an ISO 8601 datetime with a timezone offset. Defaults to the time the request is received. To update an existing score, send it again with the same id and timestamp.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

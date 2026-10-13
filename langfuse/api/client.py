@@ -28,7 +28,6 @@ if typing.TYPE_CHECKING:
     from .feedback.client import AsyncFeedbackClient, FeedbackClient
     from .health.client import AsyncHealthClient, HealthClient
     from .ingestion.client import AsyncIngestionClient, IngestionClient
-    from .legacy.client import AsyncLegacyClient, LegacyClient
     from .llm_connections.client import AsyncLlmConnectionsClient, LlmConnectionsClient
     from .media.client import AsyncMediaClient, MediaClient
     from .metrics.client import AsyncMetricsClient, MetricsClient
@@ -138,7 +137,6 @@ class LangfuseAPI:
         self._feedback: typing.Optional[FeedbackClient] = None
         self._health: typing.Optional[HealthClient] = None
         self._ingestion: typing.Optional[IngestionClient] = None
-        self._legacy: typing.Optional[LegacyClient] = None
         self._llm_connections: typing.Optional[LlmConnectionsClient] = None
         self._media: typing.Optional[MediaClient] = None
         self._metrics: typing.Optional[MetricsClient] = None
@@ -251,14 +249,6 @@ class LangfuseAPI:
 
             self._ingestion = IngestionClient(client_wrapper=self._client_wrapper)
         return self._ingestion
-
-    @property
-    def legacy(self):
-        if self._legacy is None:
-            from .legacy.client import LegacyClient  # noqa: E402
-
-            self._legacy = LegacyClient(client_wrapper=self._client_wrapper)
-        return self._legacy
 
     @property
     def llm_connections(self):
@@ -490,7 +480,6 @@ class AsyncLangfuseAPI:
         self._feedback: typing.Optional[AsyncFeedbackClient] = None
         self._health: typing.Optional[AsyncHealthClient] = None
         self._ingestion: typing.Optional[AsyncIngestionClient] = None
-        self._legacy: typing.Optional[AsyncLegacyClient] = None
         self._llm_connections: typing.Optional[AsyncLlmConnectionsClient] = None
         self._media: typing.Optional[AsyncMediaClient] = None
         self._metrics: typing.Optional[AsyncMetricsClient] = None
@@ -609,14 +598,6 @@ class AsyncLangfuseAPI:
 
             self._ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
         return self._ingestion
-
-    @property
-    def legacy(self):
-        if self._legacy is None:
-            from .legacy.client import AsyncLegacyClient  # noqa: E402
-
-            self._legacy = AsyncLegacyClient(client_wrapper=self._client_wrapper)
-        return self._legacy
 
     @property
     def llm_connections(self):
