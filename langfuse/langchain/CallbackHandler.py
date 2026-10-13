@@ -1319,7 +1319,6 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             if generation is not None:
                 generation.update(
                     output=extracted_response,
-                    usage=llm_usage,
                     usage_details=llm_usage,
                     input=kwargs.get("inputs"),
                     model=model,

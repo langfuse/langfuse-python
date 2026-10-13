@@ -3,16 +3,6 @@
 import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...commons.types.create_score_value import CreateScoreValue
-from ...commons.types.score_data_type import ScoreDataType
-from ...scores.client import (
-    AsyncScoresClient as CanonicalAsyncScoresClient,
-    ScoresClient as CanonicalScoresClient,
-    OMIT,
-)
-from ...scores.types.create_score_request import CreateScoreRequest
-from ...scores.types.create_score_response import CreateScoreResponse
-from ...scores.types.create_score_source import CreateScoreSource
 from ...core.request_options import RequestOptions
 from .raw_client import AsyncRawScoreV1Client, RawScoreV1Client
 
@@ -31,54 +21,6 @@ class ScoreV1Client:
         RawScoreV1Client
         """
         return self._raw_client
-
-    def create(
-        self,
-        *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
-        """**Deprecated compatibility alias.** Use ``client.scores.create``."""
-        optional_fields: typing.Dict[str, typing.Any] = {
-            "id": id,
-            "trace_id": trace_id,
-            "session_id": session_id,
-            "observation_id": observation_id,
-            "dataset_run_id": dataset_run_id,
-            "comment": comment,
-            "metadata": metadata,
-            "environment": environment,
-            "queue_id": queue_id,
-            "data_type": data_type,
-            "config_id": config_id,
-            "source": source,
-        }
-        request = CreateScoreRequest(
-            name=name,
-            value=value,
-            **{
-                key: field
-                for key, field in optional_fields.items()
-                if field is not OMIT
-            },
-        )
-        response = CanonicalScoresClient(
-            client_wrapper=self._raw_client._client_wrapper
-        ).create(request=request, request_options=request_options)
-        return typing.cast(CreateScoreResponse, response)
 
     def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -132,54 +74,6 @@ class AsyncScoreV1Client:
         AsyncRawScoreV1Client
         """
         return self._raw_client
-
-    async def create(
-        self,
-        *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
-        """**Deprecated compatibility alias.** Use ``client.scores.create``."""
-        optional_fields: typing.Dict[str, typing.Any] = {
-            "id": id,
-            "trace_id": trace_id,
-            "session_id": session_id,
-            "observation_id": observation_id,
-            "dataset_run_id": dataset_run_id,
-            "comment": comment,
-            "metadata": metadata,
-            "environment": environment,
-            "queue_id": queue_id,
-            "data_type": data_type,
-            "config_id": config_id,
-            "source": source,
-        }
-        request = CreateScoreRequest(
-            name=name,
-            value=value,
-            **{
-                key: field
-                for key, field in optional_fields.items()
-                if field is not OMIT
-            },
-        )
-        response = await CanonicalAsyncScoresClient(
-            client_wrapper=self._raw_client._client_wrapper
-        ).create(request=request, request_options=request_options)
-        return typing.cast(CreateScoreResponse, response)
 
     async def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
