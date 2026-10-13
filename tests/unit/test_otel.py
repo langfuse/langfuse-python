@@ -2331,8 +2331,8 @@ class TestMetadataHandling(TestOTelBase):
 
         assert seen == [{"k": 1}]
         assert self.get_metadata_attributes(span_data) == {
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.k": 1,
-            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.email": "***",
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.k": "1",
+            f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.email": '"***"',
         }
         assert LangfuseOtelSpanAttributes.OBSERVATION_INPUT not in attributes
         assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT not in attributes
