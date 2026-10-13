@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from unittest.mock import patch
 
 import pytest
-from langchain.messages import HumanMessage
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 import langfuse._utils.serializer as serializer_module
