@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from queue import Queue
 from typing import Any, Callable, Dict, List, Sequence
@@ -331,7 +332,33 @@ def test_create_score_posts_to_scores_endpoint(client_factory):
     assert sent[1]["sessionId"] == "session-1"
     assert sent[1]["name"] == "session-score"
     assert "traceId" not in sent[1]
-    assert "timestamp" in sent[1]
+    assert sent[1]["timestamp"].endswith("Z")
+
+
+@pytest.fixture
+def non_utc_local_timezone(monkeypatch):
+    # Makes treating naive values as local time observable.
+    monkeypatch.setenv("TZ", "America/New_York")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
+
+
+def test_naive_score_timestamp_is_sent_as_utc(client_factory, non_utc_local_timezone):
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder)
+
+    client.create_score(
+        name="naive",
+        value=1.0,
+        session_id="session-1",
+        timestamp=datetime(2026, 1, 2, 3, 4, 5),
+    )
+    client.flush()
+
+    sent = [score for body in recorder.bodies for score in body]
+    assert sent[0]["timestamp"] == "2026-01-02T03:04:05Z"
 
 
 def test_scores_follow_trace_sampling(client_factory):

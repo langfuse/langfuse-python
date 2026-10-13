@@ -9,7 +9,7 @@ import os
 import re
 import urllib.parse
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import sha256
 from time import time_ns
 from typing import (
@@ -1938,6 +1938,10 @@ class Langfuse:
             return
 
         score_id = score_id or self._create_observation_id()
+
+        # The API rejects timestamps without a UTC offset; naive values are UTC.
+        if timestamp is not None and timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
 
         try:
             request = CreateScoreRequest(
