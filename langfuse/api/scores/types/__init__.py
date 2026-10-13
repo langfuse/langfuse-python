@@ -11,11 +11,9 @@ if typing.TYPE_CHECKING:
     from .categorical_score_v3 import CategoricalScoreV3
     from .correction_score_v3 import CorrectionScoreV3
     from .create_score_batch_error import CreateScoreBatchError
-    from .create_score_batch_request import CreateScoreBatchRequest
     from .create_score_batch_response import CreateScoreBatchResponse
     from .create_score_batch_results import CreateScoreBatchResults
     from .create_score_request import CreateScoreRequest
-    from .create_score_response import CreateScoreResponse
     from .create_score_source import CreateScoreSource
     from .create_scores_request import CreateScoresRequest
     from .create_scores_response import CreateScoresResponse
@@ -48,11 +46,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CategoricalScoreV3": ".categorical_score_v3",
     "CorrectionScoreV3": ".correction_score_v3",
     "CreateScoreBatchError": ".create_score_batch_error",
-    "CreateScoreBatchRequest": ".create_score_batch_request",
     "CreateScoreBatchResponse": ".create_score_batch_response",
     "CreateScoreBatchResults": ".create_score_batch_results",
     "CreateScoreRequest": ".create_score_request",
-    "CreateScoreResponse": ".create_score_response",
     "CreateScoreSource": ".create_score_source",
     "CreateScoresRequest": ".create_scores_request",
     "CreateScoresResponse": ".create_scores_response",
@@ -111,11 +107,9 @@ __all__ = [
     "CategoricalScoreV3",
     "CorrectionScoreV3",
     "CreateScoreBatchError",
-    "CreateScoreBatchRequest",
     "CreateScoreBatchResponse",
     "CreateScoreBatchResults",
     "CreateScoreRequest",
-    "CreateScoreResponse",
     "CreateScoreSource",
     "CreateScoresRequest",
     "CreateScoresResponse",

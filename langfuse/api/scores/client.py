@@ -36,7 +36,7 @@ class ScoresClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoresResponse:
         """
-        Create scores asynchronously. Single score: 200 with ID. Batch: 202 if accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; batches return 202 or 207.
+        Create scores asynchronously from a list of scores. Returns 202 if all scores are accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; the endpoint returns 202 or 207.
 
         Parameters
         ----------
@@ -63,10 +63,16 @@ class ScoresClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.scores.create(
-            request=CreateScoreRequest(
-                name="name",
-                value=1.1,
-            ),
+            request=[
+                CreateScoreRequest(
+                    name="name",
+                    value=1.1,
+                ),
+                CreateScoreRequest(
+                    name="name",
+                    value=1.1,
+                ),
+            ],
         )
         """
         _response = self._raw_client.create(
@@ -287,7 +293,7 @@ class AsyncScoresClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoresResponse:
         """
-        Create scores asynchronously. Single score: 200 with ID. Batch: 202 if accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; batches return 202 or 207.
+        Create scores asynchronously from a list of scores. Returns 202 if all scores are accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; the endpoint returns 202 or 207.
 
         Parameters
         ----------
@@ -319,10 +325,16 @@ class AsyncScoresClient:
 
         async def main() -> None:
             await client.scores.create(
-                request=CreateScoreRequest(
-                    name="name",
-                    value=1.1,
-                ),
+                request=[
+                    CreateScoreRequest(
+                        name="name",
+                        value=1.1,
+                    ),
+                    CreateScoreRequest(
+                        name="name",
+                        value=1.1,
+                    ),
+                ],
             )
 
 

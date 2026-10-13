@@ -2,7 +2,24 @@
 
 import typing
 
-from .create_score_batch_request import CreateScoreBatchRequest
 from .create_score_request import CreateScoreRequest
 
-CreateScoresRequest = typing.Union[CreateScoreRequest, CreateScoreBatchRequest]
+"""
+from langfuse.commons import ScoreDataType
+from langfuse.scores import CreateScoreRequest
+
+[
+    CreateScoreRequest(
+        name="accuracy",
+        value=0.9,
+        trace_id="cdef-1234-5678-90ab",
+    ),
+    CreateScoreRequest(
+        name="helpfulness",
+        value=1.0,
+        data_type=ScoreDataType.BOOLEAN,
+        trace_id="cdef-1234-5678-90ab",
+    ),
+]
+"""
+CreateScoresRequest = typing.List[CreateScoreRequest]
