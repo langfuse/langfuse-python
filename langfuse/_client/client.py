@@ -2809,11 +2809,6 @@ class Langfuse:
         sampled_trace_ids: Optional[Set[str]] = None,
     ) -> ExperimentItemResult:
         with self.start_as_current_observation(name="experiment-item-run") as span:
-            if (
-                sampled_trace_ids is not None
-                and span._otel_span.get_span_context().trace_flags.sampled
-            ):
-                sampled_trace_ids.add(span.trace_id)
             try:
                 input_data = (
                     item.get("input")
@@ -2920,6 +2915,13 @@ class Langfuse:
                                 otel_context_api.get_current()
                             ),
                         )
+                        # Only a sampled span carrying the experiment attributes
+                        # creates the experiment on the server.
+                        if (
+                            sampled_trace_ids is not None
+                            and span._otel_span.get_span_context().trace_flags.sampled
+                        ):
+                            sampled_trace_ids.add(span.trace_id)
                         # Write the observation metadata after the experiment
                         # attributes, so the span attribute limit trims the
                         # metadata instead of leaving no room for the output.
