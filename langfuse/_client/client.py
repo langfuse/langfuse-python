@@ -4,6 +4,7 @@ This module implements Langfuse's core observability functionality on top of the
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -19,6 +20,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -110,6 +112,7 @@ from langfuse.api import (
     Prompt_Chat,
     Prompt_Text,
 )
+from langfuse.api.core.datetime_utils import serialize_datetime
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -2673,6 +2676,7 @@ class Langfuse:
 
         # Set up concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
+        sampled_trace_ids: Set[str] = set()
 
         # Process all items
         async def process_item(item: ExperimentItem) -> ExperimentItemResult:
@@ -2688,6 +2692,7 @@ class Langfuse:
                     description,
                     metadata,
                     experiment_item_version,
+                    sampled_trace_ids,
                 )
 
         # Run all items concurrently
@@ -2721,14 +2726,7 @@ class Langfuse:
 
         # Without an exported item span the experiment does not exist on the server,
         # so a run score would be orphaned.
-        stored_run_evaluations = (
-            run_evaluations
-            if any(
-                result.trace_id is not None and self._is_trace_sampled(result.trace_id)
-                for result in valid_results
-            )
-            else []
-        )
+        stored_run_evaluations = run_evaluations if sampled_trace_ids else []
         if run_evaluations and not stored_run_evaluations:
             langfuse_logger.debug(
                 "Skipping run-level scores for experiment %s: all items were sampled out.",
@@ -2782,8 +2780,6 @@ class Langfuse:
             )
             return self._create_observation_id()
 
-        import json
-
         # Must match the Langfuse server's stable experiment id derivation byte for
         # byte (JS JSON.stringify of the same array, SHA-256, first 16 hex chars).
         payload = json.dumps(
@@ -2794,27 +2790,8 @@ class Langfuse:
 
         return sha256(payload.encode("utf-8")).hexdigest()[:16]
 
-    def _is_trace_sampled(self, trace_id: str) -> bool:
-        from opentelemetry.sdk.trace.sampling import Decision
-
-        tracer_provider = self._resources.tracer_provider if self._resources else None
-        sampler = getattr(tracer_provider, "sampler", None)
-        if sampler is None:
-            return True
-
-        try:
-            decision = sampler.should_sample(
-                parent_context=None, trace_id=int(trace_id, 16), name="experiment"
-            ).decision
-        except Exception:
-            return True
-
-        return bool(decision == Decision.RECORD_AND_SAMPLE)
-
     @staticmethod
     def _format_experiment_item_version(dataset_version: datetime) -> str:
-        from langfuse.api.core.datetime_utils import serialize_datetime
-
         return serialize_datetime(dataset_version)
 
     async def _process_experiment_item(
@@ -2829,8 +2806,14 @@ class Langfuse:
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
         experiment_item_version: Optional[str] = None,
+        sampled_trace_ids: Optional[Set[str]] = None,
     ) -> ExperimentItemResult:
         with self.start_as_current_observation(name="experiment-item-run") as span:
+            if (
+                sampled_trace_ids is not None
+                and span._otel_span.get_span_context().trace_flags.sampled
+            ):
+                sampled_trace_ids.add(span.trace_id)
             try:
                 input_data = (
                     item.get("input")
