@@ -241,43 +241,6 @@ def test_does_not_retry_client_errors(status, caplog):
     assert caplog.records
 
 
-HINT = (
-    "Batch score creation requires a Langfuse server v4.55.0 or later. The server "
-    "rejected the batch and {} dropped. Upgrade your Langfuse server to keep "
-    "recording scores."
-)
-
-
-@pytest.mark.parametrize("status", [400, 401])
-def test_bad_request_logs_min_server_version_hint_once(status, caplog, monkeypatch):
-    monkeypatch.setattr(score_consumer_module, "_min_server_version_hint_logged", False)
-    recorder = Recorder(_responder((status, {"message": "nope"})))
-    queue: Queue = Queue()
-    consumer = _consumer(recorder, queue)
-
-    with caplog.at_level(logging.DEBUG, logger="langfuse"):
-        queue.put(_score("a"))
-        _drain(consumer, queue)
-        queue.put(_score("b"))
-        queue.put(_score("c"))
-        _drain(consumer, queue)
-
-    hints = [
-        (r.levelno, r.getMessage())
-        for r in caplog.records
-        if "requires a Langfuse server v4.55.0" in r.getMessage()
-    ]
-    assert len(recorder.requests) == 2
-    assert hints == (
-        [
-            (logging.ERROR, HINT.format("1 score was")),
-            (logging.DEBUG, HINT.format("2 scores were")),
-        ]
-        if status == 400
-        else []
-    )
-
-
 def test_pause_sends_carried_over_score(monkeypatch):
     recorder = Recorder(_responder(ACCEPTED))
     queue: Queue = Queue()
