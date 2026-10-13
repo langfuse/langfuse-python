@@ -6,6 +6,10 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .base_score_v3 import BaseScoreV3
+    from .boolean_score_v3 import BooleanScoreV3
+    from .categorical_score_v3 import CategoricalScoreV3
+    from .correction_score_v3 import CorrectionScoreV3
     from .create_score_batch_error import CreateScoreBatchError
     from .create_score_batch_request import CreateScoreBatchRequest
     from .create_score_batch_response import CreateScoreBatchResponse
@@ -15,7 +19,34 @@ if typing.TYPE_CHECKING:
     from .create_score_source import CreateScoreSource
     from .create_scores_request import CreateScoresRequest
     from .create_scores_response import CreateScoresResponse
+    from .get_scores_v3meta import GetScoresV3Meta
+    from .get_scores_v3response import GetScoresV3Response
+    from .numeric_score_v3 import NumericScoreV3
+    from .score_subject_experiment_v3 import ScoreSubjectExperimentV3
+    from .score_subject_observation_v3 import ScoreSubjectObservationV3
+    from .score_subject_session_v3 import ScoreSubjectSessionV3
+    from .score_subject_trace_v3 import ScoreSubjectTraceV3
+    from .score_subject_v3 import (
+        ScoreSubjectV3,
+        ScoreSubjectV3_Experiment,
+        ScoreSubjectV3_Observation,
+        ScoreSubjectV3_Session,
+        ScoreSubjectV3_Trace,
+    )
+    from .score_v3 import (
+        ScoreV3,
+        ScoreV3_Boolean,
+        ScoreV3_Categorical,
+        ScoreV3_Correction,
+        ScoreV3_Numeric,
+        ScoreV3_Text,
+    )
+    from .text_score_v3 import TextScoreV3
 _dynamic_imports: typing.Dict[str, str] = {
+    "BaseScoreV3": ".base_score_v3",
+    "BooleanScoreV3": ".boolean_score_v3",
+    "CategoricalScoreV3": ".categorical_score_v3",
+    "CorrectionScoreV3": ".correction_score_v3",
     "CreateScoreBatchError": ".create_score_batch_error",
     "CreateScoreBatchRequest": ".create_score_batch_request",
     "CreateScoreBatchResponse": ".create_score_batch_response",
@@ -25,6 +56,25 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScoreSource": ".create_score_source",
     "CreateScoresRequest": ".create_scores_request",
     "CreateScoresResponse": ".create_scores_response",
+    "GetScoresV3Meta": ".get_scores_v3meta",
+    "GetScoresV3Response": ".get_scores_v3response",
+    "NumericScoreV3": ".numeric_score_v3",
+    "ScoreSubjectExperimentV3": ".score_subject_experiment_v3",
+    "ScoreSubjectObservationV3": ".score_subject_observation_v3",
+    "ScoreSubjectSessionV3": ".score_subject_session_v3",
+    "ScoreSubjectTraceV3": ".score_subject_trace_v3",
+    "ScoreSubjectV3": ".score_subject_v3",
+    "ScoreSubjectV3_Experiment": ".score_subject_v3",
+    "ScoreSubjectV3_Observation": ".score_subject_v3",
+    "ScoreSubjectV3_Session": ".score_subject_v3",
+    "ScoreSubjectV3_Trace": ".score_subject_v3",
+    "ScoreV3": ".score_v3",
+    "ScoreV3_Boolean": ".score_v3",
+    "ScoreV3_Categorical": ".score_v3",
+    "ScoreV3_Correction": ".score_v3",
+    "ScoreV3_Numeric": ".score_v3",
+    "ScoreV3_Text": ".score_v3",
+    "TextScoreV3": ".text_score_v3",
 }
 
 
@@ -56,6 +106,10 @@ def __dir__():
 
 
 __all__ = [
+    "BaseScoreV3",
+    "BooleanScoreV3",
+    "CategoricalScoreV3",
+    "CorrectionScoreV3",
     "CreateScoreBatchError",
     "CreateScoreBatchRequest",
     "CreateScoreBatchResponse",
@@ -65,4 +119,23 @@ __all__ = [
     "CreateScoreSource",
     "CreateScoresRequest",
     "CreateScoresResponse",
+    "GetScoresV3Meta",
+    "GetScoresV3Response",
+    "NumericScoreV3",
+    "ScoreSubjectExperimentV3",
+    "ScoreSubjectObservationV3",
+    "ScoreSubjectSessionV3",
+    "ScoreSubjectTraceV3",
+    "ScoreSubjectV3",
+    "ScoreSubjectV3_Experiment",
+    "ScoreSubjectV3_Observation",
+    "ScoreSubjectV3_Session",
+    "ScoreSubjectV3_Trace",
+    "ScoreV3",
+    "ScoreV3_Boolean",
+    "ScoreV3_Categorical",
+    "ScoreV3_Correction",
+    "ScoreV3_Numeric",
+    "ScoreV3_Text",
+    "TextScoreV3",
 ]
