@@ -706,10 +706,6 @@ class LangfuseObservationWrapper:
         Returns:
             The processed and masked data
         """
-        # The attribute was not provided, so there is nothing to process or mask.
-        # Returning early keeps unset attributes unset instead of invoking the
-        # user's mask function with `None`, which would otherwise fail and write
-        # a fallback value into an attribute the caller never set.
         if data is None:
             return None
 
