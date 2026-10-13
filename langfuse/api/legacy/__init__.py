@@ -38,10 +38,3 @@ def __dir__():
 
 
 __all__ = ["score_v1"]
-
-# Score-create compatibility aliases (LFE-10397).
-from .score_v1 import CreateScoreRequest
-from .score_v1 import CreateScoreResponse
-from .score_v1 import CreateScoreSource
-
-__all__ = [*__all__, "CreateScoreRequest", "CreateScoreResponse", "CreateScoreSource"]

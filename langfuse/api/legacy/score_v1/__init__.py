@@ -2,9 +2,3 @@
 
 # isort: skip_file
 
-# Score-create compatibility aliases (LFE-10397).
-from .types import CreateScoreRequest
-from .types import CreateScoreResponse
-from .types import CreateScoreSource
-
-__all__ = ["CreateScoreRequest", "CreateScoreResponse", "CreateScoreSource"]
