@@ -19,7 +19,19 @@ from langfuse.api.scores.types.create_scores_request import CreateScoresRequest
 from langfuse.logger import langfuse_logger as logger
 
 # POST /api/public/scores uses the default Next.js body limit of 1 MiB.
-MAX_BATCH_SIZE_BYTES = int(os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", 1_000_000))
+_SCORES_BODY_LIMIT_BYTES = 1_000_000
+_configured_batch_size_bytes = int(
+    os.environ.get("LANGFUSE_MAX_BATCH_SIZE_BYTES", _SCORES_BODY_LIMIT_BYTES)
+)
+if _configured_batch_size_bytes > _SCORES_BODY_LIMIT_BYTES:
+    logger.warning(
+        "Configuration: LANGFUSE_MAX_BATCH_SIZE_BYTES=%s exceeds the %s byte body "
+        "limit of POST /api/public/scores; score batches are capped at %s bytes.",
+        _configured_batch_size_bytes,
+        _SCORES_BODY_LIMIT_BYTES,
+        _SCORES_BODY_LIMIT_BYTES,
+    )
+MAX_BATCH_SIZE_BYTES = min(_configured_batch_size_bytes, _SCORES_BODY_LIMIT_BYTES)
 _SHUTDOWN_SENTINEL = object()
 
 
