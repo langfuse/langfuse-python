@@ -117,7 +117,8 @@ async def test_paginates_with_cursor_and_scores_observations():
     assert [call["cursor"] for call in api.calls] == [None, "2", "4"]
     assert all("page" not in call for call in api.calls)
     assert all(
-        call["fields"] == DEFAULT_BATCH_EVALUATION_FIELDS and call["filter"] is None
+        call["fields"] == f"{DEFAULT_BATCH_EVALUATION_FIELDS},time"
+        and call["filter"] is None
         for call in api.calls
     )
     assert result.completed is True
@@ -151,7 +152,7 @@ async def test_mapper_receives_raw_string_io_and_requested_fields():
 
     await run(runner, mapper=recording_mapper, fields="core,io")
 
-    assert api.calls[0]["fields"] == "core,io"
+    assert api.calls[0]["fields"] == "core,io,time"
     assert isinstance(seen[0], ObservationV2)
     assert seen[0].input == '{"question": 1}'
 
@@ -378,3 +379,24 @@ async def test_duplicate_rows_for_one_observation_are_evaluated_once():
     assert [item.output for item in seen if item.id == "obs-1"] == ["fresh answer"]
     assert result.total_items_processed == 2
     assert client.create_score.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_resume_skips_duplicate_rows_split_across_the_page_boundary():
+    duplicate = make_observation(2).model_copy(
+        update={"updated_at": BASE_TIME + timedelta(hours=1)}
+    )
+    runner, _, client = make_runner(
+        [make_observation(i) for i in range(5)] + [duplicate]
+    )
+
+    first = await run(runner, max_items=3, fetch_batch_size=3)
+    assert first.resume_token is not None
+    assert first.resume_token.last_page_ids == ["obs-2", "obs-3", "obs-4"]
+
+    await run(runner, resume_from=first.resume_token, fetch_batch_size=3)
+
+    scored_ids = [
+        call.kwargs["observation_id"] for call in client.create_score.call_args_list
+    ]
+    assert sorted(scored_ids) == [f"obs-{i}" for i in range(5)]
