@@ -120,10 +120,6 @@ class TestOTelBase:
             from langfuse._client.span_filter import is_default_export_span
 
             self.public_key = kwargs.get("public_key", "test-key")
-            blocked_scopes = kwargs.get("blocked_instrumentation_scopes")
-            self.blocked_instrumentation_scopes = (
-                blocked_scopes if blocked_scopes is not None else []
-            )
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
@@ -502,8 +498,8 @@ class TestBasicSpans(TestOTelBase):
 
     def test_trace_update(self, langfuse_client, memory_exporter):
         """Test updating trace level attributes."""
-        # Create a span and set trace attributes using propagate_attributes and set_trace_io
-        with langfuse_client.start_as_current_observation(name="trace-span") as span:
+        # Create a span and set trace attributes using propagate_attributes
+        with langfuse_client.start_as_current_observation(name="trace-span"):
             with propagate_attributes(
                 trace_name="updated-trace-name",
                 user_id="test-user",
@@ -511,7 +507,7 @@ class TestBasicSpans(TestOTelBase):
                 tags=["tag1", "tag2"],
                 metadata={"trace-meta": "data"},
             ):
-                span.set_trace_io(input={"trace-input": "value"})
+                pass
 
         # Get the span data
         spans = self.get_spans_by_name(memory_exporter, "trace-span")
@@ -530,12 +526,10 @@ class TestBasicSpans(TestOTelBase):
         else:
             tags = list(attributes[LangfuseOtelSpanAttributes.TRACE_TAGS])
 
-        input_data = json.loads(attributes[LangfuseOtelSpanAttributes.TRACE_INPUT])
         metadata = attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.trace-meta"]
 
         # Check attribute values
         assert sorted(tags) == sorted(["tag1", "tag2"])
-        assert input_data == {"trace-input": "value"}
         assert metadata == "data"
 
     def test_complex_scenario(self, langfuse_client, memory_exporter):
@@ -1986,6 +1980,108 @@ class TestMetadataHandling(TestOTelBase):
         assert "version" in system_data
         assert "features" in system_data
 
+    MASK_FALLBACK = "<fully masked due to failed mask function>"
+
+    def get_metadata_attributes(self, span_data: dict) -> dict:
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        return {
+            key: value
+            for key, value in span_data["attributes"].items()
+            if key == prefix or key.startswith(f"{prefix}.")
+        }
+
+    def test_failed_mask_on_update_masks_each_metadata_key(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict) and "secret" in data:
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(name="mask-fail", metadata={"a": 1})
+        span.update(metadata={"secret": "pw", "b": 2})
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail")[0]
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        assert self.get_metadata_attributes(span_data) == {
+            f"{prefix}.a": 1,
+            f"{prefix}.secret": self.MASK_FALLBACK,
+            f"{prefix}.b": self.MASK_FALLBACK,
+        }
+
+    def test_failed_mask_on_start_masks_each_metadata_key(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict):
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="mask-fail-start", metadata={"secret": "pw", "b": 2}
+        )
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail-start")[0]
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        assert self.get_metadata_attributes(span_data) == {
+            f"{prefix}.secret": self.MASK_FALLBACK,
+            f"{prefix}.b": self.MASK_FALLBACK,
+        }
+
+    def test_failed_mask_keeps_string_fallback_for_empty_dict_metadata(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if isinstance(data, dict):
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="mask-fail-empty-dict", metadata={}
+        )
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail-empty-dict")[0]
+        assert self.get_metadata_attributes(span_data) == {
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.MASK_FALLBACK,
+        }
+
+    def test_failed_mask_keeps_string_fallback_for_non_dict_values(
+        self, configurable_langfuse_client, memory_exporter
+    ):
+        def mask(*, data, **kwargs):
+            if data is not None:
+                raise ValueError("mask failed")
+            return data
+
+        langfuse_client = configurable_langfuse_client(mask=mask)
+        span = langfuse_client.start_observation(
+            name="mask-fail-non-dict",
+            input={"secret": "pw"},
+            output={"secret": "pw"},
+            metadata="plain-string",
+        )
+        span.end()
+
+        span_data = self.get_spans_by_name(memory_exporter, "mask-fail-non-dict")[0]
+        attributes = span_data["attributes"]
+        assert self.get_metadata_attributes(span_data) == {
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA: self.MASK_FALLBACK,
+        }
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+            == self.MASK_FALLBACK
+        )
+        assert (
+            attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+            == self.MASK_FALLBACK
+        )
+
 
 class TestMultiProjectSetup(TestOTelBase):
     """Tests for multi-project setup within the same process.
@@ -2408,10 +2504,6 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             from langfuse._client.span_filter import is_default_export_span
 
             self.public_key = kwargs.get("public_key", "test-key")
-            blocked_scopes = kwargs.get("blocked_instrumentation_scopes")
-            self.blocked_instrumentation_scopes = (
-                blocked_scopes if blocked_scopes is not None else []
-            )
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
@@ -2446,16 +2538,13 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             # Call original_initialize to set up all the necessary attributes
             original_initialize(self, **kwargs)
 
-            # Now create our custom LangfuseSpanProcessor with the actual blocked_instrumentation_scopes
+            # Now create our custom LangfuseSpanProcessor with the actual should_export_span
             from langfuse._client.span_processor import LangfuseSpanProcessor
 
             processor = LangfuseSpanProcessor(
                 public_key=self.public_key,
                 secret_key=self.secret_key,
                 base_url=self.base_url,
-                blocked_instrumentation_scopes=kwargs.get(
-                    "blocked_instrumentation_scopes"
-                ),
                 should_export_span=kwargs.get("should_export_span"),
             )
             # Replace its exporter with our test exporter
@@ -2661,38 +2750,6 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         assert "known-span" in exported_span_names
         assert "unknown-span" not in exported_span_names
 
-    def test_blocked_scopes_override_should_export(
-        self, instrumentation_filtering_setup
-    ):
-        """Test that blocked scopes are dropped even when callback allows all."""
-        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
-            Langfuse(
-                public_key=instrumentation_filtering_setup["test_key"],
-                secret_key="test-secret-key",
-                base_url="http://localhost:3000",
-                blocked_instrumentation_scopes=["my-framework.worker"],
-                should_export_span=lambda span: True,
-            )
-
-        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
-        blocked_tracer = tracer_provider.get_tracer("my-framework.worker")
-        allowed_tracer = tracer_provider.get_tracer("custom.allowed")
-
-        blocked_span = blocked_tracer.start_span("blocked-span")
-        blocked_span.end()
-        allowed_span = allowed_tracer.start_span("allowed-span")
-        allowed_span.end()
-        tracer_provider.force_flush()
-
-        exported_span_names = [
-            span.name
-            for span in instrumentation_filtering_setup[
-                "blocked_exporter"
-            ].get_finished_spans()
-        ]
-        assert "blocked-span" not in exported_span_names
-        assert "allowed-span" in exported_span_names
-
     def test_should_export_span_with_none_uses_default(
         self, instrumentation_filtering_setup
     ):
@@ -2755,34 +2812,6 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
         assert "callback-error-span" not in exported_span_names
         assert any(
             "should_export_span callback raised an error" in record.message
-            for record in caplog.records
-        )
-
-    def test_blocked_scope_drop_logs_scope_name(
-        self, instrumentation_filtering_setup, caplog
-    ):
-        """Test that blocked scope drops include scope names in debug logs."""
-        caplog.set_level("DEBUG", logger="langfuse")
-
-        with pytest.warns(DeprecationWarning, match="blocked_instrumentation_scopes"):
-            Langfuse(
-                public_key=instrumentation_filtering_setup["test_key"],
-                secret_key="test-secret-key",
-                base_url="http://localhost:3000",
-                blocked_instrumentation_scopes=["my.blocked.scope"],
-                should_export_span=lambda span: True,
-            )
-
-        tracer_provider = instrumentation_filtering_setup["test_tracer_provider"]
-        blocked_tracer = tracer_provider.get_tracer("my.blocked.scope")
-
-        span = blocked_tracer.start_span("blocked-debug-span")
-        span.end()
-        tracer_provider.force_flush()
-
-        assert any(
-            "Dropping span due to blocked instrumentation scope" in record.message
-            and "my.blocked.scope" in record.message
             for record in caplog.records
         )
 

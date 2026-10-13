@@ -12,7 +12,6 @@ from .create_generation_body import CreateGenerationBody
 from .create_span_body import CreateSpanBody
 from .observation_body import ObservationBody
 from .score_body import ScoreBody
-from .sdk_log_body import SdkLogBody
 from .trace_body import TraceBody
 from .update_generation_body import UpdateGenerationBody
 from .update_span_body import UpdateSpanBody
@@ -102,18 +101,6 @@ class IngestionEvent_EventCreate(UniversalBaseModel):
     )
 
 
-class IngestionEvent_SdkLog(UniversalBaseModel):
-    type: typing.Literal["sdk-log"] = "sdk-log"
-    body: SdkLogBody
-    id: str
-    timestamp: str
-    metadata: typing.Optional[typing.Any] = None
-
-    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
-        extra="allow", frozen=True
-    )
-
-
 class IngestionEvent_ObservationCreate(UniversalBaseModel):
     type: typing.Literal["observation-create"] = "observation-create"
     body: ObservationBody
@@ -147,7 +134,6 @@ IngestionEvent = typing_extensions.Annotated[
         IngestionEvent_GenerationCreate,
         IngestionEvent_GenerationUpdate,
         IngestionEvent_EventCreate,
-        IngestionEvent_SdkLog,
         IngestionEvent_ObservationCreate,
         IngestionEvent_ObservationUpdate,
     ],

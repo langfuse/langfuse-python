@@ -27,7 +27,6 @@ from langfuse.types import (
 
 _INPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
     {
-        LangfuseOtelSpanAttributes.TRACE_INPUT,
         LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
         "ai.prompt.messages",
         "ai.prompt",
@@ -54,7 +53,6 @@ _INPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
 
 _OUTPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
     {
-        LangfuseOtelSpanAttributes.TRACE_OUTPUT,
         LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
         "ai.response.text",
         "ai.result.text",

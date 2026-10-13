@@ -8,8 +8,6 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .raw_client import AsyncRawLegacyClient, RawLegacyClient
 
 if typing.TYPE_CHECKING:
-    from .metrics_v1.client import AsyncMetricsV1Client, MetricsV1Client
-    from .observations_v1.client import AsyncObservationsV1Client, ObservationsV1Client
     from .score_v1.client import AsyncScoreV1Client, ScoreV1Client
 
 
@@ -17,8 +15,6 @@ class LegacyClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawLegacyClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
-        self._metrics_v1: typing.Optional[MetricsV1Client] = None
-        self._observations_v1: typing.Optional[ObservationsV1Client] = None
         self._score_v1: typing.Optional[ScoreV1Client] = None
 
     @property
@@ -33,24 +29,6 @@ class LegacyClient:
         return self._raw_client
 
     @property
-    def metrics_v1(self):
-        if self._metrics_v1 is None:
-            from .metrics_v1.client import MetricsV1Client  # noqa: E402
-
-            self._metrics_v1 = MetricsV1Client(client_wrapper=self._client_wrapper)
-        return self._metrics_v1
-
-    @property
-    def observations_v1(self):
-        if self._observations_v1 is None:
-            from .observations_v1.client import ObservationsV1Client  # noqa: E402
-
-            self._observations_v1 = ObservationsV1Client(
-                client_wrapper=self._client_wrapper
-            )
-        return self._observations_v1
-
-    @property
     def score_v1(self):
         if self._score_v1 is None:
             from .score_v1.client import ScoreV1Client  # noqa: E402
@@ -63,8 +41,6 @@ class AsyncLegacyClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawLegacyClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
-        self._metrics_v1: typing.Optional[AsyncMetricsV1Client] = None
-        self._observations_v1: typing.Optional[AsyncObservationsV1Client] = None
         self._score_v1: typing.Optional[AsyncScoreV1Client] = None
 
     @property
@@ -77,24 +53,6 @@ class AsyncLegacyClient:
         AsyncRawLegacyClient
         """
         return self._raw_client
-
-    @property
-    def metrics_v1(self):
-        if self._metrics_v1 is None:
-            from .metrics_v1.client import AsyncMetricsV1Client  # noqa: E402
-
-            self._metrics_v1 = AsyncMetricsV1Client(client_wrapper=self._client_wrapper)
-        return self._metrics_v1
-
-    @property
-    def observations_v1(self):
-        if self._observations_v1 is None:
-            from .observations_v1.client import AsyncObservationsV1Client  # noqa: E402
-
-            self._observations_v1 = AsyncObservationsV1Client(
-                client_wrapper=self._client_wrapper
-            )
-        return self._observations_v1
 
     @property
     def score_v1(self):

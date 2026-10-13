@@ -1,144 +1,260 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+from langfuse.api import ObservationV2
 from langfuse.api.commons.errors.not_found_error import NotFoundError
-from tests.support.api_wrapper import LangfuseAPI as SupportLangfuseAPI
 from tests.support.retry import retry_until_ready
-from tests.support.utils import get_api, wait_for_trace
+from tests.support.utils import (
+    TraceSnapshot,
+    get_api,
+    get_observations,
+    normalize_observation,
+    user_metadata,
+    wait_for_observations,
+    wait_for_scores,
+    wait_for_trace_snapshot,
+)
+
+START = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+
+def _observation(index: int = 0, **fields) -> ObservationV2:
+    defaults = {
+        "id": f"obs-{index}",
+        "trace_id": "trace-123",
+        "start_time": START + timedelta(seconds=index),
+        "project_id": "project",
+        "type": "SPAN",
+        "is_root_observation": False,
+    }
+    return ObservationV2(**{**defaults, **fields})
+
+
+def _page(data, cursor=None):
+    return SimpleNamespace(data=data, meta=SimpleNamespace(cursor=cursor))
+
+
+def _install_client(monkeypatch, **services):
+    monkeypatch.setattr("tests.support.retry.sleep", lambda _: None)
+    client = SimpleNamespace(**services)
+    monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: client)
 
 
 def test_get_api_retries_not_found(monkeypatch):
-    monkeypatch.setattr("tests.support.retry.sleep", lambda _: None)
-
     attempts = {"count": 0}
 
-    class FakeTraceService:
-        def get(self, trace_id):
-            attempts["count"] += 1
+    def get_many(**kwargs):
+        attempts["count"] += 1
 
-            if attempts["count"] < 3:
-                raise NotFoundError(
-                    body={
-                        "error": "LangfuseNotFoundError",
-                        "message": f"Trace {trace_id} not found within authorized project",
-                    }
-                )
+        if attempts["count"] < 3:
+            raise NotFoundError(
+                body={
+                    "error": "LangfuseNotFoundError",
+                    "message": "Observations not found within authorized project",
+                }
+            )
 
-            return {"id": trace_id}
+        return _page([kwargs["trace_id"]])
 
-    class FakeClient:
-        trace = FakeTraceService()
+    _install_client(monkeypatch, observations=SimpleNamespace(get_many=get_many))
 
-    monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
+    response = get_api().observations.get_many(trace_id="trace-123")
 
-    trace = get_api().trace.get("trace-123")
-
-    assert trace == {"id": "trace-123"}
+    assert response.data == ["trace-123"]
     assert attempts["count"] == 3
 
 
 def test_get_api_retries_filtered_lists(monkeypatch):
-    monkeypatch.setattr("tests.support.retry.sleep", lambda _: None)
-
     attempts = {"count": 0}
 
-    class FakeTraceService:
-        def list(self, **kwargs):
-            attempts["count"] += 1
+    def get_many(**kwargs):
+        attempts["count"] += 1
+        return _page([] if attempts["count"] < 3 else [kwargs["name"]])
 
-            if attempts["count"] < 3:
-                return SimpleNamespace(data=[])
+    _install_client(monkeypatch, observations=SimpleNamespace(get_many=get_many))
 
-            return SimpleNamespace(data=[kwargs["name"]])
+    response = get_api().observations.get_many(name="ready-observation")
 
-    class FakeClient:
-        trace = FakeTraceService()
-
-    monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
-
-    response = get_api().trace.list(name="ready-trace")
-
-    assert response.data == ["ready-trace"]
+    assert response.data == ["ready-observation"]
     assert attempts["count"] == 3
 
 
 def test_get_api_retry_can_be_disabled(monkeypatch):
     attempts = {"count": 0}
 
-    class FakeTraceService:
-        def list(self, **kwargs):
-            attempts["count"] += 1
-            return SimpleNamespace(data=[])
+    def get_many(**kwargs):
+        attempts["count"] += 1
+        return _page([])
 
-    class FakeClient:
-        trace = FakeTraceService()
+    _install_client(monkeypatch, observations=SimpleNamespace(get_many=get_many))
 
-    monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
-
-    response = get_api(retry=False).trace.list(name="missing-trace")
+    response = get_api(retry=False).observations.get_many(name="missing")
 
     assert response.data == []
     assert attempts["count"] == 1
 
 
-def test_raw_api_wrapper_retries_not_found_payload(monkeypatch):
-    monkeypatch.setattr("tests.support.retry.sleep", lambda _: None)
-
-    attempts = {"count": 0}
-
-    class FakeResponse:
-        def __init__(self, status_code, payload):
-            self.status_code = status_code
-            self._payload = payload
-            self.headers = {}
-
-        def json(self):
-            return self._payload
-
-    def fake_get(*args, **kwargs):
-        attempts["count"] += 1
-
-        if attempts["count"] < 3:
-            return FakeResponse(
-                404,
-                {
-                    "error": "LangfuseNotFoundError",
-                    "message": "Trace trace-123 not found within authorized project",
-                },
-            )
-
-        return FakeResponse(200, {"id": "trace-123", "observations": []})
-
-    monkeypatch.setattr("tests.support.api_wrapper.httpx.get", fake_get)
-
-    api = SupportLangfuseAPI(username="user", password="pass", base_url="http://test")
-    trace = api.get_trace("trace-123")
-
-    assert trace["id"] == "trace-123"
-    assert attempts["count"] == 3
-
-
-def test_wait_for_trace_retries_until_predicate_matches(monkeypatch):
-    monkeypatch.setattr("tests.support.retry.sleep", lambda _: None)
-
-    attempts = {"count": 0}
-
-    class FakeTraceService:
-        def get(self, trace_id):
-            attempts["count"] += 1
-            return {"id": trace_id, "observations": [1] * attempts["count"]}
-
-    class FakeClient:
-        trace = FakeTraceService()
-
-    monkeypatch.setattr("tests.support.utils.LangfuseAPI", lambda **_: FakeClient())
-
-    trace = wait_for_trace(
-        "trace-123", is_result_ready=lambda trace: len(trace["observations"]) == 3
+def test_normalize_observation_parses_io_and_maps_empty_strings_to_none():
+    observation = normalize_observation(
+        _observation(
+            input='{"question": "hi"}',
+            output="plain text",
+            name="",
+            session_id="",
+            user_id="user-1",
+        )
     )
 
-    assert trace["id"] == "trace-123"
-    assert len(trace["observations"]) == 3
+    assert observation.input == {"question": "hi"}
+    assert observation.output == "plain text"
+    assert observation.name is None
+    assert observation.session_id is None
+    assert observation.user_id == "user-1"
+
+
+def test_user_metadata_drops_server_added_keys():
+    observation = _observation(
+        metadata={
+            "key": "value",
+            "scope.name": "langfuse-sdk",
+            "resourceAttributes.service.name": "test",
+        }
+    )
+
+    assert user_metadata(observation) == {"key": "value"}
+
+
+def test_get_observations_follows_cursor_and_sorts_by_start_time(monkeypatch):
+    calls = []
+    pages = {
+        None: _page([_observation(2), _observation(0)], cursor="next"),
+        "next": _page([_observation(1)]),
+    }
+
+    def get_many(**kwargs):
+        calls.append(kwargs)
+        return pages[kwargs["cursor"]]
+
+    _install_client(monkeypatch, observations=SimpleNamespace(get_many=get_many))
+
+    observations = get_observations(trace_id="trace-123")
+
+    assert [o.id for o in observations] == ["obs-0", "obs-1", "obs-2"]
+    assert [call["cursor"] for call in calls] == [None, "next"]
+    assert all(call["trace_id"] == "trace-123" for call in calls)
+
+
+def test_wait_for_observations_polls_until_min_count(monkeypatch):
+    attempts = {"count": 0}
+
+    def get_many(**kwargs):
+        attempts["count"] += 1
+        return _page([_observation(i) for i in range(attempts["count"])])
+
+    _install_client(monkeypatch, observations=SimpleNamespace(get_many=get_many))
+
+    observations = wait_for_observations("trace-123", min_count=3)
+
+    assert len(observations) == 3
     assert attempts["count"] == 3
+
+
+def test_wait_for_trace_snapshot_waits_for_root_and_scores(monkeypatch):
+    attempts = {"observations": 0, "scores": 0}
+
+    def get_many(**kwargs):
+        attempts["observations"] += 1
+        observations = [_observation(1, name="child")]
+        if attempts["observations"] >= 2:
+            observations.append(_observation(0, name="root", is_root_observation=True))
+        return _page(observations)
+
+    def get_many_v3(**kwargs):
+        attempts["scores"] += 1
+        return _page(["score"] if attempts["scores"] >= 3 else [])
+
+    _install_client(
+        monkeypatch,
+        observations=SimpleNamespace(get_many=get_many),
+        scores_v3=SimpleNamespace(get_many_v3=get_many_v3),
+    )
+
+    snapshot = wait_for_trace_snapshot(
+        "trace-123",
+        min_scores=1,
+        is_result_ready=lambda trace: trace.root.name == "root",
+    )
+
+    assert snapshot.root.name == "root"
+    assert snapshot.scores == ["score"]
+    assert attempts["scores"] == 3
+
+
+def test_trace_snapshot_aggregates_trace_attributes_like_the_platform():
+    snapshot = TraceSnapshot(
+        id="trace-123",
+        observations=[
+            _observation(
+                0,
+                name="root",
+                trace_name="root",
+                is_root_observation=True,
+                input={"q": 1},
+                metadata={"root_key": "root", "scope.name": "sdk"},
+                tags=["b"],
+            ),
+            _observation(
+                1,
+                name="child",
+                trace_name="explicit-name",
+                session_id="session-1",
+                user_id="user-1",
+                tags=["a"],
+                public=True,
+            ),
+            _observation(2, name="grandchild", session_id="session-2"),
+        ],
+    )
+
+    assert snapshot.name == "explicit-name"
+    assert snapshot.session_id == "session-2"
+    assert snapshot.user_id == "user-1"
+    assert snapshot.tags == ["a", "b"]
+    assert snapshot.public is True
+    assert snapshot.input == {"q": 1}
+    assert snapshot.metadata == {"root_key": "root"}
+
+
+def test_trace_snapshot_name_falls_back_to_root_trace_name():
+    snapshot = TraceSnapshot(
+        id="trace-123",
+        observations=[
+            _observation(0, name="root", trace_name="root", is_root_observation=True),
+            _observation(1, name="child", trace_name="root"),
+        ],
+    )
+
+    assert snapshot.name == "root"
+    assert snapshot.session_id is None
+    assert snapshot.public is False
+
+
+def test_wait_for_scores_follows_cursor_and_polls(monkeypatch):
+    attempts = {"count": 0}
+
+    def get_many_v3(**kwargs):
+        attempts["count"] += 1
+        if attempts["count"] < 2:
+            return _page([])
+        if kwargs["cursor"] is None:
+            return _page(["score-1"], cursor="next")
+        return _page(["score-2"])
+
+    _install_client(monkeypatch, scores_v3=SimpleNamespace(get_many_v3=get_many_v3))
+
+    scores = wait_for_scores(min_count=2, trace_id="trace-123")
+
+    assert scores == ["score-1", "score-2"]
 
 
 def test_retry_until_ready_clears_stale_error_after_success(monkeypatch):
@@ -171,3 +287,37 @@ def test_retry_until_ready_clears_stale_error_after_success(monkeypatch):
 
     assert trace["id"] == "trace-123"
     assert trace["attempt"] == 3
+
+
+def test_normalize_observation_keeps_scalar_text_io_as_strings():
+    observation = normalize_observation(
+        ObservationV2(
+            id="obs",
+            trace_id="trace",
+            start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            project_id="project",
+            type="SPAN",
+            input="2",
+            output="true",
+        )
+    )
+
+    assert observation.input == "2"
+    assert observation.output == "true"
+
+
+def test_get_observations_keeps_the_latest_row_per_observation_id(monkeypatch):
+    stale = _observation(0, name="stale", updated_at=START)
+    fresh = _observation(0, name="fresh", updated_at=START + timedelta(seconds=1))
+
+    def get_many(**kwargs):
+        return _page([fresh, stale, _observation(1)])
+
+    _install_client(monkeypatch, observations=SimpleNamespace(get_many=get_many))
+
+    observations = get_observations(trace_id="trace-123")
+
+    assert [(o.id, o.name) for o in observations] == [
+        ("obs-0", "fresh"),
+        ("obs-1", None),
+    ]

@@ -24,18 +24,13 @@ from typing import (
     Dict,
     Literal,
     Mapping,
+    NotRequired,
     Optional,
     Protocol,
     Sequence,
     TypedDict,
     Union,
 )
-
-try:
-    from typing import NotRequired  # type: ignore
-except ImportError:
-    from typing_extensions import NotRequired
-
 
 from langfuse.api import MediaContentType
 

@@ -1,5 +1,6 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+import logging
 from queue import Queue
 from types import SimpleNamespace
 from typing import Sequence
@@ -406,6 +407,36 @@ def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
 
     assert rm.httpx_client.timeout.connect == 42
     assert rm.httpx_client.headers.get("X-Custom") == "value"
+
+    client.shutdown()
+
+
+def test_create_score_with_invalid_input_logs_error_without_enqueueing(
+    monkeypatch, caplog
+):
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-invalid-score",
+        secret_key="sk-invalid-score",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+    enqueued = []
+    monkeypatch.setattr(rm, "add_score_task", lambda event, **_: enqueued.append(event))
+
+    with caplog.at_level(logging.ERROR, logger="langfuse"):
+        client.create_score(name="invalid", value=object(), trace_id="a" * 32)
+
+    assert enqueued == []
+    assert rm._score_ingestion_queue.empty()
+    error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(error_records) == 1
+    assert "Error creating score" in error_records[0].getMessage()
 
     client.shutdown()
 

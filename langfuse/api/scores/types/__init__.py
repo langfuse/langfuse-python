@@ -6,41 +6,25 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .create_score_batch_error import CreateScoreBatchError
+    from .create_score_batch_request import CreateScoreBatchRequest
+    from .create_score_batch_response import CreateScoreBatchResponse
+    from .create_score_batch_results import CreateScoreBatchResults
     from .create_score_request import CreateScoreRequest
     from .create_score_response import CreateScoreResponse
     from .create_score_source import CreateScoreSource
-    from .get_scores_response import GetScoresResponse
-    from .get_scores_response_data import (
-        GetScoresResponseData,
-        GetScoresResponseData_Boolean,
-        GetScoresResponseData_Categorical,
-        GetScoresResponseData_Correction,
-        GetScoresResponseData_Numeric,
-        GetScoresResponseData_Text,
-    )
-    from .get_scores_response_data_boolean import GetScoresResponseDataBoolean
-    from .get_scores_response_data_categorical import GetScoresResponseDataCategorical
-    from .get_scores_response_data_correction import GetScoresResponseDataCorrection
-    from .get_scores_response_data_numeric import GetScoresResponseDataNumeric
-    from .get_scores_response_data_text import GetScoresResponseDataText
-    from .get_scores_response_trace_data import GetScoresResponseTraceData
+    from .create_scores_request import CreateScoresRequest
+    from .create_scores_response import CreateScoresResponse
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreateScoreBatchError": ".create_score_batch_error",
+    "CreateScoreBatchRequest": ".create_score_batch_request",
+    "CreateScoreBatchResponse": ".create_score_batch_response",
+    "CreateScoreBatchResults": ".create_score_batch_results",
     "CreateScoreRequest": ".create_score_request",
     "CreateScoreResponse": ".create_score_response",
     "CreateScoreSource": ".create_score_source",
-    "GetScoresResponse": ".get_scores_response",
-    "GetScoresResponseData": ".get_scores_response_data",
-    "GetScoresResponseDataBoolean": ".get_scores_response_data_boolean",
-    "GetScoresResponseDataCategorical": ".get_scores_response_data_categorical",
-    "GetScoresResponseDataCorrection": ".get_scores_response_data_correction",
-    "GetScoresResponseDataNumeric": ".get_scores_response_data_numeric",
-    "GetScoresResponseDataText": ".get_scores_response_data_text",
-    "GetScoresResponseData_Boolean": ".get_scores_response_data",
-    "GetScoresResponseData_Categorical": ".get_scores_response_data",
-    "GetScoresResponseData_Correction": ".get_scores_response_data",
-    "GetScoresResponseData_Numeric": ".get_scores_response_data",
-    "GetScoresResponseData_Text": ".get_scores_response_data",
-    "GetScoresResponseTraceData": ".get_scores_response_trace_data",
+    "CreateScoresRequest": ".create_scores_request",
+    "CreateScoresResponse": ".create_scores_response",
 }
 
 
@@ -72,20 +56,13 @@ def __dir__():
 
 
 __all__ = [
+    "CreateScoreBatchError",
+    "CreateScoreBatchRequest",
+    "CreateScoreBatchResponse",
+    "CreateScoreBatchResults",
     "CreateScoreRequest",
     "CreateScoreResponse",
     "CreateScoreSource",
-    "GetScoresResponse",
-    "GetScoresResponseData",
-    "GetScoresResponseDataBoolean",
-    "GetScoresResponseDataCategorical",
-    "GetScoresResponseDataCorrection",
-    "GetScoresResponseDataNumeric",
-    "GetScoresResponseDataText",
-    "GetScoresResponseData_Boolean",
-    "GetScoresResponseData_Categorical",
-    "GetScoresResponseData_Correction",
-    "GetScoresResponseData_Numeric",
-    "GetScoresResponseData_Text",
-    "GetScoresResponseTraceData",
+    "CreateScoresRequest",
+    "CreateScoresResponse",
 ]

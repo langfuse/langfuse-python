@@ -70,7 +70,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
@@ -98,6 +97,14 @@ jobs:
         run: |
           python --version
           uv run --frozen pytest -n auto --dist worksteal -s -v --log-cli-level=INFO tests/unit
+
+      # pydantic < 2.8 matches undiscriminated unions left to right, so the
+      # CreateScoresResponse member order matters there.
+      - name: Run score response parsing on pydantic 2.7
+        if: ${{ matrix.python-version == '3.11' }}
+        run: |
+          uv run --frozen --with "pydantic==2.7.4" python -c "import pydantic; assert pydantic.VERSION == '2.7.4', pydantic.VERSION"
+          uv run --frozen --with "pydantic==2.7.4" pytest -v tests/unit/test_scores_batch_response.py
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -160,8 +167,6 @@ jobs:
           LANGFUSE_SERVER_SHA="$(git ls-remote https://github.com/langfuse/langfuse.git HEAD | cut -f1)"
           curl -fsSL "https://raw.githubusercontent.com/langfuse/langfuse/${LANGFUSE_SERVER_SHA}/docker-compose.yml" \
             -o ./langfuse-server/docker-compose.yml
-          cp ./.github/langfuse-v4-dual-write.override.yml \
-            ./langfuse-server/docker-compose.override.yml
           echo "${LANGFUSE_SERVER_SHA}"
 
       - name: Run langfuse server

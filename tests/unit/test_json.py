@@ -10,7 +10,7 @@ import pytest
 from langchain.messages import HumanMessage
 from pydantic import BaseModel
 
-import langfuse
+import langfuse._utils.serializer as serializer_module
 from langfuse._utils.serializer import EventSerializer
 from langfuse.api import ObservationLevel
 
@@ -61,41 +61,39 @@ def test_json_decoder_without_langchain_serializer():
 
 
 @pytest.fixture
-def hide_available_langchain(monkeypatch):
+def serializer_without_langchain(monkeypatch):
     import_orig = builtins.__import__
 
     def mocked_import(name, *args, **kwargs):
-        if name == "langchain" or name == "langchain.load.serializable":
+        if name == "langchain_core" or name.startswith("langchain_core."):
             raise ImportError()
         return import_orig(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", mocked_import)
+    yield importlib.reload(serializer_module)
+
+    monkeypatch.undo()
+    importlib.reload(serializer_module)
 
 
-@pytest.mark.usefixtures("hide_available_langchain")
-def test_json_decoder_without_langchain_serializer_with_langchain_message():
+def test_json_decoder_without_langchain_serializer_with_langchain_message(
+    serializer_without_langchain,
+):
     with pytest.raises(ImportError):
-        import langchain  # noqa
+        from langchain_core.load.serializable import Serializable  # noqa
 
-    with pytest.raises(ImportError):
-        from langchain.load.serializable import Serializable  # noqa
-
-    importlib.reload(langfuse)
     obj = TestModel(foo="bar", bar=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
-    result = json.dumps(obj, cls=EventSerializer)
+    result = json.dumps(obj, cls=serializer_without_langchain.EventSerializer)
     assert result == '{"foo": "bar", "bar": "2021-01-01T00:00:00Z"}'
 
 
-@pytest.mark.usefixtures("hide_available_langchain")
-def test_json_decoder_without_langchain_serializer_with_none():
+def test_json_decoder_without_langchain_serializer_with_none(
+    serializer_without_langchain,
+):
     with pytest.raises(ImportError):
-        import langchain  # noqa
+        from langchain_core.load.serializable import Serializable  # noqa
 
-    with pytest.raises(ImportError):
-        from langchain.load.serializable import Serializable  # noqa
-
-    importlib.reload(langfuse)
-    result = json.dumps(None, cls=EventSerializer)
+    result = json.dumps(None, cls=serializer_without_langchain.EventSerializer)
     default = json.dumps(None)
     assert result == "null"
     assert result == default

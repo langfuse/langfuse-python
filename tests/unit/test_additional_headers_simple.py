@@ -210,6 +210,41 @@ class TestAdditionalHeadersSimple:
         assert "authorization" in exporter._client._headers
         assert "x-langfuse-sdk-name" in exporter._client._headers
         assert "x-langfuse-public-key" in exporter._client._headers
+        assert exporter._client._headers["x-langfuse-ingestion-version"] == "4"
+
+    def test_span_processor_additional_headers_override_ingestion_version(self):
+        """Test that additional headers can override the default ingestion version."""
+        from langfuse._client.span_processor import LangfuseSpanProcessor
+
+        processor = LangfuseSpanProcessor(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            base_url="https://mock-host.com",
+            additional_headers={"x-langfuse-ingestion-version": "3"},
+        )
+
+        exporter = processor.span_exporter
+
+        assert exporter._client._headers["x-langfuse-ingestion-version"] == "3"
+
+    def test_span_processor_mixed_case_override_replaces_ingestion_version(self):
+        """Test that a differently cased override replaces the default header."""
+        from langfuse._client.span_processor import LangfuseSpanProcessor
+
+        processor = LangfuseSpanProcessor(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            base_url="https://mock-host.com",
+            additional_headers={"X-Langfuse-Ingestion-Version": "3"},
+        )
+
+        ingestion_headers = {
+            key: value
+            for key, value in processor.span_exporter._client._headers.items()
+            if key.lower() == "x-langfuse-ingestion-version"
+        }
+
+        assert ingestion_headers == {"x-langfuse-ingestion-version": "3"}
 
     def test_span_processor_uses_custom_span_exporter_when_provided(self):
         """Test that a custom exporter bypasses the default OTLP exporter construction."""

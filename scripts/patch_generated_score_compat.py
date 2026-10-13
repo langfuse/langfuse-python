@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 from pathlib import Path
 
 CLIENT_IMPORTS = """\
@@ -21,10 +22,28 @@ from ...scores.client import (
     ScoresClient as CanonicalScoresClient,
     OMIT,
 )
+from ...scores.types.create_score_request import CreateScoreRequest
 from ...scores.types.create_score_response import CreateScoreResponse
 from ...scores.types.create_score_source import CreateScoreSource
 """
 
+# Earlier alias generations, stripped before the current alias is re-applied.
+PREVIOUS_CLIENT_IMPORTS = (
+    """\
+from ...commons.types.create_score_value import CreateScoreValue
+from ...commons.types.score_data_type import ScoreDataType
+from ...scores.client import (
+    AsyncScoresClient as CanonicalAsyncScoresClient,
+    ScoresClient as CanonicalScoresClient,
+    OMIT,
+)
+from ...scores.types.create_score_response import CreateScoreResponse
+from ...scores.types.create_score_source import CreateScoreSource
+""",
+)
+
+# A single-score request always returns CreateScoreResponse; the batch members
+# of the CreateScoresResponse union only answer list requests.
 SYNC_CREATE_METHOD = '''\
     def create(
         self,
@@ -46,25 +65,33 @@ SYNC_CREATE_METHOD = '''\
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
         """**Deprecated compatibility alias.** Use ``client.scores.create``."""
-        return CanonicalScoresClient(
-            client_wrapper=self._raw_client._client_wrapper
-        ).create(
+        optional_fields: typing.Dict[str, typing.Any] = {
+            "id": id,
+            "trace_id": trace_id,
+            "session_id": session_id,
+            "observation_id": observation_id,
+            "dataset_run_id": dataset_run_id,
+            "comment": comment,
+            "metadata": metadata,
+            "environment": environment,
+            "queue_id": queue_id,
+            "data_type": data_type,
+            "config_id": config_id,
+            "source": source,
+        }
+        request = CreateScoreRequest(
             name=name,
             value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
+            **{
+                key: field
+                for key, field in optional_fields.items()
+                if field is not OMIT
+            },
         )
+        response = CanonicalScoresClient(
+            client_wrapper=self._raw_client._client_wrapper
+        ).create(request=request, request_options=request_options)
+        return typing.cast(CreateScoreResponse, response)
 
 '''
 
@@ -89,25 +116,33 @@ ASYNC_CREATE_METHOD = '''\
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
         """**Deprecated compatibility alias.** Use ``client.scores.create``."""
-        return await CanonicalAsyncScoresClient(
-            client_wrapper=self._raw_client._client_wrapper
-        ).create(
+        optional_fields: typing.Dict[str, typing.Any] = {
+            "id": id,
+            "trace_id": trace_id,
+            "session_id": session_id,
+            "observation_id": observation_id,
+            "dataset_run_id": dataset_run_id,
+            "comment": comment,
+            "metadata": metadata,
+            "environment": environment,
+            "queue_id": queue_id,
+            "data_type": data_type,
+            "config_id": config_id,
+            "source": source,
+        }
+        request = CreateScoreRequest(
             name=name,
             value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
+            **{
+                key: field
+                for key, field in optional_fields.items()
+                if field is not OMIT
+            },
         )
+        response = await CanonicalAsyncScoresClient(
+            client_wrapper=self._raw_client._client_wrapper
+        ).create(request=request, request_options=request_options)
+        return typing.cast(CreateScoreResponse, response)
 
 '''
 
@@ -178,6 +213,26 @@ def _create_type_aliases(types_dir: Path) -> None:
         )
 
 
+def _strip_compat_alias(contents: str, *, path: Path) -> str:
+    """Remove a previously applied alias so the current template can be re-applied."""
+    for imports in (CLIENT_IMPORTS, *PREVIOUS_CLIENT_IMPORTS):
+        if imports in contents:
+            contents = contents.replace(imports, "", 1)
+            break
+    else:
+        raise RuntimeError(f"Unrecognized compatibility imports in {path}")
+
+    stripped = re.sub(
+        r"\n    (async )?def create\(.*?(?=\n    (async )?def delete\()",
+        "",
+        contents,
+        flags=re.DOTALL,
+    )
+    if LEGACY_ALIAS_MARKER in stripped:
+        raise RuntimeError(f"Could not remove the compatibility alias from {path}")
+    return stripped
+
+
 def patch_generated_api(api_root: Path) -> bool:
     canonical_client_path = api_root / "scores" / "client.py"
     legacy_client_path = api_root / "legacy" / "score_v1" / "client.py"
@@ -196,7 +251,11 @@ def patch_generated_api(api_root: Path) -> bool:
 
     if legacy_has_create:
         if LEGACY_ALIAS_MARKER in legacy_client and canonical_has_create:
-            return False
+            if SYNC_CREATE_METHOD in legacy_client and CLIENT_IMPORTS in legacy_client:
+                return False
+            legacy_client = _strip_compat_alias(legacy_client, path=legacy_client_path)
+            legacy_client_path.write_text(legacy_client)
+            return patch_generated_api(api_root)
         if canonical_has_create:
             raise RuntimeError(
                 "Both canonical and legacy generated score clients define create; "

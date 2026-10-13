@@ -106,6 +106,10 @@ def test_generated_sync_alias_delegates_to_canonical_client() -> None:
     calls: dict[str, object] = {}
     omitted = object()
 
+    class FakeCreateScoreRequest:
+        def __init__(self, **fields: object):
+            self.fields = fields
+
     class FakeCanonicalScoresClient:
         def __init__(self, *, client_wrapper: object):
             calls["client_wrapper"] = client_wrapper
@@ -116,6 +120,7 @@ def test_generated_sync_alias_delegates_to_canonical_client() -> None:
 
     namespace = {
         "CanonicalScoresClient": FakeCanonicalScoresClient,
+        "CreateScoreRequest": FakeCreateScoreRequest,
         "CreateScoreResponse": str,
         "CreateScoreSource": object,
         "CreateScoreValue": object,
@@ -140,20 +145,46 @@ def test_generated_sync_alias_delegates_to_canonical_client() -> None:
 
     assert response == "created"
     assert calls["client_wrapper"] is client_wrapper
-    assert calls["kwargs"] == {
+    kwargs = typing.cast(dict, calls["kwargs"])
+    assert set(kwargs) == {"request", "request_options"}
+    assert kwargs["request_options"] is None
+    # Arguments that were not passed are left out of the request body.
+    assert kwargs["request"].fields == {
         "name": "quality",
         "value": 0.9,
-        "id": omitted,
         "trace_id": "trace-id",
-        "session_id": omitted,
-        "observation_id": omitted,
-        "dataset_run_id": omitted,
-        "comment": omitted,
-        "metadata": omitted,
-        "environment": omitted,
-        "queue_id": omitted,
-        "data_type": omitted,
-        "config_id": omitted,
-        "source": omitted,
-        "request_options": None,
     }
+
+
+def test_postprocessor_upgrades_a_previously_applied_alias(tmp_path: Path) -> None:
+    postprocessor = run_path("scripts/patch_generated_score_compat.py")
+    api_root = tmp_path / "api"
+    _write_generated_fixture(api_root, canonical_has_create=True)
+    assert _run_postprocessor(api_root).returncode == 0
+
+    client_path = api_root / "legacy" / "score_v1" / "client.py"
+    client = client_path.read_text()
+    previous_imports = postprocessor["PREVIOUS_CLIENT_IMPORTS"][0]
+    old_method = (
+        "    def create(self, *, name, value):\n"
+        '        """**Deprecated compatibility alias.** Use ``client.scores.create``."""\n'
+        "        return CanonicalScoresClient().create(name=name, value=value)\n\n"
+    )
+    old_async_method = old_method.replace("def create", "async def create")
+    client = client.replace(postprocessor["CLIENT_IMPORTS"], previous_imports)
+    client = client.replace(postprocessor["SYNC_CREATE_METHOD"], old_method)
+    client = client.replace(postprocessor["ASYNC_CREATE_METHOD"], old_async_method)
+    client_path.write_text(client)
+
+    result = _run_postprocessor(api_root)
+
+    assert result.returncode == 0, result.stderr
+    upgraded = client_path.read_text()
+    assert upgraded.count("def create(") == 2
+    assert "create(request=request" in upgraded
+    assert "create(name=name, value=value)" not in upgraded
+    assert "from ...scores.types.create_score_request import CreateScoreRequest" in (
+        upgraded
+    )
+    compile(upgraded, "<upgraded-legacy-score-client>", "exec")
+    assert _run_postprocessor(api_root).stdout.strip() == "No patch needed."

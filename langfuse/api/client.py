@@ -18,10 +18,6 @@ if typing.TYPE_CHECKING:
     )
     from .comments.client import AsyncCommentsClient, CommentsClient
     from .dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
-    from .dataset_run_items.client import (
-        AsyncDatasetRunItemsClient,
-        DatasetRunItemsClient,
-    )
     from .datasets.client import AsyncDatasetsClient, DatasetsClient
     from .evaluation_rules.client import (
         AsyncEvaluationRulesClient,
@@ -47,7 +43,6 @@ if typing.TYPE_CHECKING:
     from .score_configs.client import AsyncScoreConfigsClient, ScoreConfigsClient
     from .scores.client import AsyncScoresClient, ScoresClient
     from .scores_v3.client import AsyncScoresV3Client, ScoresV3Client
-    from .sessions.client import AsyncSessionsClient, SessionsClient
     from .trace.client import AsyncTraceClient, TraceClient
     from .unstable.client import AsyncUnstableClient, UnstableClient
 
@@ -136,7 +131,6 @@ class LangfuseAPI:
         ] = None
         self._comments: typing.Optional[CommentsClient] = None
         self._dataset_items: typing.Optional[DatasetItemsClient] = None
-        self._dataset_run_items: typing.Optional[DatasetRunItemsClient] = None
         self._datasets: typing.Optional[DatasetsClient] = None
         self._evaluation_rules: typing.Optional[EvaluationRulesClient] = None
         self._evaluators: typing.Optional[EvaluatorsClient] = None
@@ -159,7 +153,6 @@ class LangfuseAPI:
         self._score_configs: typing.Optional[ScoreConfigsClient] = None
         self._scores_v3: typing.Optional[ScoresV3Client] = None
         self._scores: typing.Optional[ScoresClient] = None
-        self._sessions: typing.Optional[SessionsClient] = None
         self._trace: typing.Optional[TraceClient] = None
         self._unstable: typing.Optional[UnstableClient] = None
 
@@ -200,16 +193,6 @@ class LangfuseAPI:
                 client_wrapper=self._client_wrapper
             )
         return self._dataset_items
-
-    @property
-    def dataset_run_items(self):
-        if self._dataset_run_items is None:
-            from .dataset_run_items.client import DatasetRunItemsClient  # noqa: E402
-
-            self._dataset_run_items = DatasetRunItemsClient(
-                client_wrapper=self._client_wrapper
-            )
-        return self._dataset_run_items
 
     @property
     def datasets(self):
@@ -400,14 +383,6 @@ class LangfuseAPI:
         return self._scores
 
     @property
-    def sessions(self):
-        if self._sessions is None:
-            from .sessions.client import SessionsClient  # noqa: E402
-
-            self._sessions = SessionsClient(client_wrapper=self._client_wrapper)
-        return self._sessions
-
-    @property
     def trace(self):
         if self._trace is None:
             from .trace.client import TraceClient  # noqa: E402
@@ -508,7 +483,6 @@ class AsyncLangfuseAPI:
         ] = None
         self._comments: typing.Optional[AsyncCommentsClient] = None
         self._dataset_items: typing.Optional[AsyncDatasetItemsClient] = None
-        self._dataset_run_items: typing.Optional[AsyncDatasetRunItemsClient] = None
         self._datasets: typing.Optional[AsyncDatasetsClient] = None
         self._evaluation_rules: typing.Optional[AsyncEvaluationRulesClient] = None
         self._evaluators: typing.Optional[AsyncEvaluatorsClient] = None
@@ -531,7 +505,6 @@ class AsyncLangfuseAPI:
         self._score_configs: typing.Optional[AsyncScoreConfigsClient] = None
         self._scores_v3: typing.Optional[AsyncScoresV3Client] = None
         self._scores: typing.Optional[AsyncScoresClient] = None
-        self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._trace: typing.Optional[AsyncTraceClient] = None
         self._unstable: typing.Optional[AsyncUnstableClient] = None
 
@@ -574,16 +547,6 @@ class AsyncLangfuseAPI:
                 client_wrapper=self._client_wrapper
             )
         return self._dataset_items
-
-    @property
-    def dataset_run_items(self):
-        if self._dataset_run_items is None:
-            from .dataset_run_items.client import AsyncDatasetRunItemsClient  # noqa: E402
-
-            self._dataset_run_items = AsyncDatasetRunItemsClient(
-                client_wrapper=self._client_wrapper
-            )
-        return self._dataset_run_items
 
     @property
     def datasets(self):
@@ -778,14 +741,6 @@ class AsyncLangfuseAPI:
 
             self._scores = AsyncScoresClient(client_wrapper=self._client_wrapper)
         return self._scores
-
-    @property
-    def sessions(self):
-        if self._sessions is None:
-            from .sessions.client import AsyncSessionsClient  # noqa: E402
-
-            self._sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
-        return self._sessions
 
     @property
     def trace(self):

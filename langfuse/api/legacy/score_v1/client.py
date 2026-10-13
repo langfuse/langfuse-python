@@ -10,6 +10,7 @@ from ...scores.client import (
     ScoresClient as CanonicalScoresClient,
     OMIT,
 )
+from ...scores.types.create_score_request import CreateScoreRequest
 from ...scores.types.create_score_response import CreateScoreResponse
 from ...scores.types.create_score_source import CreateScoreSource
 from ...core.request_options import RequestOptions
@@ -51,25 +52,33 @@ class ScoreV1Client:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
         """**Deprecated compatibility alias.** Use ``client.scores.create``."""
-        return CanonicalScoresClient(
-            client_wrapper=self._raw_client._client_wrapper
-        ).create(
+        optional_fields: typing.Dict[str, typing.Any] = {
+            "id": id,
+            "trace_id": trace_id,
+            "session_id": session_id,
+            "observation_id": observation_id,
+            "dataset_run_id": dataset_run_id,
+            "comment": comment,
+            "metadata": metadata,
+            "environment": environment,
+            "queue_id": queue_id,
+            "data_type": data_type,
+            "config_id": config_id,
+            "source": source,
+        }
+        request = CreateScoreRequest(
             name=name,
             value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
+            **{
+                key: field
+                for key, field in optional_fields.items()
+                if field is not OMIT
+            },
         )
+        response = CanonicalScoresClient(
+            client_wrapper=self._raw_client._client_wrapper
+        ).create(request=request, request_options=request_options)
+        return typing.cast(CreateScoreResponse, response)
 
     def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -144,25 +153,33 @@ class AsyncScoreV1Client:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateScoreResponse:
         """**Deprecated compatibility alias.** Use ``client.scores.create``."""
-        return await CanonicalAsyncScoresClient(
-            client_wrapper=self._raw_client._client_wrapper
-        ).create(
+        optional_fields: typing.Dict[str, typing.Any] = {
+            "id": id,
+            "trace_id": trace_id,
+            "session_id": session_id,
+            "observation_id": observation_id,
+            "dataset_run_id": dataset_run_id,
+            "comment": comment,
+            "metadata": metadata,
+            "environment": environment,
+            "queue_id": queue_id,
+            "data_type": data_type,
+            "config_id": config_id,
+            "source": source,
+        }
+        request = CreateScoreRequest(
             name=name,
             value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
+            **{
+                key: field
+                for key, field in optional_fields.items()
+                if field is not OMIT
+            },
         )
+        response = await CanonicalAsyncScoresClient(
+            client_wrapper=self._raw_client._client_wrapper
+        ).create(request=request, request_options=request_options)
+        return typing.cast(CreateScoreResponse, response)
 
     async def delete(
         self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None

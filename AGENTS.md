@@ -109,7 +109,7 @@ Minimum verification matrix:
 The main CI workflow currently runs:
 - linting on Python 3.13
 - mypy on Python 3.13
-- `tests/unit` on a Python 3.10-3.14 matrix
+- `tests/unit` on a Python 3.11-3.14 matrix
 - `tests/e2e` in 2 mechanical shards plus a serial subset inside each shard
 - `tests/live_provider` as one always-on suite
 - PR title validation for Conventional Commits

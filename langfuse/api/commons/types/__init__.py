@@ -7,11 +7,8 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .base_score import BaseScore
-    from .base_score_v1 import BaseScoreV1
     from .boolean_score import BooleanScore
-    from .boolean_score_v1 import BooleanScoreV1
     from .categorical_score import CategoricalScore
-    from .categorical_score_v1 import CategoricalScoreV1
     from .comment import Comment
     from .comment_object_type import CommentObjectType
     from .config_category import ConfigCategory
@@ -22,9 +19,6 @@ if typing.TYPE_CHECKING:
     from .dataset_item_media_reference import DatasetItemMediaReference
     from .dataset_item_media_reference_field import DatasetItemMediaReferenceField
     from .dataset_item_media_reference_media import DatasetItemMediaReferenceMedia
-    from .dataset_run import DatasetRun
-    from .dataset_run_item import DatasetRunItem
-    from .dataset_run_with_items import DatasetRunWithItems
     from .dataset_status import DatasetStatus
     from .deprecation import Deprecation
     from .map_value import MapValue
@@ -32,12 +26,8 @@ if typing.TYPE_CHECKING:
     from .model_price import ModelPrice
     from .model_usage_unit import ModelUsageUnit
     from .numeric_score import NumericScore
-    from .numeric_score_v1 import NumericScoreV1
-    from .observation import Observation
     from .observation_level import ObservationLevel
     from .observation_v2 import ObservationV2
-    from .observations_view import ObservationsView
-    from .observations_view_single import ObservationsViewSingle
     from .pricing_tier import PricingTier
     from .pricing_tier_attribute_condition import PricingTierAttributeCondition
     from .pricing_tier_attribute_source import PricingTierAttributeSource
@@ -59,28 +49,12 @@ if typing.TYPE_CHECKING:
     from .score_config_data_type import ScoreConfigDataType
     from .score_data_type import ScoreDataType
     from .score_source import ScoreSource
-    from .score_v1 import (
-        ScoreV1,
-        ScoreV1_Boolean,
-        ScoreV1_Categorical,
-        ScoreV1_Numeric,
-        ScoreV1_Text,
-    )
-    from .session import Session
-    from .session_with_traces import SessionWithTraces
     from .text_score import TextScore
-    from .text_score_v1 import TextScoreV1
-    from .trace import Trace
-    from .trace_with_details import TraceWithDetails
-    from .trace_with_full_details import TraceWithFullDetails
     from .usage import Usage
 _dynamic_imports: typing.Dict[str, str] = {
     "BaseScore": ".base_score",
-    "BaseScoreV1": ".base_score_v1",
     "BooleanScore": ".boolean_score",
-    "BooleanScoreV1": ".boolean_score_v1",
     "CategoricalScore": ".categorical_score",
-    "CategoricalScoreV1": ".categorical_score_v1",
     "Comment": ".comment",
     "CommentObjectType": ".comment_object_type",
     "ConfigCategory": ".config_category",
@@ -91,9 +65,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DatasetItemMediaReference": ".dataset_item_media_reference",
     "DatasetItemMediaReferenceField": ".dataset_item_media_reference_field",
     "DatasetItemMediaReferenceMedia": ".dataset_item_media_reference_media",
-    "DatasetRun": ".dataset_run",
-    "DatasetRunItem": ".dataset_run_item",
-    "DatasetRunWithItems": ".dataset_run_with_items",
     "DatasetStatus": ".dataset_status",
     "Deprecation": ".deprecation",
     "MapValue": ".map_value",
@@ -101,12 +72,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ModelPrice": ".model_price",
     "ModelUsageUnit": ".model_usage_unit",
     "NumericScore": ".numeric_score",
-    "NumericScoreV1": ".numeric_score_v1",
-    "Observation": ".observation",
     "ObservationLevel": ".observation_level",
     "ObservationV2": ".observation_v2",
-    "ObservationsView": ".observations_view",
-    "ObservationsViewSingle": ".observations_view_single",
     "PricingTier": ".pricing_tier",
     "PricingTierAttributeCondition": ".pricing_tier_attribute_condition",
     "PricingTierAttributeSource": ".pricing_tier_attribute_source",
@@ -121,23 +88,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScoreConfigDataType": ".score_config_data_type",
     "ScoreDataType": ".score_data_type",
     "ScoreSource": ".score_source",
-    "ScoreV1": ".score_v1",
-    "ScoreV1_Boolean": ".score_v1",
-    "ScoreV1_Categorical": ".score_v1",
-    "ScoreV1_Numeric": ".score_v1",
-    "ScoreV1_Text": ".score_v1",
     "Score_Boolean": ".score",
     "Score_Categorical": ".score",
     "Score_Correction": ".score",
     "Score_Numeric": ".score",
     "Score_Text": ".score",
-    "Session": ".session",
-    "SessionWithTraces": ".session_with_traces",
     "TextScore": ".text_score",
-    "TextScoreV1": ".text_score_v1",
-    "Trace": ".trace",
-    "TraceWithDetails": ".trace_with_details",
-    "TraceWithFullDetails": ".trace_with_full_details",
     "Usage": ".usage",
 }
 
@@ -171,11 +127,8 @@ def __dir__():
 
 __all__ = [
     "BaseScore",
-    "BaseScoreV1",
     "BooleanScore",
-    "BooleanScoreV1",
     "CategoricalScore",
-    "CategoricalScoreV1",
     "Comment",
     "CommentObjectType",
     "ConfigCategory",
@@ -186,9 +139,6 @@ __all__ = [
     "DatasetItemMediaReference",
     "DatasetItemMediaReferenceField",
     "DatasetItemMediaReferenceMedia",
-    "DatasetRun",
-    "DatasetRunItem",
-    "DatasetRunWithItems",
     "DatasetStatus",
     "Deprecation",
     "MapValue",
@@ -196,12 +146,8 @@ __all__ = [
     "ModelPrice",
     "ModelUsageUnit",
     "NumericScore",
-    "NumericScoreV1",
-    "Observation",
     "ObservationLevel",
     "ObservationV2",
-    "ObservationsView",
-    "ObservationsViewSingle",
     "PricingTier",
     "PricingTierAttributeCondition",
     "PricingTierAttributeSource",
@@ -216,22 +162,11 @@ __all__ = [
     "ScoreConfigDataType",
     "ScoreDataType",
     "ScoreSource",
-    "ScoreV1",
-    "ScoreV1_Boolean",
-    "ScoreV1_Categorical",
-    "ScoreV1_Numeric",
-    "ScoreV1_Text",
     "Score_Boolean",
     "Score_Categorical",
     "Score_Correction",
     "Score_Numeric",
     "Score_Text",
-    "Session",
-    "SessionWithTraces",
     "TextScore",
-    "TextScoreV1",
-    "Trace",
-    "TraceWithDetails",
-    "TraceWithFullDetails",
     "Usage",
 ]

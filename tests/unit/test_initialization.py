@@ -100,6 +100,16 @@ class TestClientInitialization:
 
         assert client._base_url == "http://env-host.com"
 
+    def test_env_host_fallback_logs_no_warning(self, cleanup_env_vars, caplog):
+        """Test that LANGFUSE_HOST keeps working without a deprecation warning."""
+        caplog.set_level("WARNING", logger="langfuse")
+        os.environ["LANGFUSE_HOST"] = "http://env-host.com"
+
+        client = Langfuse(public_key="test_pk", secret_key="test_sk")
+
+        assert client._base_url == "http://env-host.com"
+        assert not any("deprecated" in record.message for record in caplog.records)
+
     def test_default_base_url(self, cleanup_env_vars):
         """Test that default base_url is used when nothing is set."""
         client = Langfuse(

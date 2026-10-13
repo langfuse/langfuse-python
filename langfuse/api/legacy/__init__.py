@@ -6,17 +6,8 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from . import metrics_v1, observations_v1, score_v1
-    from .metrics_v1 import MetricsResponse
-    from .observations_v1 import Observations, ObservationsViews
-_dynamic_imports: typing.Dict[str, str] = {
-    "MetricsResponse": ".metrics_v1",
-    "Observations": ".observations_v1",
-    "ObservationsViews": ".observations_v1",
-    "metrics_v1": ".metrics_v1",
-    "observations_v1": ".observations_v1",
-    "score_v1": ".score_v1",
-}
+    from . import score_v1
+_dynamic_imports: typing.Dict[str, str] = {"score_v1": ".score_v1"}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -46,14 +37,7 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "MetricsResponse",
-    "Observations",
-    "ObservationsViews",
-    "metrics_v1",
-    "observations_v1",
-    "score_v1",
-]
+__all__ = ["score_v1"]
 
 # Score-create compatibility aliases (LFE-10397).
 from .score_v1 import CreateScoreRequest
