@@ -20,7 +20,6 @@ from typing import (
     List,
     Literal,
     Optional,
-    Set,
     Tuple,
     Type,
     Union,
@@ -2676,7 +2675,6 @@ class Langfuse:
 
         # Set up concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
-        sampled_trace_ids: Set[str] = set()
 
         # Process all items
         async def process_item(item: ExperimentItem) -> ExperimentItemResult:
@@ -2692,7 +2690,6 @@ class Langfuse:
                     description,
                     metadata,
                     experiment_item_version,
-                    sampled_trace_ids,
                 )
 
         # Run all items concurrently
@@ -2724,17 +2721,8 @@ class Langfuse:
             else None
         )
 
-        # Without an exported item span the experiment does not exist on the server,
-        # so a run score would be orphaned.
-        stored_run_evaluations = run_evaluations if sampled_trace_ids else []
-        if run_evaluations and not stored_run_evaluations:
-            langfuse_logger.debug(
-                "Skipping run-level scores for experiment %s: all items were sampled out.",
-                experiment_id,
-            )
-
         # Run-level scores attach to the experiment via dataset_run_id == experiment_id.
-        for evaluation in stored_run_evaluations:
+        for evaluation in run_evaluations:
             try:
                 self.create_score(
                     dataset_run_id=experiment_id,
@@ -2806,7 +2794,6 @@ class Langfuse:
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
         experiment_item_version: Optional[str] = None,
-        sampled_trace_ids: Optional[Set[str]] = None,
     ) -> ExperimentItemResult:
         with self.start_as_current_observation(name="experiment-item-run") as span:
             try:
@@ -2915,13 +2902,6 @@ class Langfuse:
                                 otel_context_api.get_current()
                             ),
                         )
-                        # Only a sampled span carrying the experiment attributes
-                        # creates the experiment on the server.
-                        if (
-                            sampled_trace_ids is not None
-                            and span._otel_span.get_span_context().trace_flags.sampled
-                        ):
-                            sampled_trace_ids.add(span.trace_id)
                         # Write the observation metadata after the experiment
                         # attributes, so the span attribute limit trims the
                         # metadata instead of leaving no room for the output.
