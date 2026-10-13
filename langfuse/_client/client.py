@@ -10,7 +10,7 @@ import re
 import urllib.parse
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import sha256
 from time import time_ns
 from typing import (
@@ -98,6 +98,7 @@ from langfuse.api import (
     AsyncLangfuseAPI,
     CreateChatPromptRequest,
     CreateChatPromptType,
+    CreateScoreRequest,
     CreateTextPromptRequest,
     Dataset,
     DatasetItem,
@@ -109,8 +110,6 @@ from langfuse.api import (
     NotFoundError,
     Prompt_Chat,
     Prompt_Text,
-    ScoreBody,
-    TraceBody,
 )
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
@@ -1941,28 +1940,34 @@ class Langfuse:
 
         score_id = score_id or self._create_observation_id()
 
+        # The API rejects timestamps without a UTC offset; naive values are UTC.
+        if timestamp is not None and timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+
         try:
-            new_body = ScoreBody(
+            request = CreateScoreRequest(
                 id=score_id,
-                sessionId=session_id,
-                datasetRunId=dataset_run_id,
-                traceId=trace_id,
-                observationId=observation_id,
+                session_id=session_id,
+                dataset_run_id=dataset_run_id,
+                trace_id=trace_id,
+                observation_id=observation_id,
                 name=name,
                 value=value,
-                dataType=data_type,  # type: ignore
+                data_type=data_type,  # type: ignore
                 comment=comment,
-                configId=config_id,
+                config_id=config_id,
                 environment=environment or self._environment,
-                metadata=metadata,
+                timestamp=timestamp or _get_timestamp(),
             )
-
-            event = {
-                "id": self.create_trace_id(),
-                "type": "score-create",
-                "timestamp": timestamp or _get_timestamp(),
-                "body": new_body,
+            # Fern's dict() keeps fields explicitly set to None, so drop them here.
+            score = {
+                key: value
+                for key, value in request.dict(by_alias=True).items()
+                if value is not None
             }
+            # The API accepts any JSON value as metadata, the generated model only dicts.
+            if metadata is not None:
+                score["metadata"] = metadata
 
             if self._resources is not None:
                 # Force the score to be in sample if it was for a legacy trace ID, i.e. non-32 hexchar
@@ -1971,7 +1976,7 @@ class Langfuse:
                 )
 
                 self._resources.add_score_task(
-                    event,
+                    score,
                     force_sample=force_sample,
                 )
 
@@ -1981,42 +1986,6 @@ class Langfuse:
                 "name=%s. Error: %s",
                 trace_id,
                 name,
-                e,
-            )
-
-    def _create_trace_tags_via_ingestion(
-        self,
-        *,
-        trace_id: str,
-        tags: List[str],
-    ) -> None:
-        """Private helper to enqueue trace tag updates via ingestion API events."""
-        if not self._tracing_enabled:
-            return
-
-        if len(tags) == 0:
-            return
-
-        try:
-            new_body = TraceBody(
-                id=trace_id,
-                tags=tags,
-            )
-
-            event = {
-                "id": self.create_trace_id(),
-                "type": "trace-create",
-                "timestamp": _get_timestamp(),
-                "body": new_body,
-            }
-
-            if self._resources is not None:
-                self._resources.add_trace_task(event)
-        except Exception as e:
-            langfuse_logger.exception(
-                "Error updating trace tags: Failed to process trace update event for "
-                "trace_id=%s. Error: %s",
-                trace_id,
                 e,
             )
 

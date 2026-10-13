@@ -130,7 +130,7 @@ def test_update_over_limit_keeps_earlier_attributes(
     assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT] == "the input"
     assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "the output"
     for i in range(100):
-        assert attributes[f"{METADATA_PREFIX}first_{i}"] == i
+        assert attributes[f"{METADATA_PREFIX}first_{i}"] == str(i)
 
     second = [key for key in _metadata_keys(span) if ".second_" in key]
     assert second == [f"{METADATA_PREFIX}second_{i}" for i in range(len(second))]
@@ -177,7 +177,7 @@ def test_overwriting_existing_metadata_keys_at_limit_is_allowed(
     assert span.dropped_attributes == 0
     assert len(span.attributes) == len(span_at_start.attributes)
     for key in kept:
-        assert span.attributes[key] == "new"
+        assert span.attributes[key] == '"new"'
     assert _limit_warnings(caplog) == []
 
 
@@ -242,8 +242,8 @@ def test_metadata_under_limit_is_unchanged(langfuse_memory_client, get_span, cap
     assert span.dropped_attributes == 0
     assert len(_metadata_keys(span)) == 51
     for i in range(50):
-        assert span.attributes[f"{METADATA_PREFIX}key_{i}"] == i
-    assert span.attributes[f"{METADATA_PREFIX}extra"] == "value"
+        assert span.attributes[f"{METADATA_PREFIX}key_{i}"] == str(i)
+    assert span.attributes[f"{METADATA_PREFIX}extra"] == '"value"'
     assert _limit_warnings(caplog) == []
 
 
@@ -566,10 +566,14 @@ def test_experiment_with_large_metadata_keeps_output_and_experiment_attributes(
     # Observation metadata is trimmed, but the run keys survive and the run
     # value wins over the user key of the same name.
     assert 0 < len(_metadata_keys(task_span)) < len(item_metadata) + 4
-    assert attributes[f"{METADATA_PREFIX}experiment_name"] == "big-metadata-experiment"
-    assert attributes[f"{METADATA_PREFIX}experiment_run_name"] == result.run_name
-    assert attributes[f"{METADATA_PREFIX}dataset_id"] == "dataset-1"
-    assert attributes[f"{METADATA_PREFIX}dataset_item_id"] == "item-1"
+    assert attributes[f"{METADATA_PREFIX}experiment_name"] == json.dumps(
+        "big-metadata-experiment"
+    )
+    assert attributes[f"{METADATA_PREFIX}experiment_run_name"] == json.dumps(
+        result.run_name
+    )
+    assert attributes[f"{METADATA_PREFIX}dataset_id"] == '"dataset-1"'
+    assert attributes[f"{METADATA_PREFIX}dataset_item_id"] == '"item-1"'
     assert f"{METADATA_PREFIX}item_149" not in attributes
 
     item_run = get_span("experiment-item-run")
@@ -577,8 +581,8 @@ def test_experiment_with_large_metadata_keeps_output_and_experiment_attributes(
     assert item_run.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == (
         "the answer"
     )
-    assert (
-        item_run.attributes[f"{METADATA_PREFIX}experiment_run_name"] == result.run_name
+    assert item_run.attributes[f"{METADATA_PREFIX}experiment_run_name"] == json.dumps(
+        result.run_name
     )
     assert LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_METADATA in item_run.attributes
 

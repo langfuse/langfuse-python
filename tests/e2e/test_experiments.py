@@ -18,6 +18,7 @@ from langfuse.experiment import (
     ExperimentItem,
     ExperimentItemResult,
 )
+from tests.support.utils import raw_metadata_value
 
 T = TypeVar("T")
 
@@ -216,7 +217,7 @@ def test_run_experiment_on_local_dataset(sample_dataset):
         assert item.output == expected_output
         assert item.expected_output == expected_answer
         assert item.metadata is not None
-        assert item.metadata["experiment_name"] == "Euro capitals"
+        assert item.metadata["experiment_name"] == raw_metadata_value("Euro capitals")
 
     # Run-level evaluations are persisted for local data, too
     experiment = get_experiment(
@@ -362,9 +363,11 @@ def test_run_experiment_on_langfuse_dataset():
         assert item.expected_output == dataset_item.expected_output
 
         assert item.metadata is not None
-        assert item.metadata["experiment_name"] == experiment_name
-        assert item.metadata["dataset_id"] == dataset.id
-        assert item.metadata["dataset_item_id"] == item.experiment_item_id
+        assert item.metadata["experiment_name"] == raw_metadata_value(experiment_name)
+        assert item.metadata["dataset_id"] == raw_metadata_value(dataset.id)
+        assert item.metadata["dataset_item_id"] == raw_metadata_value(
+            item.experiment_item_id
+        )
 
         assert [s.name for s in item.scores or []] == ["factuality"]
 
