@@ -489,7 +489,6 @@ class LangfuseResourceManager:
         """
         try:
             trace_id = score.get("traceId")
-            # Sample scores with the same sampler that is used for tracing
             tracer_provider = (
                 self.tracer_provider or otel_trace_api.get_tracer_provider()
             )
@@ -498,8 +497,10 @@ class LangfuseResourceManager:
                 force_sample
                 # do not sample out session / dataset run scores
                 or trace_id is None
-                # default to in-sample if otel sampler is not available
-                or sampler is None
+                # Only a trace-id ratio sampler gives the trace's actual decision
+                # from the trace id alone. Parent-based, random or attribute-based
+                # samplers may have recorded the trace, so keep its scores.
+                or not isinstance(sampler, TraceIdRatioBased)
                 or sampler.should_sample(
                     parent_context=None,
                     trace_id=int(trace_id, 16),

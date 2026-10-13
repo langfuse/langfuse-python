@@ -2,6 +2,7 @@
 
 import json
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from queue import Queue
@@ -11,7 +12,7 @@ import httpx
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
+from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ParentBased, TraceIdRatioBased
 
 from langfuse import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
@@ -242,7 +243,17 @@ def test_does_not_retry_client_errors(status, caplog):
 
 
 def test_pause_sends_carried_over_score(monkeypatch):
-    recorder = Recorder(_responder(ACCEPTED))
+    first_request_started = threading.Event()
+    release_first_request = threading.Event()
+    accept = _responder(ACCEPTED)
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        if not first_request_started.is_set():
+            first_request_started.set()
+            release_first_request.wait(timeout=5)
+        return accept(request)
+
+    recorder = Recorder(respond)
     queue: Queue = Queue()
     scores = [_score(name) for name in ("a", "b")]
     for score in scores:
@@ -255,9 +266,11 @@ def test_pause_sends_carried_over_score(monkeypatch):
     consumer = _consumer(recorder, queue)
 
     consumer.start()
-    queue.join()
+    assert first_request_started.wait(timeout=5)
+    # "b" did not fit into the in-flight batch and waits as carry-over.
     consumer.pause()
-    consumer.join(timeout=1)
+    release_first_request.set()
+    consumer.join(timeout=5)
 
     assert not consumer.is_alive()
     assert [[s["name"] for s in body] for body in recorder.bodies] == [["a"], ["b"]]
@@ -387,3 +400,17 @@ def test_scores_for_sampled_out_traces_are_dropped(client_factory):
     client.flush()
 
     assert recorder.requests == []
+
+
+def test_scores_are_kept_when_sampler_decision_depends_on_more_than_trace_id(
+    client_factory,
+):
+    recorder = Recorder(_responder(ACCEPTED))
+    provider = TracerProvider(sampler=ParentBased(ALWAYS_OFF))
+    client = client_factory(recorder, tracer_provider=provider)
+
+    client.create_score(name="kept", value=1.0, trace_id="0" * 32)
+    client.flush()
+
+    sent = [score["name"] for body in recorder.bodies for score in body]
+    assert sent == ["kept"]
