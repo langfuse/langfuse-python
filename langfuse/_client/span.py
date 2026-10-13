@@ -64,9 +64,17 @@ from langfuse.types import SpanLevel
 _OBSERVATION_CLASS_MAP: Dict[str, Type["LangfuseObservationWrapper"]] = {}
 
 
-def _is_observation_metadata_key(key: str) -> bool:
-    prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
-    return key == prefix or key.startswith(prefix + ".")
+_METADATA_KEY_PREFIXES: Tuple[str, ...] = (
+    LangfuseOtelSpanAttributes.OBSERVATION_METADATA,
+    LangfuseOtelSpanAttributes.TRACE_METADATA,
+)
+
+
+def _is_metadata_key(key: str) -> bool:
+    return any(
+        key == prefix or key.startswith(prefix + ".")
+        for prefix in _METADATA_KEY_PREFIXES
+    )
 
 
 # Attributes the SDK may write in later updates of an observation. Metadata
@@ -152,7 +160,7 @@ def _drop_attributes_over_span_limit(
             return attributes
 
         new_metadata_keys = [
-            key for key in new_keys if _is_observation_metadata_key(key)
+            key for key in new_keys if _is_metadata_key(key)
         ]
         free_metadata_slots = max(
             0,
@@ -172,10 +180,10 @@ def _drop_attributes_over_span_limit(
         # The metadata budget is never looser than the hard guard, so only
         # non-metadata keys can be dropped here. Count any metadata defensively.
         dropped_metadata += [
-            key for key in dropped_other if _is_observation_metadata_key(key)
+            key for key in dropped_other if _is_metadata_key(key)
         ]
         dropped_other = [
-            key for key in dropped_other if not _is_observation_metadata_key(key)
+            key for key in dropped_other if not _is_metadata_key(key)
         ]
 
         if not dropped_metadata and not dropped_other:
