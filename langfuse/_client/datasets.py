@@ -89,6 +89,7 @@ class DatasetClient:
         composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
+        run_sync_tasks_in_threads: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> ExperimentResult:
         """Run an experiment on this Langfuse dataset with automatic tracking.
@@ -126,6 +127,12 @@ class DatasetClient:
                 Useful for computing aggregate statistics across all dataset items.
             max_concurrency: Maximum number of concurrent task executions (default: 50).
                 Adjust based on API rate limits and system resources.
+            run_sync_tasks_in_threads: Opt in to concurrent synchronous tasks in a
+                dedicated pool with up to `max_concurrency` workers (default: False).
+                Tasks must be thread-safe; create thread-bound resources inside the
+                task. Async tasks stay on the experiment loop. Cancellation cannot
+                stop synchronous tasks already running in threads. See
+                `Langfuse.run_experiment` for resource ownership and timeout guidance.
             metadata: Optional metadata to attach to the experiment run and all traces.
                 Will be combined with individual item metadata.
 
@@ -300,6 +307,7 @@ class DatasetClient:
             composite_evaluator=composite_evaluator,
             run_evaluators=run_evaluators,
             max_concurrency=max_concurrency,
+            run_sync_tasks_in_threads=run_sync_tasks_in_threads,
             metadata=metadata,
             _dataset_version=self.version,
         )

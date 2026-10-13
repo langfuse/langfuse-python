@@ -9,6 +9,7 @@ import os
 import re
 import urllib.parse
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from hashlib import sha256
 from time import time_ns
@@ -2461,6 +2462,7 @@ class Langfuse:
         composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
+        run_sync_tasks_in_threads: bool = False,
         metadata: Optional[Dict[str, str]] = None,
         _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
@@ -2506,6 +2508,17 @@ class Langfuse:
             max_concurrency: Maximum number of concurrent task executions (default: 50).
                 Controls the number of items processed simultaneously. Adjust based on
                 API rate limits and system resources.
+            run_sync_tasks_in_threads: Opt in to running synchronous tasks in a
+                dedicated thread pool with up to `max_concurrency` workers (default:
+                False). This enables concurrency for blocking I/O without changing
+                the default event-loop execution. Async tasks stay on the experiment
+                loop. When enabled, tasks must be thread-safe: create and close
+                thread-bound resources, such as SQLite connections, inside the task.
+                Even `max_concurrency=1` offloads synchronous tasks. Exceptions are
+                still logged and failed items omitted. Cancellation does not stop
+                tasks already running in threads, which can continue after the
+                experiment returns and delay Python process exit. Use finite I/O
+                timeouts. For cooperative cancellation, prefer async tasks.
             metadata: Optional metadata dictionary to attach to all experiment traces.
                 This metadata will be included in every trace created during the experiment
                 and is shown as the experiment's metadata in Langfuse.
@@ -2648,6 +2661,7 @@ class Langfuse:
                     composite_evaluator=composite_evaluator,
                     run_evaluators=run_evaluators or [],
                     max_concurrency=max_concurrency,
+                    run_sync_tasks_in_threads=run_sync_tasks_in_threads,
                     metadata=metadata,
                     dataset_version=_dataset_version,
                 ),
@@ -2666,6 +2680,7 @@ class Langfuse:
         composite_evaluator: Optional[CompositeEvaluatorFunction],
         run_evaluators: List[RunEvaluatorFunction],
         max_concurrency: int,
+        run_sync_tasks_in_threads: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
         dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
@@ -2704,6 +2719,11 @@ class Langfuse:
 
         # Set up concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
+        task_executor = (
+            ThreadPoolExecutor(max_workers=max_concurrency)
+            if run_sync_tasks_in_threads
+            else None
+        )
 
         # Process all items
         async def process_item(item: ExperimentItem) -> ExperimentItemResult:
@@ -2719,11 +2739,18 @@ class Langfuse:
                     description,
                     metadata,
                     experiment_item_version,
+                    task_executor=task_executor,
                 )
 
         # Run all items concurrently
-        tasks = [process_item(item) for item in data]
-        item_results = await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            tasks = [process_item(item) for item in data]
+            item_results = await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            if task_executor is not None:
+                # Do not block the event loop on cancellation. Running calls
+                # cannot be stopped, but queued calls must not start afterward.
+                task_executor.shutdown(wait=False, cancel_futures=True)
 
         # Filter out any exceptions and log errors
         valid_results: List[ExperimentItemResult] = []
@@ -2860,6 +2887,8 @@ class Langfuse:
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
         experiment_item_version: Optional[str] = None,
+        *,
+        task_executor: Optional[ThreadPoolExecutor] = None,
     ) -> ExperimentItemResult:
         with self.start_as_current_observation(name="experiment-item-run") as span:
             try:
@@ -2973,7 +3002,7 @@ class Langfuse:
                         # metadata instead of leaving no room for the output.
                         task_span.update(metadata=final_observation_metadata)
                         try:
-                            output = await _run_task(task, item)
+                            output = await _run_task(task, item, executor=task_executor)
                         except Exception as e:
                             task_span.update(
                                 output=f"Error: {str(e)}",

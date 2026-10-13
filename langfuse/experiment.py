@@ -8,6 +8,8 @@ and result formatting.
 import asyncio
 import inspect
 import warnings
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from datetime import datetime
 from functools import partial
 from typing import (
@@ -645,15 +647,17 @@ class TaskFunction(Protocol):
     - Can be either synchronous or asynchronous
     - Should handle their own errors gracefully (exceptions will be logged)
 
-    Synchronous task functions run in worker threads so blocking calls can run
-    concurrently. Asynchronous task functions, including their decorated wrappers,
-    run on the experiment's event loop.
+    By default, synchronous task functions run on the experiment's event loop,
+    so blocking calls execute serially. Set `run_sync_tasks_in_threads=True` on
+    `run_experiment` to run synchronous tasks concurrently in worker threads.
+    Asynchronous tasks, including decorated wrappers, stay on the event loop.
 
-    This is a breaking execution-context change in v5. Do not capture a resource
-    that can only be used on the caller's thread, such as a default sqlite3
-    connection, in a synchronous task. Create and close the resource inside the
-    task or use an asynchronous client on the experiment's event loop. Setting
-    max_concurrency to 1 does not restore caller-thread execution.
+    When opting in, synchronous tasks must be thread-safe. Create and close
+    thread-bound resources such as sqlite3 connections inside the task, rather
+    than capturing a connection created on the caller's thread. Even
+    `max_concurrency=1` offloads the task. Task exceptions are logged and failed
+    items are omitted from the result. Cancellation cannot stop a synchronous
+    task already running in a thread; use finite timeouts on blocking I/O.
     """
 
     def __call__(
@@ -1095,13 +1099,23 @@ def _is_async_task(task: Any) -> bool:
     return False
 
 
-async def _run_task(task: TaskFunction, item: ExperimentItem) -> Any:
+async def _run_task(
+    task: TaskFunction,
+    item: ExperimentItem,
+    *,
+    executor: Optional[ThreadPoolExecutor] = None,
+) -> Any:
     """Run a task function and handle sync/async."""
     result: Any
-    if _is_async_task(task):
+    if executor is None or _is_async_task(task):
         result = task(item=item)
     else:
-        result = await asyncio.to_thread(task, item=item)
+        # run_in_executor does not propagate ContextVars itself. Copy separately
+        # for every item so worker spans inherit that item's tracing context.
+        context = copy_context()
+        result = await asyncio.get_running_loop().run_in_executor(
+            executor, context.run, partial(task, item=item)
+        )
 
     # Handle async tasks
     if asyncio.iscoroutine(result):
@@ -1206,6 +1220,7 @@ class RunnerContext:
         composite_evaluator: Optional["CompositeEvaluatorFunction"] = None,
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
+        run_sync_tasks_in_threads: bool = False,
         metadata: Optional[Dict[str, str]] = None,
         _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
@@ -1235,6 +1250,7 @@ class RunnerContext:
             composite_evaluator=composite_evaluator,
             run_evaluators=run_evaluators,
             max_concurrency=max_concurrency,
+            run_sync_tasks_in_threads=run_sync_tasks_in_threads,
             metadata=merged_metadata,
             _dataset_version=resolved_dataset_version,
         )

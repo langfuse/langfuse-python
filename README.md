@@ -22,10 +22,6 @@
 
 The [Langfuse](https://langfuse.com) Python SDK covers the full platform: **observability/tracing** (OpenTelemetry-based, with OpenAI and LangChain integrations), **datasets & experiments** (offline evaluation and regression testing of prompt/model changes, including [CI via GitHub Actions](https://github.com/langfuse/experiment-action)), **LLM-as-a-judge and custom evaluations/scores**, **prompt management**, and a **full REST API client**.
 
-On the v5 preparation branch, synchronous experiment tasks run in worker threads.
-This changes resource ownership and concurrency requirements; see the
-[synchronous task migration notes](MIGRATION_V5_SYNC_TASKS.md) before upgrading.
-
 ## Installation
 
 ```

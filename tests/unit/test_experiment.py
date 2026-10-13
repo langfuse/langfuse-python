@@ -5,10 +5,11 @@ import inspect
 import json
 import sqlite3
 import typing
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime, timezone
 from functools import partial, wraps
-from threading import Barrier, get_ident
+from threading import Barrier, Event, get_ident
 from typing import get_type_hints
 from unittest.mock import MagicMock
 
@@ -19,7 +20,8 @@ from opentelemetry import trace as otel_trace_api
 from langfuse import Evaluation, RegressionError, RunnerContext
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
-from langfuse.api import DatasetItem, DatasetStatus
+from langfuse._client.datasets import DatasetClient
+from langfuse.api import Dataset, DatasetItem, DatasetStatus
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
 from langfuse.experiment import ExperimentItemResult, ExperimentResult, _run_task
 
@@ -51,19 +53,68 @@ def _task_form(task, form):
     return task
 
 
+def _experiment_runner(client, entrypoint, inputs):
+    if entrypoint == "client":
+        return partial(client.run_experiment, data=inputs)
+    if entrypoint == "context":
+        return RunnerContext(client=client, data=inputs).run_experiment
+
+    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    dataset = DatasetClient(
+        dataset=Dataset(
+            id="task-dataset",
+            name="task-dataset",
+            project_id="project",
+            metadata=None,
+            created_at=timestamp,
+            updated_at=timestamp,
+        ),
+        items=[
+            DatasetItem(
+                id=str(i),
+                input=item["input"],
+                expected_output=None,
+                metadata=None,
+                media_references=[],
+                status=DatasetStatus.ACTIVE,
+                dataset_id="task-dataset",
+                dataset_name="task-dataset",
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+            for i, item in enumerate(inputs)
+        ],
+        langfuse_client=client,
+    )
+    return dataset.run_experiment
+
+
+@pytest.fixture
+def task_executor():
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        yield executor
+
+
 @pytest.mark.asyncio
-async def test_async_task_stays_on_experiment_event_loop():
+@pytest.mark.parametrize("offload", [False, True])
+async def test_async_task_stays_on_experiment_event_loop(offload, task_executor):
     loop = asyncio.get_running_loop()
 
     async def task(*, item):
         assert asyncio.get_running_loop() is loop
         return item["input"]
 
-    assert await _run_task(task, {"input": "async-result"}) == "async-result"
+    assert (
+        await _run_task(
+            task, {"input": "async-result"}, executor=task_executor if offload else None
+        )
+        == "async-result"
+    )
 
 
 @pytest.mark.asyncio
-async def test_sync_task_returning_coroutine_is_awaited():
+@pytest.mark.parametrize("offload", [False, True])
+async def test_sync_task_returning_coroutine_is_awaited(offload, task_executor):
     loop = asyncio.get_running_loop()
 
     async def async_result():
@@ -73,13 +124,18 @@ async def test_sync_task_returning_coroutine_is_awaited():
     def task(*, item):
         return async_result()
 
-    assert await _run_task(task, {"input": "question"}) == "coroutine-result"
+    assert (
+        await _run_task(
+            task, {"input": "question"}, executor=task_executor if offload else None
+        )
+        == "coroutine-result"
+    )
 
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(3)
 @pytest.mark.parametrize("cycle", ["wrapped", "partial"])
-async def test_cyclic_wrapper_metadata_keeps_sync_task_execution(cycle):
+async def test_cyclic_wrapper_metadata_keeps_sync_task_execution(cycle, task_executor):
     caller_thread = get_ident()
     worker_threads = []
 
@@ -89,7 +145,10 @@ async def test_cyclic_wrapper_metadata_keeps_sync_task_execution(cycle):
 
     task.__wrapped__ = task if cycle == "wrapped" else partial(task)
 
-    assert await _run_task(task, {"input": "cycle-result"}) == "cycle-result"
+    assert (
+        await _run_task(task, {"input": "cycle-result"}, executor=task_executor)
+        == "cycle-result"
+    )
     assert len(worker_threads) == 1
     assert worker_threads[0] != caller_thread
 
@@ -314,6 +373,102 @@ class TestSignatureDriftGuard:
 
 
 class TestExperimentObservationTree:
+    @pytest.mark.parametrize("entrypoint", ["client", "context", "dataset"])
+    @pytest.mark.parametrize("flag", [None, False])
+    def test_default_sync_task_preserves_caller_owned_sqlite_connection(
+        self, entrypoint, flag, langfuse_memory_client
+    ):
+        inputs = [{"input": "A"}, {"input": "B"}]
+        run_experiment = _experiment_runner(langfuse_memory_client, entrypoint, inputs)
+        kwargs = {}
+        if flag is not None:
+            kwargs["run_sync_tasks_in_threads"] = flag
+
+        caller_thread = get_ident()
+        with closing(sqlite3.connect(":memory:")) as connection:
+
+            def task(*, item):
+                assert get_ident() == caller_thread
+                value = item["input"] if isinstance(item, dict) else item.input
+                return connection.execute("SELECT ?", (value,)).fetchone()[0]
+
+            result = run_experiment(
+                name="default-sync-task",
+                task=task,
+                max_concurrency=2,
+                **kwargs,
+            )
+
+        assert [item.output for item in result.item_results] == ["A", "B"]
+
+    @pytest.mark.asyncio
+    async def test_opt_in_sync_tasks_use_experiment_concurrency_not_default_pool(
+        self, langfuse_memory_client
+    ):
+        loop = asyncio.get_running_loop()
+        loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
+        barrier = Barrier(4, timeout=3)
+
+        def task(*, item):
+            barrier.wait()
+            return item["input"]
+
+        result = await langfuse_memory_client._run_experiment_async(
+            name="dedicated-sync-task-pool",
+            run_name="dedicated-sync-task-pool",
+            description=None,
+            data=[{"input": i} for i in range(4)],
+            task=task,
+            evaluators=[],
+            composite_evaluator=None,
+            run_evaluators=[],
+            max_concurrency=4,
+            run_sync_tasks_in_threads=True,
+        )
+
+        assert [item.output for item in result.item_results] == [0, 1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_cancelling_experiment_does_not_wait_for_running_sync_task(
+        self, langfuse_memory_client
+    ):
+        loop = asyncio.get_running_loop()
+        started = asyncio.Event()
+        release = Event()
+        finished = Event()
+
+        def task(*, item):
+            loop.call_soon_threadsafe(started.set)
+            try:
+                release.wait(timeout=3)
+                return item["input"]
+            finally:
+                finished.set()
+
+        experiment = asyncio.create_task(
+            langfuse_memory_client._run_experiment_async(
+                name="cancel-sync-task",
+                run_name="cancel-sync-task",
+                description=None,
+                data=[{"input": "A"}],
+                task=task,
+                evaluators=[],
+                composite_evaluator=None,
+                run_evaluators=[],
+                max_concurrency=1,
+                run_sync_tasks_in_threads=True,
+            )
+        )
+        try:
+            await asyncio.wait_for(started.wait(), timeout=2)
+            experiment.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(experiment, timeout=1)
+            assert not finished.is_set()
+        finally:
+            release.set()
+            await asyncio.to_thread(finished.wait, 2)
+
     def test_thread_affine_sync_task_records_item_failures(
         self, langfuse_memory_client, caplog
     ):
@@ -327,6 +482,7 @@ class TestExperimentObservationTree:
                 data=[{"input": "A"}, {"input": "B"}],
                 task=task,
                 max_concurrency=2,
+                run_sync_tasks_in_threads=True,
             )
 
         assert result.item_results == []
@@ -348,6 +504,7 @@ class TestExperimentObservationTree:
             data=[{"input": "A"}, {"input": "B"}],
             task=task,
             max_concurrency=2,
+            run_sync_tasks_in_threads=True,
         )
 
         assert [item.output for item in result.item_results] == ["A", "B"]
@@ -357,8 +514,9 @@ class TestExperimentObservationTree:
         reason="explicit coroutine markers require Python 3.12+",
     )
     @pytest.mark.parametrize("task_form", ["marked", "partial", "wrapped"])
+    @pytest.mark.parametrize("offload", [False, True])
     def test_marked_coroutine_factory_runs_on_experiment_loop(
-        self, task_form, langfuse_memory_client
+        self, task_form, offload, langfuse_memory_client
     ):
         def sync_target(*, item, prefix):
             return "the wrapped target must not be invoked"
@@ -391,6 +549,7 @@ class TestExperimentObservationTree:
             data=[{"input": "question"}],
             task=task,
             max_concurrency=1,
+            run_sync_tasks_in_threads=offload,
         )
         assert [item.output for item in result.item_results] == [
             f"{expected_prefix}:question"
@@ -405,8 +564,9 @@ class TestExperimentObservationTree:
             ("partial-callable", "partial"),
         ],
     )
+    @pytest.mark.parametrize("offload", [False, True])
     def test_wrapped_async_task_invokes_wrapper_on_event_loop(
-        self, task_form, expected_prefix, langfuse_memory_client
+        self, task_form, expected_prefix, offload, langfuse_memory_client
     ):
         wrapper_calls = []
 
@@ -423,6 +583,7 @@ class TestExperimentObservationTree:
             data=[{"input": "question"}],
             task=_task_form(wrapped, task_form),
             max_concurrency=1,
+            run_sync_tasks_in_threads=offload,
         )
 
         assert [item.output for item in result.item_results] == [
@@ -439,8 +600,9 @@ class TestExperimentObservationTree:
             ("partial-callable", "partial"),
         ],
     )
+    @pytest.mark.parametrize("offload", [False, True])
     def test_wrapped_async_task_preserves_wrapper_otel_context(
-        self, task_form, expected_prefix, langfuse_memory_client, get_span
+        self, task_form, expected_prefix, offload, langfuse_memory_client, get_span
     ):
         key = otel_context.create_key("wrapped-task-context")
 
@@ -470,6 +632,7 @@ class TestExperimentObservationTree:
             data=[{"input": "question"}],
             task=_task_form(contextual_wrapper, task_form),
             max_concurrency=1,
+            run_sync_tasks_in_threads=offload,
         )
 
         assert [item.output for item in result.item_results] == [
@@ -480,23 +643,30 @@ class TestExperimentObservationTree:
         assert child.parent.span_id == parent.context.span_id
         assert child.context.trace_id == parent.context.trace_id
 
+    @pytest.mark.parametrize("entrypoint", ["client", "context", "dataset"])
     def test_sync_tasks_run_concurrently_with_trace_context(
-        self, langfuse_memory_client, memory_exporter
+        self, entrypoint, langfuse_memory_client, memory_exporter
     ):
         barrier = Barrier(2, timeout=3)
 
         def task(*, item):
+            value = item["input"] if isinstance(item, dict) else item.input
             with langfuse_memory_client.start_as_current_observation(
-                name=f"worker-{item['input']}"
+                name=f"worker-{value}"
             ):
                 barrier.wait()
-                return item["input"].upper()
+                return value.upper()
 
-        result = langfuse_memory_client.run_experiment(
+        run_experiment = _experiment_runner(
+            langfuse_memory_client,
+            entrypoint,
+            [{"input": "first"}, {"input": "second"}],
+        )
+        result = run_experiment(
             name="sync-task-concurrency",
-            data=[{"input": "first"}, {"input": "second"}],
             task=task,
             max_concurrency=2,
+            run_sync_tasks_in_threads=True,
         )
 
         assert [item.output for item in result.item_results] == ["FIRST", "SECOND"]
@@ -518,8 +688,10 @@ class TestExperimentObservationTree:
                 == result.experiment_id
             )
 
+    @pytest.mark.parametrize("offload", [False, True])
     def test_failed_task_preserves_experiment_attributes_on_item_run(
         self,
+        offload,
         langfuse_memory_client,
         get_span,
     ):
@@ -532,6 +704,7 @@ class TestExperimentObservationTree:
             task=failing_task,
             metadata={"run": "metadata"},
             max_concurrency=1,
+            run_sync_tasks_in_threads=offload,
         )
 
         item_run = get_span("experiment-item-run")
