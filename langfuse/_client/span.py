@@ -159,9 +159,7 @@ def _drop_attributes_over_span_limit(
         if len(existing) + reserved_count + len(new_keys) <= max_attributes:
             return attributes
 
-        new_metadata_keys = [
-            key for key in new_keys if _is_metadata_key(key)
-        ]
+        new_metadata_keys = [key for key in new_keys if _is_metadata_key(key)]
         free_metadata_slots = max(
             0,
             max_attributes
@@ -179,12 +177,8 @@ def _drop_attributes_over_span_limit(
         dropped_other = remaining_new_keys[capacity:]
         # The metadata budget is never looser than the hard guard, so only
         # non-metadata keys can be dropped here. Count any metadata defensively.
-        dropped_metadata += [
-            key for key in dropped_other if _is_metadata_key(key)
-        ]
-        dropped_other = [
-            key for key in dropped_other if not _is_metadata_key(key)
-        ]
+        dropped_metadata += [key for key in dropped_other if _is_metadata_key(key)]
+        dropped_other = [key for key in dropped_other if not _is_metadata_key(key)]
 
         if not dropped_metadata and not dropped_other:
             return attributes
