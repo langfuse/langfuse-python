@@ -21,6 +21,11 @@ from opentelemetry.sdk.util.instrumentation import InstrumentationInfo
 from opentelemetry.trace import SpanContext, TraceFlags, TraceState
 
 import langfuse._client.span_exporter as span_exporter_module
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    _flatten_and_serialize_metadata,
+    _serialize_metadata_value,
+)
 from langfuse._client.constants import LANGFUSE_TRACER_NAME
 from langfuse._client.span_processor import LangfuseSpanProcessor
 from langfuse._task_manager.media_manager import MediaManager
@@ -248,6 +253,112 @@ def test_export_stage_media_processes_direct_data_uri_string():
 
     assert exported_span.attributes["gen_ai.prompt"].startswith("@@@langfuseMedia:")
     assert not media_queue.empty()
+
+
+def test_export_stage_media_processes_json_encoded_metadata_data_uri():
+    exporter = InMemorySpanExporter()
+    media_manager, media_queue = _media_manager()
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+    data_uri = f"data:image/jpeg;base64,{image_base64}"
+
+    provider = _tracer_provider(exporter=exporter, media_manager=media_manager)
+    tracer = provider.get_tracer("openinference.instrumentation.openai")
+
+    observation_key = f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.image"
+    trace_key = f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.image"
+
+    with tracer.start_as_current_span("json-metadata-media-span") as span:
+        span.set_attributes(
+            {
+                **_flatten_and_serialize_metadata({"image": data_uri}, "observation"),
+                trace_key: _serialize_metadata_value(data_uri),
+                # A quoted data URI outside Langfuse metadata is left as is.
+                "custom.payload": _serialize_metadata_value(data_uri),
+            }
+        )
+
+    provider.force_flush()
+
+    attributes = exporter.get_finished_spans()[0].attributes
+
+    for key in (observation_key, trace_key):
+        assert attributes[key].startswith('"@@@langfuseMedia:')
+        assert json.loads(attributes[key]).startswith("@@@langfuseMedia:")
+        assert image_base64 not in attributes[key]
+    assert attributes["custom.payload"] == json.dumps(data_uri)
+    assert media_queue.qsize() == 2
+
+
+def test_export_stage_media_extracts_json_encoded_metadata_data_uri_in_place(
+    monkeypatch,
+):
+    media_manager, media_queue = _media_manager()
+    image_base64 = base64.b64encode(b"image-bytes").decode("utf-8")
+    json_load_calls = 0
+    original_json_loads = json.loads
+
+    def count_json_loads(*args, **kwargs):
+        nonlocal json_load_calls
+        json_load_calls += 1
+        return original_json_loads(*args, **kwargs)
+
+    monkeypatch.setattr(span_exporter_module.json, "loads", count_json_loads)
+
+    transforming_exporter = span_exporter_module.LangfuseTransformingSpanExporter(
+        exporter=InMemorySpanExporter(),
+        media_manager=media_manager,
+        mask_otel_spans=None,
+    )
+    span = SimpleNamespace(
+        name="json-metadata-media-in-place",
+        context=SimpleNamespace(trace_id=1, span_id=2),
+    )
+
+    result = transforming_exporter._process_media_string(
+        span=span,
+        attribute_key=f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.image",
+        value=_serialize_metadata_value(f"data:image/jpeg;base64,{image_base64}"),
+    )
+
+    assert json_load_calls == 0
+    assert result.startswith('"@@@langfuseMedia:type=image/jpeg|')
+    assert original_json_loads(result).startswith("@@@langfuseMedia:")
+    assert media_queue.qsize() == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        # Valid JSON for a data URI, but with the "/" characters escaped.
+        '"data:image/jpeg;base64,'
+        + base64.b64encode(b"\xff\xff\xff").decode().replace("/", "\\/")
+        + '"',
+        # Not a valid JSON string: an unescaped quote inside the value.
+        '"data:image/jpeg;base64,' + base64.b64encode(b"img").decode() + '" "x"',
+        # The ";base64" header is not within the first 256 characters.
+        '"data:image/jpeg;' + "p=1;" * 64 + 'base64,aW1n"',
+    ],
+)
+def test_export_stage_media_leaves_escaped_json_encoded_metadata_unchanged(value):
+    media_manager, media_queue = _media_manager()
+    transforming_exporter = span_exporter_module.LangfuseTransformingSpanExporter(
+        exporter=InMemorySpanExporter(),
+        media_manager=media_manager,
+        mask_otel_spans=None,
+    )
+    span = SimpleNamespace(
+        name="json-metadata-escaped-media",
+        context=SimpleNamespace(trace_id=1, span_id=2),
+    )
+
+    result = transforming_exporter._process_media_string(
+        span=span,
+        attribute_key=f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.image",
+        value=value,
+    )
+
+    assert result == value
+    assert media_queue.empty()
 
 
 def test_export_stage_media_processes_string_sequence_attributes():

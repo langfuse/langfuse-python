@@ -156,24 +156,24 @@ class TestPropagateAttributesBasic(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child1_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
-            "variant_a",
+            '"variant_a"',
         )
         self.verify_span_attribute(
             child1_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
-            "1.0",
+            '"1.0"',
         )
 
         child2_span = self.get_span_by_name(memory_exporter, "child-span-2")
         self.verify_span_attribute(
             child2_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
-            "variant_a",
+            '"variant_a"',
         )
         self.verify_span_attribute(
             child2_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
-            "1.0",
+            '"1.0"',
         )
 
     def test_all_attributes_propagate_together(self, langfuse_client, memory_exporter):
@@ -198,12 +198,12 @@ class TestPropagateAttributesBasic(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
-            "test",
+            '"test"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "prod",
+            '"prod"',
         )
 
 
@@ -485,7 +485,6 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "ratio": 0.5,
             "config": {"model": "gpt-4o", "nested": {"b": [1, None], "a": "ü"}},
             "label": ["Läufe", "🚀"],
-            "empty": None,
         }
         # Byte-identical to JSON.stringify in the JS SDK for the same values.
         expected = {
@@ -497,7 +496,6 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
             "ratio": "0.5",
             "config": '{"model":"gpt-4o","nested":{"b":[1,null],"a":"ü"}}',
             "label": '["Läufe","🚀"]',
-            "empty": "null",
         }
 
         with langfuse_client.start_as_current_observation(name="parent-span"):
@@ -516,10 +514,37 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
 
         assert "value is not a string. Dropping value." not in caplog.text
 
-    def test_large_integer_metadata_keeps_its_digits(
+    def test_none_metadata_value_is_dropped_with_warning(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        """Verify None values are dropped and don't overwrite an outer value."""
+        caplog.set_level("WARNING", logger="langfuse")
+        prefix = LangfuseOtelSpanAttributes.TRACE_METADATA
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata={"outer": "kept"}):
+                with propagate_attributes(
+                    metadata={"outer": None, "empty": None, "other": "x"}
+                ):
+                    child = langfuse_client.start_observation(name="child-span")
+                    child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(child_span, f"{prefix}.outer", '"kept"')
+        self.verify_span_attribute(child_span, f"{prefix}.other", '"x"')
+        self.verify_missing_attribute(child_span, f"{prefix}.empty")
+        assert (
+            "Propagated attribute 'metadata.empty' is None. Dropping value."
+            in caplog.text
+        )
+        assert (
+            "Propagated attribute 'metadata.outer' is None. Dropping value."
+            in caplog.text
+        )
+
+    def test_large_integer_metadata_becomes_json_string(
         self, langfuse_client, memory_exporter
     ):
-        """Verify integers beyond JS's safe range are sent as plain digits."""
+        """Verify integers beyond JS's safe range become JSON strings, like observation metadata."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(metadata={"snowflake_id": 9007199254740993}):
                 child = langfuse_client.start_observation(name="child-span")
@@ -529,13 +554,13 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.snowflake_id",
-            "9007199254740993",
+            '"9007199254740993"',
         )
 
-    def test_nested_large_integer_metadata_keeps_its_digits(
+    def test_nested_large_integer_metadata_becomes_json_string(
         self, langfuse_client, memory_exporter
     ):
-        """Verify nested integers beyond JS's safe range stay unquoted digits."""
+        """Verify nested integers beyond JS's safe range become JSON strings."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={
@@ -550,19 +575,18 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.ids",
-            "[9007199254740993,1]",
+            '["9007199254740993",1]',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.ref",
-            '{"snowflake_id":9007199254740993}',
+            '{"snowflake_id":"9007199254740993"}',
         )
 
-    def test_non_finite_number_metadata_is_dropped(
-        self, langfuse_client, memory_exporter, caplog
+    def test_non_finite_number_metadata_becomes_json_string(
+        self, langfuse_client, memory_exporter
     ):
-        """Verify values containing NaN or Infinity are dropped, like in the JS SDK."""
-        caplog.set_level("WARNING", logger="langfuse")
+        """Verify NaN and Infinity become JSON strings, like observation metadata."""
         with langfuse_client.start_as_current_observation(name="parent-span"):
             with propagate_attributes(
                 metadata={
@@ -576,14 +600,74 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
                 child.end()
 
         child_span = self.get_span_by_name(memory_exporter, "child-span")
+        prefix = LangfuseOtelSpanAttributes.TRACE_METADATA
+        self.verify_span_attribute(child_span, f"{prefix}.kept", "1.5")
+        self.verify_span_attribute(child_span, f"{prefix}.nan", '"NaN"')
+        self.verify_span_attribute(child_span, f"{prefix}.inf", '"-Infinity"')
         self.verify_span_attribute(
-            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.kept", "1.5"
+            child_span, f"{prefix}.nested", '{"scores":[1.0,"Infinity"]}'
         )
-        for key in ("nan", "inf", "nested"):
-            self.verify_missing_attribute(
-                child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"
+
+    def test_string_metadata_is_json_encoded_like_observation_metadata(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify strings are JSON-encoded so "123" stays a string on the server."""
+        metadata = {
+            "plain": "prod",
+            "numeric_string": "123",
+            "bool_string": "true",
+            "null_string": "null",
+            "json_string": '{"a":1}',
+            "umlaut": "ü",
+        }
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(metadata=metadata):
+                child = langfuse_client.start_observation(
+                    name="child-span", metadata=metadata
+                )
+                child.end()
+
+        attributes = self.get_span_by_name(memory_exporter, "child-span")["attributes"]
+        for key, value in metadata.items():
+            trace_value = attributes[
+                f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.{key}"
+            ]
+            assert (
+                trace_value
+                == attributes[
+                    f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.{key}"
+                ]
             )
-        assert "metadata.nan" in caplog.text
+            assert json.loads(trace_value) == value
+
+        assert (
+            attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.numeric_string"]
+            == '"123"'
+        )
+        assert (
+            attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.umlaut"] == '"ü"'
+        )
+
+    def test_metadata_length_limit_applies_after_json_encoding(
+        self, langfuse_client, memory_exporter
+    ):
+        """Verify the 200 character limit counts the quotes added by JSON encoding."""
+        with langfuse_client.start_as_current_observation(name="parent-span"):
+            with propagate_attributes(
+                metadata={"fits": "a" * 198, "too_long": "b" * 199}
+            ):
+                child = langfuse_client.start_observation(name="child-span")
+                child.end()
+
+        child_span = self.get_span_by_name(memory_exporter, "child-span")
+        self.verify_span_attribute(
+            child_span,
+            f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.fits",
+            '"' + "a" * 198 + '"',
+        )
+        self.verify_missing_attribute(
+            child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.too_long"
+        )
 
     def test_mixed_valid_invalid_metadata(self, langfuse_client, memory_exporter):
         """Verify mixed valid/invalid metadata - valid entries kept, invalid dropped."""
@@ -603,12 +687,12 @@ class TestPropagateAttributesValidation(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.valid_key",
-            "valid_value",
+            '"valid_value"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.another_valid",
-            "ok",
+            '"ok"',
         )
         self.verify_missing_attribute(
             child_span, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.invalid_key"
@@ -717,12 +801,12 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self.verify_span_attribute(
             outer_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "prod",
+            '"prod"',
         )
         self.verify_span_attribute(
             outer_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
-            "us-east",
+            '"us-east"',
         )
         self.verify_missing_attribute(
             outer_span_data, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment"
@@ -733,22 +817,22 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self.verify_span_attribute(
             inner_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "prod",
+            '"prod"',
         )
         self.verify_span_attribute(
             inner_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
-            "us-east",
+            '"us-east"',
         )
         self.verify_span_attribute(
             inner_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
-            "A",
+            '"A"',
         )
         self.verify_span_attribute(
             inner_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
-            "2.0",
+            '"2.0"',
         )
 
         # Verify: after span has only outer metadata (inner context exited)
@@ -756,12 +840,12 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self.verify_span_attribute(
             after_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "prod",
+            '"prod"',
         )
         self.verify_span_attribute(
             after_span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
-            "us-east",
+            '"us-east"',
         )
         self.verify_missing_attribute(
             after_span_data, f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment"
@@ -789,26 +873,26 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "production",  # Inner value wins
+            '"production"',  # Inner value wins
         )
 
         # Preserved keys from outer
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
-            "1.0",  # From outer
+            '"1.0"',  # From outer
         )
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
-            "us-west",  # From outer
+            '"us-west"',  # From outer
         )
 
         # New key from inner
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
-            "B",  # From inner
+            '"B"',  # From inner
         )
 
     def test_triple_nested_metadata_accumulates(self, langfuse_client, memory_exporter):
@@ -827,24 +911,24 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.level",
-            "3",
+            '"3"',
         )
 
         # Unique keys from each level
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.a",
-            "outer",
+            '"outer"',
         )
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.b",
-            "middle",
+            '"middle"',
         )
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.c",
-            "inner",
+            '"inner"',
         )
 
     def test_metadata_merge_with_empty_inner(self, langfuse_client, memory_exporter):
@@ -861,12 +945,12 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.key1",
-            "value1",
+            '"value1"',
         )
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.key2",
-            "value2",
+            '"value2"',
         )
 
     def test_metadata_merge_preserves_user_session(
@@ -894,12 +978,12 @@ class TestPropagateAttributesNesting(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.outer",
-            "value",
+            '"value"',
         )
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.inner",
-            "value",
+            '"value"',
         )
 
 
@@ -1050,9 +1134,9 @@ class TestPropagateAttributesFormat(TestPropagateAttributesBase):
         attributes = child_span["attributes"]
 
         # Verify all three are separate attributes with correct values
-        assert attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.k1"] == "v1"
-        assert attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.k2"] == "v2"
-        assert attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.k3"] == "v3"
+        assert attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.k1"] == '"v1"'
+        assert attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.k2"] == '"v2"'
+        assert attributes[f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.k3"] == '"v3"'
 
 
 class TestPropagateAttributesThreading(TestPropagateAttributesBase):
@@ -1361,7 +1445,7 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
             self.verify_span_attribute(
                 span_data,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment",
-                "cross_tracer",
+                '"cross_tracer"',
             )
 
     def test_other_tracer_span_before_propagate_context(
@@ -1421,17 +1505,17 @@ class TestPropagateAttributesCrossTracer(TestPropagateAttributesBase):
             self.verify_span_attribute(
                 span_data,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-                "production",
+                '"production"',
             )
             self.verify_span_attribute(
                 span_data,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.version",
-                "2.0",
+                '"2.0"',
             )
             self.verify_span_attribute(
                 span_data,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.feature_flag",
-                "enabled",
+                '"enabled"',
             )
 
     def test_propagate_without_langfuse_parent(
@@ -1555,7 +1639,7 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
             self.verify_span_attribute(
                 span_data,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.level",
-                "nested",
+                '"nested"',
             )
 
     @pytest.mark.asyncio
@@ -1685,12 +1769,12 @@ class TestPropagateAttributesAsync(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.async",
-            "true",
+            '"true"',
         )
         self.verify_span_attribute(
             span_data,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.operation",
-            "test",
+            '"test"',
         )
 
 
@@ -1721,10 +1805,10 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
                 assert baggage_entries["langfuse_session_id"] == "session_abc"
 
                 assert "langfuse_metadata_env" in baggage_entries
-                assert baggage_entries["langfuse_metadata_env"] == "test"
+                assert baggage_entries["langfuse_metadata_env"] == '"test"'
 
                 assert "langfuse_metadata_version" in baggage_entries
-                assert baggage_entries["langfuse_metadata_version"] == "2.0"
+                assert baggage_entries["langfuse_metadata_version"] == '"2.0"'
 
     def test_spans_receive_attributes_from_baggage(
         self, langfuse_client, memory_exporter
@@ -1754,7 +1838,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.source",
-            "baggage",
+            '"baggage"',
         )
 
     def test_baggage_disabled_by_default(self, langfuse_client):
@@ -1803,12 +1887,12 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.user_info",
-            "some_data",
+            '"some_data"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.user_id_copy",
-            "another",
+            '"another"',
         )
 
     def test_metadata_key_with_session_substring_doesnt_collide(
@@ -1834,12 +1918,12 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.session_data",
-            "value1",
+            '"value1"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.session_id_backup",
-            "value2",
+            '"value2"',
         )
 
     def test_metadata_keys_extract_correctly_from_baggage(
@@ -1864,17 +1948,17 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "production",
+            '"production"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
-            "us-west",
+            '"us-west"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.experiment_id",
-            "exp_123",
+            '"exp_123"',
         )
 
     def test_baggage_and_context_both_propagate(self, langfuse_client, memory_exporter):
@@ -1904,7 +1988,7 @@ class TestPropagateAttributesBaggage(TestPropagateAttributesBase):
             self.verify_span_attribute(
                 span_data,
                 f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.source",
-                "both",
+                '"both"',
             )
 
     def test_baggage_survives_context_isolation(self, langfuse_client, memory_exporter):
@@ -2214,12 +2298,12 @@ class TestPropagateAttributesVersion(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "production",
+            '"production"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
-            "us-east",
+            '"us-east"',
         )
 
     def test_version_validation_over_200_chars(self, langfuse_client, memory_exporter):
@@ -2493,7 +2577,7 @@ class TestPropagateAttributesTags(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "staging",
+            '"staging"',
         )
 
     def test_tags_validation_with_invalid_tag(self, langfuse_client, memory_exporter):
@@ -2857,17 +2941,17 @@ class TestPropagateAttributesExperiment(TestPropagateAttributesBase):
         self.verify_span_attribute(
             span,
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.shared",
-            "run",
+            '"run"',
         )
         self.verify_span_attribute(
             span,
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.experiment_run_name",
-            "run-name",
+            '"run-name"',
         )
         self.verify_span_attribute(
             span,
             f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.item_only",
-            "yes",
+            '"yes"',
         )
 
     def test_experiment_attributes_propagate_with_dataset(
@@ -3352,12 +3436,12 @@ class TestPropagateAttributesTraceName(TestPropagateAttributesBase):
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.env",
-            "production",
+            '"production"',
         )
         self.verify_span_attribute(
             child_span,
             f"{LangfuseOtelSpanAttributes.TRACE_METADATA}.region",
-            "us-east",
+            '"us-east"',
         )
 
     def test_trace_name_validation_over_200_chars(
