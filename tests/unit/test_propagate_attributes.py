@@ -2033,7 +2033,7 @@ class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
     """Tests for first-class Langfuse environment propagation."""
 
     def _capture_score_events(self, monkeypatch, langfuse_client):
-        """Capture score ingestion events before they reach the background queue."""
+        """Capture scores before they reach the background queue."""
 
         score_events = []
         assert langfuse_client._resources is not None
@@ -2150,7 +2150,7 @@ class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
                 span.score(name="quality", value=1.0, data_type="NUMERIC")
 
         assert len(score_events) == 1
-        assert score_events[0]["body"].environment == "dev"
+        assert score_events[0]["environment"] == "dev"
 
     def test_span_score_trace_uses_propagated_environment(
         self, monkeypatch, langfuse_client
@@ -2166,7 +2166,7 @@ class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
                 span.score_trace(name="overall-quality", value=0.95)
 
         assert len(score_events) == 1
-        assert score_events[0]["body"].environment == "staging"
+        assert score_events[0]["environment"] == "staging"
 
     def test_current_score_helpers_use_propagated_environment(
         self, monkeypatch, langfuse_client
@@ -2184,7 +2184,7 @@ class TestPropagateAttributesEnvironment(TestPropagateAttributesBase):
                     name="trace-quality", value=0.8, data_type="NUMERIC"
                 )
 
-        assert [event["body"].environment for event in score_events] == ["qa", "qa"]
+        assert [score["environment"] for score in score_events] == ["qa", "qa"]
 
     def test_environment_exactly_40_chars_is_accepted(
         self, langfuse_client, memory_exporter
