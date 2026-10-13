@@ -27,21 +27,21 @@ _min_server_version_hint_lock = threading.Lock()
 _min_server_version_hint_logged = False
 
 
-def _log_min_server_version_hint_once(batch_size: int) -> None:
+def _log_min_server_version_hint(batch_size: int) -> None:
     # Servers before v4.55.0 reject list bodies on POST /scores with a 400. A 400
-    # can also be a validation error, so the hint is logged once per process.
+    # can also be a validation error, so only the first one is logged as an error.
     global _min_server_version_hint_logged
     with _min_server_version_hint_lock:
-        if _min_server_version_hint_logged:
-            return
+        first = not _min_server_version_hint_logged
         _min_server_version_hint_logged = True
 
-    logger.error(
-        "Failed to export score batch. Batched score creation requires Langfuse "
-        "server %s or later; dropped %s score(s). Upgrade your Langfuse server if "
-        "it is older. This hint is logged once per process.",
+    dropped = "1 score was" if batch_size == 1 else f"{batch_size} scores were"
+    (logger.error if first else logger.debug)(
+        "Batch score creation requires a Langfuse server %s or later. The server "
+        "rejected the batch and %s dropped. Upgrade your Langfuse server to keep "
+        "recording scores.",
         MIN_SERVER_VERSION_FOR_SCORE_BATCHES,
-        batch_size,
+        dropped,
     )
 
 
@@ -197,7 +197,7 @@ class ScoreConsumer(threading.Thread):
             self._upload_batch(batch)
         except ApiError as e:
             if e.status_code == 400:
-                _log_min_server_version_hint_once(len(batch))
+                _log_min_server_version_hint(len(batch))
             handle_fern_exception(e)
         except Exception as e:
             logger.error(

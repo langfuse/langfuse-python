@@ -241,6 +241,13 @@ def test_does_not_retry_client_errors(status, caplog):
     assert caplog.records
 
 
+HINT = (
+    "Batch score creation requires a Langfuse server v4.55.0 or later. The server "
+    "rejected the batch and {} dropped. Upgrade your Langfuse server to keep "
+    "recording scores."
+)
+
+
 @pytest.mark.parametrize("status", [400, 401])
 def test_bad_request_logs_min_server_version_hint_once(status, caplog, monkeypatch):
     monkeypatch.setattr(score_consumer_module, "_min_server_version_hint_logged", False)
@@ -248,22 +255,23 @@ def test_bad_request_logs_min_server_version_hint_once(status, caplog, monkeypat
     queue: Queue = Queue()
     consumer = _consumer(recorder, queue)
 
-    with caplog.at_level(logging.ERROR, logger="langfuse"):
-        for name in ("a", "b"):
-            queue.put(_score(name))
-            _drain(consumer, queue)
+    with caplog.at_level(logging.DEBUG, logger="langfuse"):
+        queue.put(_score("a"))
+        _drain(consumer, queue)
+        queue.put(_score("b"))
+        queue.put(_score("c"))
+        _drain(consumer, queue)
 
     hints = [
-        r.getMessage()
+        (r.levelno, r.getMessage())
         for r in caplog.records
-        if "requires Langfuse server v4.55.0 or later" in r.getMessage()
+        if "requires a Langfuse server v4.55.0" in r.getMessage()
     ]
     assert len(recorder.requests) == 2
     assert hints == (
         [
-            "Failed to export score batch. Batched score creation requires Langfuse "
-            "server v4.55.0 or later; dropped 1 score(s). Upgrade your Langfuse "
-            "server if it is older. This hint is logged once per process."
+            (logging.ERROR, HINT.format("1 score was")),
+            (logging.DEBUG, HINT.format("2 scores were")),
         ]
         if status == 400
         else []
