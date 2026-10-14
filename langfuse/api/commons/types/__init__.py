@@ -28,6 +28,7 @@ if typing.TYPE_CHECKING:
     from .numeric_score import NumericScore
     from .observation_level import ObservationLevel
     from .observation_v2 import ObservationV2
+    from .open_ai_usage import OpenAiUsage
     from .pricing_tier import PricingTier
     from .pricing_tier_attribute_condition import PricingTierAttributeCondition
     from .pricing_tier_attribute_source import PricingTierAttributeSource
@@ -74,6 +75,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NumericScore": ".numeric_score",
     "ObservationLevel": ".observation_level",
     "ObservationV2": ".observation_v2",
+    "OpenAiUsage": ".open_ai_usage",
     "PricingTier": ".pricing_tier",
     "PricingTierAttributeCondition": ".pricing_tier_attribute_condition",
     "PricingTierAttributeSource": ".pricing_tier_attribute_source",
@@ -148,6 +150,7 @@ __all__ = [
     "NumericScore",
     "ObservationLevel",
     "ObservationV2",
+    "OpenAiUsage",
     "PricingTier",
     "PricingTierAttributeCondition",
     "PricingTierAttributeSource",
