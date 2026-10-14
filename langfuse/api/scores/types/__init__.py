@@ -20,6 +20,7 @@ if typing.TYPE_CHECKING:
     from .get_scores_v3meta import GetScoresV3Meta
     from .get_scores_v3response import GetScoresV3Response
     from .numeric_score_v3 import NumericScoreV3
+    from .score_body import ScoreBody
     from .score_subject_experiment_v3 import ScoreSubjectExperimentV3
     from .score_subject_observation_v3 import ScoreSubjectObservationV3
     from .score_subject_session_v3 import ScoreSubjectSessionV3
@@ -55,6 +56,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetScoresV3Meta": ".get_scores_v3meta",
     "GetScoresV3Response": ".get_scores_v3response",
     "NumericScoreV3": ".numeric_score_v3",
+    "ScoreBody": ".score_body",
     "ScoreSubjectExperimentV3": ".score_subject_experiment_v3",
     "ScoreSubjectObservationV3": ".score_subject_observation_v3",
     "ScoreSubjectSessionV3": ".score_subject_session_v3",
@@ -116,6 +118,7 @@ __all__ = [
     "GetScoresV3Meta",
     "GetScoresV3Response",
     "NumericScoreV3",
+    "ScoreBody",
     "ScoreSubjectExperimentV3",
     "ScoreSubjectObservationV3",
     "ScoreSubjectSessionV3",

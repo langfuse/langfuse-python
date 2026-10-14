@@ -14,7 +14,7 @@ class ScoreBody(UniversalBaseModel):
     """
     Examples
     --------
-    from langfuse.ingestion import ScoreBody
+    from langfuse.scores import ScoreBody
 
     ScoreBody(
         name="novelty",

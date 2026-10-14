@@ -27,7 +27,6 @@ if typing.TYPE_CHECKING:
     from .experiments.client import AsyncExperimentsClient, ExperimentsClient
     from .feedback.client import AsyncFeedbackClient, FeedbackClient
     from .health.client import AsyncHealthClient, HealthClient
-    from .ingestion.client import AsyncIngestionClient, IngestionClient
     from .llm_connections.client import AsyncLlmConnectionsClient, LlmConnectionsClient
     from .media.client import AsyncMediaClient, MediaClient
     from .metrics.client import AsyncMetricsClient, MetricsClient
@@ -135,7 +134,6 @@ class LangfuseAPI:
         self._experiments: typing.Optional[ExperimentsClient] = None
         self._feedback: typing.Optional[FeedbackClient] = None
         self._health: typing.Optional[HealthClient] = None
-        self._ingestion: typing.Optional[IngestionClient] = None
         self._llm_connections: typing.Optional[LlmConnectionsClient] = None
         self._media: typing.Optional[MediaClient] = None
         self._metrics: typing.Optional[MetricsClient] = None
@@ -239,14 +237,6 @@ class LangfuseAPI:
 
             self._health = HealthClient(client_wrapper=self._client_wrapper)
         return self._health
-
-    @property
-    def ingestion(self):
-        if self._ingestion is None:
-            from .ingestion.client import IngestionClient  # noqa: E402
-
-            self._ingestion = IngestionClient(client_wrapper=self._client_wrapper)
-        return self._ingestion
 
     @property
     def llm_connections(self):
@@ -469,7 +459,6 @@ class AsyncLangfuseAPI:
         self._experiments: typing.Optional[AsyncExperimentsClient] = None
         self._feedback: typing.Optional[AsyncFeedbackClient] = None
         self._health: typing.Optional[AsyncHealthClient] = None
-        self._ingestion: typing.Optional[AsyncIngestionClient] = None
         self._llm_connections: typing.Optional[AsyncLlmConnectionsClient] = None
         self._media: typing.Optional[AsyncMediaClient] = None
         self._metrics: typing.Optional[AsyncMetricsClient] = None
@@ -579,14 +568,6 @@ class AsyncLangfuseAPI:
 
             self._health = AsyncHealthClient(client_wrapper=self._client_wrapper)
         return self._health
-
-    @property
-    def ingestion(self):
-        if self._ingestion is None:
-            from .ingestion.client import AsyncIngestionClient  # noqa: E402
-
-            self._ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
-        return self._ingestion
 
     @property
     def llm_connections(self):
