@@ -3142,6 +3142,37 @@ class TestConcurrencyAndAsync(TestOTelBase):
             f"Span duration ({span_duration_seconds}s) should be at least 0.05s"
         )
 
+    def test_manual_observations_accept_historical_start_times(
+        self, langfuse_client, memory_exporter
+    ):
+        root_start_time = 1_750_000_000_000_000_000
+        generation_start_time = root_start_time + 100_000_000
+        end_time = root_start_time + 1_000_000_000
+
+        root = langfuse_client.start_observation(
+            name="historical-root",
+            trace_context={"trace_id": "a" * 32},
+            start_time=root_start_time,
+        )
+        generation = root.start_observation(
+            name="historical-generation",
+            as_type="generation",
+            start_time=generation_start_time,
+        )
+        generation.end(end_time=end_time)
+        root.end(end_time=end_time)
+
+        spans_by_name = {
+            span.name: span for span in memory_exporter.get_finished_spans()
+        }
+        root_span = spans_by_name["historical-root"]
+        generation_span = spans_by_name["historical-generation"]
+
+        assert root_span.start_time == root_start_time
+        assert generation_span.start_time == generation_start_time
+        assert root_span.end_time == end_time
+        assert generation_span.end_time == end_time
+
 
 # Add tests for media functionality in its own class
 class TestMediaHandling(TestOTelBase):
