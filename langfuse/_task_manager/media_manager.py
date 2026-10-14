@@ -2,6 +2,7 @@ import os
 import time
 from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
+from urllib.parse import urlparse
 
 import backoff
 import httpx
@@ -448,7 +449,11 @@ class MediaManager:
         headers = {"Content-Type": data["content_type"]}
 
         # In self-hosted setups with GCP, do not add unsupported headers that fail the upload
-        is_self_hosted_gcs_bucket = "storage.googleapis.com" in upload_url
+        upload_host = (urlparse(upload_url).hostname or "").lower()
+        is_self_hosted_gcs_bucket = (
+            upload_host == "storage.googleapis.com"
+            or upload_host.endswith(".storage.googleapis.com")
+        )
 
         if not is_self_hosted_gcs_bucket:
             headers["x-ms-blob-type"] = "BlockBlob"

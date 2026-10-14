@@ -277,3 +277,38 @@ def test_find_and_process_media_gemini_inline_data_non_string_data_passes_throug
 
     assert result == data
     assert queue.empty()
+
+
+@pytest.mark.parametrize(
+    ("upload_url", "is_gcs"),
+    [
+        ("https://storage.googleapis.com/bucket/obj?X-Goog-Signature=abc", True),
+        ("https://bucket.storage.googleapis.com/obj?X-Goog-Signature=abc", True),
+        ("https://evil.example/upload?next=storage.googleapis.com", False),
+        ("https://storage.googleapis.com.evil.example/upload", False),
+        ("https://s3.amazonaws.com/bucket/obj", False),
+    ],
+)
+def test_media_upload_gcs_detection_uses_url_host(upload_url, is_gcs):
+    media_api = Mock()
+    media_api.get_upload_url.return_value = SimpleNamespace(
+        upload_url=upload_url,
+        media_id="media-id",
+    )
+    media_api.patch.return_value = None
+
+    httpx_client = Mock()
+    httpx_client.put.return_value = _upload_response(200, "ok")
+
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=media_api),
+        httpx_client=httpx_client,
+        media_upload_queue=Queue(),
+        max_retries=1,
+    )
+
+    manager._process_upload_media_job(data=_upload_job())
+
+    headers = httpx_client.put.call_args.kwargs["headers"]
+    assert ("x-ms-blob-type" not in headers) is is_gcs
+    assert ("x-amz-checksum-sha256" not in headers) is is_gcs
