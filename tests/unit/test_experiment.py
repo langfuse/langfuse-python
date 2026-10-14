@@ -48,6 +48,12 @@ def wrap_result(request):
 
 
 class TestExperimentAwaitableResults:
+    @pytest.fixture(autouse=True)
+    def mock_project_lookup(self, langfuse_memory_client, monkeypatch):
+        monkeypatch.setattr(
+            langfuse_memory_client, "_get_project_id", lambda: "test-project"
+        )
+
     def test_task_output_is_resolved(self, langfuse_memory_client, wrap_result):
         def task(*, item):
             return wrap_result("answer")
