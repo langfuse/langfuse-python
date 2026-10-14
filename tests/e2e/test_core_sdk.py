@@ -360,13 +360,6 @@ def test_create_text_score():
     )
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "Needs the Langfuse platform release that adds timestamp to POST /scores "
-        "(langfuse prep-js-v6-py-v5-sdk-majors). Remove this marker once it ships."
-    ),
-)
 def test_create_score_with_custom_timestamp():
     langfuse = Langfuse()
 

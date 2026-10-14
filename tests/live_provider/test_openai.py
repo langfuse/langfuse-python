@@ -999,17 +999,13 @@ def test_structured_output_response_format_kwarg(openai):
 
     langfuse.flush()
 
-    generation = wait_for_observations(
-        name=generation_name, type="GENERATION", expand_metadata="response_format"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
     assert len(generation) != 0
     assert generation[0].name == generation_name
     assert generation[0].metadata["someKey"] == "someResponse"
-    assert generation[0].metadata["response_format"] == {
-        "type": "json_schema",
-        "json_schema": json_schema,
-    }
+    assert generation[0].metadata["response_format.type"] == "json_schema"
+    assert generation[0].metadata["response_format.json_schema.name"] == "math_response"
 
     assert generation[0].input == [
         {"role": "system", "content": "You are a helpful math tutor."},
