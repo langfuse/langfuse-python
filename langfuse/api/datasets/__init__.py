@@ -6,16 +6,9 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import (
-        CreateDatasetRequest,
-        DeleteDatasetRunResponse,
-        PaginatedDatasetRuns,
-        PaginatedDatasets,
-    )
+    from .types import CreateDatasetRequest, PaginatedDatasets
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateDatasetRequest": ".types",
-    "DeleteDatasetRunResponse": ".types",
-    "PaginatedDatasetRuns": ".types",
     "PaginatedDatasets": ".types",
 }
 
@@ -47,9 +40,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "CreateDatasetRequest",
-    "DeleteDatasetRunResponse",
-    "PaginatedDatasetRuns",
-    "PaginatedDatasets",
-]
+__all__ = ["CreateDatasetRequest", "PaginatedDatasets"]

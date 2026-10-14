@@ -6,41 +6,73 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .base_score_v3 import BaseScoreV3
+    from .boolean_score_v3 import BooleanScoreV3
+    from .categorical_score_v3 import CategoricalScoreV3
+    from .correction_score_v3 import CorrectionScoreV3
+    from .create_score_batch_error import CreateScoreBatchError
+    from .create_score_batch_response import CreateScoreBatchResponse
+    from .create_score_batch_results import CreateScoreBatchResults
     from .create_score_request import CreateScoreRequest
-    from .create_score_response import CreateScoreResponse
     from .create_score_source import CreateScoreSource
-    from .get_scores_response import GetScoresResponse
-    from .get_scores_response_data import (
-        GetScoresResponseData,
-        GetScoresResponseData_Boolean,
-        GetScoresResponseData_Categorical,
-        GetScoresResponseData_Correction,
-        GetScoresResponseData_Numeric,
-        GetScoresResponseData_Text,
+    from .create_scores_request import CreateScoresRequest
+    from .create_scores_response import CreateScoresResponse
+    from .get_scores_v3meta import GetScoresV3Meta
+    from .get_scores_v3response import GetScoresV3Response
+    from .numeric_score_v3 import NumericScoreV3
+    from .score_body import ScoreBody
+    from .score_subject_experiment_v3 import ScoreSubjectExperimentV3
+    from .score_subject_observation_v3 import ScoreSubjectObservationV3
+    from .score_subject_session_v3 import ScoreSubjectSessionV3
+    from .score_subject_trace_v3 import ScoreSubjectTraceV3
+    from .score_subject_v3 import (
+        ScoreSubjectV3,
+        ScoreSubjectV3_Experiment,
+        ScoreSubjectV3_Observation,
+        ScoreSubjectV3_Session,
+        ScoreSubjectV3_Trace,
     )
-    from .get_scores_response_data_boolean import GetScoresResponseDataBoolean
-    from .get_scores_response_data_categorical import GetScoresResponseDataCategorical
-    from .get_scores_response_data_correction import GetScoresResponseDataCorrection
-    from .get_scores_response_data_numeric import GetScoresResponseDataNumeric
-    from .get_scores_response_data_text import GetScoresResponseDataText
-    from .get_scores_response_trace_data import GetScoresResponseTraceData
+    from .score_v3 import (
+        ScoreV3,
+        ScoreV3_Boolean,
+        ScoreV3_Categorical,
+        ScoreV3_Correction,
+        ScoreV3_Numeric,
+        ScoreV3_Text,
+    )
+    from .text_score_v3 import TextScoreV3
 _dynamic_imports: typing.Dict[str, str] = {
+    "BaseScoreV3": ".base_score_v3",
+    "BooleanScoreV3": ".boolean_score_v3",
+    "CategoricalScoreV3": ".categorical_score_v3",
+    "CorrectionScoreV3": ".correction_score_v3",
+    "CreateScoreBatchError": ".create_score_batch_error",
+    "CreateScoreBatchResponse": ".create_score_batch_response",
+    "CreateScoreBatchResults": ".create_score_batch_results",
     "CreateScoreRequest": ".create_score_request",
-    "CreateScoreResponse": ".create_score_response",
     "CreateScoreSource": ".create_score_source",
-    "GetScoresResponse": ".get_scores_response",
-    "GetScoresResponseData": ".get_scores_response_data",
-    "GetScoresResponseDataBoolean": ".get_scores_response_data_boolean",
-    "GetScoresResponseDataCategorical": ".get_scores_response_data_categorical",
-    "GetScoresResponseDataCorrection": ".get_scores_response_data_correction",
-    "GetScoresResponseDataNumeric": ".get_scores_response_data_numeric",
-    "GetScoresResponseDataText": ".get_scores_response_data_text",
-    "GetScoresResponseData_Boolean": ".get_scores_response_data",
-    "GetScoresResponseData_Categorical": ".get_scores_response_data",
-    "GetScoresResponseData_Correction": ".get_scores_response_data",
-    "GetScoresResponseData_Numeric": ".get_scores_response_data",
-    "GetScoresResponseData_Text": ".get_scores_response_data",
-    "GetScoresResponseTraceData": ".get_scores_response_trace_data",
+    "CreateScoresRequest": ".create_scores_request",
+    "CreateScoresResponse": ".create_scores_response",
+    "GetScoresV3Meta": ".get_scores_v3meta",
+    "GetScoresV3Response": ".get_scores_v3response",
+    "NumericScoreV3": ".numeric_score_v3",
+    "ScoreBody": ".score_body",
+    "ScoreSubjectExperimentV3": ".score_subject_experiment_v3",
+    "ScoreSubjectObservationV3": ".score_subject_observation_v3",
+    "ScoreSubjectSessionV3": ".score_subject_session_v3",
+    "ScoreSubjectTraceV3": ".score_subject_trace_v3",
+    "ScoreSubjectV3": ".score_subject_v3",
+    "ScoreSubjectV3_Experiment": ".score_subject_v3",
+    "ScoreSubjectV3_Observation": ".score_subject_v3",
+    "ScoreSubjectV3_Session": ".score_subject_v3",
+    "ScoreSubjectV3_Trace": ".score_subject_v3",
+    "ScoreV3": ".score_v3",
+    "ScoreV3_Boolean": ".score_v3",
+    "ScoreV3_Categorical": ".score_v3",
+    "ScoreV3_Correction": ".score_v3",
+    "ScoreV3_Numeric": ".score_v3",
+    "ScoreV3_Text": ".score_v3",
+    "TextScoreV3": ".text_score_v3",
 }
 
 
@@ -72,20 +104,35 @@ def __dir__():
 
 
 __all__ = [
+    "BaseScoreV3",
+    "BooleanScoreV3",
+    "CategoricalScoreV3",
+    "CorrectionScoreV3",
+    "CreateScoreBatchError",
+    "CreateScoreBatchResponse",
+    "CreateScoreBatchResults",
     "CreateScoreRequest",
-    "CreateScoreResponse",
     "CreateScoreSource",
-    "GetScoresResponse",
-    "GetScoresResponseData",
-    "GetScoresResponseDataBoolean",
-    "GetScoresResponseDataCategorical",
-    "GetScoresResponseDataCorrection",
-    "GetScoresResponseDataNumeric",
-    "GetScoresResponseDataText",
-    "GetScoresResponseData_Boolean",
-    "GetScoresResponseData_Categorical",
-    "GetScoresResponseData_Correction",
-    "GetScoresResponseData_Numeric",
-    "GetScoresResponseData_Text",
-    "GetScoresResponseTraceData",
+    "CreateScoresRequest",
+    "CreateScoresResponse",
+    "GetScoresV3Meta",
+    "GetScoresV3Response",
+    "NumericScoreV3",
+    "ScoreBody",
+    "ScoreSubjectExperimentV3",
+    "ScoreSubjectObservationV3",
+    "ScoreSubjectSessionV3",
+    "ScoreSubjectTraceV3",
+    "ScoreSubjectV3",
+    "ScoreSubjectV3_Experiment",
+    "ScoreSubjectV3_Observation",
+    "ScoreSubjectV3_Session",
+    "ScoreSubjectV3_Trace",
+    "ScoreV3",
+    "ScoreV3_Boolean",
+    "ScoreV3_Categorical",
+    "ScoreV3_Correction",
+    "ScoreV3_Numeric",
+    "ScoreV3_Text",
+    "TextScoreV3",
 ]

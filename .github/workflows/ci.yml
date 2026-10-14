@@ -70,17 +70,23 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
+          - "3.15"
 
     name: Unit tests on Python ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The pinned uv only knows Python 3.15 pre-releases; install the final release for uv to pick up.
+      - name: Set up Python 3.15
+        if: ${{ matrix.python-version == '3.15' }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.15"
       - name: Install uv and set Python version
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
@@ -98,6 +104,14 @@ jobs:
         run: |
           python --version
           uv run --frozen pytest -n auto --dist worksteal -s -v --log-cli-level=INFO tests/unit
+
+      # pydantic < 2.8 matches undiscriminated unions left to right, so the
+      # CreateScoresResponse member order matters there.
+      - name: Run score response parsing on pydantic 2.7
+        if: ${{ matrix.python-version == '3.11' }}
+        run: |
+          uv run --frozen --with "pydantic==2.7.4" python -c "import pydantic; assert pydantic.VERSION == '2.7.4', pydantic.VERSION"
+          uv run --frozen --with "pydantic==2.7.4" pytest -v tests/unit/test_scores_batch_response.py
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -160,8 +174,6 @@ jobs:
           LANGFUSE_SERVER_SHA="$(git ls-remote https://github.com/langfuse/langfuse.git HEAD | cut -f1)"
           curl -fsSL "https://raw.githubusercontent.com/langfuse/langfuse/${LANGFUSE_SERVER_SHA}/docker-compose.yml" \
             -o ./langfuse-server/docker-compose.yml
-          cp ./.github/langfuse-v4-dual-write.override.yml \
-            ./langfuse-server/docker-compose.override.yml
           echo "${LANGFUSE_SERVER_SHA}"
 
       - name: Run langfuse server

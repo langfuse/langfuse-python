@@ -27,7 +27,6 @@ from langfuse.types import (
 
 _INPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
     {
-        LangfuseOtelSpanAttributes.TRACE_INPUT,
         LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
         "ai.prompt.messages",
         "ai.prompt",
@@ -54,7 +53,6 @@ _INPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
 
 _OUTPUT_MEDIA_ATTRIBUTE_KEYS = frozenset(
     {
-        LangfuseOtelSpanAttributes.TRACE_OUTPUT,
         LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
         "ai.response.text",
         "ai.result.text",
@@ -89,6 +87,9 @@ _OUTPUT_MEDIA_ATTRIBUTE_PREFIXES = (
     "gen_ai.completion",
     "llm.output_messages",
 )
+
+# Includes the leading quote of a JSON-encoded data URI.
+_MAX_DATA_URI_HEADER_LENGTH = 256
 
 
 class LangfuseTransformingSpanExporter(SpanExporter):
@@ -213,6 +214,13 @@ class LangfuseTransformingSpanExporter(SpanExporter):
         attribute_key: str,
         value: str,
     ) -> str:
+        if value.startswith('"data:') and _is_langfuse_metadata_attribute(
+            attribute_key
+        ):
+            return self._process_json_encoded_media_string(
+                span=span, attribute_key=attribute_key, value=value
+            )
+
         media_manager = cast(MediaManager, self._media_manager)
         field = _media_field_for_attribute(attribute_key)
 
@@ -261,6 +269,40 @@ class LangfuseTransformingSpanExporter(SpanExporter):
             return value
 
         return _serialize_media_value(processed_json_value, fallback=value)
+
+    def _process_json_encoded_media_string(
+        self,
+        *,
+        span: ReadableSpan,
+        attribute_key: str,
+        value: str,
+    ) -> str:
+        # Langfuse metadata values are JSON-encoded, so a top-level data URI
+        # arrives quoted. A JSON string without backslashes holds its characters
+        # literally, so stripping the outer quotes yields the data URI without
+        # json.loads. The media reference is built from that backslash- and
+        # quote-free data URI, so quoting it again is valid JSON. Escaped or
+        # malformed values are left unchanged.
+        header_end = value.find(",", 0, _MAX_DATA_URI_HEADER_LENGTH)
+
+        if (
+            header_end == -1
+            or not value.endswith('"')
+            or not value[:header_end].endswith(";base64")
+            or "\\" in value
+            or value.find('"', 1, -1) != -1
+        ):
+            return value
+
+        data_uri = value[1:-1]
+        processed_value = self._process_media_string(
+            span=span, attribute_key=attribute_key, value=data_uri
+        )
+
+        if processed_value == data_uri:
+            return value
+
+        return f'"{processed_value}"'
 
     def _apply_mask_otel_spans(
         self,
@@ -556,6 +598,16 @@ def _is_valid_attribute_key(key: Any) -> bool:
 
 def _is_attribute_sequence(value: AttributeValue) -> bool:
     return isinstance(value, SequenceCollection) and not isinstance(value, (str, bytes))
+
+
+def _is_langfuse_metadata_attribute(attribute_key: str) -> bool:
+    return any(
+        attribute_key == prefix or attribute_key.startswith(f"{prefix}.")
+        for prefix in (
+            LangfuseOtelSpanAttributes.OBSERVATION_METADATA,
+            LangfuseOtelSpanAttributes.TRACE_METADATA,
+        )
+    )
 
 
 def _is_base64_data_uri(value: str) -> bool:

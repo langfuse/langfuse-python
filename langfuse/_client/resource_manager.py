@@ -8,7 +8,7 @@ Key features:
 - Thread-safe OpenTelemetry tracer with Langfuse-specific span processors and sampling
 - Configurable batch processing of spans and scores with intelligent flushing behavior
 - Asynchronous background media upload processing with dedicated worker threads
-- Concurrent score ingestion with batching and retry mechanisms
+- Background score delivery with batching and retry mechanisms
 - Automatic project ID discovery and caching
 - Graceful shutdown handling with proper resource cleanup
 - Fault tolerance with detailed error logging and recovery mechanisms
@@ -43,10 +43,9 @@ from langfuse._client.environment_variables import (
 from langfuse._client.span_processor import LangfuseSpanProcessor
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
-from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse._task_manager.score_consumer import ScoreConsumer
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse._utils.request import LangfuseClient
 from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskFunction, MaskOtelSpansFunction
@@ -60,14 +59,14 @@ class LangfuseResourceManager:
     This class implements a thread-safe singleton pattern keyed by the public API key,
     ensuring that only one tracer instance exists per API key combination. It manages
     the lifecycle of the OpenTelemetry tracer provider, span processors, and resource
-    attributes, as well as background threads for media uploads and score ingestion.
+    attributes, as well as background threads for media uploads and score delivery.
 
     The tracer is responsible for:
     1. Setting up the OpenTelemetry tracer with appropriate sampling and configuration
     2. Managing the span processor for exporting spans to the Langfuse API
     3. Creating and managing Langfuse API clients (both synchronous and asynchronous)
     4. Handling background media upload processing via dedicated worker threads
-    5. Processing and batching score ingestion events with configurable flush settings
+    5. Batching scores for POST /api/public/scores with configurable flush settings
     6. Retrieving and caching project information for URL generation and media handling
     7. Coordinating graceful shutdown of all background processes with proper resource cleanup
 
@@ -85,7 +84,7 @@ class LangfuseResourceManager:
     _otel_tracer: Tracer
     _media_manager: MediaManager
     _media_upload_consumers: List[MediaUploadConsumer]
-    _ingestion_consumers: List[ScoreIngestionConsumer]
+    _score_consumers: List[ScoreConsumer]
 
     @classmethod
     def get_singleton_httpx_client(cls) -> Optional[httpx.Client]:
@@ -127,7 +126,6 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: Optional[bool] = None,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
@@ -166,7 +164,6 @@ class LangfuseResourceManager:
                     tracing_enabled=tracing_enabled
                     if tracing_enabled is not None
                     else True,
-                    blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                     should_export_span=should_export_span,
                     additional_headers=additional_headers,
                     tracer_provider=tracer_provider,
@@ -196,7 +193,6 @@ class LangfuseResourceManager:
         mask: Optional[MaskFunction] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         tracing_enabled: bool = True,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
@@ -220,7 +216,6 @@ class LangfuseResourceManager:
         self.release = release
         self.media_upload_thread_count = media_upload_thread_count
         self.sample_rate = sample_rate
-        self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.should_export_span = should_export_span
         self.additional_headers = additional_headers
         self.id_generator = id_generator
@@ -259,7 +254,6 @@ class LangfuseResourceManager:
                 timeout=timeout,
                 flush_at=flush_at,
                 flush_interval=flush_interval,
-                blocked_instrumentation_scopes=blocked_instrumentation_scopes,
                 should_export_span=should_export_span,
                 additional_headers=additional_headers,
                 span_exporter=span_exporter,
@@ -286,7 +280,7 @@ class LangfuseResourceManager:
         # Register fork handler to reinitialize consumer threads in child process.
         # When using Gunicorn with --preload, os.fork() copies memory but not threads
         # (POSIX.1: https://pubs.opengroup.org/onlinepubs/9699919799/functions/fork.html).
-        # Without this, media upload and score ingestion threads are lost after fork,
+        # Without this, media upload and score threads are lost after fork,
         # causing silent data loss.
         #
         # Note: LangfuseSpanProcessor (BatchSpanProcessor) already handles fork-safety
@@ -369,17 +363,9 @@ class LangfuseResourceManager:
             x_langfuse_public_key=self.public_key,
             timeout=self.timeout,
         )
-        self._score_ingestion_client = LangfuseClient(
-            public_key=self.public_key,
-            secret_key=self.secret_key,
-            base_url=self.base_url,
-            version=langfuse_version,
-            timeout=self.timeout or 20,
-            session=self.httpx_client,
-        )
 
     def _init_consumer_threads(self) -> None:
-        """Initialize media upload and score ingestion consumer threads."""
+        """Initialize media upload and score consumer threads."""
         if self._media_upload_enabled:
             for i in range(self._media_upload_thread_count):
                 media_upload_consumer = MediaUploadConsumer(
@@ -389,21 +375,19 @@ class LangfuseResourceManager:
                 media_upload_consumer.start()
                 self._media_upload_consumers.append(media_upload_consumer)
 
-        # Score ingestion
-        self._score_ingestion_queue: Queue[Any] = Queue(100_000)
-        self._ingestion_consumers = []
+        self._score_queue: Queue[Any] = Queue(100_000)
+        self._score_consumers = []
 
-        ingestion_consumer = ScoreIngestionConsumer(
-            ingestion_queue=self._score_ingestion_queue,
+        score_consumer = ScoreConsumer(
+            score_queue=self._score_queue,
             identifier=0,
-            client=self._score_ingestion_client,
+            api_client=self.api,
             flush_at=self.flush_at,
             flush_interval=self.flush_interval,
             max_retries=3,
-            public_key=self.public_key,
         )
-        ingestion_consumer.start()
-        self._ingestion_consumers.append(ingestion_consumer)
+        score_consumer.start()
+        self._score_consumers.append(score_consumer)
 
     def _at_fork_reinit(self) -> None:
         """Reinitialize consumer threads after fork in child process.
@@ -412,7 +396,7 @@ class LangfuseResourceManager:
         Necessary for Gunicorn --preload deployments where os.fork() is used:
         threads are not copied to child processes (POSIX standard), so without
         reinitialization, the child process has no consumer threads and all
-        media upload and score ingestion events are silently lost.
+        media uploads and scores are silently lost.
 
         Note: LangfuseSpanProcessor (BatchSpanProcessor) handles span export
         fork-safety separately via its own os.register_at_fork handler.
@@ -475,7 +459,7 @@ class LangfuseResourceManager:
         except Exception as e:
             langfuse_logger.error(
                 "[PID %s] Failed to reinitialize consumer threads after fork: %s. Media "
-                "upload, score ingestion, and prompt cache refresh will be unavailable in "
+                "upload, score delivery, and prompt cache refresh will be unavailable in "
                 "this worker.",
                 os.getpid(),
                 e,
@@ -495,79 +479,55 @@ class LangfuseResourceManager:
 
             cls._instances.clear()
 
-    def add_score_task(self, event: dict, *, force_sample: bool = False) -> None:
+    def add_score_task(self, score: dict, *, force_sample: bool = False) -> None:
+        """Enqueue a score for POST /api/public/scores.
+
+        Args:
+            score: Request body of a single score, keyed by API field names
+                (for example ``traceId``).
+            force_sample: Enqueue the score even if its trace is sampled out.
+        """
         try:
-            # Sample scores with the same sampler that is used for tracing
-            tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
+            trace_id = score.get("traceId")
+            tracer_provider = (
+                self.tracer_provider or otel_trace_api.get_tracer_provider()
+            )
+            sampler = getattr(tracer_provider, "sampler", None)
             should_sample = (
                 force_sample
-                or isinstance(
-                    tracer_provider, otel_trace_api.ProxyTracerProvider
-                )  # default to in-sample if otel sampler is not available
-                or (
-                    (
-                        tracer_provider.sampler.should_sample(
-                            parent_context=None,
-                            trace_id=int(event["body"].trace_id, 16),
-                            name="score",
-                        ).decision
-                        == Decision.RECORD_AND_SAMPLE
-                        if hasattr(event["body"], "trace_id")
-                        else True
-                    )
-                    if event["body"].trace_id
-                    is not None  # do not sample out session / dataset run scores
-                    else True
-                )
+                # do not sample out session / dataset run scores
+                or trace_id is None
+                # Only a trace-id ratio sampler gives the trace's actual decision
+                # from the trace id alone. Parent-based, random or attribute-based
+                # samplers may have recorded the trace, so keep its scores.
+                or not isinstance(sampler, TraceIdRatioBased)
+                or sampler.should_sample(
+                    parent_context=None,
+                    trace_id=int(trace_id, 16),
+                    name="score",
+                ).decision
+                == Decision.RECORD_AND_SAMPLE
             )
 
             if should_sample:
                 langfuse_logger.debug(
-                    "Score: Enqueuing event type=%s for trace_id=%s name=%s value=%s",
-                    event["type"],
-                    event["body"].trace_id,
-                    event["body"].name,
-                    event["body"].value,
+                    "Score: Enqueuing score for trace_id=%s name=%s value=%s",
+                    trace_id,
+                    score.get("name"),
+                    score.get("value"),
                 )
-                self._score_ingestion_queue.put(event, block=False)
+                self._score_queue.put(score, block=False)
 
         except Full:
             langfuse_logger.warning(
-                "System overload: Score ingestion queue has reached capacity (100,000 items). Score will be dropped. Consider increasing flush frequency or decreasing event volume."
+                "System overload: Score queue has reached capacity (100,000 items). Score will be dropped. Consider increasing flush frequency or decreasing event volume."
             )
 
             return
         except Exception as e:
             langfuse_logger.error(
-                "Unexpected error: Failed to process score event. The score will be "
+                "Unexpected error: Failed to process score. The score will be "
                 "dropped. Error details: %s",
-                e,
-            )
-
-            return
-
-    def add_trace_task(
-        self,
-        event: dict,
-    ) -> None:
-        try:
-            langfuse_logger.debug(
-                "Trace: Enqueuing event type=%s for trace_id=%s",
-                event["type"],
-                event["body"].id,
-            )
-            self._score_ingestion_queue.put(event, block=False)
-
-        except Full:
-            langfuse_logger.warning(
-                "System overload: Trace ingestion queue has reached capacity (100,000 items). Trace update will be dropped. Consider increasing flush frequency or decreasing event volume."
-            )
-
-            return
-        except Exception as e:
-            langfuse_logger.error(
-                "Unexpected error: Failed to process trace event. The trace update will "
-                "be dropped. Error details: %s",
                 e,
             )
 
@@ -608,22 +568,22 @@ class LangfuseResourceManager:
             )
 
         langfuse_logger.debug(
-            "Shutdown: Waiting for %s score ingestion thread(s) to complete processing",
-            len(self._ingestion_consumers),
+            "Shutdown: Waiting for %s score thread(s) to complete processing",
+            len(self._score_consumers),
         )
-        for score_ingestion_consumer in self._ingestion_consumers:
-            score_ingestion_consumer.pause()
+        for score_consumer in self._score_consumers:
+            score_consumer.pause()
 
-        for score_ingestion_consumer in self._ingestion_consumers:
+        for score_consumer in self._score_consumers:
             try:
-                score_ingestion_consumer.join()
+                score_consumer.join()
             except RuntimeError:
                 # consumer thread has not started
                 pass
 
             langfuse_logger.debug(
-                "Shutdown: Score ingestion thread #%s successfully terminated",
-                score_ingestion_consumer._identifier,
+                "Shutdown: Score thread #%s successfully terminated",
+                score_consumer._identifier,
             )
 
     def flush(self) -> None:
@@ -633,8 +593,8 @@ class LangfuseResourceManager:
             self.tracer_provider.force_flush()
             langfuse_logger.debug("Successfully flushed OTEL tracer provider")
 
-        self._score_ingestion_queue.join()
-        langfuse_logger.debug("Successfully flushed score ingestion queue")
+        self._score_queue.join()
+        langfuse_logger.debug("Successfully flushed score queue")
 
         self._media_upload_queue.join()
         langfuse_logger.debug("Successfully flushed media upload queue")

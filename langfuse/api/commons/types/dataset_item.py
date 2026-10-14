@@ -53,6 +53,11 @@ class DatasetItem(UniversalBaseModel):
     updated_at: typing_extensions.Annotated[
         dt.datetime, FieldMetadata(alias="updatedAt")
     ]
+    version: typing.Optional[dt.datetime] = pydantic.Field(default=None)
+    """
+    When this version of the dataset item became current. Listing dataset items with a `version` at or after this timestamp returns this item version, until the item is changed again. Self-hosted deployments that set `LANGFUSE_DATASET_SERVICE_WRITE_TO_VERSIONED_IMPLEMENTATION=false` update items in place, so there it stays at the item's first write.
+    """
+
     media_references: typing_extensions.Annotated[
         typing.List[DatasetItemMediaReference], FieldMetadata(alias="mediaReferences")
     ] = pydantic.Field()

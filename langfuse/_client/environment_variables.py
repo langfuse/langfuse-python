@@ -77,13 +77,13 @@ LANGFUSE_OTEL_COMPRESSION = "LANGFUSE_OTEL_COMPRESSION"
 """
 .. envvar:: LANGFUSE_OTEL_COMPRESSION
 
-Compression for span batches sent by the default OTLP exporter: ``gzip`` or ``none``.
-The ``otel_compression`` client argument takes precedence. If unset, the standard
-``OTEL_EXPORTER_OTLP_TRACES_COMPRESSION`` and ``OTEL_EXPORTER_OTLP_COMPRESSION``
-environment variables apply. ``gzip`` requires Langfuse server v3.30.0 or later.
+Compression for span batches sent by the default OTLP exporter: ``gzip`` or ``none``
+(case-insensitive). The ``otel_compression`` client argument takes precedence. If this
+variable is unset or invalid, ``OTEL_EXPORTER_OTLP_TRACES_COMPRESSION`` and then
+``OTEL_EXPORTER_OTLP_COMPRESSION`` apply, and otherwise span exports are gzip-compressed.
 Custom span exporters are not affected.
 
-**Default value:** unset
+**Default value:** unset (span exports use gzip)
 """
 
 LANGFUSE_DEBUG = "LANGFUSE_DEBUG"
