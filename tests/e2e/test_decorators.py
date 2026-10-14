@@ -1114,7 +1114,7 @@ def test_media():
             in (trace.output or {}).get("context", {}).get("nested", "")
             and any(
                 "@@@langfuseMedia:type=application/pdf|id="
-                in observation.metadata.get("context", {}).get("nested", "")
+                in observation.metadata.get("context.nested", "")
                 for observation in trace.observations
                 if observation.metadata
             )
@@ -1133,10 +1133,10 @@ def test_media():
     observation = trace_data.observations[0]
     assert (
         "@@@langfuseMedia:type=application/pdf|id="
-        in observation.metadata["context"]["nested"]
+        in observation.metadata["context.nested"]
     )
     parsed_reference_string = LangfuseMedia.parse_reference_string(
-        observation.metadata["context"]["nested"]
+        observation.metadata["context.nested"]
     )
     assert parsed_reference_string["content_type"] == "application/pdf"
     assert parsed_reference_string["media_id"] is not None

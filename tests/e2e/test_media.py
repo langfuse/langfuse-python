@@ -35,14 +35,14 @@ def test_replace_media_reference_string_in_object():
         is_result_ready=lambda observations: (
             re.match(
                 r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
-                observations[0].metadata.get("context", {}).get("nested", ""),
+                observations[0].metadata.get("context.nested", ""),
             )
             is not None
         ),
     )
     assert len(fetched_observations) == 1
     fetched_observation = fetched_observations[0]
-    media_ref = fetched_observation.metadata["context"]["nested"]
+    media_ref = fetched_observation.metadata["context.nested"]
     assert re.match(
         r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
         media_ref,
@@ -53,11 +53,11 @@ def test_replace_media_reference_string_in_object():
     )
 
     expected_base64 = f"data:audio/wav;base64,{base64_audio}"
-    assert resolved_obs["metadata"]["context"]["nested"] == expected_base64
+    assert resolved_obs["metadata"]["context.nested"] == expected_base64
 
     span2 = langfuse.start_observation(
         name=f"2-{mock_trace_name}",
-        metadata={"context": {"nested": resolved_obs["metadata"]["context"]["nested"]}},
+        metadata={"context": {"nested": resolved_obs["metadata"]["context.nested"]}},
     ).end()
 
     langfuse.flush()
@@ -65,8 +65,8 @@ def test_replace_media_reference_string_in_object():
     fetched_observations2 = wait_for_observations(
         span2.trace_id,
         is_result_ready=lambda observations: (
-            observations[0].metadata.get("context", {}).get("nested") == media_ref
+            observations[0].metadata.get("context.nested") == media_ref
         ),
     )
     assert len(fetched_observations2) == 1
-    assert fetched_observations2[0].metadata["context"]["nested"] == media_ref
+    assert fetched_observations2[0].metadata["context.nested"] == media_ref
