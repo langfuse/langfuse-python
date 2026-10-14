@@ -1,12 +1,20 @@
 [project]
 name = "langfuse"
-version = "4.17.0"
+version = "5.0.1"
 description = "Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
 keywords = [
     "langfuse",
     "llm",
@@ -52,10 +60,12 @@ dev = [
     "pytest-httpserver>=1.0.8,<2",
     "ruff>=0.15.2,<0.16",
     "mypy>=1.0.0,<2",
-    "openai>=0.27.8",
-    "langchain-openai>=0.0.5,<0.4",
-    "langchain>=1,<2",
-    "langgraph>=1,<2",
+    "openai>=1.0.0",
+    "langchain-core>=1,<2",
+    "langchain-openai>=1,<2",
+    # langgraph-checkpoint requires ormsgpack, which cannot be built for Python 3.15 yet
+    "langchain>=1,<2; python_version < '3.15'",
+    "langgraph>=1,<2; python_version < '3.15'",
     "autoevals>=0.0.130,<0.1",
     "opentelemetry-instrumentation-threading>=0.59b0,<1",
     "tenacity>=9.1.4",
@@ -71,8 +81,9 @@ build-backend = "uv_build"
 [tool.uv]
 # Basic protection against supply chain attacks
 exclude-newer = "7 days"
-# OpenTelemetry 1.45 ships the OTLP request size cap the SDK relies on
-exclude-newer-package = { "opentelemetry-api" = "3 days", "opentelemetry-sdk" = "3 days", "opentelemetry-semantic-conventions" = "3 days", "opentelemetry-proto" = "3 days", "opentelemetry-exporter-otlp-proto-common" = "3 days", "opentelemetry-exporter-otlp-proto-http" = "3 days", "opentelemetry-exporter-otlp-common" = "3 days", "opentelemetry-exporter-http-transport" = "3 days", "opentelemetry-instrumentation" = "3 days", "opentelemetry-instrumentation-threading" = "3 days" }
+# OpenTelemetry 1.45 ships the OTLP request size cap the SDK relies on;
+# pydantic 2.14 is the first release with Python 3.15 wheels
+exclude-newer-package = { "pydantic" = "3 days", "pydantic-core" = "3 days", "opentelemetry-api" = "3 days", "opentelemetry-sdk" = "3 days", "opentelemetry-semantic-conventions" = "3 days", "opentelemetry-proto" = "3 days", "opentelemetry-exporter-otlp-proto-common" = "3 days", "opentelemetry-exporter-otlp-proto-http" = "3 days", "opentelemetry-exporter-otlp-common" = "3 days", "opentelemetry-exporter-http-transport" = "3 days", "opentelemetry-instrumentation" = "3 days", "opentelemetry-instrumentation-threading" = "3 days" }
 
 [tool.uv.build-backend]
 module-root = ""
@@ -139,7 +150,7 @@ module = "langfuse.api.*"
 disable_error_code = ["redundant-cast", "no-untyped-def"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 extend-select = [

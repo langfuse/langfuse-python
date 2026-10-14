@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from langfuse._client.client import Langfuse
 from langfuse.media import LangfuseMedia
-from tests.support.utils import wait_for_trace
+from tests.support.utils import wait_for_observations
 
 
 def test_replace_media_reference_string_in_object():
@@ -30,25 +30,26 @@ def test_replace_media_reference_string_in_object():
 
     langfuse.flush()
 
-    fetched_trace = wait_for_trace(
+    fetched_observations = wait_for_observations(
         span.trace_id,
-        is_result_ready=lambda trace: (
-            bool(trace.observations)
-            and re.match(
+        is_result_ready=lambda observations: (
+            re.match(
                 r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
-                trace.observations[0].metadata.get("context", {}).get("nested", ""),
+                observations[0].metadata.get("context", {}).get("nested", ""),
             )
             is not None
         ),
     )
-    media_ref = fetched_trace.observations[0].metadata["context"]["nested"]
+    assert len(fetched_observations) == 1
+    fetched_observation = fetched_observations[0]
+    media_ref = fetched_observation.metadata["context"]["nested"]
     assert re.match(
         r"^@@@langfuseMedia:type=audio/wav\|id=.+\|source=base64_data_uri@@@$",
         media_ref,
     )
 
     resolved_obs = langfuse.resolve_media_references(
-        obj=fetched_trace.observations[0], resolve_with="base64_data_uri"
+        obj=fetched_observation, resolve_with="base64_data_uri"
     )
 
     expected_base64 = f"data:audio/wav;base64,{base64_audio}"
@@ -61,15 +62,11 @@ def test_replace_media_reference_string_in_object():
 
     langfuse.flush()
 
-    fetched_trace2 = wait_for_trace(
+    fetched_observations2 = wait_for_observations(
         span2.trace_id,
-        is_result_ready=lambda trace: (
-            bool(trace.observations)
-            and trace.observations[0].metadata.get("context", {}).get("nested")
-            == fetched_trace.observations[0].metadata["context"]["nested"]
+        is_result_ready=lambda observations: (
+            observations[0].metadata.get("context", {}).get("nested") == media_ref
         ),
     )
-    assert (
-        fetched_trace2.observations[0].metadata["context"]["nested"]
-        == fetched_trace.observations[0].metadata["context"]["nested"]
-    )
+    assert len(fetched_observations2) == 1
+    assert fetched_observations2[0].metadata["context"]["nested"] == media_ref

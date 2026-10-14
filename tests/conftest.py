@@ -102,10 +102,6 @@ def langfuse_memory_client(
         from langfuse._client.span_filter import is_default_export_span
 
         self.public_key = kwargs.get("public_key", "test-public-key")
-        blocked_scopes = kwargs.get("blocked_instrumentation_scopes")
-        self.blocked_instrumentation_scopes = (
-            blocked_scopes if blocked_scopes is not None else []
-        )
         self._should_export_span = (
             kwargs.get("should_export_span") or is_default_export_span
         )
