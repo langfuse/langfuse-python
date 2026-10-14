@@ -2667,6 +2667,7 @@ class Langfuse:
                 Each run evaluator receives all item_results and can compute aggregate metrics.
                 Useful for calculating averages, distributions, or cross-item comparisons.
             max_concurrency: Maximum number of concurrent task executions (default: 50).
+                Must be greater than 0, including for empty datasets.
                 Controls the number of items processed simultaneously. Adjust based on
                 API rate limits and system resources.
             metadata: Optional metadata dictionary to attach to all experiment traces.
@@ -2825,6 +2826,9 @@ class Langfuse:
         metadata: Optional[Dict[str, Any]] = None,
         dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
+        if max_concurrency <= 0:
+            raise ValueError("max_concurrency must be greater than 0")
+
         langfuse_logger.debug(
             "Starting experiment '%s' run '%s' with %s items", name, run_name, len(data)
         )

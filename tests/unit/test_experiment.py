@@ -1,5 +1,6 @@
 """Tests for ``langfuse.experiment`` — ``RunnerContext`` and ``RegressionError``."""
 
+import asyncio
 import inspect
 import typing
 from datetime import datetime
@@ -524,3 +525,64 @@ class TestExperimentObservationTree:
             "failed_evaluator_count": 1,
             "skipped_evaluator_count": 1,
         }
+
+
+class TestExperimentConcurrency:
+    @pytest.mark.timeout(5)
+    @pytest.mark.parametrize("max_concurrency", [0, -1])
+    def test_public_api_rejects_nonpositive_concurrency(
+        self, langfuse_memory_client, max_concurrency
+    ):
+        task = MagicMock()
+        with pytest.raises(ValueError, match="max_concurrency must be greater than 0"):
+            langfuse_memory_client.run_experiment(
+                name="invalid-concurrency",
+                data=[{"input": "question"}],
+                task=task,
+                max_concurrency=max_concurrency,
+            )
+        task.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("max_concurrency", [0, -1])
+    @pytest.mark.parametrize("data", [[], [{"input": "question"}]])
+    async def test_nonpositive_concurrency_raises(
+        self, langfuse_memory_client, max_concurrency, data
+    ):
+        task = MagicMock()
+        # Bound the regression: before validation, zero permits never release.
+        with pytest.raises(ValueError, match="max_concurrency must be greater than 0"):
+            await asyncio.wait_for(
+                langfuse_memory_client._run_experiment_async(
+                    name="invalid-concurrency",
+                    run_name="invalid-concurrency-run",
+                    description=None,
+                    data=data,
+                    task=task,
+                    evaluators=[],
+                    composite_evaluator=None,
+                    run_evaluators=[],
+                    max_concurrency=max_concurrency,
+                ),
+                timeout=1,
+            )
+        task.assert_not_called()
+
+    @pytest.mark.parametrize("max_concurrency", [1, 2])
+    @pytest.mark.parametrize("data", [[], [{"input": "a"}, {"input": "b"}]])
+    def test_positive_concurrency_preserves_results(
+        self, langfuse_memory_client, max_concurrency, data
+    ):
+        async def task(*, item):
+            await asyncio.sleep(0)
+            return item["input"].upper()
+
+        result = langfuse_memory_client.run_experiment(
+            name="valid-concurrency",
+            data=data,
+            task=task,
+            max_concurrency=max_concurrency,
+        )
+        assert [item.output for item in result.item_results] == [
+            item["input"].upper() for item in data
+        ]
