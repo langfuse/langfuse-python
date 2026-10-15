@@ -103,11 +103,13 @@ _RESERVED_OBSERVATION_ATTRIBUTE_KEYS: Tuple[str, ...] = (
 )
 
 
+_SPAN_LIKE_OR_EVENT_TYPES = frozenset(
+    (*get_observation_types_list(ObservationTypeSpanLike), "event")
+)
+
+
 def _reserved_attribute_keys(observation_type: Optional[str]) -> Tuple[str, ...]:
-    if (
-        observation_type in get_observation_types_list(ObservationTypeSpanLike)
-        or observation_type == "event"
-    ):
+    if observation_type in _SPAN_LIKE_OR_EVENT_TYPES:
         return _RESERVED_SPAN_ATTRIBUTE_KEYS
 
     return _RESERVED_OBSERVATION_ATTRIBUTE_KEYS
@@ -147,23 +149,30 @@ def _drop_attributes_over_span_limit(
             return attributes
 
         existing = getattr(span, "attributes", None) or {}
+        # Upper bound of the exact count below: if it fits, nothing is dropped.
+        if len(existing) + len(attributes) + len(reserved_keys) <= max_attributes:
+            return attributes
+
+        existing_keys = set(existing)
         new_keys = [
             key
             for key, value in attributes.items()
-            if value is not None and key not in existing
+            if value is not None and key not in existing_keys
         ]
         new_key_set = set(new_keys)
         reserved_count = sum(
-            1 for key in reserved_keys if key not in existing and key not in new_key_set
+            1
+            for key in reserved_keys
+            if key not in existing_keys and key not in new_key_set
         )
-        if len(existing) + reserved_count + len(new_keys) <= max_attributes:
+        if len(existing_keys) + reserved_count + len(new_keys) <= max_attributes:
             return attributes
 
         new_metadata_keys = [key for key in new_keys if _is_metadata_key(key)]
         free_metadata_slots = max(
             0,
             max_attributes
-            - len(existing)
+            - len(existing_keys)
             - reserved_count
             - (len(new_keys) - len(new_metadata_keys)),
         )
@@ -173,7 +182,7 @@ def _drop_attributes_over_span_limit(
         remaining_new_keys = [
             key for key in new_keys if key not in dropped_metadata_set
         ]
-        capacity = max(0, max_attributes - len(existing))
+        capacity = max(0, max_attributes - len(existing_keys))
         dropped_other = remaining_new_keys[capacity:]
         # The metadata budget is never looser than the hard guard, so only
         # non-metadata keys can be dropped here. Count any metadata defensively.
@@ -309,12 +318,6 @@ class LangfuseObservationWrapper:
             prompt: Associated prompt template from Langfuse prompt management
         """
         self._otel_span = otel_span
-        reserved_keys = _reserved_attribute_keys(as_type)
-        _set_span_attributes_within_limit(
-            self._otel_span,
-            {LangfuseOtelSpanAttributes.OBSERVATION_TYPE: as_type},
-            reserved_keys,
-        )
         self._langfuse_client = langfuse_client
         self._observation_type = as_type
 
@@ -327,20 +330,19 @@ class LangfuseObservationWrapper:
         self._environment = (
             existing_environment or environment or self._langfuse_client._environment
         )
-        if self._environment is not None:
-            _set_span_attributes_within_limit(
-                self._otel_span,
-                {LangfuseOtelSpanAttributes.ENVIRONMENT: self._environment},
-                reserved_keys,
-            )
-
         self._release = release or self._langfuse_client._release
-        if self._release is not None:
-            _set_span_attributes_within_limit(
-                self._otel_span,
-                {LangfuseOtelSpanAttributes.RELEASE: self._release},
-                reserved_keys,
-            )
+
+        initial_attributes = {
+            LangfuseOtelSpanAttributes.OBSERVATION_TYPE: as_type,
+            LangfuseOtelSpanAttributes.ENVIRONMENT: self._environment,
+            LangfuseOtelSpanAttributes.RELEASE: self._release,
+        }
+        reserved_keys = _reserved_attribute_keys(as_type)
+        _set_span_attributes_within_limit(
+            self._otel_span,
+            {k: v for k, v in initial_attributes.items() if v is not None},
+            reserved_keys,
+        )
 
         # Handle media only if span is sampled
         if self._otel_span.is_recording():
@@ -387,11 +389,7 @@ class LangfuseObservationWrapper:
                     status_message=status_message,
                     observation_type=cast(
                         Optional[Union[ObservationTypeSpanLike, Literal["event"]]],
-                        as_type
-                        if as_type
-                        in get_observation_types_list(ObservationTypeSpanLike)
-                        or as_type == "event"
-                        else None,
+                        as_type if as_type in _SPAN_LIKE_OR_EVENT_TYPES else None,
                     ),
                 )
 
@@ -896,9 +894,7 @@ class LangfuseObservationWrapper:
                 observation_type=cast(
                     Optional[Union[ObservationTypeSpanLike, Literal["event"]]],
                     self._observation_type
-                    if self._observation_type
-                    in get_observation_types_list(ObservationTypeSpanLike)
-                    or self._observation_type == "event"
+                    if self._observation_type in _SPAN_LIKE_OR_EVENT_TYPES
                     else None,
                 ),
             )

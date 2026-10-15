@@ -311,6 +311,30 @@ class TestBasicSpans(TestOTelBase):
         assert span.id == span_data["span_id"]
         assert span.trace_id == span_data["trace_id"]
 
+    def test_environment_and_release_are_set_only_when_configured(
+        self, langfuse_client, memory_exporter
+    ):
+        langfuse_client._environment = "staging"
+        langfuse_client._release = "v1"
+        langfuse_client.start_observation(name="configured", as_type="generation").end()
+        langfuse_client._environment = None
+        langfuse_client._release = None
+        langfuse_client.start_observation(name="unconfigured").end()
+
+        configured = self.get_spans_by_name(memory_exporter, "configured")[0][
+            "attributes"
+        ]
+        assert configured[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "generation"
+        assert configured[LangfuseOtelSpanAttributes.ENVIRONMENT] == "staging"
+        assert configured[LangfuseOtelSpanAttributes.RELEASE] == "v1"
+
+        unconfigured = self.get_spans_by_name(memory_exporter, "unconfigured")[0][
+            "attributes"
+        ]
+        assert unconfigured[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "span"
+        assert LangfuseOtelSpanAttributes.ENVIRONMENT not in unconfigured
+        assert LangfuseOtelSpanAttributes.RELEASE not in unconfigured
+
     def test_span_hierarchy(self, langfuse_client, memory_exporter):
         """Test creating nested spans and verify their parent-child relationships."""
         # Create parent span
