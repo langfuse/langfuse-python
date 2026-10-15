@@ -112,6 +112,7 @@ from langfuse.api import (
     Prompt_Text,
 )
 from langfuse.api.core.datetime_utils import serialize_datetime
+from langfuse.api.core.serialization import get_field_to_alias_mapping
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -148,6 +149,10 @@ from langfuse.types import (
     SpanLevel,
     TraceContext,
 )
+
+# Fern's dict() looks these aliases up with typing.get_type_hints on every call,
+# which costs about 50 us per score on the caller's thread.
+_CREATE_SCORE_REQUEST_ALIASES = get_field_to_alias_mapping(CreateScoreRequest)
 
 
 def _get_evaluator_name(evaluator: Callable[..., Any]) -> str:
@@ -1960,10 +1965,9 @@ class Langfuse:
                 environment=environment or self._environment,
                 timestamp=timestamp or _get_timestamp(),
             )
-            # Fern's dict() keeps fields explicitly set to None, so drop them here.
             score = {
-                key: value
-                for key, value in request.dict(by_alias=True).items()
+                _CREATE_SCORE_REQUEST_ALIASES.get(field, field): value
+                for field, value in request
                 if value is not None
             }
             # The API accepts any JSON value as metadata, the generated model only dicts.
