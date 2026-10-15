@@ -7,7 +7,7 @@ import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
-from ...scores_v3.types.score_v3 import ScoreV3
+from ...scores.types.score_v3 import ScoreV3
 
 
 class Experiment(UniversalBaseModel):

@@ -94,11 +94,11 @@ class DatasetClient:
         """Run an experiment on this Langfuse dataset with automatic tracking.
 
         This is a convenience method that runs an experiment using all items in this
-        dataset. It automatically creates a dataset run in Langfuse for tracking and
-        comparison purposes, linking all experiment results to the dataset.
+        dataset. All results are recorded as one experiment in Langfuse that is linked
+        to the dataset for tracking and comparison purposes.
 
         Key benefits of using dataset.run_experiment():
-        - Automatic dataset run creation and linking in Langfuse UI
+        - Automatic experiment tracking and linking to the dataset in Langfuse UI
         - Built-in experiment tracking and versioning
         - Easy comparison between different experiment runs
         - Direct access to dataset items with their metadata and expected outputs
@@ -106,10 +106,11 @@ class DatasetClient:
 
         Args:
             name: Human-readable name for the experiment run. This will be used as
-                the dataset run name in Langfuse for tracking and identification.
-            run_name: Optional exact name for the dataset run. If provided, this will be
-                used as the exact dataset run name in Langfuse. If not provided, this will
-                default to the experiment name appended with an ISO timestamp.
+                the base of the experiment run name in Langfuse for tracking and identification.
+            run_name: Optional exact name for the experiment run. Runs with the same
+                `run_name` on this dataset share one experiment ID and appear as a single
+                experiment in Langfuse. If not provided, this will default to the
+                experiment name appended with an ISO timestamp.
             description: Optional description of the experiment's purpose, methodology,
                 or what you're testing. Appears in the Langfuse UI for context.
             task: Function that processes each dataset item and returns output.
@@ -131,12 +132,14 @@ class DatasetClient:
         Returns:
             ExperimentResult object containing:
             - name: The experiment name.
-            - run_name: The experiment run name (equivalent to the dataset run name).
+            - run_name: The experiment run name, shown as the experiment name in Langfuse.
             - description: Optional experiment description.
             - item_results: Results for each dataset item with outputs and evaluations.
             - run_evaluations: Aggregate evaluation results for the entire run.
-            - dataset_run_id: ID of the created dataset run in Langfuse.
-            - dataset_run_url: Direct URL to view the experiment results in Langfuse UI.
+            - experiment_id: ID of the experiment run in Langfuse.
+            - experiment_url: Direct URL to view the experiment results in Langfuse UI.
+            - dataset_run_id / dataset_run_url: Deprecated aliases of experiment_id /
+              experiment_url.
 
             The result object provides a format() method for human-readable output:
             ```python
@@ -176,8 +179,8 @@ class DatasetClient:
                 evaluators=[accuracy_evaluator]
             )
 
-            print(f"Evaluated {len(result['item_results'])} questions")
-            print(f"View detailed results: {result['dataset_run_url']}")
+            print(f"Evaluated {len(result.item_results)} questions")
+            print(f"View detailed results: {result.experiment_url}")
             ```
 
             Advanced experiment with multiple evaluators and run-level analysis:
@@ -244,11 +247,11 @@ class DatasetClient:
             )
 
             # Results are automatically linked to dataset in Langfuse
-            print(f"Experiment completed! View in Langfuse: {result['dataset_run_url']}")
+            print(f"Experiment completed! View in Langfuse: {result.experiment_url}")
 
             # Access individual results
-            for i, item_result in enumerate(result["item_results"]):
-                print(f"Item {i+1}: {item_result['evaluations']}")
+            for i, item_result in enumerate(result.item_results):
+                print(f"Item {i+1}: {item_result.evaluations}")
             ```
 
             Comparing different model versions:
@@ -274,15 +277,15 @@ class DatasetClient:
 
             # Both experiments are now visible in Langfuse for easy comparison
             print("Compare results in Langfuse:")
-            print(f"GPT-4: {result_gpt4.dataset_run_url}")
-            print(f"Custom: {result_custom.dataset_run_url}")
+            print(f"GPT-4: {result_gpt4.experiment_url}")
+            print(f"Custom: {result_custom.experiment_url}")
             ```
 
         Note:
-            - All experiment results are automatically tracked in Langfuse as dataset runs
+            - All experiment results are automatically tracked in Langfuse as experiments on this dataset
             - Dataset items provide .input, .expected_output, and .metadata attributes
             - Results can be easily compared across different experiment runs in the UI
-            - The dataset_run_url provides direct access to detailed results and analysis
+            - The experiment_url provides direct access to detailed results and analysis
             - Failed items are handled gracefully and logged without stopping the experiment
             - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
             - Async execution is handled automatically with smart event loop detection

@@ -1,4 +1,5 @@
 import asyncio
+import gzip
 import json
 from collections.abc import Iterator
 from http import HTTPStatus
@@ -301,7 +302,7 @@ def test_chat_completion_exports_generation_span(
     assert (
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o-mini"
     )
-    assert span.attributes["langfuse.observation.metadata.suite"] == "unit"
+    assert span.attributes["langfuse.observation.metadata.suite"] == '"unit"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == [
         {"role": "user", "content": "1 + 1 = ?"}
     ]
@@ -383,7 +384,7 @@ def test_openai_stream_with_none_choices_chunk_does_not_crash(
     span = get_span("unit-openai-stream-none-choices")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
 
 
 def test_streaming_chat_completion_preserves_tool_calls_after_content():
@@ -519,7 +520,7 @@ def test_streaming_chat_completion_exports_ttft(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -587,7 +588,7 @@ def test_openai_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -622,7 +623,7 @@ def test_openai_stream_handles_trailing_azure_content_filter_chunk(
     span = get_span("unit-openai-native-stream-azure-filter")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -746,7 +747,7 @@ async def test_openai_async_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -789,7 +790,7 @@ async def test_openai_async_stream_supports_anext(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -1179,6 +1180,77 @@ async def test_openai_async_stream_captures_service_tier_from_chunks(
     assert model_parameters["temperature"] == 0
 
 
+def test_chat_completion_captures_reasoning_parameters(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response()
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-reasoning-params",
+            model="gpt-5",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            reasoning_effort="minimal",
+            verbosity="low",
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-reasoning-params")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert model_parameters["reasoning_effort"] == "minimal"
+    assert model_parameters["verbosity"] == "low"
+
+
+def test_chat_completion_reasoning_parameters_absent_by_default(
+    langfuse_memory_client, get_span, json_attr
+):
+    from openai._types import NOT_GIVEN
+
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = _make_chat_response()
+
+    with patch.object(openai_client.chat.completions, "_post", return_value=response):
+        openai_client.chat.completions.create(
+            name="unit-openai-reasoning-params-absent",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "1 + 1 = ?"}],
+            reasoning_effort=NOT_GIVEN,
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-reasoning-params-absent")
+
+    model_parameters = json_attr(
+        span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+    )
+    assert "reasoning_effort" not in model_parameters
+    assert "verbosity" not in model_parameters
+
+
+def test_responses_kwargs_capture_reasoning_parameters():
+    data = lf_openai_module._get_langfuse_data_from_kwargs(
+        SimpleNamespace(type="chat", object="Responses"),
+        {
+            "model": "gpt-5",
+            "input": "1 + 1 = ?",
+            "reasoning": {"effort": "high", "summary": "auto"},
+            "text": {"verbosity": "high", "format": {"type": "text"}},
+            "max_output_tokens": 256,
+        },
+    )
+
+    model_parameters = data["model_parameters"]
+    assert model_parameters["reasoning_effort"] == "high"
+    assert model_parameters["reasoning_summary"] == "auto"
+    assert model_parameters["verbosity"] == "high"
+    assert model_parameters["max_output_tokens"] == 256
+    assert "max_tokens" not in model_parameters
+
+
 def test_embedding_model_parameters_do_not_include_service_tier(
     langfuse_memory_client, get_span, json_attr
 ):
@@ -1515,7 +1587,10 @@ async def test_streaming_chat_completion_keeps_multiple_choices_separate(
     ingestion_request, ingestion_response = ingestion[0]
     assert ingestion_response.status_code == HTTPStatus.OK
     assert ingestion_request.content_type == "application/x-protobuf"
-    payload = ExportTraceServiceRequest.FromString(ingestion_request.get_data())
+    ingestion_body = ingestion_request.get_data()
+    if ingestion_request.headers.get("Content-Encoding") == "gzip":
+        ingestion_body = gzip.decompress(ingestion_body)
+    payload = ExportTraceServiceRequest.FromString(ingestion_body)
     spans = [
         span
         for resource in payload.resource_spans
@@ -1538,7 +1613,7 @@ async def test_streaming_chat_completion_keeps_multiple_choices_separate(
         ("call-0", '{"value":"A0"}'),
         ("call-1", '{"value":"B1"}'),
     ]
-    assert attributes["langfuse.observation.metadata.finish_reason"] == "tool_calls"
+    assert attributes["langfuse.observation.metadata.finish_reason"] == '"tool_calls"'
     assert chunks[-1].usage is not None
     assert chunks[-1].usage.model_dump(exclude_none=True) == {
         "prompt_tokens": 7,

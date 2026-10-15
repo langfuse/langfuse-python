@@ -23,14 +23,16 @@ class Dataset(UniversalBaseModel):
     """
 
     input_schema: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="inputSchema")
+        typing.Optional[typing.Dict[str, typing.Any]],
+        FieldMetadata(alias="inputSchema"),
     ] = pydantic.Field(default=None)
     """
     JSON Schema for validating dataset item inputs
     """
 
     expected_output_schema: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="expectedOutputSchema")
+        typing.Optional[typing.Dict[str, typing.Any]],
+        FieldMetadata(alias="expectedOutputSchema"),
     ] = pydantic.Field(default=None)
     """
     JSON Schema for validating dataset item expected outputs

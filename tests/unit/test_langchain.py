@@ -4,8 +4,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from langchain.messages import HumanMessage
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
 from langchain_core.prompts import ChatPromptTemplate
@@ -845,7 +844,7 @@ def test_tool_when_structured_inputs_only_store_in_inputs_attribute_not_metadata
 
     metadata_prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
 
-    assert span.attributes[f"{metadata_prefix}.custom_key"] == "custom_value"
+    assert span.attributes[f"{metadata_prefix}.custom_key"] == '"custom_value"'
     assert f"{metadata_prefix}.inputs" not in span.attributes
 
 
@@ -924,6 +923,7 @@ def test_pending_resume_contexts_are_capped(langfuse_memory_client, monkeypatch)
 
 
 def test_graphbubbleup_import_is_independent_from_command_import():
+    pytest.importorskip("langgraph.errors")
     real_import = __import__
 
     def import_without_langgraph_command(

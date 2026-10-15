@@ -3,17 +3,12 @@
 import datetime as dt
 import typing
 
-import typing_extensions
-from ..commons.types.create_score_value import CreateScoreValue
-from ..commons.types.score import Score
-from ..commons.types.score_data_type import ScoreDataType
-from ..commons.types.score_source import ScoreSource
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawScoresClient, RawScoresClient
-from .types.create_score_response import CreateScoreResponse
-from .types.create_score_source import CreateScoreSource
-from .types.get_scores_response import GetScoresResponse
+from .types.create_scores_request import CreateScoresRequest
+from .types.create_scores_response import CreateScoresResponse
+from .types.get_scores_v3response import GetScoresV3Response
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -37,67 +32,71 @@ class ScoresClient:
     def create(
         self,
         *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
+        request: CreateScoresRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
+    ) -> CreateScoresResponse:
         """
-        Create a score (supports trace, observation, session, and dataset run scores)
+        Create scores asynchronously from a list of scores. Returns 202 if all scores are accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; the endpoint returns 202 or 207.
 
         Parameters
         ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+        request : CreateScoresRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        CreateScoreResponse
+        CreateScoresResponse
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+        from langfuse.scores import CreateScoreRequest
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.scores.create(
+            request=[
+                CreateScoreRequest(
+                    name="name",
+                    value=1.1,
+                ),
+                CreateScoreRequest(
+                    name="name",
+                    value=1.1,
+                ),
+            ],
+        )
+        """
+        _response = self._raw_client.create(
+            request=request, request_options=request_options
+        )
+        return _response.data
+
+    def delete(
+        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> None:
+        """
+        Delete a score (supports both trace and session scores)
+
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
 
         Examples
         --------
@@ -111,134 +110,126 @@ class ScoresClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.scores.create(
-            name="name",
-            value=1.1,
+        client.scores.delete(
+            score_id="scoreId",
         )
         """
-        _response = self._raw_client.create(
-            name=name,
-            value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
-        )
+        _response = self._raw_client.delete(score_id, request_options=request_options)
         return _response.data
 
-    @typing_extensions.deprecated(
-        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
-        category=None,
-    )
     def get_many(
         self,
         *,
-        page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        user_id: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        fields: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        source: typing.Optional[str] = None,
+        data_type: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        queue_id: typing.Optional[str] = None,
+        author_user_id: typing.Optional[str] = None,
+        value: typing.Optional[str] = None,
+        value_min: typing.Optional[float] = None,
+        value_max: typing.Optional[float] = None,
+        trace_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        experiment_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
-        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        source: typing.Optional[ScoreSource] = None,
-        operator: typing.Optional[str] = None,
-        value: typing.Optional[float] = None,
-        score_ids: typing.Optional[str] = None,
-        config_id: typing.Optional[str] = None,
-        session_id: typing.Optional[str] = None,
-        dataset_run_id: typing.Optional[str] = None,
-        trace_id: typing.Optional[str] = None,
-        observation_id: typing.Optional[str] = None,
-        queue_id: typing.Optional[str] = None,
-        data_type: typing.Optional[ScoreDataType] = None,
-        trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        fields: typing.Optional[str] = None,
-        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> GetScoresResponse:
+    ) -> GetScoresV3Response:
         """
-        Get a list of scores (supports both trace and session scores)
+        Get a list of scores with a polymorphic `value` field (v3).
+
+        The `value` field type depends on `dataType`:
+        - `NUMERIC` → number
+        - `BOOLEAN` → boolean
+        - `CATEGORICAL`, `TEXT`, `CORRECTION` → string
+
+        The response always includes the core fields: id, projectId, name,
+        value, dataType, source, timestamp, environment, createdAt, updatedAt.
+
+        Additional field groups can be requested via the `fields` parameter:
+        - `details` — adds comment, configId, metadata
+        - `subject` — adds the subject object describing the entity the score
+          is attached to: kind (trace, observation, session, or experiment),
+          id, and traceId for observation-level scores
+        - `annotation` — adds authorUserId, queueId
+
+        Unknown group names return HTTP 400.
 
         Parameters
         ----------
-        page : typing.Optional[int]
-            Page number, starts at 1.
-
         limit : typing.Optional[int]
-            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Number of items per page. Maximum 100, default 50. Requests with a limit greater than 100 return HTTP 400.
 
-        user_id : typing.Optional[str]
-            Retrieve only scores with this userId associated to the trace.
-
-        name : typing.Optional[str]
-            Retrieve only scores with this name.
-
-        from_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created on or after a certain datetime (ISO 8601)
-
-        to_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created before a certain datetime (ISO 8601)
-
-        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Optional filter for scores where the environment is one of the provided values.
-
-        source : typing.Optional[ScoreSource]
-            Retrieve only scores from a specific source.
-
-        operator : typing.Optional[str]
-            Retrieve only scores with <operator> value.
-
-        value : typing.Optional[float]
-            Retrieve only scores with <operator> value.
-
-        score_ids : typing.Optional[str]
-            Comma-separated list of score IDs to limit the results to.
-
-        config_id : typing.Optional[str]
-            Retrieve only scores with a specific configId.
-
-        session_id : typing.Optional[str]
-            Retrieve only scores with a specific sessionId.
-
-        dataset_run_id : typing.Optional[str]
-            Retrieve only scores with a specific datasetRunId.
-
-        trace_id : typing.Optional[str]
-            Retrieve only scores with a specific traceId.
-
-        observation_id : typing.Optional[str]
-            Comma-separated list of observation IDs to filter scores by.
-
-        queue_id : typing.Optional[str]
-            Retrieve only scores with a specific annotation queueId.
-
-        data_type : typing.Optional[ScoreDataType]
-            Retrieve only scores with a specific dataType.
-
-        trace_tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Only scores linked to traces that include all of these tags will be returned.
+        cursor : typing.Optional[str]
+            URL-safe base64 (base64url) cursor for pagination. Use the cursor from the previous response to get the next page. Absent on the final page.
 
         fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment, sessionId). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
+            Comma-separated field groups to include in addition to the always-returned core fields. Allowed: details, subject, annotation — see the endpoint description for the fields each group adds. Unknown names return HTTP 400.
 
-        filter : typing.Optional[str]
-            A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
+        id : typing.Optional[str]
+            Comma-separated list of score IDs to filter by (OR within, AND across filters).
+
+        name : typing.Optional[str]
+            Comma-separated list of score names to filter by.
+
+        source : typing.Optional[str]
+            Comma-separated list of score sources to filter by (e.g. API, ANNOTATION, EVAL). Case-insensitive — `api` and `API` are equivalent.
+
+        data_type : typing.Optional[str]
+            Comma-separated list of data types to filter by (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, CORRECTION). Case-insensitive — `numeric` and `NUMERIC` are equivalent. Must be a single value when used with value, valueMin, or valueMax; otherwise the request returns HTTP 400. Must be NUMERIC when used with valueMin or valueMax.
+
+        environment : typing.Optional[str]
+            Comma-separated list of environments to filter by.
+
+        config_id : typing.Optional[str]
+            Comma-separated list of score config IDs to filter by.
+
+        queue_id : typing.Optional[str]
+            Comma-separated list of annotation queue IDs to filter by.
+
+        author_user_id : typing.Optional[str]
+            Comma-separated list of author user IDs to filter by.
+
+        value : typing.Optional[str]
+            Comma-separated list of exact values to filter by. Requires a single dataType from NUMERIC, BOOLEAN, or CATEGORICAL; any other dataType, multiple dataTypes, or omitting dataType returns HTTP 400. For BOOLEAN, each value must be "true" or "false"; for NUMERIC, each value must be a finite number. Otherwise the request returns HTTP 400.
+
+        value_min : typing.Optional[float]
+            Inclusive lower bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        value_max : typing.Optional[float]
+            Inclusive upper bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        trace_id : typing.Optional[str]
+            Comma-separated list of trace IDs to filter by. Mutually exclusive with sessionId, experimentId. May be combined with observationId to scope the observation lookup to a specific trace.
+
+        session_id : typing.Optional[str]
+            Comma-separated list of session IDs to filter by. Mutually exclusive with traceId, observationId, experimentId.
+
+        observation_id : typing.Optional[str]
+            Comma-separated list of observation IDs to filter by. Requires traceId to be specified, because observation IDs are scoped to a trace. Mutually exclusive with sessionId, experimentId. Returns HTTP 400 when used without traceId.
+
+        experiment_id : typing.Optional[str]
+            Comma-separated list of dataset run IDs (experiment IDs) to filter by. Mutually exclusive with traceId, sessionId, observationId.
+
+        from_timestamp : typing.Optional[dt.datetime]
+            Inclusive lower bound on the score timestamp.
+
+        to_timestamp : typing.Optional[dt.datetime]
+            Exclusive upper bound on the score timestamp.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        GetScoresResponse
+        GetScoresV3Response
 
         Examples
         --------
@@ -255,71 +246,27 @@ class ScoresClient:
         client.scores.get_many()
         """
         _response = self._raw_client.get_many(
-            page=page,
             limit=limit,
-            user_id=user_id,
+            cursor=cursor,
+            fields=fields,
+            id=id,
             name=name,
+            source=source,
+            data_type=data_type,
+            environment=environment,
+            config_id=config_id,
+            queue_id=queue_id,
+            author_user_id=author_user_id,
+            value=value,
+            value_min=value_min,
+            value_max=value_max,
+            trace_id=trace_id,
+            session_id=session_id,
+            observation_id=observation_id,
+            experiment_id=experiment_id,
             from_timestamp=from_timestamp,
             to_timestamp=to_timestamp,
-            environment=environment,
-            source=source,
-            operator=operator,
-            value=value,
-            score_ids=score_ids,
-            config_id=config_id,
-            session_id=session_id,
-            dataset_run_id=dataset_run_id,
-            trace_id=trace_id,
-            observation_id=observation_id,
-            queue_id=queue_id,
-            data_type=data_type,
-            trace_tags=trace_tags,
-            fields=fields,
-            filter=filter,
             request_options=request_options,
-        )
-        return _response.data
-
-    @typing_extensions.deprecated(
-        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` with the `id` filter instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
-        category=None,
-    )
-    def get_by_id(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Score:
-        """
-        Get a score (supports both trace and session scores)
-
-        Parameters
-        ----------
-        score_id : str
-            The unique langfuse identifier of a score
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        Score
-
-        Examples
-        --------
-        from langfuse import LangfuseAPI
-
-        client = LangfuseAPI(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.scores.get_by_id(
-            score_id="scoreId",
-        )
-        """
-        _response = self._raw_client.get_by_id(
-            score_id, request_options=request_options
         )
         return _response.data
 
@@ -342,67 +289,79 @@ class AsyncScoresClient:
     async def create(
         self,
         *,
-        name: str,
-        value: CreateScoreValue,
-        id: typing.Optional[str] = OMIT,
-        trace_id: typing.Optional[str] = OMIT,
-        session_id: typing.Optional[str] = OMIT,
-        observation_id: typing.Optional[str] = OMIT,
-        dataset_run_id: typing.Optional[str] = OMIT,
-        comment: typing.Optional[str] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
-        environment: typing.Optional[str] = OMIT,
-        queue_id: typing.Optional[str] = OMIT,
-        data_type: typing.Optional[ScoreDataType] = OMIT,
-        config_id: typing.Optional[str] = OMIT,
-        source: typing.Optional[CreateScoreSource] = OMIT,
+        request: CreateScoresRequest,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateScoreResponse:
+    ) -> CreateScoresResponse:
         """
-        Create a score (supports trace, observation, session, and dataset run scores)
+        Create scores asynchronously from a list of scores. Returns 202 if all scores are accepted, or 207 with accepted/rejected counts and error messages. Do not automatically retry a 207 batch. The generated reference shows only 200; the endpoint returns 202 or 207.
 
         Parameters
         ----------
-        name : str
-
-        value : CreateScoreValue
-            The value of the score. Must be passed as string for categorical and text scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false). Text score values must be between 1 and 500 characters.
-
-        id : typing.Optional[str]
-
-        trace_id : typing.Optional[str]
-
-        session_id : typing.Optional[str]
-
-        observation_id : typing.Optional[str]
-
-        dataset_run_id : typing.Optional[str]
-
-        comment : typing.Optional[str]
-
-        metadata : typing.Optional[typing.Dict[str, typing.Any]]
-
-        environment : typing.Optional[str]
-            The environment of the score. Can be any lowercase alphanumeric string with hyphens and underscores that does not start with 'langfuse'.
-
-        queue_id : typing.Optional[str]
-            The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
-
-        data_type : typing.Optional[ScoreDataType]
-            The data type of the score. When passing a configId this field is inferred. Otherwise, this field must be passed or will default to numeric.
-
-        config_id : typing.Optional[str]
-            Reference a score config on a score. The unique langfuse identifier of a score config. When passing this field, the dataType and stringValue fields are automatically populated.
-
-        source : typing.Optional[CreateScoreSource]
-            The source of the score. Defaults to API. Set to ANNOTATION to prefill scores (e.g. from an LLM) for a human reviewer to verify in an annotation queue. When source is ANNOTATION, a configId is required unless dataType is CORRECTION. EVAL is reserved for internal evaluator outputs and is not accepted on this endpoint.
+        request : CreateScoresRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        CreateScoreResponse
+        CreateScoresResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+        from langfuse.scores import CreateScoreRequest
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.scores.create(
+                request=[
+                    CreateScoreRequest(
+                        name="name",
+                        value=1.1,
+                    ),
+                    CreateScoreRequest(
+                        name="name",
+                        value=1.1,
+                    ),
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create(
+            request=request, request_options=request_options
+        )
+        return _response.data
+
+    async def delete(
+        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> None:
+        """
+        Delete a score (supports both trace and session scores)
+
+        Parameters
+        ----------
+        score_id : str
+            The unique langfuse identifier of a score
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
 
         Examples
         --------
@@ -421,137 +380,131 @@ class AsyncScoresClient:
 
 
         async def main() -> None:
-            await client.scores.create(
-                name="name",
-                value=1.1,
+            await client.scores.delete(
+                score_id="scoreId",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create(
-            name=name,
-            value=value,
-            id=id,
-            trace_id=trace_id,
-            session_id=session_id,
-            observation_id=observation_id,
-            dataset_run_id=dataset_run_id,
-            comment=comment,
-            metadata=metadata,
-            environment=environment,
-            queue_id=queue_id,
-            data_type=data_type,
-            config_id=config_id,
-            source=source,
-            request_options=request_options,
+        _response = await self._raw_client.delete(
+            score_id, request_options=request_options
         )
         return _response.data
 
-    @typing_extensions.deprecated(
-        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
-        category=None,
-    )
     async def get_many(
         self,
         *,
-        page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        user_id: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        fields: typing.Optional[str] = None,
+        id: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
+        source: typing.Optional[str] = None,
+        data_type: typing.Optional[str] = None,
+        environment: typing.Optional[str] = None,
+        config_id: typing.Optional[str] = None,
+        queue_id: typing.Optional[str] = None,
+        author_user_id: typing.Optional[str] = None,
+        value: typing.Optional[str] = None,
+        value_min: typing.Optional[float] = None,
+        value_max: typing.Optional[float] = None,
+        trace_id: typing.Optional[str] = None,
+        session_id: typing.Optional[str] = None,
+        observation_id: typing.Optional[str] = None,
+        experiment_id: typing.Optional[str] = None,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
-        environment: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        source: typing.Optional[ScoreSource] = None,
-        operator: typing.Optional[str] = None,
-        value: typing.Optional[float] = None,
-        score_ids: typing.Optional[str] = None,
-        config_id: typing.Optional[str] = None,
-        session_id: typing.Optional[str] = None,
-        dataset_run_id: typing.Optional[str] = None,
-        trace_id: typing.Optional[str] = None,
-        observation_id: typing.Optional[str] = None,
-        queue_id: typing.Optional[str] = None,
-        data_type: typing.Optional[ScoreDataType] = None,
-        trace_tags: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        fields: typing.Optional[str] = None,
-        filter: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> GetScoresResponse:
+    ) -> GetScoresV3Response:
         """
-        Get a list of scores (supports both trace and session scores)
+        Get a list of scores with a polymorphic `value` field (v3).
+
+        The `value` field type depends on `dataType`:
+        - `NUMERIC` → number
+        - `BOOLEAN` → boolean
+        - `CATEGORICAL`, `TEXT`, `CORRECTION` → string
+
+        The response always includes the core fields: id, projectId, name,
+        value, dataType, source, timestamp, environment, createdAt, updatedAt.
+
+        Additional field groups can be requested via the `fields` parameter:
+        - `details` — adds comment, configId, metadata
+        - `subject` — adds the subject object describing the entity the score
+          is attached to: kind (trace, observation, session, or experiment),
+          id, and traceId for observation-level scores
+        - `annotation` — adds authorUserId, queueId
+
+        Unknown group names return HTTP 400.
 
         Parameters
         ----------
-        page : typing.Optional[int]
-            Page number, starts at 1.
-
         limit : typing.Optional[int]
-            Limit of items per page. Maximum 100. Defaults to 50. Requests with a limit greater than 100 return HTTP 400. If you encounter api issues due to too large page sizes, try to reduce the limit.
+            Number of items per page. Maximum 100, default 50. Requests with a limit greater than 100 return HTTP 400.
 
-        user_id : typing.Optional[str]
-            Retrieve only scores with this userId associated to the trace.
-
-        name : typing.Optional[str]
-            Retrieve only scores with this name.
-
-        from_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created on or after a certain datetime (ISO 8601)
-
-        to_timestamp : typing.Optional[dt.datetime]
-            Optional filter to only include scores created before a certain datetime (ISO 8601)
-
-        environment : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Optional filter for scores where the environment is one of the provided values.
-
-        source : typing.Optional[ScoreSource]
-            Retrieve only scores from a specific source.
-
-        operator : typing.Optional[str]
-            Retrieve only scores with <operator> value.
-
-        value : typing.Optional[float]
-            Retrieve only scores with <operator> value.
-
-        score_ids : typing.Optional[str]
-            Comma-separated list of score IDs to limit the results to.
-
-        config_id : typing.Optional[str]
-            Retrieve only scores with a specific configId.
-
-        session_id : typing.Optional[str]
-            Retrieve only scores with a specific sessionId.
-
-        dataset_run_id : typing.Optional[str]
-            Retrieve only scores with a specific datasetRunId.
-
-        trace_id : typing.Optional[str]
-            Retrieve only scores with a specific traceId.
-
-        observation_id : typing.Optional[str]
-            Comma-separated list of observation IDs to filter scores by.
-
-        queue_id : typing.Optional[str]
-            Retrieve only scores with a specific annotation queueId.
-
-        data_type : typing.Optional[ScoreDataType]
-            Retrieve only scores with a specific dataType.
-
-        trace_tags : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Only scores linked to traces that include all of these tags will be returned.
+        cursor : typing.Optional[str]
+            URL-safe base64 (base64url) cursor for pagination. Use the cursor from the previous response to get the next page. Absent on the final page.
 
         fields : typing.Optional[str]
-            Comma-separated list of field groups to include in the response. Available field groups: 'score' (core score fields), 'trace' (trace properties: userId, tags, environment, sessionId). If not specified, both 'score' and 'trace' are returned by default. Example: 'score' to exclude trace data, 'score,trace' to include both. Note: When filtering by trace properties (using userId or traceTags parameters), the 'trace' field group must be included, otherwise a 400 error will be returned.
+            Comma-separated field groups to include in addition to the always-returned core fields. Allowed: details, subject, annotation — see the endpoint description for the fields each group adds. Unknown names return HTTP 400.
 
-        filter : typing.Optional[str]
-            A JSON stringified array of filter objects. Each object requires type, column, operator, and value. Supports filtering by score metadata using the stringObject type. Example: [{"type":"stringObject","column":"metadata","key":"user_id","operator":"=","value":"abc123"}]. Supported types: stringObject (metadata key-value filtering), string, number, datetime, stringOptions, arrayOptions. Supported operators for stringObject: =, contains, does not contain, starts with, ends with.
+        id : typing.Optional[str]
+            Comma-separated list of score IDs to filter by (OR within, AND across filters).
+
+        name : typing.Optional[str]
+            Comma-separated list of score names to filter by.
+
+        source : typing.Optional[str]
+            Comma-separated list of score sources to filter by (e.g. API, ANNOTATION, EVAL). Case-insensitive — `api` and `API` are equivalent.
+
+        data_type : typing.Optional[str]
+            Comma-separated list of data types to filter by (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, CORRECTION). Case-insensitive — `numeric` and `NUMERIC` are equivalent. Must be a single value when used with value, valueMin, or valueMax; otherwise the request returns HTTP 400. Must be NUMERIC when used with valueMin or valueMax.
+
+        environment : typing.Optional[str]
+            Comma-separated list of environments to filter by.
+
+        config_id : typing.Optional[str]
+            Comma-separated list of score config IDs to filter by.
+
+        queue_id : typing.Optional[str]
+            Comma-separated list of annotation queue IDs to filter by.
+
+        author_user_id : typing.Optional[str]
+            Comma-separated list of author user IDs to filter by.
+
+        value : typing.Optional[str]
+            Comma-separated list of exact values to filter by. Requires a single dataType from NUMERIC, BOOLEAN, or CATEGORICAL; any other dataType, multiple dataTypes, or omitting dataType returns HTTP 400. For BOOLEAN, each value must be "true" or "false"; for NUMERIC, each value must be a finite number. Otherwise the request returns HTTP 400.
+
+        value_min : typing.Optional[float]
+            Inclusive lower bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        value_max : typing.Optional[float]
+            Inclusive upper bound on the numeric value. Requires dataType=NUMERIC as a single value; otherwise the request returns HTTP 400.
+
+        trace_id : typing.Optional[str]
+            Comma-separated list of trace IDs to filter by. Mutually exclusive with sessionId, experimentId. May be combined with observationId to scope the observation lookup to a specific trace.
+
+        session_id : typing.Optional[str]
+            Comma-separated list of session IDs to filter by. Mutually exclusive with traceId, observationId, experimentId.
+
+        observation_id : typing.Optional[str]
+            Comma-separated list of observation IDs to filter by. Requires traceId to be specified, because observation IDs are scoped to a trace. Mutually exclusive with sessionId, experimentId. Returns HTTP 400 when used without traceId.
+
+        experiment_id : typing.Optional[str]
+            Comma-separated list of dataset run IDs (experiment IDs) to filter by. Mutually exclusive with traceId, sessionId, observationId.
+
+        from_timestamp : typing.Optional[dt.datetime]
+            Inclusive lower bound on the score timestamp.
+
+        to_timestamp : typing.Optional[dt.datetime]
+            Exclusive upper bound on the score timestamp.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        GetScoresResponse
+        GetScoresV3Response
 
         Examples
         --------
@@ -576,78 +529,26 @@ class AsyncScoresClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_many(
-            page=page,
             limit=limit,
-            user_id=user_id,
+            cursor=cursor,
+            fields=fields,
+            id=id,
             name=name,
+            source=source,
+            data_type=data_type,
+            environment=environment,
+            config_id=config_id,
+            queue_id=queue_id,
+            author_user_id=author_user_id,
+            value=value,
+            value_min=value_min,
+            value_max=value_max,
+            trace_id=trace_id,
+            session_id=session_id,
+            observation_id=observation_id,
+            experiment_id=experiment_id,
             from_timestamp=from_timestamp,
             to_timestamp=to_timestamp,
-            environment=environment,
-            source=source,
-            operator=operator,
-            value=value,
-            score_ids=score_ids,
-            config_id=config_id,
-            session_id=session_id,
-            dataset_run_id=dataset_run_id,
-            trace_id=trace_id,
-            observation_id=observation_id,
-            queue_id=queue_id,
-            data_type=data_type,
-            trace_tags=trace_tags,
-            fields=fields,
-            filter=filter,
             request_options=request_options,
-        )
-        return _response.data
-
-    @typing_extensions.deprecated(
-        "On Langfuse Cloud, Langfuse v3 is deprecated and this endpoint will be removed on November 16, 2026. Use `GET /api/public/v3/scores` with the `id` filter instead. Self-hosted deployments are unaffected by this date; the endpoint becomes unavailable when they upgrade to Langfuse v4.",
-        category=None,
-    )
-    async def get_by_id(
-        self, score_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Score:
-        """
-        Get a score (supports both trace and session scores)
-
-        Parameters
-        ----------
-        score_id : str
-            The unique langfuse identifier of a score
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        Score
-
-        Examples
-        --------
-        import asyncio
-
-        from langfuse import AsyncLangfuseAPI
-
-        client = AsyncLangfuseAPI(
-            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
-            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
-            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
-            username="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.scores.get_by_id(
-                score_id="scoreId",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_by_id(
-            score_id, request_options=request_options
         )
         return _response.data

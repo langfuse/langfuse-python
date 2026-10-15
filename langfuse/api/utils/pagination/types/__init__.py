@@ -6,8 +6,12 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .cursor_meta_response import CursorMetaResponse
     from .meta_response import MetaResponse
-_dynamic_imports: typing.Dict[str, str] = {"MetaResponse": ".meta_response"}
+_dynamic_imports: typing.Dict[str, str] = {
+    "CursorMetaResponse": ".cursor_meta_response",
+    "MetaResponse": ".meta_response",
+}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -37,4 +41,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["MetaResponse"]
+__all__ = ["CursorMetaResponse", "MetaResponse"]
