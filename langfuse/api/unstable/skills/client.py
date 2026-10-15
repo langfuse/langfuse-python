@@ -160,10 +160,11 @@ class SkillsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        include_content: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SkillVersion:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Set includeContent to return file contents inline, or use each file's sha256Hash with getFileContents.
 
         Parameters
         ----------
@@ -172,6 +173,9 @@ class SkillsClient:
         version : typing.Optional[int]
 
         label : typing.Optional[str]
+
+        include_content : typing.Optional[bool]
+            Include UTF-8 text content in each file. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -197,7 +201,11 @@ class SkillsClient:
         )
         """
         _response = self._raw_client.get(
-            skill_name, version=version, label=label, request_options=request_options
+            skill_name,
+            version=version,
+            label=label,
+            include_content=include_content,
+            request_options=request_options,
         )
         return _response.data
 
@@ -544,10 +552,11 @@ class AsyncSkillsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        include_content: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SkillVersion:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Set includeContent to return file contents inline, or use each file's sha256Hash with getFileContents.
 
         Parameters
         ----------
@@ -556,6 +565,9 @@ class AsyncSkillsClient:
         version : typing.Optional[int]
 
         label : typing.Optional[str]
+
+        include_content : typing.Optional[bool]
+            Include UTF-8 text content in each file. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -589,7 +601,11 @@ class AsyncSkillsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(
-            skill_name, version=version, label=label, request_options=request_options
+            skill_name,
+            version=version,
+            label=label,
+            include_content=include_content,
+            request_options=request_options,
         )
         return _response.data
 
