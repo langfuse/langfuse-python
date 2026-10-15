@@ -14,6 +14,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
+from opentelemetry.sdk.trace import SpanLimits, TracerProvider
 from opentelemetry.trace import format_span_id
 
 from langfuse import propagate_attributes
@@ -21,6 +22,7 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.span import (
     _RESERVED_OBSERVATION_ATTRIBUTE_KEYS,
     _RESERVED_SPAN_ATTRIBUTE_KEYS,
+    LangfuseSpan,
     _drop_attributes_over_span_limit,
     _reserved_attribute_keys,
 )
@@ -550,6 +552,34 @@ def test_metadata_budget_is_exact_at_the_limit(existing, attributes, dropped, ca
 
     assert result == {k: v for k, v in attributes.items() if k not in dropped}
     assert len(_limit_warnings(caplog)) == (1 if dropped else 0)
+
+
+def test_observation_type_is_kept_when_environment_and_release_do_not_fit(
+    langfuse_memory_client, caplog
+):
+    tracer = TracerProvider(span_limits=SpanLimits(max_span_attributes=3)).get_tracer(
+        "test"
+    )
+    otel_span = tracer.start_span("nearly-full", attributes={"a": 1, "b": 2})
+
+    LangfuseSpan(
+        otel_span=otel_span,
+        langfuse_client=langfuse_memory_client,
+        environment="staging",
+        release="v1",
+    )
+
+    assert dict(otel_span.attributes) == {
+        "a": 1,
+        "b": 2,
+        LangfuseOtelSpanAttributes.OBSERVATION_TYPE: "span",
+    }
+    warnings = _limit_warnings(caplog)
+    assert len(warnings) == 1
+    assert (
+        "Dropped keys include: langfuse.environment, langfuse.release"
+        in warnings[0].getMessage()
+    )
 
 
 def test_hard_guard_never_raises():
