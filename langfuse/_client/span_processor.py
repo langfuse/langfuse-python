@@ -15,11 +15,16 @@ import base64
 import logging
 import os
 import threading
-from typing import Callable, Dict, List, Optional, cast
+from typing import Callable, Dict, Literal, Optional, cast
 
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
+from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.environment_variables import (
+    OTEL_EXPORTER_OTLP_COMPRESSION,
+    OTEL_EXPORTER_OTLP_TRACES_COMPRESSION,
+)
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import format_span_id, format_trace_id
@@ -28,12 +33,15 @@ from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
+    LANGFUSE_OTEL_COMPRESSION,
+    LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.propagation import (
     _get_langfuse_trace_id_from_baggage,
     _get_propagated_attributes_from_context,
 )
+from langfuse._client.span import _set_span_attributes_within_limit
 from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from langfuse._client.span_filter import (
     is_app_root_eligible,
@@ -45,6 +53,76 @@ from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
 from langfuse.types import MaskOtelSpansFunction
+
+
+def _resolve_max_batch_size_bytes() -> Optional[int]:
+    """Return the configured batch byte limit, or None to keep the exporter default."""
+    raw_value = os.environ.get(LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES, "").strip()
+    if not raw_value:
+        return None
+
+    if raw_value.isascii() and raw_value.isdigit() and int(raw_value) > 0:
+        return int(raw_value)
+
+    langfuse_logger.warning(
+        "Invalid %s=%r. Expected a positive integer. Using the default limit.",
+        LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES,
+        raw_value,
+    )
+    return None
+
+
+# The Langfuse OTLP endpoint only decodes gzip, so deflate is not offered.
+_COMPRESSION_BY_NAME = {"gzip": Compression.Gzip, "none": Compression.NoCompression}
+
+
+def _parse_compression(
+    raw_value: Optional[str], *, setting: str, warn: bool
+) -> Optional[Compression]:
+    value = (raw_value or "").strip().lower()
+    if not value:
+        return None
+
+    compression = _COMPRESSION_BY_NAME.get(value)
+    if compression is None and warn:
+        langfuse_logger.warning(
+            "Invalid %s=%r. Expected 'gzip' or 'none'. Falling back to the next "
+            "compression setting, then gzip.",
+            setting,
+            raw_value,
+        )
+
+    return compression
+
+
+def _resolve_compression(otel_compression: Optional[str]) -> Compression:
+    """Resolve compression for the default exporter; gzip unless configured otherwise.
+
+    Order: the ``otel_compression`` argument, ``LANGFUSE_OTEL_COMPRESSION``,
+    ``OTEL_EXPORTER_OTLP_TRACES_COMPRESSION``, ``OTEL_EXPORTER_OTLP_COMPRESSION``,
+    then gzip. Values are case-insensitive, and an invalid value falls through to
+    the next setting, matching the JS SDK.
+    """
+    candidates = (
+        ("otel_compression", otel_compression, True),
+        (LANGFUSE_OTEL_COMPRESSION, os.environ.get(LANGFUSE_OTEL_COMPRESSION), True),
+        (
+            OTEL_EXPORTER_OTLP_TRACES_COMPRESSION,
+            os.environ.get(OTEL_EXPORTER_OTLP_TRACES_COMPRESSION),
+            False,
+        ),
+        (
+            OTEL_EXPORTER_OTLP_COMPRESSION,
+            os.environ.get(OTEL_EXPORTER_OTLP_COMPRESSION),
+            False,
+        ),
+    )
+    for setting, raw_value, warn in candidates:
+        compression = _parse_compression(raw_value, setting=setting, warn=warn)
+        if compression is not None:
+            return compression
+
+    return Compression.Gzip
 
 
 class LangfuseSpanProcessor(BatchSpanProcessor):
@@ -73,19 +151,14 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         span_exporter: Optional[SpanExporter] = None,
         media_manager: Optional[MediaManager] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
+        otel_compression: Optional[Literal["gzip", "none"]] = None,
     ):
         self.public_key = public_key
-        self.blocked_instrumentation_scopes = (
-            blocked_instrumentation_scopes
-            if blocked_instrumentation_scopes is not None
-            else []
-        )
         self._should_export_span = should_export_span or is_default_export_span
 
         self._app_root_lock = threading.Lock()
@@ -110,6 +183,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 "x-langfuse-sdk-name": "python",
                 "x-langfuse-sdk-version": langfuse_version,
                 "x-langfuse-public-key": public_key,
+                "x-langfuse-ingestion-version": "4",
             }
 
             # Merge additional headers if provided
@@ -127,6 +201,13 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 endpoint=endpoint,
                 headers=headers,
                 timeout=timeout,
+                compression=_resolve_compression(otel_compression),
+                max_request_size=_resolve_max_batch_size_bytes(),
+            )
+        elif otel_compression is not None:
+            langfuse_logger.warning(
+                "otel_compression is ignored because a custom span_exporter was "
+                "provided. Configure compression on the exporter instead."
             )
 
         if media_manager is not None or mask_otel_spans is not None:
@@ -163,7 +244,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             }
 
         if propagated_attributes:
-            span.set_attributes(propagated_attributes)
+            _set_span_attributes_within_limit(span, propagated_attributes)
 
             langfuse_logger.debug(
                 "Propagated %s attributes to span '%s': %s",
@@ -198,16 +279,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                     and span.instrumentation_scope.attributes
                     else None,
                     self.public_key,
-                )
-                return
-
-            # Do not export spans from blocked instrumentation scopes
-            if self._is_blocked_instrumentation_scope(span):
-                langfuse_logger.debug(
-                    "Trace: Dropping span due to blocked instrumentation scope | "
-                    "span_name='%s' | instrumentation_scope='%s'",
-                    span.name,
-                    self._get_scope_name(span),
                 )
                 return
 
@@ -269,7 +340,9 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             )
 
         if mark_app_root:
-            span.set_attribute(LangfuseOtelSpanAttributes.IS_APP_ROOT, True)
+            _set_span_attributes_within_limit(
+                span, {LangfuseOtelSpanAttributes.IS_APP_ROOT: True}
+            )
 
     def _cleanup_app_root_state(self, span: ReadableSpan) -> None:
         span_id = format_span_id(span.context.span_id)
@@ -285,9 +358,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         ):
             return False
 
-        if self._is_blocked_instrumentation_scope(readable_span):
-            return False
-
         try:
             return bool(self._should_export_span(readable_span))
         except Exception as error:
@@ -301,12 +371,6 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             )
 
             return False
-
-    def _is_blocked_instrumentation_scope(self, span: ReadableSpan) -> bool:
-        return (
-            span.instrumentation_scope is not None
-            and span.instrumentation_scope.name in self.blocked_instrumentation_scopes
-        )
 
     def _is_langfuse_project_span(self, span: ReadableSpan) -> bool:
         if not is_langfuse_span(span):

@@ -6,9 +6,18 @@ import pytest
 from pydantic import BaseModel
 
 from langfuse._client.client import Langfuse
-from tests.support.utils import create_uuid, encode_file_to_base64, get_api
+from tests.support.utils import (
+    create_uuid,
+    encode_file_to_base64,
+    wait_for_observations,
+)
 
 langfuse: Langfuse | None = None
+
+requires_legacy_completion_model = pytest.mark.skip(
+    reason="OpenAI retired gpt-3.5-turbo-instruct, the legacy completions model "
+    "this test depends on"
+)
 
 
 @pytest.fixture(scope="module")
@@ -53,27 +62,25 @@ def test_openai_chat_completion(openai):
 
     sleep(1)
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
     assert len(completion.choices) != 0
-    assert generation.data[0].input == [
+    assert generation[0].input == [
         {
             "content": "You are an expert mathematician",
             "role": "assistant",
         },
         {"content": "1 + 1 = ", "role": "user"},
     ]
-    assert generation.data[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-0125" in generation.data[0].model
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].type == "GENERATION"
+    assert "gpt-3.5-turbo-0125" in generation[0].model
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
@@ -81,11 +88,11 @@ def test_openai_chat_completion(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output["content"]
-    assert generation.data[0].output["role"] == "assistant"
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert "2" in generation[0].output["content"]
+    assert generation[0].output["role"] == "assistant"
 
 
 def test_openai_chat_completion_stream(openai):
@@ -111,21 +118,19 @@ def test_openai_chat_completion_stream(openai):
     langfuse.flush()
     sleep(3)
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
 
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-0125" in generation.data[0].model
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].type == "GENERATION"
+    assert "gpt-3.5-turbo-0125" in generation[0].model
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
@@ -133,16 +138,16 @@ def test_openai_chat_completion_stream(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == 2
-    assert generation.data[0].completion_start_time is not None
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert generation[0].output == "2"
+    assert generation[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
-    assert generation.data[0].completion_start_time is not None
-    assert generation.data[0].completion_start_time >= generation.data[0].start_time
-    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+    assert generation[0].completion_start_time is not None
+    assert generation[0].completion_start_time >= generation[0].start_time
+    assert generation[0].completion_start_time <= generation[0].end_time
 
 
 def test_openai_chat_completion_stream_with_next_iteration(openai):
@@ -172,21 +177,19 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
 
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0125"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
@@ -194,16 +197,16 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == 2
-    assert generation.data[0].completion_start_time is not None
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert generation[0].output == "2"
+    assert generation[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
-    assert generation.data[0].completion_start_time is not None
-    assert generation.data[0].completion_start_time >= generation.data[0].start_time
-    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+    assert generation[0].completion_start_time is not None
+    assert generation[0].completion_start_time >= generation[0].start_time
+    assert generation[0].completion_start_time <= generation[0].end_time
 
 
 def test_openai_chat_completion_stream_fail(openai):
@@ -222,33 +225,28 @@ def test_openai_chat_completion_stream_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
 
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "fake"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "fake"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].level == "ERROR"
-    assert generation.data[0].status_message is not None
-    assert generation.data[0].output is None
+    assert generation[0].level == "ERROR"
+    assert generation[0].status_message is not None
+    assert generation[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
@@ -272,13 +270,11 @@ def test_openai_chat_completion_with_langfuse_prompt(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert isinstance(generation.data[0].prompt_id, str)
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert isinstance(generation[0].prompt_id, str)
 
 
 def test_openai_chat_completion_fail(openai):
@@ -295,29 +291,27 @@ def test_openai_chat_completion_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "fake"
-    assert generation.data[0].level == "ERROR"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].status_message is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "fake"
+    assert generation[0].level == "ERROR"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].status_message is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].output is None
+    assert generation[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
@@ -355,25 +349,21 @@ def test_openai_chat_completion_two_calls(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
     assert len(completion.choices) != 0
 
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
 
-    generation_2 = get_api().legacy.observations_v1.get_many(
-        name=generation_name_2, type="GENERATION"
-    )
+    generation_2 = wait_for_observations(name=generation_name_2, type="GENERATION")
 
-    assert len(generation_2.data) != 0
-    assert generation_2.data[0].name == generation_name_2
+    assert len(generation_2) != 0
+    assert generation_2[0].name == generation_name_2
     assert len(completion_2.choices) != 0
 
-    assert generation_2.data[0].input == [{"content": "2 + 2 = ", "role": "user"}]
+    assert generation_2[0].input == [{"content": "2 + 2 = ", "role": "user"}]
 
 
 def test_openai_chat_completion_with_seed(openai):
@@ -389,11 +379,9 @@ def test_openai_chat_completion_with_seed(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert generation.data[0].model_parameters == {
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 0,
         "top_p": 1,
@@ -405,6 +393,7 @@ def test_openai_chat_completion_with_seed(openai):
     assert len(completion.choices) != 0
 
 
+@requires_legacy_completion_model
 def test_openai_completion(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().completions.create(
@@ -417,34 +406,33 @@ def test_openai_completion(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
     assert len(completion.choices) != 0
-    assert completion.choices[0].text == generation.data[0].output
-    assert generation.data[0].input == "1 + 1 = "
-    assert generation.data[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-instruct" in generation.data[0].model
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert completion.choices[0].text == generation[0].output
+    assert generation[0].input == "1 + 1 = "
+    assert generation[0].type == "GENERATION"
+    assert "gpt-3.5-turbo-instruct" in generation[0].model
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert generation[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
 
 
+@requires_legacy_completion_model
 def test_openai_completion_stream(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().completions.create(
@@ -465,37 +453,35 @@ def test_openai_completion_stream(openai):
 
     assert len(content) > 0
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
 
-    assert generation.data[0].input == "1 + 1 = "
-    assert generation.data[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-instruct" in generation.data[0].model
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].input == "1 + 1 = "
+    assert generation[0].type == "GENERATION"
+    assert "gpt-3.5-turbo-instruct" in generation[0].model
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
-    assert generation.data[0].completion_start_time is not None
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert generation[0].output == "2\n\n1 + 2 = 3\n\n2 + 3 = "
+    assert generation[0].completion_start_time is not None
 
     # Completion start time for time-to-first-token
-    assert generation.data[0].completion_start_time is not None
-    assert generation.data[0].completion_start_time >= generation.data[0].start_time
-    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+    assert generation[0].completion_start_time is not None
+    assert generation[0].completion_start_time >= generation[0].start_time
+    assert generation[0].completion_start_time <= generation[0].end_time
 
 
 def test_openai_completion_fail(openai):
@@ -514,29 +500,27 @@ def test_openai_completion_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
-    assert generation.data[0].input == "1 + 1 = "
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "fake"
-    assert generation.data[0].level == "ERROR"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].status_message is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
+    assert generation[0].input == "1 + 1 = "
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "fake"
+    assert generation[0].level == "ERROR"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].status_message is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].output is None
+    assert generation[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
@@ -557,37 +541,33 @@ def test_openai_completion_stream_fail(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
 
-    assert generation.data[0].input == "1 + 1 = "
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].input == "1 + 1 = "
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "gpt-3.5-turbo"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "temperature": 0,
         "top_p": 1,
         "frequency_penalty": 0,
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].level == "ERROR"
-    assert generation.data[0].status_message is not None
-    assert generation.data[0].output is None
+    assert generation[0].level == "ERROR"
+    assert generation[0].status_message is not None
+    assert generation[0].output is None
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
+@requires_legacy_completion_model
 def test_openai_completion_with_langfuse_prompt(openai):
     generation_name = create_uuid()
     langfuse = Langfuse()
@@ -606,13 +586,11 @@ def test_openai_completion_with_langfuse_prompt(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert isinstance(generation.data[0].prompt_id, str)
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert isinstance(generation[0].prompt_id, str)
 
 
 def test_fails_wrong_name(openai):
@@ -648,21 +626,19 @@ async def test_async_chat(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
     assert len(completion.choices) != 0
 
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0125"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
@@ -670,11 +646,11 @@ async def test_async_chat(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert "2" in generation.data[0].output["content"]
-    assert generation.data[0].output["role"] == "assistant"
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert "2" in generation[0].output["content"]
+    assert generation[0].output["role"] == "assistant"
 
 
 @pytest.mark.asyncio
@@ -695,19 +671,17 @@ async def test_async_chat_stream(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0125"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
@@ -715,15 +689,15 @@ async def test_async_chat_stream(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert "2" in str(generation.data[0].output)
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert "2" in str(generation[0].output)
 
     # Completion start time for time-to-first-token
-    assert generation.data[0].completion_start_time is not None
-    assert generation.data[0].completion_start_time >= generation.data[0].start_time
-    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+    assert generation[0].completion_start_time is not None
+    assert generation[0].completion_start_time >= generation[0].start_time
+    assert generation[0].completion_start_time <= generation[0].end_time
 
 
 @pytest.mark.asyncio
@@ -754,21 +728,19 @@ async def test_async_chat_stream_with_anext(openai):
 
     print(result)
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].input == [
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].input == [
         {"content": "Give me a one-liner joke", "role": "user"}
     ]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0125"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
@@ -776,14 +748,14 @@ async def test_async_chat_stream_with_anext(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
 
     # Completion start time for time-to-first-token
-    assert generation.data[0].completion_start_time is not None
-    assert generation.data[0].completion_start_time >= generation.data[0].start_time
-    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+    assert generation[0].completion_start_time is not None
+    assert generation[0].completion_start_time >= generation[0].start_time
+    assert generation[0].completion_start_time <= generation[0].end_time
 
 
 def test_openai_function_call(openai):
@@ -817,14 +789,12 @@ def test_openai_function_call(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].output is not None
-    assert "function_call" in generation.data[0].output
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].output is not None
+    assert "function_call" in generation[0].output
 
     assert output["title"] is not None
 
@@ -861,14 +831,12 @@ def test_openai_function_call_streamed(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].output is not None
-    assert "function_call" in generation.data[0].output
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].output is not None
+    assert "function_call" in generation[0].output
 
 
 def test_openai_tool_call(openai):
@@ -905,21 +873,17 @@ def test_openai_tool_call(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
     assert (
-        generation.data[0].output["tool_calls"][0]["function"]["name"]
+        generation[0].output["tool_calls"][0]["function"]["name"]
         == "get_current_weather"
     )
-    assert (
-        generation.data[0].output["tool_calls"][0]["function"]["arguments"] is not None
-    )
-    assert generation.data[0].input["tools"] == tools
-    assert generation.data[0].input["messages"] == messages
+    assert generation[0].output["tool_calls"][0]["function"]["arguments"] is not None
+    assert generation[0].input["tools"] == tools
+    assert generation[0].input["messages"] == messages
 
 
 def test_openai_tool_call_streamed(openai):
@@ -961,22 +925,18 @@ def test_openai_tool_call_streamed(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
 
     assert (
-        generation.data[0].output["tool_calls"][0]["function"]["name"]
+        generation[0].output["tool_calls"][0]["function"]["name"]
         == "get_current_weather"
     )
-    assert (
-        generation.data[0].output["tool_calls"][0]["function"]["arguments"] is not None
-    )
-    assert generation.data[0].input["tools"] == tools
-    assert generation.data[0].input["messages"] == messages
+    assert generation[0].output["tool_calls"][0]["function"]["arguments"] is not None
+    assert generation[0].input["tools"] == tools
+    assert generation[0].input["messages"] == messages
 
 
 def test_langchain_integration(openai):
@@ -1039,28 +999,24 @@ def test_structured_output_response_format_kwarg(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].metadata["someKey"] == "someResponse"
-    assert generation.data[0].metadata["response_format"] == {
-        "type": "json_schema",
-        "json_schema": json_schema,
-    }
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].metadata["someKey"] == "someResponse"
+    assert generation[0].metadata["response_format.type"] == "json_schema"
+    assert generation[0].metadata["response_format.json_schema.name"] == "math_response"
 
-    assert generation.data[0].input == [
+    assert generation[0].input == [
         {"role": "system", "content": "You are a helpful math tutor."},
         {"content": "solve 8x + 31 = 2", "role": "user"},
     ]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-4o-2024-08-06"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "gpt-4o-2024-08-06"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
@@ -1068,10 +1024,10 @@ def test_structured_output_response_format_kwarg(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert generation.data[0].output["role"] == "assistant"
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert generation[0].output["role"] == "assistant"
 
 
 def test_structured_output_beta_completions_parse(openai):
@@ -1109,31 +1065,29 @@ def test_structured_output_beta_completions_parse(openai):
 
     if Version(openai.__version__) >= Version("1.50.0"):
         # Check the trace and observation properties
-        generation = get_api().legacy.observations_v1.get_many(
-            name=generation_name, type="GENERATION"
-        )
+        generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-        assert len(generation.data) == 1
-        assert generation.data[0].name == generation_name
-        assert generation.data[0].type == "GENERATION"
-        assert "gpt-4o" in generation.data[0].model
-        assert generation.data[0].start_time is not None
-        assert generation.data[0].end_time is not None
-        assert generation.data[0].start_time < generation.data[0].end_time
+        assert len(generation) == 1
+        assert generation[0].name == generation_name
+        assert generation[0].type == "GENERATION"
+        assert "gpt-4o" in generation[0].model
+        assert generation[0].start_time is not None
+        assert generation[0].end_time is not None
+        assert generation[0].start_time < generation[0].end_time
 
         # Check input and output
-        assert len(generation.data[0].input) == 2
-        assert generation.data[0].input[0]["role"] == "system"
-        assert generation.data[0].input[1]["role"] == "user"
-        assert isinstance(generation.data[0].output, dict)
-        assert "name" in generation.data[0].output["content"]
-        assert "date" in generation.data[0].output["content"]
-        assert "participants" in generation.data[0].output["content"]
+        assert len(generation[0].input) == 2
+        assert generation[0].input[0]["role"] == "system"
+        assert generation[0].input[1]["role"] == "user"
+        assert isinstance(generation[0].output, dict)
+        assert "name" in generation[0].output["content"]
+        assert "date" in generation[0].output["content"]
+        assert "participants" in generation[0].output["content"]
 
         # Check usage
-        assert generation.data[0].usage.input is not None
-        assert generation.data[0].usage.output is not None
-        assert generation.data[0].usage.total is not None
+        assert generation[0].usage_details["input"] is not None
+        assert generation[0].usage_details["output"] is not None
+        assert generation[0].usage_details["total"] is not None
 
 
 @pytest.mark.asyncio
@@ -1155,19 +1109,17 @@ async def test_close_async_stream(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == "gpt-3.5-turbo-0125"
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].model_parameters == {
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].model_parameters == {
         "service_tier": "default",
         "temperature": 1,
         "top_p": 1,
@@ -1175,15 +1127,15 @@ async def test_close_async_stream(openai):
         "max_tokens": "Infinity",
         "presence_penalty": 0,
     }
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert "2" in str(generation.data[0].output)
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert "2" in str(generation[0].output)
 
     # Completion start time for time-to-first-token
-    assert generation.data[0].completion_start_time is not None
-    assert generation.data[0].completion_start_time >= generation.data[0].start_time
-    assert generation.data[0].completion_start_time <= generation.data[0].end_time
+    assert generation[0].completion_start_time is not None
+    assert generation[0].completion_start_time >= generation[0].start_time
+    assert generation[0].completion_start_time <= generation[0].end_time
 
 
 def test_base_64_image_input(openai):
@@ -1217,26 +1169,24 @@ def test_base_64_image_input(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
-    assert generation.data[0].input[0]["content"][0]["text"] == "What’s in this image?"
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
+    assert generation[0].input[0]["content"][0]["text"] == "What’s in this image?"
     assert (
         f"@@@langfuseMedia:type={content_type}|id="
-        in generation.data[0].input[0]["content"][1]["image_url"]["url"]
+        in generation[0].input[0]["content"][1]["image_url"]["url"]
     )
-    assert generation.data[0].type == "GENERATION"
-    assert "gpt-4o-mini" in generation.data[0].model
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    assert "dog" in generation.data[0].output["content"]
+    assert generation[0].type == "GENERATION"
+    assert "gpt-4o-mini" in generation[0].model
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    assert "dog" in generation[0].output["content"]
 
 
 def test_audio_input_and_output(openai):
@@ -1269,32 +1219,28 @@ def test_audio_input_and_output(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    assert generation.data[0].name == generation_name
+    assert len(generation) != 0
+    assert generation[0].name == generation_name
     assert (
-        generation.data[0].input[0]["content"][0]["text"]
-        == "Do what this recording says."
+        generation[0].input[0]["content"][0]["text"] == "Do what this recording says."
     )
     assert (
         "@@@langfuseMedia:type=audio/wav|id="
-        in generation.data[0].input[0]["content"][1]["input_audio"]["data"]
+        in generation[0].input[0]["content"][1]["input_audio"]["data"]
     )
-    assert generation.data[0].type == "GENERATION"
-    assert generation.data[0].model == model
-    assert generation.data[0].start_time is not None
-    assert generation.data[0].end_time is not None
-    assert generation.data[0].start_time < generation.data[0].end_time
-    assert generation.data[0].usage.input is not None
-    assert generation.data[0].usage.output is not None
-    assert generation.data[0].usage.total is not None
-    print(generation.data[0].output)
+    assert generation[0].type == "GENERATION"
+    assert generation[0].model == model
+    assert generation[0].start_time is not None
+    assert generation[0].end_time is not None
+    assert generation[0].start_time < generation[0].end_time
+    assert generation[0].usage_details["input"] is not None
+    assert generation[0].usage_details["output"] is not None
+    assert generation[0].usage_details["total"] is not None
+    print(generation[0].output)
     assert (
-        "@@@langfuseMedia:type=audio/wav|id="
-        in generation.data[0].output["audio"]["data"]
+        "@@@langfuseMedia:type=audio/wav|id=" in generation[0].output["audio"]["data"]
     )
 
 
@@ -1309,25 +1255,22 @@ def test_response_api_text_input(openai):
     )
 
     langfuse.flush()
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    generationData = generation.data[0]
+    assert len(generation) != 0
+    generationData = generation[0]
     assert generationData.name == generation_name
     assert (
-        generation.data[0].input
-        == "Tell me a three sentence bedtime story about a unicorn."
+        generation[0].input == "Tell me a three sentence bedtime story about a unicorn."
     )
     assert generationData.type == "GENERATION"
     assert "gpt-4o" in generationData.model
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
-    assert generationData.usage.input is not None
-    assert generationData.usage.output is not None
-    assert generationData.usage.total is not None
+    assert generationData.usage_details["input"] is not None
+    assert generationData.usage_details["output"] is not None
+    assert generationData.usage_details["total"] is not None
     assert generationData.output is not None
 
 
@@ -1355,22 +1298,20 @@ def test_response_api_image_input(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    generationData = generation.data[0]
+    assert len(generation) != 0
+    generationData = generation[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input[0]["content"][0]["text"] == "what is in this image?"
+    assert generation[0].input[0]["content"][0]["text"] == "what is in this image?"
     assert generationData.type == "GENERATION"
     assert "gpt-4o" in generationData.model
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
-    assert generationData.usage.input is not None
-    assert generationData.usage.output is not None
-    assert generationData.usage.total is not None
+    assert generationData.usage_details["input"] is not None
+    assert generationData.usage_details["output"] is not None
+    assert generationData.usage_details["total"] is not None
     assert generationData.output is not None
 
 
@@ -1387,12 +1328,10 @@ def test_response_api_web_search(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    generationData = generation.data[0]
+    assert len(generation) != 0
+    generationData = generation[0]
     assert generationData.name == generation_name
     assert generationData.input == {
         "input": "What was a positive news story from today?",
@@ -1403,9 +1342,9 @@ def test_response_api_web_search(openai):
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
-    assert generationData.usage.input is not None
-    assert generationData.usage.output is not None
-    assert generationData.usage.total is not None
+    assert generationData.usage_details["input"] is not None
+    assert generationData.usage_details["output"] is not None
+    assert generationData.usage_details["total"] is not None
     assert generationData.output is not None
     assert generationData.metadata is not None
 
@@ -1427,14 +1366,12 @@ def test_response_api_streaming(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    generationData = generation.data[0]
+    assert len(generation) != 0
+    generationData = generation[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input == [
+    assert generation[0].input == [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
     ]
@@ -1443,9 +1380,9 @@ def test_response_api_streaming(openai):
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
-    assert generationData.usage.input is not None
-    assert generationData.usage.output is not None
-    assert generationData.usage.total is not None
+    assert generationData.usage_details["input"] is not None
+    assert generationData.usage_details["output"] is not None
+    assert generationData.usage_details["total"] is not None
     assert generationData.output is not None
     assert generationData.metadata is not None
     assert generationData.metadata["instructions"] == "You are a helpful assistant."
@@ -1484,14 +1421,12 @@ def test_response_api_functions(openai):
 
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    generationData = generation.data[0]
+    assert len(generation) != 0
+    generationData = generation[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input == {
+    assert generation[0].input == {
         "input": "What is the weather like in Boston today?",
         "tools": tools,
         "tool_choice": "auto",
@@ -1501,9 +1436,9 @@ def test_response_api_functions(openai):
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
-    assert generationData.usage.input is not None
-    assert generationData.usage.output is not None
-    assert generationData.usage.total is not None
+    assert generationData.usage_details["input"] is not None
+    assert generationData.usage_details["output"] is not None
+    assert generationData.usage_details["total"] is not None
     assert generationData.output is not None
     assert generationData.metadata is not None
 
@@ -1520,22 +1455,20 @@ def test_response_api_reasoning(openai):
     )
     langfuse.flush()
 
-    generation = get_api().legacy.observations_v1.get_many(
-        name=generation_name, type="GENERATION"
-    )
+    generation = wait_for_observations(name=generation_name, type="GENERATION")
 
-    assert len(generation.data) != 0
-    generationData = generation.data[0]
+    assert len(generation) != 0
+    generationData = generation[0]
     assert generationData.name == generation_name
-    assert generation.data[0].input == "How much wood would a woodchuck chuck?"
+    assert generation[0].input == "How much wood would a woodchuck chuck?"
     assert generationData.type == "GENERATION"
     assert "o3-mini" in generationData.model
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
-    assert generationData.usage.input is not None
-    assert generationData.usage.output is not None
-    assert generationData.usage.total is not None
+    assert generationData.usage_details["input"] is not None
+    assert generationData.usage_details["output"] is not None
+    assert generationData.usage_details["total"] is not None
     assert generationData.output is not None
     assert generationData.metadata is not None
 
@@ -1552,12 +1485,10 @@ def test_openai_embeddings(openai):
     langfuse.flush()
     sleep(1)
 
-    embedding = get_api().legacy.observations_v1.get_many(
-        name=embedding_name, type="EMBEDDING"
-    )
+    embedding = wait_for_observations(name=embedding_name, type="EMBEDDING")
 
-    assert len(embedding.data) != 0
-    embedding_data = embedding.data[0]
+    assert len(embedding) != 0
+    embedding_data = embedding[0]
     assert embedding_data.name == embedding_name
     assert embedding_data.metadata["test_key"] == "test_value"
     assert embedding_data.input == "The quick brown fox jumps over the lazy dog"
@@ -1566,8 +1497,8 @@ def test_openai_embeddings(openai):
     assert embedding_data.start_time is not None
     assert embedding_data.end_time is not None
     assert embedding_data.start_time < embedding_data.end_time
-    assert embedding_data.usage.input is not None
-    assert embedding_data.usage.total is not None
+    assert embedding_data.usage_details["input"] is not None
+    assert embedding_data.usage_details["total"] is not None
     assert embedding_data.output is not None
     assert "dimensions" in embedding_data.output
     assert "count" in embedding_data.output
@@ -1588,18 +1519,16 @@ def test_openai_embeddings_multiple_inputs(openai):
     langfuse.flush()
     sleep(1)
 
-    embedding = get_api().legacy.observations_v1.get_many(
-        name=embedding_name, type="EMBEDDING"
-    )
+    embedding = wait_for_observations(name=embedding_name, type="EMBEDDING")
 
-    assert len(embedding.data) != 0
-    embedding_data = embedding.data[0]
+    assert len(embedding) != 0
+    embedding_data = embedding[0]
     assert embedding_data.name == embedding_name
     assert embedding_data.input == inputs
     assert embedding_data.type == "EMBEDDING"
     assert "text-embedding-ada-002" in embedding_data.model
-    assert embedding_data.usage.input is not None
-    assert embedding_data.usage.total is not None
+    assert embedding_data.usage_details["input"] is not None
+    assert embedding_data.usage_details["total"] is not None
     assert embedding_data.output["count"] == len(inputs)
 
 
@@ -1621,16 +1550,14 @@ async def test_async_openai_embeddings(openai):
     langfuse.flush()
     sleep(1)
 
-    embedding = get_api().legacy.observations_v1.get_many(
-        name=embedding_name, type="EMBEDDING"
-    )
+    embedding = wait_for_observations(name=embedding_name, type="EMBEDDING")
 
-    assert len(embedding.data) != 0
-    embedding_data = embedding.data[0]
+    assert len(embedding) != 0
+    embedding_data = embedding[0]
     assert embedding_data.name == embedding_name
     assert embedding_data.input == "Async embedding test"
     assert embedding_data.type == "EMBEDDING"
     assert "text-embedding-ada-002" in embedding_data.model
     assert embedding_data.metadata["async"] is True
-    assert embedding_data.usage.input is not None
-    assert embedding_data.usage.total is not None
+    assert embedding_data.usage_details["input"] is not None
+    assert embedding_data.usage_details["total"] is not None

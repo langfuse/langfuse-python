@@ -78,7 +78,7 @@ def is_genai_span(span: ReadableSpan) -> bool:
         return False
 
     return any(
-        isinstance(key, str) and key.startswith("gen_ai")
+        isinstance(key, str) and key.startswith("gen_ai.")
         for key in span.attributes.keys()
     )
 

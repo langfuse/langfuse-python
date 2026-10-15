@@ -252,12 +252,15 @@ def test_active_langfuse_scope_sets_baggage_after_root_start(
     assert "langfuse.trace.metadata.trace_id" not in spans["child"].attributes
 
 
-def test_blocked_instrumentation_scope_parent_marks_child_as_app_root(
+def test_filtered_scope_parent_marks_child_as_app_root(
     memory_exporter,
 ):
     tracer_provider, processor = _create_processor(
         memory_exporter,
-        blocked_instrumentation_scopes=["blocked.scope"],
+        should_export_span=lambda span: (
+            span.instrumentation_scope is None
+            or span.instrumentation_scope.name != "blocked.scope"
+        ),
     )
     blocked_tracer = tracer_provider.get_tracer("blocked.scope")
     langfuse_tracer = _langfuse_tracer(tracer_provider)

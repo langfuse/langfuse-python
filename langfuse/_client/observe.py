@@ -2,7 +2,6 @@ import asyncio
 import contextvars
 import inspect
 import os
-import sys
 from functools import wraps
 from typing import (
     Any,
@@ -50,7 +49,16 @@ F = TypeVar("F", bound=Callable[..., Any])
 P = ParamSpec("P")
 R = TypeVar("R")
 
-_ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT = sys.version_info >= (3, 11)
+# Set by asgiref's markcoroutinefunction on Python < 3.12, which
+# inspect.iscoroutinefunction does not recognize.
+_ASYNCIO_COROUTINE_MARKER = getattr(asyncio.coroutines, "_is_coroutine", None)
+
+
+def _is_coroutine_function(func: Any) -> bool:
+    return inspect.iscoroutinefunction(func) or (
+        _ASYNCIO_COROUTINE_MARKER is not None
+        and getattr(func, "_is_coroutine", None) is _ASYNCIO_COROUTINE_MARKER
+    )
 
 
 class LangfuseDecorator:
@@ -218,7 +226,7 @@ class LangfuseDecorator:
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
                 )
-                if asyncio.iscoroutinefunction(func)
+                if _is_coroutine_function(func)
                 else self._sync_observe(
                     func,
                     name=name,
@@ -758,15 +766,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
                 self._finalize()
 
     async def _close_generator(self) -> None:
-        if _ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT:
-            close_task = asyncio.create_task(
-                self.generator.aclose(),
-                context=self.context,
-            )  # type: ignore
-        else:
-            close_task = self.context.run(asyncio.create_task, self.generator.aclose())
-
-        await close_task
+        await asyncio.create_task(self.generator.aclose(), context=self.context)
 
     async def close(self) -> None:
         await self.aclose()
@@ -807,16 +807,11 @@ class _ContextPreservedAsyncGeneratorWrapper:
             )
             item: Any
             error: Optional[BaseException]
-            if _ASYNCIO_CREATE_TASK_SUPPORTS_CONTEXT:
-                item, error = await asyncio.create_task(
-                    coro=operation,
-                    context=self.context,
-                )
-            else:
-                item, error = await self.context.run(
-                    asyncio.create_task,
-                    operation,
-                )
+            # Run the generator operation in the preserved context.
+            item, error = await asyncio.create_task(
+                coro=operation,
+                context=self.context,
+            )
 
             if error is not None:
                 raise error

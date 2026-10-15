@@ -30,7 +30,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from inspect import isawaitable, isclass
-from typing import Any, Optional, cast
+from typing import Any, Dict, Optional, cast
 
 from openai import _types as openai_types
 from openai._types import NotGiven
@@ -78,24 +78,6 @@ class OpenAiDefinition:
     sync: bool
     min_version: Optional[str] = None
     max_version: Optional[str] = None
-
-
-OPENAI_METHODS_V0 = [
-    OpenAiDefinition(
-        module="openai",
-        object="ChatCompletion",
-        method="create",
-        type="chat",
-        sync=True,
-    ),
-    OpenAiDefinition(
-        module="openai",
-        object="Completion",
-        method="create",
-        type="completion",
-        sync=True,
-    ),
-]
 
 
 OPENAI_METHODS_V1 = [
@@ -494,6 +476,36 @@ def _extract_chat_response(kwargs: Any) -> Any:
     return response
 
 
+def _parse_reasoning_model_parameters(
+    resource: OpenAiDefinition, kwargs: Any
+) -> Dict[str, Any]:
+    """Collect reasoning-model request params as flat model parameters.
+
+    Chat Completions accepts `reasoning_effort` and `verbosity` at the top level,
+    while the Responses API nests them under `reasoning` and `text`.
+    """
+    if resource.object in ("Responses", "AsyncResponses"):
+        reasoning = kwargs.get("reasoning", None)
+        text = kwargs.get("text", None)
+        candidates = {
+            "reasoning_effort": _get_attr_or_item(reasoning, "effort"),
+            "reasoning_summary": _get_attr_or_item(reasoning, "summary"),
+            "verbosity": _get_attr_or_item(text, "verbosity"),
+            "max_output_tokens": kwargs.get("max_output_tokens", None),
+        }
+    else:
+        candidates = {
+            "reasoning_effort": kwargs.get("reasoning_effort", None),
+            "verbosity": kwargs.get("verbosity", None),
+        }
+
+    return {
+        key: value
+        for key, value in candidates.items()
+        if value is not None and not _is_not_given(value)
+    }
+
+
 def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> Any:
     default_name = (
         "OpenAI-embedding" if resource.type == "embedding" else "OpenAI-generation"
@@ -646,6 +658,10 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
         if parsed_service_tier is not None:
             modelParameters["service_tier"] = parsed_service_tier
 
+        modelParameters.update(_parse_reasoning_model_parameters(resource, kwargs))
+        if "max_output_tokens" in modelParameters:
+            modelParameters.pop("max_tokens", None)
+
     langfuse_prompt = kwargs.get("langfuse_prompt", None)
 
     return {
@@ -764,8 +780,7 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
     model, usage, finish_reason, service_tier = None, None, None, None
 
     for chunk in chunks:
-        if _is_openai_v1():
-            chunk = chunk.__dict__
+        chunk = chunk.__dict__
 
         model = model or chunk.get("model", None) or None
         service_tier = service_tier or chunk.get("service_tier", None) or None
@@ -776,15 +791,14 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
         choices = chunk.get("choices") or []
 
         for choice in choices:
-            if _is_openai_v1():
-                choice = choice.__dict__
+            choice = choice.__dict__
             if resource.type == "chat":
                 delta = choice.get("delta", None)
                 choice_finish_reason = choice.get("finish_reason", None)
                 if choice_finish_reason is not None:
                     finish_reason = choice_finish_reason
 
-                if _is_openai_v1() and delta is not None:
+                if delta is not None:
                     delta = delta.__dict__
 
                 if delta is None:
@@ -922,7 +936,7 @@ def _get_langfuse_data_from_default_response(
         if len(choices) > 0:
             choice = choices[-1]
 
-            completion = choice.text if _is_openai_v1() else choice.get("text", None)
+            completion = choice.text
 
     elif resource.object == "Responses" or resource.object == "AsyncResponses":
         completion = _extract_response_api_completion(response.get("output", {}))
@@ -934,17 +948,11 @@ def _get_langfuse_data_from_default_response(
             if len(choices) > 1:
                 completion = [
                     _extract_chat_response(choice.message.__dict__)
-                    if _is_openai_v1()
-                    else choice.get("message", None)
                     for choice in choices
                 ]
             else:
                 choice = choices[0]
-                completion = (
-                    _extract_chat_response(choice.message.__dict__)
-                    if _is_openai_v1()
-                    else choice.get("message", None)
-                )
+                completion = _extract_chat_response(choice.message.__dict__)
 
     elif resource.type == "embedding":
         data = response.get("data") or []
@@ -981,16 +989,12 @@ def _merge_service_tier_into_model_parameters(
     return {**(model_parameters or {}), "service_tier": service_tier}
 
 
-def _is_openai_v1() -> bool:
-    return Version(openai.__version__) >= Version("1.0.0")
-
-
 def _is_streaming_response(response: Any) -> bool:
     return (
         isinstance(response, types.GeneratorType)
         or isinstance(response, types.AsyncGeneratorType)
-        or (_is_openai_v1() and isinstance(response, openai.Stream))
-        or (_is_openai_v1() and isinstance(response, openai.AsyncStream))
+        or isinstance(response, openai.Stream)
+        or isinstance(response, openai.AsyncStream)
     )
 
 
@@ -999,9 +1003,6 @@ _openai_stream_iter_hook_installed = False
 
 def _install_openai_stream_iteration_hooks() -> None:
     global _openai_stream_iter_hook_installed
-
-    if not _is_openai_v1():
-        return
 
     if not _openai_stream_iter_hook_installed:
         original_iter = openai.Stream.__iter__
@@ -1284,7 +1285,7 @@ def _wrap(
     try:
         openai_response = wrapped(**arg_extractor.get_openai_args())
 
-        if _is_openai_v1() and isinstance(openai_response, openai.Stream):
+        if isinstance(openai_response, openai.Stream):
             return _instrument_openai_stream(
                 resource=open_ai_resource,
                 response=openai_response,
@@ -1304,9 +1305,7 @@ def _wrap(
             model, completion, usage, service_tier = (
                 _get_langfuse_data_from_default_response(
                     open_ai_resource,
-                    (parsed_response and parsed_response.__dict__)
-                    if _is_openai_v1()
-                    else parsed_response,
+                    parsed_response and parsed_response.__dict__,
                 )
             )
 
@@ -1373,7 +1372,7 @@ async def _wrap_async(
     try:
         openai_response = await wrapped(**arg_extractor.get_openai_args())
 
-        if _is_openai_v1() and isinstance(openai_response, openai.AsyncStream):
+        if isinstance(openai_response, openai.AsyncStream):
             return _instrument_openai_async_stream(
                 resource=open_ai_resource,
                 response=openai_response,
@@ -1393,15 +1392,12 @@ async def _wrap_async(
             model, completion, usage, service_tier = (
                 _get_langfuse_data_from_default_response(
                     open_ai_resource,
-                    (parsed_response and parsed_response.__dict__)
-                    if _is_openai_v1()
-                    else parsed_response,
+                    parsed_response and parsed_response.__dict__,
                 )
             )
             generation.update(
                 model=model,
                 output=completion,
-                usage=usage,  # backward compat for all V2 self hosters
                 usage_details=usage,
                 cost_details=_parse_cost(parsed_response.usage)
                 if hasattr(parsed_response, "usage")
@@ -1426,9 +1422,7 @@ async def _wrap_async(
 
 
 def register_tracing() -> None:
-    resources = OPENAI_METHODS_V1 if _is_openai_v1() else OPENAI_METHODS_V0
-
-    for resource in resources:
+    for resource in OPENAI_METHODS_V1:
         if resource.min_version is not None and Version(openai.__version__) < Version(
             resource.min_version
         ):

@@ -9,14 +9,11 @@ from langfuse.api import (
     CreateDatasetRequest,  # noqa
     Dataset,  # noqa
     DatasetItem,  # noqa
-    DatasetRun,  # noqa
     DatasetStatus,  # noqa
     MapValue,  # noqa
-    Observation,  # noqa
     Prompt,
     Prompt_Chat,
     Prompt_Text,
-    TraceWithFullDetails,  # noqa
 )
 from langfuse.logger import langfuse_logger
 

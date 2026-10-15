@@ -50,6 +50,30 @@ def test_is_genai_span_with_genai_attributes():
     )
 
 
+@pytest.mark.parametrize("predicate", [is_genai_span, is_default_export_span])
+@pytest.mark.parametrize(
+    ("attributes", "expected"),
+    [
+        ({"gen_ai": "value"}, False),
+        ({"gen_ai_custom": "value"}, False),
+        ({"gen_ai-request.model": "value"}, False),
+        ({"gen_airflow.model": "value"}, False),
+        ({"custom.gen_ai.request.model": "value"}, False),
+        ({b"gen_ai.request.model": "value"}, False),
+        ({}, False),
+        ({"gen_ai.request.model": "model"}, True),
+        ({"gen_ai.usage.input_tokens": 0}, True),
+        ({"gen_ai.custom": False}, True),
+        ({"gen_ai_custom": "value", "gen_ai.request.model": "model"}, True),
+    ],
+)
+def test_genai_filters_match_attribute_namespace(predicate, attributes, expected):
+    """Match gen_ai.* attributes without accepting lookalike namespaces."""
+    span = _make_span(scope_name="unknown.scope", attributes=attributes)
+
+    assert predicate(span) is expected
+
+
 def test_is_genai_span_ignores_non_string_keys():
     """Ignore non-string keys when checking gen_ai.* attributes."""
     assert (
