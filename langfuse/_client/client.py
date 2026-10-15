@@ -150,8 +150,8 @@ from langfuse.types import (
     TraceContext,
 )
 
-# Fern's dict() looks these aliases up with typing.get_type_hints on every call,
-# which costs about 50 us per score on the caller's thread.
+# Fern's dict() re-derives these aliases from the type hints on every call,
+# which is most of its ~50 us cost per score, so look them up once here.
 _CREATE_SCORE_REQUEST_ALIASES = get_field_to_alias_mapping(CreateScoreRequest)
 
 
@@ -1966,9 +1966,9 @@ class Langfuse:
                 timestamp=timestamp or _get_timestamp(),
             )
             score = {
-                _CREATE_SCORE_REQUEST_ALIASES.get(field, field): value
-                for field, value in request
-                if value is not None
+                _CREATE_SCORE_REQUEST_ALIASES.get(field, field): field_value
+                for field, field_value in request
+                if field_value is not None
             }
             # The API accepts any JSON value as metadata, the generated model only dicts.
             if metadata is not None:

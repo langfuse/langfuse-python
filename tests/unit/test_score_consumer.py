@@ -289,6 +289,8 @@ def client_factory():
     def create(recorder: Recorder, **kwargs: Any) -> Langfuse:
         with LangfuseResourceManager._lock:
             LangfuseResourceManager._instances.clear()
+        # The global provider may carry a sampler set by another test.
+        kwargs.setdefault("tracer_provider", TracerProvider())
         client = Langfuse(
             public_key="pk-score-consumer",
             secret_key="sk-score-consumer",
