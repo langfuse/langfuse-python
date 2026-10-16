@@ -368,6 +368,29 @@ def test_slots():
     assert json.loads(serializer.encode(obj)) == {"field": "value"}
 
 
+def test_slots_single_string():
+    class SingleSlotClass:
+        __slots__ = "query"
+
+        def __init__(self):
+            self.query = "SELECT 1"
+
+    obj = SingleSlotClass()
+    serializer = EventSerializer()
+    assert json.loads(serializer.encode(obj)) == {"query": "SELECT 1"}
+
+
+def test_slots_circular_reference():
+    class SlotNode:
+        __slots__ = ("next",)
+
+    node = SlotNode()
+    node.next = node
+
+    serializer = EventSerializer()
+    assert json.loads(serializer.encode(node)) == {"next": "SlotNode"}
+
+
 def test_deeply_nested_object_does_not_hang():
     class Inner:
         def __init__(self):
