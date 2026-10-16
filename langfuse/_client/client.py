@@ -98,7 +98,6 @@ from langfuse.api import (
     AsyncLangfuseAPI,
     CreateChatPromptRequest,
     CreateChatPromptType,
-    CreateScoreRequest,
     CreateTextPromptRequest,
     Dataset,
     DatasetItem,
@@ -219,6 +218,8 @@ class Langfuse:
             The hook receives one OpenTelemetry export batch. A batch is not guaranteed to contain a complete trace, request, or Langfuse observation tree. The hook usually runs on the OpenTelemetry batch span processor worker thread; during `flush()` and shutdown it may run on the caller thread. Keep it synchronous, deterministic, and fast.
 
             Return `None` to leave the batch unchanged. Return `MaskOtelSpansResult` with `OtelSpanPatch` values to delete or replace attributes on selected spans. If a batch contains duplicate trace and span identifiers, Langfuse keeps only the last matching span. If the hook raises or returns an invalid batch result, Langfuse drops the whole export batch. If one returned span patch is invalid, Langfuse drops only that span from the Langfuse export.
+
+            Values of `langfuse.trace.metadata.*` and `langfuse.observation.metadata.*` attributes written by the SDK are JSON-encoded strings, including on third-party instrumentation spans such as OpenInference (`acme` arrives as `'"acme"'`). Decode them with `json.loads` before applying masking rules and encode replacements with `json.dumps`, for example `OtelSpanPatch(set_attributes={key: json.dumps("[REDACTED]")})`. Values from other sources, such as baggage from an older upstream service, can be raw strings, so catch `json.JSONDecodeError` rather than letting the hook raise. See `MaskOtelSpansFunction` for a full example.
 
             Example:
                 ```python
@@ -1946,29 +1947,26 @@ class Langfuse:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
 
         try:
-            request = CreateScoreRequest(
-                id=score_id,
-                session_id=session_id,
-                dataset_run_id=dataset_run_id,
-                trace_id=trace_id,
-                observation_id=observation_id,
-                name=name,
-                value=value,
-                data_type=data_type,  # type: ignore
-                comment=comment,
-                config_id=config_id,
-                environment=environment or self._environment,
-                timestamp=timestamp or _get_timestamp(),
-            )
-            # Fern's dict() keeps fields explicitly set to None, so drop them here.
+            # The model turned bools and ints into floats (True -> 1.0); keep that.
+            if isinstance(value, (bool, int)):
+                value = float(value)
+
             score = {
-                key: value
-                for key, value in request.dict(by_alias=True).items()
-                if value is not None
+                "id": score_id,
+                "traceId": trace_id,
+                "sessionId": session_id,
+                "observationId": observation_id,
+                "datasetRunId": dataset_run_id,
+                "name": name,
+                "value": value,
+                "comment": comment,
+                "environment": environment or self._environment,
+                "dataType": data_type,
+                "configId": config_id,
+                "timestamp": timestamp or _get_timestamp(),
+                "metadata": metadata,
             }
-            # The API accepts any JSON value as metadata, the generated model only dicts.
-            if metadata is not None:
-                score["metadata"] = metadata
+            score = {key: field for key, field in score.items() if field is not None}
 
             if self._resources is not None:
                 # Force the score to be in sample if it was for a legacy trace ID, i.e. non-32 hexchar

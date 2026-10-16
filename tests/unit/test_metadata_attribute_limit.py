@@ -514,6 +514,44 @@ def test_hard_guard_keeps_overwrites_and_drops_new_tail(caplog):
     assert "Dropped keys include: m, b_1, b_2" in message
 
 
+def _metadata_attributes(count):
+    return {f"{METADATA_PREFIX}m_{i}": i for i in range(count)}
+
+
+@pytest.mark.parametrize(
+    ("existing", "attributes", "dropped"),
+    [
+        # 5 existing keys and 10 open reserved keys leave 5 metadata slots.
+        ({f"a_{i}": i for i in range(5)}, _metadata_attributes(5), []),
+        (
+            {f"a_{i}": i for i in range(5)},
+            _metadata_attributes(6),
+            [f"{METADATA_PREFIX}m_5"],
+        ),
+        # Overwrites and reserved keys already on the span or in the same
+        # write take no extra slot, which leaves 8 metadata slots.
+        (
+            {"a_0": 0, "a_1": 1, "r_0": 0, "r_1": 1, "r_2": 2},
+            {"a_0": "new", "a_1": "new", "r_3": 3, **_metadata_attributes(8)},
+            [],
+        ),
+        (
+            {"a_0": 0, "a_1": 1, "r_0": 0, "r_1": 1, "r_2": 2},
+            {"a_0": "new", "a_1": "new", "r_3": 3, **_metadata_attributes(9)},
+            [f"{METADATA_PREFIX}m_8"],
+        ),
+    ],
+)
+def test_metadata_budget_is_exact_at_the_limit(existing, attributes, dropped, caplog):
+    span = _fake_span(20, existing)
+    reserved_keys = tuple(f"r_{i}" for i in range(10))
+
+    result = _drop_attributes_over_span_limit(span, attributes, reserved_keys)
+
+    assert result == {k: v for k, v in attributes.items() if k not in dropped}
+    assert len(_limit_warnings(caplog)) == (1 if dropped else 0)
+
+
 def test_hard_guard_never_raises():
     class BrokenAttributes:
         def __contains__(self, key):
