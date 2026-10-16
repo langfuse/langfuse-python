@@ -147,6 +147,10 @@ def _drop_attributes_over_span_limit(
             return attributes
 
         existing = getattr(span, "attributes", None) or {}
+        # Upper bound of the exact count below: if it fits, nothing is dropped.
+        if len(existing) + len(attributes) + len(reserved_keys) <= max_attributes:
+            return attributes
+
         new_keys = [
             key
             for key, value in attributes.items()
