@@ -3,22 +3,22 @@ revision = 3
 requires-python = ">=3.11, <4.0"
 
 [options]
-exclude-newer = "2026-10-07T10:58:04.554157015Z"
+exclude-newer = "2026-10-09T10:01:30.923161946Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-opentelemetry-sdk = { timestamp = "2026-10-11T10:58:04.554173231Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-common = { timestamp = "2026-10-11T10:58:04.554175159Z", span = "P3D" }
-opentelemetry-api = { timestamp = "2026-10-11T10:58:04.554172733Z", span = "P3D" }
-opentelemetry-instrumentation-threading = { timestamp = "2026-10-11T10:58:04.554178036Z", span = "P3D" }
-opentelemetry-proto = { timestamp = "2026-10-11T10:58:04.554174588Z", span = "P3D" }
-opentelemetry-exporter-otlp-proto-http = { timestamp = "2026-10-11T10:58:04.554175686Z", span = "P3D" }
-opentelemetry-exporter-http-transport = { timestamp = "2026-10-11T10:58:04.554176939Z", span = "P3D" }
-opentelemetry-semantic-conventions = { timestamp = "2026-10-11T10:58:04.554174025Z", span = "P3D" }
-pydantic-core = { timestamp = "2026-10-11T10:58:04.554172114Z", span = "P3D" }
-pydantic = { timestamp = "2026-10-11T10:58:04.554164951Z", span = "P3D" }
-opentelemetry-exporter-otlp-common = { timestamp = "2026-10-11T10:58:04.554176407Z", span = "P3D" }
-opentelemetry-instrumentation = { timestamp = "2026-10-11T10:58:04.55417747Z", span = "P3D" }
+opentelemetry-sdk = { timestamp = "2026-10-13T10:01:30.923175145Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-common = { timestamp = "2026-10-13T10:01:30.923176507Z", span = "P3D" }
+opentelemetry-api = { timestamp = "2026-10-13T10:01:30.923174725Z", span = "P3D" }
+opentelemetry-instrumentation-threading = { timestamp = "2026-10-13T10:01:30.9231787Z", span = "P3D" }
+opentelemetry-proto = { timestamp = "2026-10-13T10:01:30.923176077Z", span = "P3D" }
+opentelemetry-exporter-otlp-proto-http = { timestamp = "2026-10-13T10:01:30.923176908Z", span = "P3D" }
+opentelemetry-exporter-http-transport = { timestamp = "2026-10-13T10:01:30.923177849Z", span = "P3D" }
+opentelemetry-semantic-conventions = { timestamp = "2026-10-13T10:01:30.923175666Z", span = "P3D" }
+pydantic-core = { timestamp = "2026-10-13T10:01:30.923174304Z", span = "P3D" }
+pydantic = { timestamp = "2026-10-13T10:01:30.923168806Z", span = "P3D" }
+opentelemetry-exporter-otlp-common = { timestamp = "2026-10-13T10:01:30.923177439Z", span = "P3D" }
+opentelemetry-instrumentation = { timestamp = "2026-10-13T10:01:30.92317826Z", span = "P3D" }
 
 [[package]]
 name = "annotated-types"
@@ -534,7 +534,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "5.0.1"
+version = "5.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "backoff" },
