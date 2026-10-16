@@ -470,6 +470,9 @@ def _extract_chat_response(kwargs: Any) -> Any:
         }
     )
 
+    if kwargs.get("refusal") is not None:
+        response.update({"refusal": kwargs["refusal"]})
+
     if audio is not None:
         response.update({"audio": audio})
 
@@ -814,6 +817,11 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
                         else completion["content"] + delta.get("content", None)
                     )
 
+                if delta.get("refusal", None) is not None:
+                    completion["refusal"] = (completion["refusal"] or "") + delta[
+                        "refusal"
+                    ]
+
                 if delta.get("function_call", None) is not None:
                     curr = completion["function_call"]
                     tool_call_chunk = delta.get("function_call", None)
@@ -905,6 +913,14 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
             }
 
             if content is not None:
+                response["content"] = content
+
+            return response
+
+        if completion["refusal"]:
+            response = {"role": "assistant", "refusal": completion["refusal"]}
+
+            if content:
                 response["content"] = content
 
             return response
