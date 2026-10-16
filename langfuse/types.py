@@ -277,6 +277,38 @@ class MaskOtelSpansFunction(Protocol):
 
         langfuse = Langfuse(mask_otel_spans=mask_otel_spans)
         ```
+
+    Values of `langfuse.trace.metadata.*` and `langfuse.observation.metadata.*`
+    attributes are JSON-encoded strings on every span the SDK exports,
+    including spans from third-party instrumentations such as OpenInference,
+    because propagated metadata is copied onto them. A string value `acme` arrives as
+    `'"acme"'` and the number `3` as `'3'`. Decode each value with `json.loads`
+    before applying masking rules, and encode replacements with `json.dumps`:
+
+    ```python
+    import json
+
+    METADATA_PREFIXES = (
+        "langfuse.trace.metadata.",
+        "langfuse.observation.metadata.",
+    )
+
+    def mask_otel_spans(
+        *, params: MaskOtelSpansParams
+    ) -> Optional[MaskOtelSpansResult]:
+        patches = {}
+
+        for identifier, span in params.spans.items():
+            updates = {}
+            for key, value in span.attributes.items():
+                if key.startswith(METADATA_PREFIXES) and isinstance(value, str):
+                    if json.loads(value) == "acme":
+                        updates[key] = json.dumps("[REDACTED]")
+            if updates:
+                patches[identifier] = OtelSpanPatch(set_attributes=updates)
+
+        return MaskOtelSpansResult(span_patches=patches)
+    ```
     """
 
     def __call__(
