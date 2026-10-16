@@ -18,7 +18,8 @@ from langfuse import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager import score_consumer as score_consumer_module
 from langfuse._task_manager.score_consumer import ScoreConsumer
-from langfuse.api import LangfuseAPI
+from langfuse._utils.serializer import EventSerializer
+from langfuse.api import CreateScoreRequest, LangfuseAPI
 
 ACCEPTED = (202, {"message": "Accepted"})
 
@@ -288,6 +289,8 @@ def client_factory():
     def create(recorder: Recorder, **kwargs: Any) -> Langfuse:
         with LangfuseResourceManager._lock:
             LangfuseResourceManager._instances.clear()
+        # The global provider may carry a sampler set by another test.
+        kwargs.setdefault("tracer_provider", TracerProvider())
         client = Langfuse(
             public_key="pk-score-consumer",
             secret_key="sk-score-consumer",
@@ -346,6 +349,72 @@ def test_create_score_posts_to_scores_endpoint(client_factory):
     assert sent[1]["name"] == "session-score"
     assert "traceId" not in sent[1]
     assert sent[1]["timestamp"].endswith("Z")
+
+
+def test_create_score_payload_matches_request_model_serialization(client_factory):
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder, environment="staging")
+    timestamp = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    cases: List[Dict[str, Any]] = [
+        dict(
+            name="numeric",
+            value=0.9,
+            trace_id="a" * 32,
+            observation_id="b" * 16,
+            data_type="NUMERIC",
+            comment="fine",
+        ),
+        dict(name="int-value", value=1, trace_id="a" * 32),
+        dict(name="boolean", value=True, trace_id="a" * 32, data_type="BOOLEAN"),
+        dict(
+            name="categorical",
+            value="good",
+            session_id="session-1",
+            data_type="CATEGORICAL",
+            config_id="config-1",
+        ),
+        dict(
+            name="text",
+            value="free text",
+            dataset_run_id="run-1",
+            data_type="TEXT",
+            environment="override",
+        ),
+        dict(
+            name="correction",
+            value="corrected output",
+            trace_id="a" * 32,
+            observation_id="b" * 16,
+            data_type="CORRECTION",
+        ),
+        dict(
+            name="dict-metadata",
+            value=0.5,
+            trace_id="a" * 32,
+            metadata={"evaluator": "judge", "nested": {"steps": [1, 2]}},
+        ),
+        dict(name="list-metadata", value=0.5, trace_id="a" * 32, metadata=["a", 1]),
+    ]
+
+    for i, case in enumerate(cases):
+        client.create_score(score_id=f"score-{i}", timestamp=timestamp, **case)
+    client.flush()
+
+    expected = []
+    for i, case in enumerate(cases):
+        fields = dict(case)
+        metadata = fields.pop("metadata", None)
+        fields.setdefault("environment", "staging")
+        request = CreateScoreRequest(id=f"score-{i}", timestamp=timestamp, **fields)
+        payload = {
+            k: v for k, v in request.dict(by_alias=True).items() if v is not None
+        }
+        if metadata is not None:
+            payload["metadata"] = metadata
+        expected.append(json.dumps(payload, cls=EventSerializer))
+    # Compare JSON text, because 1 == 1.0 == True as Python values.
+    sent = [json.dumps(score) for body in recorder.bodies for score in body]
+    assert sent == expected
 
 
 @pytest.fixture
