@@ -409,9 +409,7 @@ def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
     client.shutdown()
 
 
-def test_create_score_with_invalid_input_logs_error_without_enqueueing(
-    monkeypatch, caplog
-):
+def test_create_score_logs_error_instead_of_raising(monkeypatch, caplog):
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
 
     with LangfuseResourceManager._lock:
@@ -424,13 +422,15 @@ def test_create_score_with_invalid_input_logs_error_without_enqueueing(
     )
     rm = client._resources
     assert rm is not None
-    enqueued = []
-    monkeypatch.setattr(rm, "add_score_task", lambda event, **_: enqueued.append(event))
+
+    def fail(event, **_):
+        raise RuntimeError("enqueue failed")
+
+    monkeypatch.setattr(rm, "add_score_task", fail)
 
     with caplog.at_level(logging.ERROR, logger="langfuse"):
-        client.create_score(name="invalid", value=object(), trace_id="a" * 32)
+        client.create_score(name="invalid", value=1.0, trace_id="a" * 32)
 
-    assert enqueued == []
     assert rm._score_queue.empty()
     error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
     assert len(error_records) == 1
