@@ -279,11 +279,14 @@ class MaskOtelSpansFunction(Protocol):
         ```
 
     Values of `langfuse.trace.metadata.*` and `langfuse.observation.metadata.*`
-    attributes are JSON-encoded strings on every span the SDK exports,
-    including spans from third-party instrumentations such as OpenInference,
-    because propagated metadata is copied onto them. A string value `acme` arrives as
-    `'"acme"'` and the number `3` as `'3'`. Decode each value with `json.loads`
-    before applying masking rules, and encode replacements with `json.dumps`:
+    attributes written by the SDK are JSON-encoded strings. This includes spans
+    from third-party instrumentations such as OpenInference, because propagated
+    metadata is copied onto them. A string value `acme` arrives as `'"acme"'`
+    and the number `3` as `'3'`. Decode each value with `json.loads` before
+    applying masking rules, and encode replacements with `json.dumps`. Values
+    that reach a span another way, such as baggage from an older or
+    non-Langfuse upstream service, can be raw strings. Guard the decode,
+    because an exception from the hook drops the whole export batch:
 
     ```python
     import json
@@ -301,9 +304,16 @@ class MaskOtelSpansFunction(Protocol):
         for identifier, span in params.spans.items():
             updates = {}
             for key, value in span.attributes.items():
-                if key.startswith(METADATA_PREFIXES) and isinstance(value, str):
-                    if json.loads(value) == "acme":
-                        updates[key] = json.dumps("[REDACTED]")
+                if not key.startswith(METADATA_PREFIXES):
+                    continue
+                if not isinstance(value, str):
+                    continue
+                try:
+                    decoded = json.loads(value)
+                except json.JSONDecodeError:
+                    decoded = value
+                if decoded == "acme":
+                    updates[key] = json.dumps("[REDACTED]")
             if updates:
                 patches[identifier] = OtelSpanPatch(set_attributes=updates)
 

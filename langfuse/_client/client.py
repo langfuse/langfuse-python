@@ -220,7 +220,7 @@ class Langfuse:
 
             Return `None` to leave the batch unchanged. Return `MaskOtelSpansResult` with `OtelSpanPatch` values to delete or replace attributes on selected spans. If a batch contains duplicate trace and span identifiers, Langfuse keeps only the last matching span. If the hook raises or returns an invalid batch result, Langfuse drops the whole export batch. If one returned span patch is invalid, Langfuse drops only that span from the Langfuse export.
 
-            Values of `langfuse.trace.metadata.*` and `langfuse.observation.metadata.*` attributes are JSON-encoded strings on every exported span, including third-party instrumentation spans such as OpenInference (`acme` arrives as `'"acme"'`). Decode them with `json.loads` before applying masking rules and encode replacements with `json.dumps`, for example `OtelSpanPatch(set_attributes={key: json.dumps("[REDACTED]")})`. See `MaskOtelSpansFunction` for a full example.
+            Values of `langfuse.trace.metadata.*` and `langfuse.observation.metadata.*` attributes written by the SDK are JSON-encoded strings, including on third-party instrumentation spans such as OpenInference (`acme` arrives as `'"acme"'`). Decode them with `json.loads` before applying masking rules and encode replacements with `json.dumps`, for example `OtelSpanPatch(set_attributes={key: json.dumps("[REDACTED]")})`. Values from other sources, such as baggage from an older upstream service, can be raw strings, so catch `json.JSONDecodeError` rather than letting the hook raise. See `MaskOtelSpansFunction` for a full example.
 
             Example:
                 ```python
