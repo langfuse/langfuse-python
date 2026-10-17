@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import httpx
 import pytest
-from openai.types.chat import ChatCompletion
+from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
 from pydantic import BaseModel
 
@@ -1614,8 +1614,6 @@ def test_responses_create_does_not_consume_input_iterator(
 
 
 def _make_chat_stream_chunks_with_refusal():
-    from openai.types.chat import ChatCompletionChunk
-
     def chunk(delta, finish_reason=None):
         return ChatCompletionChunk.model_validate(
             {
@@ -1652,8 +1650,6 @@ def test_streaming_chat_completion_records_refusal():
 
 
 def test_chat_completion_records_refusal():
-    from openai.types.chat import ChatCompletionMessage
-
     message = ChatCompletionMessage(
         role="assistant", content=None, refusal="I can't help with that."
     )
