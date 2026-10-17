@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from openai.types.chat import ChatCompletionChunk, ChatCompletionMessage
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
 from pydantic import BaseModel
 
@@ -1473,8 +1474,6 @@ def test_with_raw_response_streaming_passes_through_untraced(
 
 
 def _make_chat_stream_chunks_with_refusal():
-    from openai.types.chat import ChatCompletionChunk
-
     def chunk(delta, finish_reason=None):
         return ChatCompletionChunk.model_validate(
             {
@@ -1511,8 +1510,6 @@ def test_streaming_chat_completion_records_refusal():
 
 
 def test_chat_completion_records_refusal():
-    from openai.types.chat import ChatCompletionMessage
-
     message = ChatCompletionMessage(
         role="assistant", content=None, refusal="I can't help with that."
     )
