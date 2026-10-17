@@ -127,18 +127,12 @@ def test_compile_with_placeholders(
 
 @pytest.fixture
 def langfuse():
-    from langfuse._client.resource_manager import LangfuseResourceManager
-
     langfuse_instance = Langfuse(
         public_key="pk-lf-test",
         secret_key="sk-lf-test",
         base_url="http://localhost:3000",
     )
     langfuse_instance.api = Mock()
-
-    if langfuse_instance._resources is None:
-        langfuse_instance._resources = Mock(spec=LangfuseResourceManager)
-        langfuse_instance._resources.prompt_cache = PromptCache()
 
     return langfuse_instance
 
