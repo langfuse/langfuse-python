@@ -46,6 +46,7 @@ from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from langfuse._client.span_filter import (
     is_app_root_eligible,
     is_default_export_span,
+    is_genai_span,
     is_langfuse_span,
 )
 from langfuse._client.utils import span_formatter
@@ -159,10 +160,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         otel_compression: Optional[Literal["gzip", "none"]] = None,
     ):
         self.public_key = public_key
+        self._uses_default_export_filter = should_export_span is None
         self._should_export_span = should_export_span or is_default_export_span
 
         self._app_root_lock = threading.Lock()
         self._span_export_expectation_by_id: Dict[str, bool] = {}
+        self._open_langfuse_spans_by_id: Dict[str, ReadableSpan] = {}
 
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT, None)
         if flush_at is None and env_flush_at is not None:
@@ -282,6 +285,15 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 )
                 return
 
+            if self._is_nested_in_langfuse_generation(span):
+                langfuse_logger.debug(
+                    "Trace: Dropping span already covered by its parent Langfuse "
+                    "generation | span_name='%s' | instrumentation_scope='%s'",
+                    span.name,
+                    self._get_scope_name(span),
+                )
+                return
+
             # Apply custom or default span filter
             try:
                 should_export = self._should_export_span(span)
@@ -331,6 +343,8 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             suppressed_by_parent_claim = propagated_trace_id == trace_id
 
             self._span_export_expectation_by_id[span_id] = expected_exported
+            if is_langfuse_span(cast(ReadableSpan, span)):
+                self._open_langfuse_spans_by_id[span_id] = cast(ReadableSpan, span)
 
             mark_app_root = (
                 expected_exported
@@ -349,6 +363,29 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
         with self._app_root_lock:
             self._span_export_expectation_by_id.pop(span_id, None)
+            self._open_langfuse_spans_by_id.pop(span_id, None)
+
+    def _is_nested_in_langfuse_generation(self, span: ReadableSpan) -> bool:
+        if (
+            not self._uses_default_export_filter
+            or span.parent is None
+            or is_langfuse_span(span)
+            or not is_genai_span(span)
+        ):
+            return False
+
+        with self._app_root_lock:
+            parent = self._open_langfuse_spans_by_id.get(
+                format_span_id(span.parent.span_id)
+            )
+
+        return (
+            parent is not None
+            and (parent.attributes or {}).get(
+                LangfuseOtelSpanAttributes.OBSERVATION_TYPE
+            )
+            == "generation"
+        )
 
     def _is_expected_exported_at_start(self, span: Span) -> bool:
         readable_span = cast(ReadableSpan, span)
