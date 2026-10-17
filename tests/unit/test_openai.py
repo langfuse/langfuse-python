@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from openai.types.chat import ChatCompletionChunk, ChatCompletionMessage
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
 from pydantic import BaseModel
 
@@ -1470,3 +1471,51 @@ def test_with_raw_response_streaming_passes_through_untraced(
         span.name != "OpenAI-generation"
         for span in memory_exporter.get_finished_spans()
     )
+
+
+def _make_chat_stream_chunks_with_refusal():
+    def chunk(delta, finish_reason=None):
+        return ChatCompletionChunk.model_validate(
+            {
+                "id": "chatcmpl-refusal",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {"index": 0, "delta": delta, "finish_reason": finish_reason}
+                ],
+            }
+        )
+
+    return [
+        chunk({"role": "assistant", "refusal": "I'm sorry, "}),
+        chunk({"refusal": "I can't help with that."}),
+        chunk({}, finish_reason="stop"),
+    ]
+
+
+def test_streaming_chat_completion_records_refusal():
+    _model, completion, _usage, metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            _make_chat_stream_chunks_with_refusal(),
+        )
+    )
+
+    assert completion == {
+        "role": "assistant",
+        "refusal": "I'm sorry, I can't help with that.",
+    }
+    assert metadata == {"finish_reason": "stop"}
+
+
+def test_chat_completion_records_refusal():
+    message = ChatCompletionMessage(
+        role="assistant", content=None, refusal="I can't help with that."
+    )
+
+    assert lf_openai_module._extract_chat_response(message.__dict__) == {
+        "role": "assistant",
+        "content": None,
+        "refusal": "I can't help with that.",
+    }
