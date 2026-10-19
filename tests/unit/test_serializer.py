@@ -452,16 +452,47 @@ def test_deeply_nested_slots_object_is_truncated():
     )
 
 
-def test_deeply_nested_dict_preserves_keys_at_depth_boundary(monkeypatch):
+def _circular_list():
+    items = []
+    items.append(items)
+    return items
+
+
+@pytest.mark.parametrize(
+    "input_obj, expected",
+    [
+        ({"a": {"b": {"c": "leaf"}}}, {"a": {"b": "<dict>"}}),
+        ([[["leaf"]]], [["<list>"]]),
+        (((("leaf",),),), [["<tuple>"]]),
+        (_circular_list(), [["<list>"]]),
+    ],
+    ids=["dict", "list", "tuple", "circular_list"],
+)
+def test_nested_containers_are_truncated_at_depth_boundary(
+    monkeypatch, input_obj, expected
+):
     monkeypatch.setattr(EventSerializer, "_MAX_DEPTH", 3)
 
-    input_obj = {"a": {"b": {"c": "leaf"}}}
-    expected = {"a": {"b": "<dict>"}}
+    assert json.loads(EventSerializer().encode(input_obj)) == expected
 
-    serializer = EventSerializer()
-    result = json.loads(serializer.encode(input_obj))
 
-    assert result == expected
+@pytest.mark.parametrize(
+    "input_obj, expected",
+    [
+        (
+            {"safe": [2**53 - 1, -(2**53) + 1], "unsafe": [2**53, -(2**53)]},
+            '{"safe": [9007199254740991, -9007199254740991], '
+            '"unsafe": ["9007199254740992", "-9007199254740992"]}',
+        ),
+        (
+            {"a": [float("nan")], "b": {"c": float("inf")}, "d": (float("-inf"),)},
+            '{"a": ["NaN"], "b": {"c": "Infinity"}, "d": ["-Infinity"]}',
+        ),
+    ],
+    ids=["js_safe_int_bounds", "non_finite_floats"],
+)
+def test_plain_containers_convert_nested_values(input_obj, expected):
+    assert EventSerializer().encode(input_obj) == expected
 
 
 class _Color(Enum):
