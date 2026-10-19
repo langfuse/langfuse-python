@@ -495,6 +495,56 @@ def test_plain_containers_convert_nested_values(input_obj, expected):
     assert EventSerializer().encode(input_obj) == expected
 
 
+class StreamingStr(str):
+    def __str__(self) -> str:
+        return "streaming-str"
+
+
+class StreamingInt(int):
+    def __str__(self) -> str:
+        return "streaming-int"
+
+
+class StreamingFloat(float):
+    def __str__(self) -> str:
+        return "streaming-float"
+
+
+class StreamingDict(dict):
+    def __str__(self) -> str:
+        return "streaming-dict"
+
+
+class StreamingList(list):
+    def __str__(self) -> str:
+        return "streaming-list"
+
+
+class StreamingTuple(tuple):
+    def __str__(self) -> str:
+        return "streaming-tuple"
+
+
+@pytest.mark.parametrize(
+    "input_obj, expected",
+    [
+        (StreamingStr("payload"), '"streaming-str"'),
+        (StreamingInt(7), '"streaming-int"'),
+        (StreamingFloat(1.5), '"streaming-float"'),
+        (StreamingDict(a=1), '"streaming-dict"'),
+        (StreamingList([1, 2]), '"streaming-list"'),
+        (StreamingTuple((1, 2)), '"streaming-tuple"'),
+    ],
+    ids=["str", "int", "float", "dict", "list", "tuple"],
+)
+def test_builtin_subclasses_take_the_full_branch_chain(
+    input_obj: object, expected: str
+) -> None:
+    # Subclasses of the fast-pathed built-ins must still reach the "Streaming"
+    # branch, which serializes them with str().
+    assert EventSerializer().encode(input_obj) == expected
+
+
 class _Color(Enum):
     RED = "red"
     NUMERIC = 7
