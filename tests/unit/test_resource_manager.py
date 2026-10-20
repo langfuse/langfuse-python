@@ -1,7 +1,8 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
 import logging
-from queue import Queue
+import threading
+from queue import Empty, Queue
 from types import SimpleNamespace
 from typing import Sequence
 from unittest.mock import Mock
@@ -14,6 +15,7 @@ from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
+from langfuse._task_manager.media_upload_queue import UploadMediaJob
 from langfuse._task_manager.score_consumer import ScoreConsumer
 from langfuse.types import MaskOtelSpansResult
 
@@ -471,3 +473,80 @@ def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_
         ("join", 0),
         ("join", 1),
     ]
+
+
+def test_flush_returns_when_media_consumers_stopped_with_pending_items():
+    """flush() must not block on the media queue when no consumer is left.
+
+    Mirrors the score-queue guard: Queue.join() blocks forever when media
+    upload consumers have stopped with items still pending, e.g. when media is
+    enqueued after shutdown() or shutdown() runs concurrently.
+    """
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-flush-media-join",
+        secret_key="sk-flush-media-join",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+    assert len(rm._media_upload_consumers) > 0
+
+    # Simulate a shutdown race: consumers stopped with an item still pending.
+    # Consumers poll with a 1s timeout, so an unbounded join is safe here.
+    for consumer in rm._media_upload_consumers:
+        consumer.pause()
+    for consumer in rm._media_upload_consumers:
+        consumer.join()
+        assert not consumer.is_alive()
+
+    rm._media_upload_queue.put(
+        UploadMediaJob(
+            media_id="test-media-id",
+            content_type="image/png",
+            content_length=3,
+            content_bytes=b"abc",
+            content_sha256_hash="",
+            trace_id="test-trace-id",
+            observation_id=None,
+            dataset_id=None,
+            dataset_item_id=None,
+            field="input",
+        )
+    )
+
+    flushed = threading.Event()
+
+    def _flush():
+        rm.flush()
+        flushed.set()
+
+    flush_thread = threading.Thread(target=_flush, daemon=True)
+    flush_thread.start()
+    flush_thread.join(timeout=5.0)
+    hung = not flushed.is_set()
+
+    # Unblock flush() on unfixed code so the thread does not linger. Never
+    # blocks: on fixed code the guard already returned and this just drains.
+    try:
+        rm._media_upload_queue.get_nowait()
+    except Empty:
+        pass
+    else:
+        rm._media_upload_queue.task_done()
+    flush_thread.join(timeout=5.0)
+
+    client.shutdown()
+
+    # shutdown() enqueues one sentinel per consumer. Drain them so a later
+    # flush() (e.g. from the autouse fixture) cannot hang on unfixed code.
+    while True:
+        try:
+            rm._media_upload_queue.get_nowait()
+        except Empty:
+            break
+        rm._media_upload_queue.task_done()
+
+    assert not hung, "flush() blocked on the media upload queue with no live consumer"
