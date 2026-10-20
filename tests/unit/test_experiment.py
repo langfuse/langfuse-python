@@ -1,7 +1,9 @@
 """Tests for ``langfuse.experiment`` — ``RunnerContext`` and ``RegressionError``."""
 
+import asyncio
 import inspect
 import json
+import time
 import typing
 from datetime import datetime, timezone
 from typing import get_type_hints
@@ -779,3 +781,39 @@ class TestExperimentRunScoreGating:
 
         get_project_id.assert_not_called()
         assert result.experiment_url is None
+
+
+class TestExperimentEventLoop:
+    @pytest.mark.asyncio
+    async def test_final_flush_does_not_block_event_loop(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+        monkeypatch.setattr(langfuse_memory_client, "flush", lambda: time.sleep(0.5))
+        stop = asyncio.Event()
+        gaps: list = []
+
+        async def heartbeat():
+            last = time.monotonic()
+            while not stop.is_set():
+                await asyncio.sleep(0.01)
+                now = time.monotonic()
+                gaps.append(now - last)
+                last = now
+
+        beat = asyncio.create_task(heartbeat())
+        await langfuse_memory_client._run_experiment_async(
+            name="exp",
+            run_name="run",
+            description=None,
+            data=[{"input": "a"}],
+            task=lambda *, item, **kwargs: item["input"],
+            evaluators=[],
+            composite_evaluator=None,
+            run_evaluators=[],
+            max_concurrency=1,
+        )
+        stop.set()
+        await beat
+
+        assert max(gaps) < 0.25

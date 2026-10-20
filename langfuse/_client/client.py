@@ -2735,8 +2735,8 @@ class Langfuse:
             except Exception as e:
                 langfuse_logger.error("Failed to store run evaluation: %s", e)
 
-        # Flush scores and traces
-        self.flush()
+        # Flush scores and traces off the event loop; flush() blocks on network I/O.
+        await asyncio.to_thread(self.flush)
 
         return ExperimentResult(
             name=name,
