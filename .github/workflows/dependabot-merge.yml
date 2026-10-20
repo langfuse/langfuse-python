@@ -19,12 +19,40 @@ jobs:
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-      # GITHUB_TOKEN is not allowed to push to the protected main branch, so
-      # enabling auto-merge requires a token whose user may merge into main.
-      # Majors stay manual, and so do 0.x minor bumps (breaking under semver).
-      - name: Enable auto-merge for Dependabot PRs
-        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-patch' || (steps.metadata.outputs.update-type == 'version-update:semver-minor' && !startsWith(steps.metadata.outputs.previous-version, '0.')) }}
+      # Every updated dependency must be a patch, or a minor that is not a 0.x
+      # bump (0.x minors may break). Checked per dependency because grouped
+      # PRs report previous-version only for their first dependency.
+      - name: Decide whether to auto-merge
+        id: decide
+        env:
+          UPDATED_DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          if jq -e '
+            length > 0 and all(.[];
+              .updateType == "version-update:semver-patch" or
+              (.updateType == "version-update:semver-minor" and
+                ((.prevVersion // "") | test("^v?0\\.") | not)))
+          ' <<<"$UPDATED_DEPENDENCIES" >/dev/null; then
+            echo "auto-merge=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "auto-merge=false" >> "$GITHUB_OUTPUT"
+          fi
+      # Uses a PAT because main restricts pushes, so GITHUB_TOKEN cannot enable
+      # auto-merge; the PAT-authored merge also triggers push workflows on main.
+      - name: Enable auto-merge
+        if: steps.decide.outputs.auto-merge == 'true'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_DEPENDABOT_JS_PY }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN_DEPENDABOT_JS_PY }}
+      # Auto-merge persists across pushes, so a grouped PR that gains a manual
+      # update after auto-merge was enabled must have it turned off again.
+      - name: Disable auto-merge
+        if: steps.decide.outputs.auto-merge != 'true'
+        run: |
+          if [ "$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')" = "true" ]; then
+            gh pr merge --disable-auto "$PR_URL"
+          fi
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN_DEPENDABOT_JS_PY }}
