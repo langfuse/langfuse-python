@@ -455,6 +455,26 @@ def test_streaming_chat_completion_keeps_parallel_tool_calls_without_index_apart
     ]
 
 
+def test_streaming_chat_completion_keeps_tool_calls_without_index_or_id_apart():
+    _model, completion, _usage, _metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            [
+                _tool_call_chunk(name="get_weather", arguments='{"city": "Paris"}'),
+                _tool_call_chunk(name="get_weather", arguments='{"city": "Tokyo"}'),
+            ],
+        )
+    )
+
+    assert [
+        (call["function"]["name"], call["function"]["arguments"])
+        for call in completion["tool_calls"]
+    ] == [
+        ("get_weather", '{"city": "Paris"}'),
+        ("get_weather", '{"city": "Tokyo"}'),
+    ]
+
+
 def test_streaming_chat_completion_merges_fragments_of_one_tool_call_without_index():
     _model, completion, _usage, _metadata, _service_tier = (
         lf_openai_module._extract_streamed_openai_response(
