@@ -289,7 +289,7 @@ def test_chat_completion_exports_generation_span(
     assert (
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o-mini"
     )
-    assert span.attributes["langfuse.observation.metadata.suite"] == "unit"
+    assert span.attributes["langfuse.observation.metadata.suite"] == '"unit"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == [
         {"role": "user", "content": "1 + 1 = ?"}
     ]
@@ -371,7 +371,7 @@ def test_openai_stream_with_none_choices_chunk_does_not_crash(
     span = get_span("unit-openai-stream-none-choices")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
 
 
 def test_streaming_chat_completion_preserves_tool_calls_after_content():
@@ -507,7 +507,7 @@ def test_streaming_chat_completion_exports_ttft(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -575,7 +575,7 @@ def test_openai_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -610,7 +610,7 @@ def test_openai_stream_handles_trailing_azure_content_filter_chunk(
     span = get_span("unit-openai-native-stream-azure-filter")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -734,7 +734,7 @@ async def test_openai_async_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -777,7 +777,7 @@ async def test_openai_async_stream_supports_anext(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,

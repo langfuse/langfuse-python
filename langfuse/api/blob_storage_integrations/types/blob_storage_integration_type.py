@@ -11,12 +11,14 @@ class BlobStorageIntegrationType(enum.StrEnum):
     S3 = "S3"
     S3COMPATIBLE = "S3_COMPATIBLE"
     AZURE_BLOB_STORAGE = "AZURE_BLOB_STORAGE"
+    GOOGLE_CLOUD_STORAGE = "GOOGLE_CLOUD_STORAGE"
 
     def visit(
         self,
         s3: typing.Callable[[], T_Result],
         s3compatible: typing.Callable[[], T_Result],
         azure_blob_storage: typing.Callable[[], T_Result],
+        google_cloud_storage: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is BlobStorageIntegrationType.S3:
             return s3()
@@ -24,3 +26,5 @@ class BlobStorageIntegrationType(enum.StrEnum):
             return s3compatible()
         if self is BlobStorageIntegrationType.AZURE_BLOB_STORAGE:
             return azure_blob_storage()
+        if self is BlobStorageIntegrationType.GOOGLE_CLOUD_STORAGE:
+            return google_cloud_storage()

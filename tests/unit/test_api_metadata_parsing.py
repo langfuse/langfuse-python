@@ -10,16 +10,7 @@ import typing
 import pydantic
 import pytest
 
-from langfuse.api import (
-    BaseScore,
-    BaseScoreV1,
-    GetScoresResponseData,
-    Observation,
-    ObservationV2,
-    Score,
-    ScoreV1,
-    Trace,
-)
+from langfuse.api import BaseScore, ObservationV2, Score
 from langfuse.api.core import parse_obj_as
 
 TIMESTAMP = "2026-01-01T00:00:00.000Z"
@@ -33,7 +24,6 @@ SCORE_BASE: typing.Dict[str, typing.Any] = {
     "updatedAt": TIMESTAMP,
     "environment": "default",
 }
-SCORE_V1_BASE = {**SCORE_BASE, "traceId": "trace-1"}
 
 SCORE_VARIANTS: typing.Dict[str, typing.Dict[str, typing.Any]] = {
     "NUMERIC": {"value": 0.5},
@@ -42,7 +32,6 @@ SCORE_VARIANTS: typing.Dict[str, typing.Dict[str, typing.Any]] = {
     "CORRECTION": {"value": 0, "stringValue": "corrected output"},
     "TEXT": {"stringValue": "free text"},
 }
-SCORE_V1_DATA_TYPES = ["NUMERIC", "CATEGORICAL", "BOOLEAN", "TEXT"]
 
 
 def _score_payload(
@@ -52,34 +41,6 @@ def _score_payload(
 
 
 CASES: typing.List[typing.Any] = [
-    pytest.param(
-        Trace,
-        {
-            "id": "trace-1",
-            "timestamp": TIMESTAMP,
-            "tags": [],
-            "public": False,
-            "environment": "default",
-        },
-        id="Trace",
-    ),
-    pytest.param(
-        Observation,
-        {
-            "id": "obs-1",
-            "type": "SPAN",
-            "startTime": TIMESTAMP,
-            "modelParameters": {},
-            "input": None,
-            "output": None,
-            "usage": {"input": 0, "output": 0, "total": 0},
-            "level": "DEFAULT",
-            "usageDetails": {},
-            "costDetails": {},
-            "environment": "default",
-        },
-        id="Observation",
-    ),
     pytest.param(
         ObservationV2,
         {
@@ -91,22 +52,9 @@ CASES: typing.List[typing.Any] = [
         id="ObservationV2",
     ),
     pytest.param(BaseScore, SCORE_BASE, id="BaseScore"),
-    pytest.param(BaseScoreV1, SCORE_V1_BASE, id="BaseScoreV1"),
     *[
         pytest.param(Score, _score_payload(SCORE_BASE, dt), id=f"Score-{dt}")
         for dt in SCORE_VARIANTS
-    ],
-    *[
-        pytest.param(
-            GetScoresResponseData,
-            _score_payload(SCORE_BASE, dt),
-            id=f"GetScoresResponseData-{dt}",
-        )
-        for dt in SCORE_VARIANTS
-    ],
-    *[
-        pytest.param(ScoreV1, _score_payload(SCORE_V1_BASE, dt), id=f"ScoreV1-{dt}")
-        for dt in SCORE_V1_DATA_TYPES
     ],
 ]
 

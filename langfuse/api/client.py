@@ -18,10 +18,6 @@ if typing.TYPE_CHECKING:
     )
     from .comments.client import AsyncCommentsClient, CommentsClient
     from .dataset_items.client import AsyncDatasetItemsClient, DatasetItemsClient
-    from .dataset_run_items.client import (
-        AsyncDatasetRunItemsClient,
-        DatasetRunItemsClient,
-    )
     from .datasets.client import AsyncDatasetsClient, DatasetsClient
     from .evaluation_rules.client import (
         AsyncEvaluationRulesClient,
@@ -31,8 +27,6 @@ if typing.TYPE_CHECKING:
     from .experiments.client import AsyncExperimentsClient, ExperimentsClient
     from .feedback.client import AsyncFeedbackClient, FeedbackClient
     from .health.client import AsyncHealthClient, HealthClient
-    from .ingestion.client import AsyncIngestionClient, IngestionClient
-    from .legacy.client import AsyncLegacyClient, LegacyClient
     from .llm_connections.client import AsyncLlmConnectionsClient, LlmConnectionsClient
     from .media.client import AsyncMediaClient, MediaClient
     from .metrics.client import AsyncMetricsClient, MetricsClient
@@ -46,8 +40,6 @@ if typing.TYPE_CHECKING:
     from .scim.client import AsyncScimClient, ScimClient
     from .score_configs.client import AsyncScoreConfigsClient, ScoreConfigsClient
     from .scores.client import AsyncScoresClient, ScoresClient
-    from .scores_v3.client import AsyncScoresV3Client, ScoresV3Client
-    from .sessions.client import AsyncSessionsClient, SessionsClient
     from .trace.client import AsyncTraceClient, TraceClient
     from .unstable.client import AsyncUnstableClient, UnstableClient
 
@@ -136,15 +128,12 @@ class LangfuseAPI:
         ] = None
         self._comments: typing.Optional[CommentsClient] = None
         self._dataset_items: typing.Optional[DatasetItemsClient] = None
-        self._dataset_run_items: typing.Optional[DatasetRunItemsClient] = None
         self._datasets: typing.Optional[DatasetsClient] = None
         self._evaluation_rules: typing.Optional[EvaluationRulesClient] = None
         self._evaluators: typing.Optional[EvaluatorsClient] = None
         self._experiments: typing.Optional[ExperimentsClient] = None
         self._feedback: typing.Optional[FeedbackClient] = None
         self._health: typing.Optional[HealthClient] = None
-        self._ingestion: typing.Optional[IngestionClient] = None
-        self._legacy: typing.Optional[LegacyClient] = None
         self._llm_connections: typing.Optional[LlmConnectionsClient] = None
         self._media: typing.Optional[MediaClient] = None
         self._metrics: typing.Optional[MetricsClient] = None
@@ -157,9 +146,7 @@ class LangfuseAPI:
         self._prompts: typing.Optional[PromptsClient] = None
         self._scim: typing.Optional[ScimClient] = None
         self._score_configs: typing.Optional[ScoreConfigsClient] = None
-        self._scores_v3: typing.Optional[ScoresV3Client] = None
         self._scores: typing.Optional[ScoresClient] = None
-        self._sessions: typing.Optional[SessionsClient] = None
         self._trace: typing.Optional[TraceClient] = None
         self._unstable: typing.Optional[UnstableClient] = None
 
@@ -200,16 +187,6 @@ class LangfuseAPI:
                 client_wrapper=self._client_wrapper
             )
         return self._dataset_items
-
-    @property
-    def dataset_run_items(self):
-        if self._dataset_run_items is None:
-            from .dataset_run_items.client import DatasetRunItemsClient  # noqa: E402
-
-            self._dataset_run_items = DatasetRunItemsClient(
-                client_wrapper=self._client_wrapper
-            )
-        return self._dataset_run_items
 
     @property
     def datasets(self):
@@ -260,22 +237,6 @@ class LangfuseAPI:
 
             self._health = HealthClient(client_wrapper=self._client_wrapper)
         return self._health
-
-    @property
-    def ingestion(self):
-        if self._ingestion is None:
-            from .ingestion.client import IngestionClient  # noqa: E402
-
-            self._ingestion = IngestionClient(client_wrapper=self._client_wrapper)
-        return self._ingestion
-
-    @property
-    def legacy(self):
-        if self._legacy is None:
-            from .legacy.client import LegacyClient  # noqa: E402
-
-            self._legacy = LegacyClient(client_wrapper=self._client_wrapper)
-        return self._legacy
 
     @property
     def llm_connections(self):
@@ -384,28 +345,12 @@ class LangfuseAPI:
         return self._score_configs
 
     @property
-    def scores_v3(self):
-        if self._scores_v3 is None:
-            from .scores_v3.client import ScoresV3Client  # noqa: E402
-
-            self._scores_v3 = ScoresV3Client(client_wrapper=self._client_wrapper)
-        return self._scores_v3
-
-    @property
     def scores(self):
         if self._scores is None:
             from .scores.client import ScoresClient  # noqa: E402
 
             self._scores = ScoresClient(client_wrapper=self._client_wrapper)
         return self._scores
-
-    @property
-    def sessions(self):
-        if self._sessions is None:
-            from .sessions.client import SessionsClient  # noqa: E402
-
-            self._sessions = SessionsClient(client_wrapper=self._client_wrapper)
-        return self._sessions
 
     @property
     def trace(self):
@@ -508,15 +453,12 @@ class AsyncLangfuseAPI:
         ] = None
         self._comments: typing.Optional[AsyncCommentsClient] = None
         self._dataset_items: typing.Optional[AsyncDatasetItemsClient] = None
-        self._dataset_run_items: typing.Optional[AsyncDatasetRunItemsClient] = None
         self._datasets: typing.Optional[AsyncDatasetsClient] = None
         self._evaluation_rules: typing.Optional[AsyncEvaluationRulesClient] = None
         self._evaluators: typing.Optional[AsyncEvaluatorsClient] = None
         self._experiments: typing.Optional[AsyncExperimentsClient] = None
         self._feedback: typing.Optional[AsyncFeedbackClient] = None
         self._health: typing.Optional[AsyncHealthClient] = None
-        self._ingestion: typing.Optional[AsyncIngestionClient] = None
-        self._legacy: typing.Optional[AsyncLegacyClient] = None
         self._llm_connections: typing.Optional[AsyncLlmConnectionsClient] = None
         self._media: typing.Optional[AsyncMediaClient] = None
         self._metrics: typing.Optional[AsyncMetricsClient] = None
@@ -529,9 +471,7 @@ class AsyncLangfuseAPI:
         self._prompts: typing.Optional[AsyncPromptsClient] = None
         self._scim: typing.Optional[AsyncScimClient] = None
         self._score_configs: typing.Optional[AsyncScoreConfigsClient] = None
-        self._scores_v3: typing.Optional[AsyncScoresV3Client] = None
         self._scores: typing.Optional[AsyncScoresClient] = None
-        self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._trace: typing.Optional[AsyncTraceClient] = None
         self._unstable: typing.Optional[AsyncUnstableClient] = None
 
@@ -574,16 +514,6 @@ class AsyncLangfuseAPI:
                 client_wrapper=self._client_wrapper
             )
         return self._dataset_items
-
-    @property
-    def dataset_run_items(self):
-        if self._dataset_run_items is None:
-            from .dataset_run_items.client import AsyncDatasetRunItemsClient  # noqa: E402
-
-            self._dataset_run_items = AsyncDatasetRunItemsClient(
-                client_wrapper=self._client_wrapper
-            )
-        return self._dataset_run_items
 
     @property
     def datasets(self):
@@ -638,22 +568,6 @@ class AsyncLangfuseAPI:
 
             self._health = AsyncHealthClient(client_wrapper=self._client_wrapper)
         return self._health
-
-    @property
-    def ingestion(self):
-        if self._ingestion is None:
-            from .ingestion.client import AsyncIngestionClient  # noqa: E402
-
-            self._ingestion = AsyncIngestionClient(client_wrapper=self._client_wrapper)
-        return self._ingestion
-
-    @property
-    def legacy(self):
-        if self._legacy is None:
-            from .legacy.client import AsyncLegacyClient  # noqa: E402
-
-            self._legacy = AsyncLegacyClient(client_wrapper=self._client_wrapper)
-        return self._legacy
 
     @property
     def llm_connections(self):
@@ -764,28 +678,12 @@ class AsyncLangfuseAPI:
         return self._score_configs
 
     @property
-    def scores_v3(self):
-        if self._scores_v3 is None:
-            from .scores_v3.client import AsyncScoresV3Client  # noqa: E402
-
-            self._scores_v3 = AsyncScoresV3Client(client_wrapper=self._client_wrapper)
-        return self._scores_v3
-
-    @property
     def scores(self):
         if self._scores is None:
             from .scores.client import AsyncScoresClient  # noqa: E402
 
             self._scores = AsyncScoresClient(client_wrapper=self._client_wrapper)
         return self._scores
-
-    @property
-    def sessions(self):
-        if self._sessions is None:
-            from .sessions.client import AsyncSessionsClient  # noqa: E402
-
-            self._sessions = AsyncSessionsClient(client_wrapper=self._client_wrapper)
-        return self._sessions
 
     @property
     def trace(self):
