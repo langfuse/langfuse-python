@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, cast
 import backoff
 import httpx
 
+from langfuse._client.environment_variables import (
+    LANGFUSE_FLUSH_AT,
+    LANGFUSE_FLUSH_INTERVAL,
+)
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.serializer import EventSerializer
 from langfuse.api import LangfuseAPI
@@ -71,6 +75,12 @@ class ScoreConsumer(threading.Thread):
         self._score_queue = score_queue
         self._identifier = identifier
         self._api_client = api_client
+        env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT)
+        if flush_at is None and env_flush_at is not None:
+            flush_at = int(env_flush_at)
+        env_flush_interval = os.environ.get(LANGFUSE_FLUSH_INTERVAL)
+        if flush_interval is None and env_flush_interval is not None:
+            flush_interval = float(env_flush_interval)
         self._flush_at = flush_at or 15
         self._flush_interval = flush_interval or 1
         self._max_retries = max_retries or 3

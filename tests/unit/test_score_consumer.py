@@ -243,6 +243,54 @@ def test_does_not_retry_client_errors(status, caplog):
     assert caplog.records
 
 
+def test_reads_flush_at_from_env(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_FLUSH_AT", "2")
+    recorder = Recorder(_responder(ACCEPTED))
+    queue: Queue = Queue()
+    for name in ("a", "b", "c"):
+        queue.put(_score(name))
+
+    _drain(_consumer(recorder, queue), queue)
+
+    assert [[s["name"] for s in body] for body in recorder.bodies] == [
+        ["a", "b"],
+        ["c"],
+    ]
+
+
+def test_reads_flush_interval_from_env(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_FLUSH_INTERVAL", "0.05")
+    recorder = Recorder(_responder(ACCEPTED))
+    consumer = ScoreConsumer(
+        score_queue=Queue(),
+        identifier=0,
+        api_client=LangfuseAPI(
+            base_url="http://langfuse.test",
+            username="pk",
+            password="sk",
+            httpx_client=httpx.Client(transport=httpx.MockTransport(recorder)),
+        ),
+    )
+
+    started = time.monotonic()
+    consumer.upload()
+
+    # The default window is 1 second.
+    assert time.monotonic() - started < 0.5
+
+
+def test_constructor_flush_settings_win_over_env(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_FLUSH_AT", "1")
+    recorder = Recorder(_responder(ACCEPTED))
+    queue: Queue = Queue()
+    for name in ("a", "b", "c"):
+        queue.put(_score(name))
+
+    _drain(_consumer(recorder, queue, flush_at=3), queue)
+
+    assert [[s["name"] for s in body] for body in recorder.bodies] == [["a", "b", "c"]]
+
+
 def test_pause_sends_carried_over_score(monkeypatch):
     first_request_started = threading.Event()
     release_first_request = threading.Event()
