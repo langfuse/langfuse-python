@@ -596,6 +596,7 @@ class LangfuseResourceManager:
         for score_consumer in self._score_consumers:
             if score_consumer.is_alive():
                 score_consumer.wake()
+                
         self._join_score_queue()
         langfuse_logger.debug("Successfully flushed score queue")
 
@@ -609,6 +610,7 @@ class LangfuseResourceManager:
         when shutdown() runs concurrently and a wake signal is never taken.
         """
         score_queue = self._score_queue
+
         with score_queue.all_tasks_done:
             while score_queue.unfinished_tasks:
                 if not any(c.is_alive() for c in self._score_consumers):
@@ -616,7 +618,9 @@ class LangfuseResourceManager:
                         "Score consumers stopped with %s queue item(s) unprocessed",
                         score_queue.unfinished_tasks,
                     )
+
                     return
+
                 score_queue.all_tasks_done.wait(timeout=0.1)
 
     def shutdown(self) -> None:

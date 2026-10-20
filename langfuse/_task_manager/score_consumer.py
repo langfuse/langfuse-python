@@ -36,7 +36,6 @@ if _configured_batch_size_bytes > _SCORES_BODY_LIMIT_BYTES:
         _SCORES_BODY_LIMIT_BYTES,
     )
 MAX_BATCH_SIZE_BYTES = min(_configured_batch_size_bytes, _SCORES_BODY_LIMIT_BYTES)
-# Ends the batch being collected so it is sent right away.
 _WAKE_SIGNAL = object()
 
 
@@ -76,12 +75,15 @@ class ScoreConsumer(threading.Thread):
         self._score_queue = score_queue
         self._identifier = identifier
         self._api_client = api_client
+
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT)
         if flush_at is None and env_flush_at is not None:
             flush_at = int(env_flush_at)
+
         env_flush_interval = os.environ.get(LANGFUSE_FLUSH_INTERVAL)
         if flush_interval is None and env_flush_interval is not None:
             flush_interval = float(env_flush_interval)
+
         self._flush_at = flush_at or 15
         self._flush_interval = flush_interval or 1
         self._max_retries = max_retries or 3
@@ -211,12 +213,9 @@ class ScoreConsumer(threading.Thread):
                 self._score_queue.task_done()
 
     def wake(self) -> None:
-        """Send the batch being collected now instead of after flush_interval."""
         try:
             self._score_queue.put(_WAKE_SIGNAL, block=False)
         except Full:
-            # A full queue fills the batch to flush_at without waiting, so no
-            # signal is needed.
             pass
 
     def pause(self) -> None:
