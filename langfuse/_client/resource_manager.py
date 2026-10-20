@@ -596,11 +596,11 @@ class LangfuseResourceManager:
         for score_consumer in self._score_consumers:
             if score_consumer.is_alive():
                 score_consumer.wake()
-                
+
         self._join_score_queue()
         langfuse_logger.debug("Successfully flushed score queue")
 
-        self._media_upload_queue.join()
+        self._join_media_upload_queue()
         langfuse_logger.debug("Successfully flushed media upload queue")
 
     def _join_score_queue(self) -> None:
@@ -622,6 +622,27 @@ class LangfuseResourceManager:
                     return
 
                 score_queue.all_tasks_done.wait(timeout=0.1)
+
+    def _join_media_upload_queue(self) -> None:
+        """Wait until the media upload queue is drained or no consumer is left.
+
+        Queue.join() would block forever when the consumers stop first, e.g.
+        when shutdown() runs concurrently or media is enqueued after shutdown.
+        """
+        media_upload_queue = self._media_upload_queue
+
+        with media_upload_queue.all_tasks_done:
+            while media_upload_queue.unfinished_tasks:
+                if not any(c.is_alive() for c in self._media_upload_consumers):
+                    langfuse_logger.debug(
+                        "Media upload consumers stopped with %s queue item(s) "
+                        "unprocessed",
+                        media_upload_queue.unfinished_tasks,
+                    )
+
+                    return
+
+                media_upload_queue.all_tasks_done.wait(timeout=0.1)
 
     def shutdown(self) -> None:
         self._shutdown = True
