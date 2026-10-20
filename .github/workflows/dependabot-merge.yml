@@ -21,9 +21,9 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       # GITHUB_TOKEN is not allowed to push to the protected main branch, so
       # enabling auto-merge requires a token whose user may merge into main.
-      # Majors stay manual.
+      # Majors stay manual, and so do 0.x minor bumps (breaking under semver).
       - name: Enable auto-merge for Dependabot PRs
-        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor' }}
+        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-patch' || (steps.metadata.outputs.update-type == 'version-update:semver-minor' && !startsWith(steps.metadata.outputs.previous-version, '0.')) }}
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
