@@ -13,7 +13,6 @@ if typing.TYPE_CHECKING:
         DashboardWidgetsClient,
     )
     from .dashboards.client import AsyncDashboardsClient, DashboardsClient
-    from .skills.client import AsyncSkillsClient, SkillsClient
 
 
 class UnstableClient:
@@ -22,7 +21,6 @@ class UnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[DashboardWidgetsClient] = None
         self._dashboards: typing.Optional[DashboardsClient] = None
-        self._skills: typing.Optional[SkillsClient] = None
 
     @property
     def with_raw_response(self) -> RawUnstableClient:
@@ -53,14 +51,6 @@ class UnstableClient:
             self._dashboards = DashboardsClient(client_wrapper=self._client_wrapper)
         return self._dashboards
 
-    @property
-    def skills(self):
-        if self._skills is None:
-            from .skills.client import SkillsClient  # noqa: E402
-
-            self._skills = SkillsClient(client_wrapper=self._client_wrapper)
-        return self._skills
-
 
 class AsyncUnstableClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -68,7 +58,6 @@ class AsyncUnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[AsyncDashboardWidgetsClient] = None
         self._dashboards: typing.Optional[AsyncDashboardsClient] = None
-        self._skills: typing.Optional[AsyncSkillsClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawUnstableClient:
@@ -100,11 +89,3 @@ class AsyncUnstableClient:
                 client_wrapper=self._client_wrapper
             )
         return self._dashboards
-
-    @property
-    def skills(self):
-        if self._skills is None:
-            from .skills.client import AsyncSkillsClient  # noqa: E402
-
-            self._skills = AsyncSkillsClient(client_wrapper=self._client_wrapper)
-        return self._skills
