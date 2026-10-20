@@ -443,6 +443,35 @@ def test_flush_after_shutdown_returns(client_factory):
     assert not flush.is_alive()
 
 
+def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
+    client = client_factory(Recorder(_responder(ACCEPTED)))
+    consumer = client._resources._score_consumers[0]
+    wake = consumer.wake
+
+    def stop_then_wake() -> None:
+        # Shutdown stops the consumer between flush()'s liveness check and its
+        # wake signal, so nothing acknowledges the signal.
+        consumer.running = False
+        wake()
+        consumer.join(timeout=5)
+        wake()
+
+    consumer.wake = stop_then_wake  # type: ignore[method-assign]
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+    flush_hung = flush.is_alive()
+    # Acknowledge the orphaned signal so a hung flush() cannot block teardown.
+    score_queue = client._resources._score_queue
+    while not score_queue.empty():
+        score_queue.get_nowait()
+        score_queue.task_done()
+
+    assert not consumer.is_alive()
+    assert not flush_hung
+
+
 def test_create_score_payload_matches_request_model_serialization(client_factory):
     recorder = Recorder(_responder(ACCEPTED))
     client = client_factory(recorder, environment="staging")
