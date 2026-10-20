@@ -36,7 +36,8 @@ if _configured_batch_size_bytes > _SCORES_BODY_LIMIT_BYTES:
         _SCORES_BODY_LIMIT_BYTES,
     )
 MAX_BATCH_SIZE_BYTES = min(_configured_batch_size_bytes, _SCORES_BODY_LIMIT_BYTES)
-_SHUTDOWN_SENTINEL = object()
+# Ends the batch being collected so it is sent right away.
+_WAKE_SIGNAL = object()
 
 
 def _is_retryable(error: Exception) -> bool:
@@ -109,7 +110,7 @@ class ScoreConsumer(threading.Thread):
                     block=True, timeout=self._flush_interval - elapsed
                 )
 
-                if score is _SHUTDOWN_SENTINEL:
+                if score is _WAKE_SIGNAL:
                     self._score_queue.task_done()
                     break
 
@@ -209,15 +210,19 @@ class ScoreConsumer(threading.Thread):
             for _ in batch:
                 self._score_queue.task_done()
 
+    def wake(self) -> None:
+        """Send the batch being collected now instead of after flush_interval."""
+        try:
+            self._score_queue.put(_WAKE_SIGNAL, block=False)
+        except Full:
+            # A full queue fills the batch to flush_at without waiting, so no
+            # signal is needed.
+            pass
+
     def pause(self) -> None:
         """Pause the consumer."""
         self.running = False
-        try:
-            self._score_queue.put(_SHUTDOWN_SENTINEL, block=False)
-        except Full:
-            # If the queue is full, the consumer will wake up naturally while
-            # draining items, so a dedicated shutdown signal is not required.
-            pass
+        self.wake()
 
     def _upload_batch(self, batch: List[Dict[str, Any]]) -> None:
         logger.debug("API: Sending batch of %s scores to Langfuse API", len(batch))

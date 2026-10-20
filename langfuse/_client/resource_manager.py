@@ -593,6 +593,11 @@ class LangfuseResourceManager:
             self.tracer_provider.force_flush()
             langfuse_logger.debug("Successfully flushed OTEL tracer provider")
 
+        for score_consumer in self._score_consumers:
+            # A stopped consumer would leave the signal unacknowledged and
+            # block join() below.
+            if score_consumer.is_alive():
+                score_consumer.wake()
         self._score_queue.join()
         langfuse_logger.debug("Successfully flushed score queue")
 
