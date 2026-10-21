@@ -1,6 +1,6 @@
 [project]
 name = "langfuse"
-version = "5.0.3"
+version = "5.0.4"
 description = "Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management"
 readme = "README.md"
 authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
@@ -69,6 +69,7 @@ dev = [
     "autoevals>=0.0.130,<0.1",
     "opentelemetry-instrumentation-threading>=0.59b0,<1",
     "tenacity>=9.1.4",
+    "gevent>=24.2.1,<27",
 ]
 docs = [
     "pdoc>=15.0.4,<16",
