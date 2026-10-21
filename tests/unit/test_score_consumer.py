@@ -243,6 +243,72 @@ def test_does_not_retry_client_errors(status, caplog):
     assert caplog.records
 
 
+def test_reads_flush_at_from_env(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_FLUSH_AT", "2")
+    recorder = Recorder(_responder(ACCEPTED))
+    queue: Queue = Queue()
+    for name in ("a", "b", "c"):
+        queue.put(_score(name))
+
+    _drain(_consumer(recorder, queue), queue)
+
+    assert [[s["name"] for s in body] for body in recorder.bodies] == [
+        ["a", "b"],
+        ["c"],
+    ]
+
+
+def test_reads_flush_interval_from_env(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_FLUSH_INTERVAL", "0.05")
+    recorder = Recorder(_responder(ACCEPTED))
+    consumer = ScoreConsumer(
+        score_queue=Queue(),
+        identifier=0,
+        api_client=LangfuseAPI(
+            base_url="http://langfuse.test",
+            username="pk",
+            password="sk",
+            httpx_client=httpx.Client(transport=httpx.MockTransport(recorder)),
+        ),
+    )
+
+    started = time.monotonic()
+    consumer.upload()
+
+    # The default window is 1 second.
+    assert time.monotonic() - started < 0.5
+
+
+def test_constructor_flush_settings_win_over_env(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_FLUSH_AT", "1")
+    recorder = Recorder(_responder(ACCEPTED))
+    queue: Queue = Queue()
+    for name in ("a", "b", "c"):
+        queue.put(_score(name))
+
+    _drain(_consumer(recorder, queue, flush_at=3), queue)
+
+    assert [[s["name"] for s in body] for body in recorder.bodies] == [["a", "b", "c"]]
+
+
+def test_wake_sends_pending_batch_before_flush_interval():
+    recorder = Recorder(_responder(ACCEPTED))
+    queue: Queue = Queue()
+    consumer = _consumer(recorder, queue, flush_interval=30)
+    consumer.start()
+    queue.put(_score("a"))
+
+    consumer.wake()
+    finished = threading.Event()
+    threading.Thread(target=lambda: (queue.join(), finished.set()), daemon=True).start()
+
+    assert finished.wait(timeout=5)
+    assert [[s["name"] for s in body] for body in recorder.bodies] == [["a"]]
+    assert consumer.is_alive()
+    consumer.pause()
+    consumer.join(timeout=5)
+
+
 def test_pause_sends_carried_over_score(monkeypatch):
     first_request_started = threading.Event()
     release_first_request = threading.Event()
@@ -349,6 +415,61 @@ def test_create_score_posts_to_scores_endpoint(client_factory):
     assert sent[1]["name"] == "session-score"
     assert "traceId" not in sent[1]
     assert sent[1]["timestamp"].endswith("Z")
+
+
+def test_flush_sends_pending_score_without_waiting_for_flush_interval(
+    client_factory,
+):
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder, flush_interval=5)
+
+    client.create_score(name="a", value=1.0, trace_id="a" * 32)
+    started = time.monotonic()
+    client.flush()
+    elapsed = time.monotonic() - started
+
+    assert [s["name"] for body in recorder.bodies for s in body] == ["a"]
+    assert elapsed < 1
+
+
+def test_flush_after_shutdown_returns(client_factory):
+    client = client_factory(Recorder(_responder(ACCEPTED)))
+    client.shutdown()
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+
+    assert not flush.is_alive()
+
+
+def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
+    client = client_factory(Recorder(_responder(ACCEPTED)))
+    consumer = client._resources._score_consumers[0]
+    wake = consumer.wake
+
+    def stop_then_wake() -> None:
+        # Shutdown stops the consumer between flush()'s liveness check and its
+        # wake signal, so nothing acknowledges the signal.
+        consumer.running = False
+        wake()
+        consumer.join(timeout=5)
+        wake()
+
+    consumer.wake = stop_then_wake  # type: ignore[method-assign]
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+    flush_hung = flush.is_alive()
+    # Acknowledge the orphaned signal so a hung flush() cannot block teardown.
+    score_queue = client._resources._score_queue
+    while not score_queue.empty():
+        score_queue.get_nowait()
+        score_queue.task_done()
+
+    assert not consumer.is_alive()
+    assert not flush_hung
 
 
 def test_create_score_payload_matches_request_model_serialization(client_factory):
