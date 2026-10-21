@@ -4,8 +4,8 @@ import typing
 
 import pydantic
 import typing_extensions
-from ....core.serialization import FieldMetadata
-from ....utils.pagination.types.meta_response import MetaResponse
+from ...core.serialization import FieldMetadata
+from ...utils.pagination.types.meta_response import MetaResponse
 
 
 class SkillListPagination(MetaResponse):

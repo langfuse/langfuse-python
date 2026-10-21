@@ -3,7 +3,7 @@
 import typing
 
 import pydantic
-from ....core.pydantic_utilities import UniversalBaseModel
+from ...core.pydantic_utilities import UniversalBaseModel
 from .skill_list_pagination import SkillListPagination
 from .skill_meta import SkillMeta
 
