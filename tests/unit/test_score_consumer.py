@@ -508,6 +508,34 @@ def test_flush_after_shutdown_returns(client_factory):
     assert not flush.is_alive()
 
 
+def test_score_after_shutdown_is_dropped_and_flush_returns(client_factory, caplog):
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder)
+    client.shutdown()
+    score_queue = client._resources._score_queue
+    enqueued: List[Any] = []
+    put = score_queue.put
+
+    def recording_put(item: Any, *args: Any, **kwargs: Any) -> None:
+        enqueued.append(item)
+        put(item, *args, **kwargs)
+
+    score_queue.put = recording_put  # type: ignore[method-assign]
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        client.create_score(name="late", value=1.0, trace_id="a" * 32)
+
+    assert enqueued == []
+    assert any("shut down" in r.getMessage() for r in caplog.records)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+
+    assert not flush.is_alive()
+    assert recorder.requests == []
+
+
 def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
     client = client_factory(Recorder(_responder(ACCEPTED)))
     consumer = client._resources._score_consumers[0]

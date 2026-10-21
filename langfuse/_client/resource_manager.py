@@ -487,6 +487,13 @@ class LangfuseResourceManager:
                 (for example ``traceId``).
             force_sample: Enqueue the score even if its trace is sampled out.
         """
+        if self._shutdown:
+            langfuse_logger.warning(
+                "Score dropped: Langfuse client has been shut down."
+            )
+
+            return
+
         try:
             trace_id = score.get("traceId")
             tracer_provider = (
