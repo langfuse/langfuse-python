@@ -376,10 +376,12 @@ class LangfuseResourceManager:
                 self._media_upload_consumers.append(media_upload_consumer)
 
         self._score_queue: Queue[Any] = Queue(100_000)
+        self._score_tasks_done = threading.Condition()
         self._score_consumers = []
 
         score_consumer = ScoreConsumer(
             score_queue=self._score_queue,
+            tasks_done=self._score_tasks_done,
             identifier=0,
             api_client=self.api,
             flush_at=self.flush_at,
@@ -596,7 +598,7 @@ class LangfuseResourceManager:
         for score_consumer in self._score_consumers:
             if score_consumer.is_alive():
                 score_consumer.wake()
-                
+
         self._join_score_queue()
         langfuse_logger.debug("Successfully flushed score queue")
 
@@ -608,20 +610,28 @@ class LangfuseResourceManager:
 
         Queue.join() would block forever when the consumers stop first, e.g.
         when shutdown() runs concurrently and a wake signal is never taken.
+        This waits on the consumers' own task_done() signal instead of the
+        queue's all_tasks_done, which gevent's and eventlet's patched Queues
+        do not have.
         """
-        score_queue = self._score_queue
+        with self._score_tasks_done:
+            while self._should_wait_for_score_queue():
+                self._score_tasks_done.wait(timeout=0.1)
 
-        with score_queue.all_tasks_done:
-            while score_queue.unfinished_tasks:
-                if not any(c.is_alive() for c in self._score_consumers):
-                    langfuse_logger.debug(
-                        "Score consumers stopped with %s queue item(s) unprocessed",
-                        score_queue.unfinished_tasks,
-                    )
+    def _should_wait_for_score_queue(self) -> bool:
+        unfinished_tasks = self._score_queue.unfinished_tasks
+        if not unfinished_tasks:
+            return False
 
-                    return
+        if any(c.is_alive() for c in self._score_consumers):
+            return True
 
-                score_queue.all_tasks_done.wait(timeout=0.1)
+        langfuse_logger.debug(
+            "Score consumers stopped with %s queue item(s) unprocessed",
+            unfinished_tasks,
+        )
+
+        return False
 
     def shutdown(self) -> None:
         self._shutdown = True

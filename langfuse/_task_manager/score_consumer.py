@@ -62,6 +62,7 @@ class ScoreConsumer(threading.Thread):
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
         max_retries: Optional[int] = None,
+        tasks_done: Optional[threading.Condition] = None,
     ):
         """Create a consumer thread."""
         super().__init__()
@@ -73,6 +74,8 @@ class ScoreConsumer(threading.Thread):
         # Make consumer a daemon thread so that it doesn't block program exit
         self.daemon = True
         self._score_queue = score_queue
+        # Notified after every task_done(), so flush() can wait on any queue type.
+        self._tasks_done = threading.Condition() if tasks_done is None else tasks_done
         self._identifier = identifier
         self._api_client = api_client
 
@@ -113,7 +116,7 @@ class ScoreConsumer(threading.Thread):
                 )
 
                 if score is _WAKE_SIGNAL:
-                    self._score_queue.task_done()
+                    self._task_done()
                     break
 
                 try:
@@ -124,7 +127,7 @@ class ScoreConsumer(threading.Thread):
                         "dropped. Error: %s",
                         e,
                     )
-                    self._score_queue.task_done()
+                    self._task_done()
 
                     continue
 
@@ -138,7 +141,7 @@ class ScoreConsumer(threading.Thread):
                         item_size,
                         MAX_BATCH_SIZE_BYTES,
                     )
-                    self._score_queue.task_done()
+                    self._task_done()
 
                     continue
 
@@ -167,7 +170,7 @@ class ScoreConsumer(threading.Thread):
                     str(e),
                     exc_info=True,
                 )
-                self._score_queue.task_done()
+                self._task_done()
 
         return scores
 
@@ -209,8 +212,13 @@ class ScoreConsumer(threading.Thread):
             )
         finally:
             # mark items as acknowledged from queue
-            for _ in batch:
-                self._score_queue.task_done()
+            self._task_done(len(batch))
+
+    def _task_done(self, count: int = 1) -> None:
+        for _ in range(count):
+            self._score_queue.task_done()
+        with self._tasks_done:
+            self._tasks_done.notify_all()
 
     def wake(self) -> None:
         try:

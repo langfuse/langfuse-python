@@ -15,6 +15,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ParentBased, TraceIdRatioBased
 
 from langfuse import Langfuse
+from langfuse._client import resource_manager as resource_manager_module
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager import score_consumer as score_consumer_module
 from langfuse._task_manager.score_consumer import ScoreConsumer
@@ -417,6 +418,24 @@ def test_create_score_posts_to_scores_endpoint(client_factory):
     assert sent[1]["timestamp"].endswith("Z")
 
 
+class GeventLikeQueue:
+    """queue.Queue as gevent's monkey patching replaces it: no all_tasks_done."""
+
+    def __init__(self, maxsize: int = 0) -> None:
+        self._queue: Queue = Queue(maxsize)
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "all_tasks_done":
+            raise AttributeError(name)
+        return getattr(self._queue, name)
+
+
+@pytest.fixture(params=[Queue, GeventLikeQueue], ids=["stdlib", "gevent"])
+def queue_class(request, monkeypatch):
+    monkeypatch.setattr(resource_manager_module, "Queue", request.param)
+
+
+@pytest.mark.usefixtures("queue_class")
 def test_flush_sends_pending_score_without_waiting_for_flush_interval(
     client_factory,
 ):
@@ -432,6 +451,7 @@ def test_flush_sends_pending_score_without_waiting_for_flush_interval(
     assert elapsed < 1
 
 
+@pytest.mark.usefixtures("queue_class")
 def test_flush_after_shutdown_returns(client_factory):
     client = client_factory(Recorder(_responder(ACCEPTED)))
     client.shutdown()
@@ -443,6 +463,7 @@ def test_flush_after_shutdown_returns(client_factory):
     assert not flush.is_alive()
 
 
+@pytest.mark.usefixtures("queue_class")
 def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
     client = client_factory(Recorder(_responder(ACCEPTED)))
     consumer = client._resources._score_consumers[0]
@@ -464,6 +485,43 @@ def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
     flush_hung = flush.is_alive()
     # Acknowledge the orphaned signal so a hung flush() cannot block teardown.
     score_queue = client._resources._score_queue
+    while not score_queue.empty():
+        score_queue.get_nowait()
+        score_queue.task_done()
+
+    assert not consumer.is_alive()
+    assert not flush_hung
+
+
+@pytest.mark.usefixtures("queue_class")
+def test_flush_returns_when_consumer_stops_while_flush_waits(client_factory):
+    request_started = threading.Event()
+    release_request = threading.Event()
+    accept = _responder(ACCEPTED)
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        request_started.set()
+        release_request.wait(timeout=5)
+        return accept(request)
+
+    client = client_factory(Recorder(respond), flush_interval=5)
+    consumer = client._resources._score_consumers[0]
+    score_queue = client._resources._score_queue
+    client.create_score(name="a", value=1.0, trace_id="a" * 32)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    assert request_started.wait(timeout=5)
+    # flush() waits on the in-flight score. The consumer then stops without a
+    # final notify, as when its greenlet is killed, and never takes the item
+    # queued after it.
+    consumer.running = False
+    consumer._tasks_done = threading.Condition()
+    score_queue.put(_score("orphan"))
+    release_request.set()
+    flush.join(timeout=2)
+    flush_hung = flush.is_alive()
+    # Acknowledge the orphan so a hung flush() cannot block teardown.
     while not score_queue.empty():
         score_queue.get_nowait()
         score_queue.task_done()
