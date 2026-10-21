@@ -1,11 +1,13 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
 import logging
+import threading
 from queue import Queue
 from types import SimpleNamespace
 from typing import Sequence
 from unittest.mock import Mock
 
+import pytest
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
@@ -409,9 +411,7 @@ def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
     client.shutdown()
 
 
-def test_create_score_with_invalid_input_logs_error_without_enqueueing(
-    monkeypatch, caplog
-):
+def test_create_score_logs_error_instead_of_raising(monkeypatch, caplog):
     monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
 
     with LangfuseResourceManager._lock:
@@ -424,13 +424,15 @@ def test_create_score_with_invalid_input_logs_error_without_enqueueing(
     )
     rm = client._resources
     assert rm is not None
-    enqueued = []
-    monkeypatch.setattr(rm, "add_score_task", lambda event, **_: enqueued.append(event))
+
+    def fail(event, **_):
+        raise RuntimeError("enqueue failed")
+
+    monkeypatch.setattr(rm, "add_score_task", fail)
 
     with caplog.at_level(logging.ERROR, logger="langfuse"):
-        client.create_score(name="invalid", value=object(), trace_id="a" * 32)
+        client.create_score(name="invalid", value=1.0, trace_id="a" * 32)
 
-    assert enqueued == []
     assert rm._score_queue.empty()
     error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
     assert len(error_records) == 1
@@ -471,3 +473,36 @@ def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_
         ("join", 0),
         ("join", 1),
     ]
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+@pytest.mark.parametrize("concurrent", [False, True], ids=["sequential", "concurrent"])
+def test_flush_returns_after_repeated_shutdown(concurrent):
+    client = Langfuse(
+        public_key="pk-repeated-shutdown",
+        secret_key="sk-repeated-shutdown",
+        span_exporter=NoOpSpanExporter(),
+    )
+    media_queue = client._resources._media_upload_queue
+    shutdowns = [
+        threading.Thread(target=client.shutdown, daemon=True) for _ in range(2)
+    ]
+
+    for shutdown in shutdowns:
+        shutdown.start()
+        if not concurrent:
+            shutdown.join(timeout=5)
+    for shutdown in shutdowns:
+        shutdown.join(timeout=5)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+    hung = [thread for thread in (*shutdowns, flush) if thread.is_alive()]
+    # Acknowledge shutdown signals that no consumer took, so a hung thread and
+    # the reset() in the autouse fixture can finish.
+    while media_queue.unfinished_tasks:
+        media_queue.get_nowait()
+        media_queue.task_done()
+
+    assert not hung
