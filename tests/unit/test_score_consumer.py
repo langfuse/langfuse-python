@@ -2,6 +2,8 @@
 
 import json
 import logging
+import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -470,6 +472,59 @@ def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
 
     assert not consumer.is_alive()
     assert not flush_hung
+
+
+_GEVENT_FLUSH_SCRIPT = """
+from gevent import monkey
+
+monkey.patch_all()
+
+import queue
+
+import gevent.queue
+import httpx
+
+assert issubclass(queue.Queue, gevent.queue.Queue), queue.Queue
+
+from langfuse import Langfuse
+
+posted = []
+
+def respond(request):
+    posted.extend(item["name"] for item in __import__("json").loads(request.content))
+    return httpx.Response(202, json={"message": "Accepted"})
+
+client = Langfuse(
+    public_key="pk-gevent",
+    secret_key="sk-gevent",
+    base_url="http://langfuse.test",
+    flush_interval=5,
+    httpx_client=httpx.Client(transport=httpx.MockTransport(respond)),
+)
+client.create_score(name="first", value=1, trace_id="a" * 32)
+client.flush()
+assert posted == ["first"], posted
+
+client.create_score(name="second", value=1, trace_id="a" * 32)
+client.shutdown()
+assert posted == ["first", "second"], posted
+client.flush()
+print("ok")
+"""
+
+
+def test_flush_and_shutdown_work_under_gevent_monkey_patching():
+    pytest.importorskip("gevent")
+
+    result = subprocess.run(
+        [sys.executable, "-c", _GEVENT_FLUSH_SCRIPT],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
 
 
 def test_create_score_payload_matches_request_model_serialization(client_factory):

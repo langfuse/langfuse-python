@@ -596,7 +596,7 @@ class LangfuseResourceManager:
         for score_consumer in self._score_consumers:
             if score_consumer.is_alive():
                 score_consumer.wake()
-                
+
         self._join_score_queue()
         langfuse_logger.debug("Successfully flushed score queue")
 
@@ -608,20 +608,30 @@ class LangfuseResourceManager:
 
         Queue.join() would block forever when the consumers stop first, e.g.
         when shutdown() runs concurrently and a wake signal is never taken.
+        Only the public Queue API is used, because queue.Queue under gevent or
+        eventlet monkey-patching lacks the stdlib internals.
         """
+        if not any(c.is_alive() for c in self._score_consumers):
+            return
+
         score_queue = self._score_queue
+        drained = threading.Event()
 
-        with score_queue.all_tasks_done:
-            while score_queue.unfinished_tasks:
-                if not any(c.is_alive() for c in self._score_consumers):
-                    langfuse_logger.debug(
-                        "Score consumers stopped with %s queue item(s) unprocessed",
-                        score_queue.unfinished_tasks,
-                    )
+        def join() -> None:
+            score_queue.join()
+            drained.set()
 
-                    return
+        # Left blocked in the rare case that consumers stop before draining.
+        threading.Thread(target=join, name="langfuse-score-flush", daemon=True).start()
 
-                score_queue.all_tasks_done.wait(timeout=0.1)
+        while not drained.wait(timeout=0.1):
+            if not any(c.is_alive() for c in self._score_consumers):
+                langfuse_logger.debug(
+                    "Score consumers stopped with %s queue item(s) unprocessed",
+                    score_queue.qsize(),
+                )
+
+                return
 
     def shutdown(self) -> None:
         self._shutdown = True
