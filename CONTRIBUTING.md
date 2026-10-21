@@ -49,6 +49,8 @@ Live-provider tests make real provider calls and require provider API keys:
 uv run --frozen pytest -n 4 --dist worksteal tests/live_provider -m "live_provider"
 ```
 
+GitHub does not expose repository secrets to pull requests from forks, so CI skips the live-provider suite on those PRs. It runs on same-repo PRs and again after merge on `main`. Any test that calls a model provider belongs in `tests/live_provider`, not `tests/e2e`.
+
 Run a specific test with:
 
 ```bash
