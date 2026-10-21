@@ -475,6 +475,7 @@ def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_
     ]
 
 
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
 @pytest.mark.parametrize("concurrent", [False, True], ids=["sequential", "concurrent"])
 def test_flush_returns_after_repeated_shutdown(concurrent):
     client = Langfuse(
