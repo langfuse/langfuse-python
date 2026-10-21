@@ -487,6 +487,13 @@ class LangfuseResourceManager:
                 (for example ``traceId``).
             force_sample: Enqueue the score even if its trace is sampled out.
         """
+        if self._shutdown:
+            langfuse_logger.warning(
+                "Score dropped: Langfuse client has been shut down."
+            )
+
+            return
+
         try:
             trace_id = score.get("traceId")
             tracer_provider = (
@@ -596,32 +603,12 @@ class LangfuseResourceManager:
         for score_consumer in self._score_consumers:
             if score_consumer.is_alive():
                 score_consumer.wake()
-                
-        self._join_score_queue()
+
+        self._score_queue.join()
         langfuse_logger.debug("Successfully flushed score queue")
 
         self._media_upload_queue.join()
         langfuse_logger.debug("Successfully flushed media upload queue")
-
-    def _join_score_queue(self) -> None:
-        """Wait until the score queue is drained or no consumer is left to drain it.
-
-        Queue.join() would block forever when the consumers stop first, e.g.
-        when shutdown() runs concurrently and a wake signal is never taken.
-        """
-        score_queue = self._score_queue
-
-        with score_queue.all_tasks_done:
-            while score_queue.unfinished_tasks:
-                if not any(c.is_alive() for c in self._score_consumers):
-                    langfuse_logger.debug(
-                        "Score consumers stopped with %s queue item(s) unprocessed",
-                        score_queue.unfinished_tasks,
-                    )
-
-                    return
-
-                score_queue.all_tasks_done.wait(timeout=0.1)
 
     def shutdown(self) -> None:
         self._shutdown = True

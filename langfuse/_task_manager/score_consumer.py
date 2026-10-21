@@ -36,6 +36,7 @@ if _configured_batch_size_bytes > _SCORES_BODY_LIMIT_BYTES:
         _SCORES_BODY_LIMIT_BYTES,
     )
 MAX_BATCH_SIZE_BYTES = min(_configured_batch_size_bytes, _SCORES_BODY_LIMIT_BYTES)
+# Ends the batch being collected. Never counted as an unfinished queue task.
 _WAKE_SIGNAL = object()
 
 
@@ -113,7 +114,6 @@ class ScoreConsumer(threading.Thread):
                 )
 
                 if score is _WAKE_SIGNAL:
-                    self._score_queue.task_done()
                     break
 
                 try:
@@ -216,7 +216,11 @@ class ScoreConsumer(threading.Thread):
         try:
             self._score_queue.put(_WAKE_SIGNAL, block=False)
         except Full:
-            pass
+            return
+
+        # Mark it done now, since no consumer may take it (e.g. when shutdown()
+        # stops the consumer first) and queue.join() would then never return.
+        self._score_queue.task_done()
 
     def pause(self) -> None:
         """Pause the consumer."""
