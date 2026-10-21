@@ -34,6 +34,9 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+_MAX_SAFE_INT = 2**53 - 1
+_MIN_SAFE_INT = -(2**53) + 1
+
 
 class EventSerializer(JSONEncoder):
     _MAX_DEPTH = 20
@@ -44,6 +47,16 @@ class EventSerializer(JSONEncoder):
         self._depth = 0
 
     def default(self, obj: Any) -> Any:
+        # Exact built-in scalars come back unchanged from _default_inner, so skip
+        # its isinstance chain. Exact types only: a subclass may match another branch.
+        obj_type = type(obj)
+        if obj_type is str or obj is None or obj_type is bool:
+            return obj
+        if obj_type is int and _MIN_SAFE_INT <= obj <= _MAX_SAFE_INT:
+            return obj
+        if obj_type is float and math.isfinite(obj):
+            return obj
+
         self._depth += 1
         try:
             return self._default_inner(obj)
@@ -52,6 +65,16 @@ class EventSerializer(JSONEncoder):
 
     def _default_inner(self, obj: Any) -> Any:
         try:
+            # Mirrors the depth check and container branches below. No branch
+            # before them matches an exact dict, list or tuple.
+            obj_type = type(obj)
+            if obj_type is dict or obj_type is list or obj_type is tuple:
+                if self._depth >= self._MAX_DEPTH:
+                    return f"<{obj_type.__name__}>"
+                if obj_type is dict:
+                    return {self.default(k): self.default(v) for k, v in obj.items()}
+                return [self.default(item) for item in obj]
+
             if isinstance(obj, (SecretStr, SecretBytes)):
                 return "<secret>"
 
@@ -209,10 +232,7 @@ class EventSerializer(JSONEncoder):
         Python's 64-bit integers can exceed this range, necessitating this check.
         https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
         """
-        max_safe_int = 2**53 - 1
-        min_safe_int = -(2**53) + 1
-
-        return min_safe_int <= value <= max_safe_int
+        return _MIN_SAFE_INT <= value <= _MAX_SAFE_INT
 
 
 def serialize_datetime(v: dt.datetime) -> str:

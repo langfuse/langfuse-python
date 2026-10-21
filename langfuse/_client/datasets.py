@@ -90,6 +90,7 @@ class DatasetClient:
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
+        experiment_id: Optional[str] = None,
     ) -> ExperimentResult:
         """Run an experiment on this Langfuse dataset with automatic tracking.
 
@@ -128,6 +129,13 @@ class DatasetClient:
                 Adjust based on API rate limits and system resources.
             metadata: Optional metadata to attach to the experiment run and all traces.
                 Will be combined with individual item metadata.
+            experiment_id: Optional ID of the experiment run to record the items in.
+                If provided, it is used instead of the ID derived from this dataset and
+                `run_name`, so calls that pass the same `experiment_id` share one
+                experiment, for example items split across workers or a resumed run.
+                Create a reusable ID with `Langfuse.create_trace_id()` (random) or
+                `Langfuse.create_trace_id(seed="...")` (deterministic). See
+                `Langfuse.run_experiment` for details.
 
         Returns:
             ExperimentResult object containing:
@@ -136,7 +144,8 @@ class DatasetClient:
             - description: Optional experiment description.
             - item_results: Results for each dataset item with outputs and evaluations.
             - run_evaluations: Aggregate evaluation results for the entire run.
-            - experiment_id: ID of the experiment run in Langfuse.
+            - experiment_id: ID of the experiment run in Langfuse (the
+              `experiment_id` argument if provided).
             - experiment_url: Direct URL to view the experiment results in Langfuse UI.
             - dataset_run_id / dataset_run_url: Deprecated aliases of experiment_id /
               experiment_url.
@@ -301,5 +310,6 @@ class DatasetClient:
             run_evaluators=run_evaluators,
             max_concurrency=max_concurrency,
             metadata=metadata,
+            experiment_id=experiment_id,
             _dataset_version=self.version,
         )

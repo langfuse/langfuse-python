@@ -2431,6 +2431,7 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
+        experiment_id: Optional[str] = None,
         _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         """Run an experiment on a dataset with automatic tracing and evaluation.
@@ -2478,6 +2479,20 @@ class Langfuse:
             metadata: Optional metadata dictionary to attach to all experiment traces.
                 This metadata will be included in every trace created during the experiment
                 and is shown as the experiment's metadata in Langfuse.
+            experiment_id: Optional ID of the experiment run to record the items in.
+                Calls with the same `experiment_id` add their items and scores to one
+                experiment in Langfuse, so separate workers, batches, or a resumed run
+                can share an experiment, also for local data. Pass the same `run_name`
+                too, as it sets the experiment name. If provided, it is used as is,
+                also for Langfuse dataset items, instead of the ID derived from the
+                dataset and `run_name`. If not provided, the ID is derived for dataset
+                items and random for local data. Create a reusable ID with
+                `Langfuse.create_trace_id()` (random; store it and share it with the
+                workers) or `Langfuse.create_trace_id(seed="...")` (deterministic; every
+                worker derives the same ID from the same seed, and the JS SDK's
+                `createTraceId(seed)` returns the same ID). `run_evaluators` see only
+                the items of their own call, so each call adds its own run-level
+                scores to the shared experiment.
 
         Returns:
             ExperimentResult containing:
@@ -2485,16 +2500,18 @@ class Langfuse:
             - item_results: List of results for each processed item with outputs and evaluations
             - run_evaluations: List of aggregate evaluation results for the entire run.
               They are stored as scores on the experiment run, also for local data.
-            - experiment_id: Identifier for the experiment run across all items. For
-              Langfuse dataset items it is derived from the project ID, dataset ID and
-              run name; for local data it is random.
+            - experiment_id: Identifier for the experiment run across all items. This
+              is the `experiment_id` argument if provided. Otherwise, for Langfuse
+              dataset items it is derived from the project ID, dataset ID and run name;
+              for local data it is random.
             - experiment_url: Direct URL to view results in Langfuse UI (None if the
               project ID could not be resolved)
             - dataset_run_id / dataset_run_url: Deprecated aliases of experiment_id /
               experiment_url
 
         Raises:
-            ValueError: If required parameters are missing or invalid
+            ValueError: If required parameters are missing or invalid, or if
+                `experiment_id` is empty or whitespace-only
             Exception: If experiment setup fails (individual item failures are handled gracefully)
 
         Examples:
@@ -2592,6 +2609,22 @@ class Langfuse:
             print(f"View results: {result.experiment_url}")
             ```
 
+            Recording one experiment from several workers or resumed jobs:
+            ```python
+            # Every worker derives the same ID from the same seed
+            experiment_id = Langfuse.create_trace_id(seed="nightly-eval/2026-10-20")
+
+            # Each worker or resumed job runs its share of the items
+            langfuse.run_experiment(
+                name="Nightly eval",
+                run_name="nightly-eval/2026-10-20",
+                experiment_id=experiment_id,
+                data=items_for_this_worker,
+                task=my_task,
+                evaluators=[accuracy_evaluator],
+            )
+            ```
+
         Note:
             - Task and evaluator functions can be either synchronous or asynchronous
             - Individual item failures are logged but don't stop the experiment
@@ -2618,6 +2651,7 @@ class Langfuse:
                     run_evaluators=run_evaluators or [],
                     max_concurrency=max_concurrency,
                     metadata=metadata,
+                    experiment_id=experiment_id,
                     dataset_version=_dataset_version,
                 ),
             ),
@@ -2636,8 +2670,15 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction],
         max_concurrency: int,
         metadata: Optional[Dict[str, Any]] = None,
+        experiment_id: Optional[str] = None,
         dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
+        if experiment_id is not None and (
+            not isinstance(experiment_id, str) or not experiment_id.strip()
+        ):
+            message = "experiment_id must be a non-empty string if provided."
+            raise ValueError(message)
+
         langfuse_logger.debug(
             "Starting experiment '%s' run '%s' with %s items", name, run_name, len(data)
         )
@@ -2660,11 +2701,12 @@ class Langfuse:
             ),
             None,
         )
-        experiment_id = self._create_experiment_id(
-            project_id=project_id,
-            dataset_id=experiment_dataset_id,
-            run_name=run_name,
-        )
+        if experiment_id is None:
+            experiment_id = self._create_experiment_id(
+                project_id=project_id,
+                dataset_id=experiment_dataset_id,
+                run_name=run_name,
+            )
         experiment_item_version = (
             self._format_experiment_item_version(dataset_version)
             if dataset_version is not None
@@ -2714,7 +2756,7 @@ class Langfuse:
                 langfuse_logger.error("Run evaluator failed: %s", e)
 
         experiment_url = (
-            f"{self._base_url}/project/{project_id}/experiments/results?baseline={experiment_id}"
+            f"{self._base_url}/project/{project_id}/experiments/results?baseline={urllib.parse.quote(experiment_id, safe='')}"
             if project_id
             else None
         )
@@ -2735,8 +2777,8 @@ class Langfuse:
             except Exception as e:
                 langfuse_logger.error("Failed to store run evaluation: %s", e)
 
-        # Flush scores and traces
-        self.flush()
+        # Flush scores and traces off the event loop; flush() blocks on network I/O.
+        await asyncio.to_thread(self.flush)
 
         return ExperimentResult(
             name=name,

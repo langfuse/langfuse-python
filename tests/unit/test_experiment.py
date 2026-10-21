@@ -1,7 +1,9 @@
 """Tests for ``langfuse.experiment`` — ``RunnerContext`` and ``RegressionError``."""
 
+import asyncio
 import inspect
 import json
+import time
 import typing
 from datetime import datetime, timezone
 from typing import get_type_hints
@@ -13,6 +15,7 @@ from opentelemetry import trace as otel_trace_api
 from langfuse import Evaluation, RegressionError, RunnerContext
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
+from langfuse._client.datasets import DatasetClient
 from langfuse.api import DatasetItem, DatasetStatus
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
 from langfuse.experiment import ExperimentItemResult, ExperimentResult
@@ -62,6 +65,7 @@ class TestRunnerContextDefaults:
             task=_noop_task,
             run_name="call-run",
             data=override_data,
+            experiment_id="shared",
             _dataset_version=override_version,
         )
 
@@ -69,6 +73,7 @@ class TestRunnerContextDefaults:
         assert kwargs["name"] == "exp"
         assert kwargs["run_name"] == "call-run"
         assert kwargs["data"] is override_data
+        assert kwargs["experiment_id"] == "shared"
         assert kwargs["_dataset_version"] == override_version
 
 
@@ -695,6 +700,151 @@ class TestExperimentRunIdentity:
         assert result.experiment_url is None
 
 
+class TestCallerSuppliedExperimentId:
+    def test_local_runs_with_the_same_id_share_one_experiment(
+        self, langfuse_memory_client, find_spans, monkeypatch
+    ):
+        create_score = MagicMock()
+        monkeypatch.setattr(langfuse_memory_client, "create_score", create_score)
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+        experiment_id = Langfuse.create_trace_id(seed="nightly-eval/2026-10-20")
+
+        results = [
+            langfuse_memory_client.run_experiment(
+                name="exp",
+                run_name="r",
+                experiment_id=experiment_id,
+                data=[{"input": item_input}],
+                task=lambda *, item, **kwargs: item["input"],
+                run_evaluators=[lambda **kwargs: Evaluation(name="run", value=1.0)],
+            )
+            for item_input in ("a", "b")
+        ]
+        langfuse_memory_client.flush()
+
+        for result in results:
+            assert result.experiment_id == experiment_id
+            assert result.experiment_url == (
+                f"http://test-host/project/p/experiments/results?baseline={experiment_id}"
+            )
+            assert [r.experiment_id for r in result.item_results] == [experiment_id]
+
+        spans = find_spans("experiment-item-run") + find_spans("experiment-item-task")
+        assert len(spans) == 4
+        assert {
+            span.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID] for span in spans
+        } == {experiment_id}
+        assert [s["dataset_run_id"] for s in _run_scores(create_score)] == [
+            experiment_id,
+            experiment_id,
+        ]
+
+    def test_supplied_id_wins_over_the_derived_dataset_id(
+        self, langfuse_memory_client, find_spans, monkeypatch
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+
+        result = langfuse_memory_client.run_experiment(
+            name="exp",
+            run_name="r",
+            experiment_id="resumed-run",
+            data=[_dataset_item(item_id="i1", dataset_id="d", input="a")],
+            task=lambda *, item, **kwargs: item.input,
+        )
+        langfuse_memory_client.flush()
+
+        # Without experiment_id this run would be "eab007015b1c6f77".
+        assert result.experiment_id == "resumed-run"
+        spans = find_spans("experiment-item-run") + find_spans("experiment-item-task")
+        assert len(spans) == 2
+        for span in spans:
+            assert (
+                span.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+                == "resumed-run"
+            )
+            assert (
+                span.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_DATASET_ID] == "d"
+            )
+
+    def test_supplied_id_is_url_encoded_in_the_experiment_url(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+
+        result = langfuse_memory_client.run_experiment(
+            name="exp",
+            experiment_id="team a/run#1",
+            data=[{"input": "a"}],
+            task=lambda *, item, **kwargs: item["input"],
+        )
+
+        assert result.experiment_id == "team a/run#1"
+        assert result.experiment_url == (
+            "http://test-host/project/p/experiments/results?baseline=team%20a%2Frun%231"
+        )
+
+    def test_supplied_id_is_used_when_called_inside_a_running_event_loop(
+        self, langfuse_memory_client, find_spans, monkeypatch
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+
+        async def task(*, item, **kwargs):
+            await asyncio.sleep(0)
+            return item["input"]
+
+        async def main():
+            return langfuse_memory_client.run_experiment(
+                name="exp",
+                experiment_id="from-async",
+                data=[{"input": "a"}],
+                task=task,
+            )
+
+        result = asyncio.run(main())
+        langfuse_memory_client.flush()
+
+        assert result.experiment_id == "from-async"
+        assert [r.output for r in result.item_results] == ["a"]
+        assert {
+            span.attributes[LangfuseOtelSpanAttributes.EXPERIMENT_ID]
+            for span in find_spans("experiment-item-task")
+        } == {"from-async"}
+
+    @pytest.mark.parametrize("experiment_id", ["", "   "])
+    def test_blank_id_raises_before_running_items(
+        self, langfuse_memory_client, experiment_id
+    ):
+        task = MagicMock()
+
+        with pytest.raises(ValueError, match="experiment_id"):
+            langfuse_memory_client.run_experiment(
+                name="exp",
+                experiment_id=experiment_id,
+                data=[{"input": "a"}],
+                task=task,
+            )
+
+        task.assert_not_called()
+
+    def test_dataset_client_forwards_the_id(self):
+        langfuse_client = MagicMock()
+        item = _dataset_item(item_id="i1", dataset_id="d", input="a")
+        dataset = DatasetClient(
+            dataset=MagicMock(),
+            items=[item],
+            langfuse_client=langfuse_client,
+        )
+
+        dataset.run_experiment(name="exp", task=_noop_task, experiment_id="shared")
+
+        assert langfuse_client.run_experiment.call_args.kwargs["experiment_id"] == (
+            "shared"
+        )
+
+
 class TestExperimentResultAliases:
     def test_dataset_run_fields_are_deprecated_aliases(self):
         item_result = ExperimentItemResult(
@@ -779,3 +929,39 @@ class TestExperimentRunScoreGating:
 
         get_project_id.assert_not_called()
         assert result.experiment_url is None
+
+
+class TestExperimentEventLoop:
+    @pytest.mark.asyncio
+    async def test_final_flush_does_not_block_event_loop(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+        monkeypatch.setattr(langfuse_memory_client, "flush", lambda: time.sleep(0.5))
+        stop = asyncio.Event()
+        gaps: list = []
+
+        async def heartbeat():
+            last = time.monotonic()
+            while not stop.is_set():
+                await asyncio.sleep(0.01)
+                now = time.monotonic()
+                gaps.append(now - last)
+                last = now
+
+        beat = asyncio.create_task(heartbeat())
+        await langfuse_memory_client._run_experiment_async(
+            name="exp",
+            run_name="run",
+            description=None,
+            data=[{"input": "a"}],
+            task=lambda *, item, **kwargs: item["input"],
+            evaluators=[],
+            composite_evaluator=None,
+            run_evaluators=[],
+            max_concurrency=1,
+        )
+        stop.set()
+        await beat
+
+        assert max(gaps) < 0.25
