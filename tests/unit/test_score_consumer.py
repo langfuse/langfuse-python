@@ -459,6 +459,7 @@ def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
         wake()
 
     consumer.wake = stop_then_wake  # type: ignore[method-assign]
+    client.create_score(name="a", value=1.0, trace_id="a" * 32)
 
     flush = threading.Thread(target=client.flush, daemon=True)
     flush.start()
@@ -472,6 +473,54 @@ def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
 
     assert not consumer.is_alive()
     assert not flush_hung
+
+
+def test_flush_returns_when_consumer_stops_while_flush_waits(client_factory):
+    request_started = threading.Event()
+    release_request = threading.Event()
+    accept = _responder(ACCEPTED)
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        request_started.set()
+        release_request.wait(timeout=5)
+        return accept(request)
+
+    client = client_factory(Recorder(respond), flush_interval=5)
+    consumer = client._resources._score_consumers[0]
+    client.create_score(name="a", value=1.0, trace_id="a" * 32)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    assert request_started.wait(timeout=5)
+    # flush() waits on the in-flight score. The consumer then stops and never
+    # takes the score enqueued after it.
+    consumer.running = False
+    client.create_score(name="orphan", value=1.0, trace_id="a" * 32)
+    release_request.set()
+    flush.join(timeout=2)
+    flush_hung = flush.is_alive()
+    score_queue = client._resources._score_queue
+    while not score_queue.empty():
+        score_queue.get_nowait()
+        score_queue.task_done()
+    client._resources._pending_scores.done(1)
+
+    assert not consumer.is_alive()
+    assert not flush_hung
+
+
+def test_flush_does_not_wait_for_dropped_scores(client_factory, monkeypatch):
+    monkeypatch.setattr(score_consumer_module, "MAX_BATCH_SIZE_BYTES", 10)
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder, flush_interval=5)
+    client.create_score(name="too-large", value=1.0, trace_id="a" * 32)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=1)
+
+    assert not flush.is_alive()
+    assert recorder.requests == []
 
 
 _GEVENT_FLUSH_SCRIPT = """
@@ -511,6 +560,43 @@ assert posted == ["first", "second"], posted
 client.flush()
 print("ok")
 """
+
+
+_EXIT_FLUSH_SCRIPT = """
+import json
+import sys
+
+import httpx
+
+from langfuse import Langfuse
+
+def respond(request):
+    for item in json.loads(request.content):
+        print("posted", item["name"], flush=True)
+    return httpx.Response(202, json={"message": "Accepted"})
+
+client = Langfuse(
+    public_key="pk-exit",
+    secret_key="sk-exit",
+    base_url="http://langfuse.test",
+    flush_interval=5,
+    httpx_client=httpx.Client(transport=httpx.MockTransport(respond)),
+)
+client.create_score(name="at-exit", value=1, trace_id="a" * 32)
+"""
+
+
+def test_exit_without_shutdown_sends_pending_scores():
+    result = subprocess.run(
+        [sys.executable, "-c", _EXIT_FLUSH_SCRIPT],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["posted at-exit"]
+    assert "Traceback" not in result.stderr
 
 
 def test_flush_and_shutdown_work_under_gevent_monkey_patching():
