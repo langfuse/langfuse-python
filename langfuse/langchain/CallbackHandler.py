@@ -1455,8 +1455,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             message_dict = {"role": message.role, "content": message.content}
         else:
             raise ValueError(f"Got unknown type {message}")
-        if "name" in message.additional_kwargs:
-            message_dict["name"] = message.additional_kwargs["name"]
+        # LangChain stores the name on the message itself; older integrations
+        # put it in additional_kwargs.
+        name = message.name or message.additional_kwargs.get("name")
+        if name:
+            message_dict["name"] = name
 
         if message.additional_kwargs:
             message_dict["additional_kwargs"] = message.additional_kwargs  # type: ignore
