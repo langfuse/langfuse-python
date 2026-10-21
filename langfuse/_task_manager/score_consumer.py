@@ -3,7 +3,7 @@ import os
 import threading
 import time
 from queue import Empty, Full, Queue
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import backoff
 import httpx
@@ -36,45 +36,8 @@ if _configured_batch_size_bytes > _SCORES_BODY_LIMIT_BYTES:
         _SCORES_BODY_LIMIT_BYTES,
     )
 MAX_BATCH_SIZE_BYTES = min(_configured_batch_size_bytes, _SCORES_BODY_LIMIT_BYTES)
+# Ends the batch being collected. Never counted as an unfinished queue task.
 _WAKE_SIGNAL = object()
-
-
-class PendingScores:
-    """Count scores that were enqueued and not yet sent or dropped.
-
-    flush() waits on this instead of Queue.join(), which cannot time out, and
-    instead of Queue internals, which gevent's and eventlet's queues lack.
-    """
-
-    def __init__(self) -> None:
-        self._count = 0
-        self._changed = threading.Condition()
-
-    @property
-    def count(self) -> int:
-        with self._changed:
-            return self._count
-
-    def add(self) -> None:
-        with self._changed:
-            self._count += 1
-
-    def done(self, count: int = 1) -> None:
-        with self._changed:
-            self._count = max(0, self._count - count)
-            if self._count == 0:
-                self._changed.notify_all()
-
-    def wait(self, is_drainable: Callable[[], bool]) -> int:
-        """Wait until no score is pending or is_drainable() turns false.
-
-        Returns the number of scores still pending.
-        """
-        with self._changed:
-            while self._count and is_drainable():
-                self._changed.wait(timeout=0.1)
-
-            return self._count
 
 
 def _is_retryable(error: Exception) -> bool:
@@ -100,7 +63,6 @@ class ScoreConsumer(threading.Thread):
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
         max_retries: Optional[int] = None,
-        pending_scores: Optional[PendingScores] = None,
     ):
         """Create a consumer thread."""
         super().__init__()
@@ -114,7 +76,6 @@ class ScoreConsumer(threading.Thread):
         self._score_queue = score_queue
         self._identifier = identifier
         self._api_client = api_client
-        self._pending_scores = pending_scores or PendingScores()
 
         env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT)
         if flush_at is None and env_flush_at is not None:
@@ -153,7 +114,6 @@ class ScoreConsumer(threading.Thread):
                 )
 
                 if score is _WAKE_SIGNAL:
-                    self._score_queue.task_done()
                     break
 
                 try:
@@ -164,7 +124,7 @@ class ScoreConsumer(threading.Thread):
                         "dropped. Error: %s",
                         e,
                     )
-                    self._acknowledge()
+                    self._score_queue.task_done()
 
                     continue
 
@@ -178,7 +138,7 @@ class ScoreConsumer(threading.Thread):
                         item_size,
                         MAX_BATCH_SIZE_BYTES,
                     )
-                    self._acknowledge()
+                    self._score_queue.task_done()
 
                     continue
 
@@ -207,13 +167,9 @@ class ScoreConsumer(threading.Thread):
                     str(e),
                     exc_info=True,
                 )
-                self._acknowledge()
+                self._score_queue.task_done()
 
         return scores
-
-    def _acknowledge(self) -> None:
-        self._score_queue.task_done()
-        self._pending_scores.done()
 
     def _get_item_size(self, item: Any) -> int:
         """Return the size of the item in bytes."""
@@ -255,13 +211,16 @@ class ScoreConsumer(threading.Thread):
             # mark items as acknowledged from queue
             for _ in batch:
                 self._score_queue.task_done()
-            self._pending_scores.done(len(batch))
 
     def wake(self) -> None:
         try:
             self._score_queue.put(_WAKE_SIGNAL, block=False)
         except Full:
-            pass
+            return
+
+        # Mark it done now, since no consumer may take it (e.g. when shutdown()
+        # stops the consumer first) and queue.join() would then never return.
+        self._score_queue.task_done()
 
     def pause(self) -> None:
         """Pause the consumer."""

@@ -43,7 +43,7 @@ from langfuse._client.environment_variables import (
 from langfuse._client.span_processor import LangfuseSpanProcessor
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
-from langfuse._task_manager.score_consumer import PendingScores, ScoreConsumer
+from langfuse._task_manager.score_consumer import ScoreConsumer
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
@@ -376,7 +376,6 @@ class LangfuseResourceManager:
                 self._media_upload_consumers.append(media_upload_consumer)
 
         self._score_queue: Queue[Any] = Queue(100_000)
-        self._pending_scores = PendingScores()
         self._score_consumers = []
 
         score_consumer = ScoreConsumer(
@@ -386,7 +385,6 @@ class LangfuseResourceManager:
             flush_at=self.flush_at,
             flush_interval=self.flush_interval,
             max_retries=3,
-            pending_scores=self._pending_scores,
         )
         score_consumer.start()
         self._score_consumers.append(score_consumer)
@@ -518,12 +516,7 @@ class LangfuseResourceManager:
                     score.get("name"),
                     score.get("value"),
                 )
-                self._pending_scores.add()
-                try:
-                    self._score_queue.put(score, block=False)
-                except Exception:
-                    self._pending_scores.done()
-                    raise
+                self._score_queue.put(score, block=False)
 
         except Full:
             langfuse_logger.warning(
@@ -600,30 +593,15 @@ class LangfuseResourceManager:
             self.tracer_provider.force_flush()
             langfuse_logger.debug("Successfully flushed OTEL tracer provider")
 
-        if self._pending_scores.count:
-            for score_consumer in self._score_consumers:
-                if score_consumer.is_alive():
-                    score_consumer.wake()
+        for score_consumer in self._score_consumers:
+            if score_consumer.is_alive():
+                score_consumer.wake()
 
-            self._join_score_queue()
+        self._score_queue.join()
         langfuse_logger.debug("Successfully flushed score queue")
 
         self._media_upload_queue.join()
         langfuse_logger.debug("Successfully flushed media upload queue")
-
-    def _join_score_queue(self) -> None:
-        """Wait until queued scores are sent or no consumer is left to send them.
-
-        Queue.join() would block forever when the consumers stop first, e.g.
-        when shutdown() runs concurrently and a wake signal is never taken.
-        """
-        unsent = self._pending_scores.wait(
-            lambda: any(c.is_alive() for c in self._score_consumers)
-        )
-        if unsent:
-            langfuse_logger.debug(
-                "Score consumers stopped with %s score(s) unsent", unsent
-            )
 
     def shutdown(self) -> None:
         self._shutdown = True
