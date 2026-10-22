@@ -10,6 +10,7 @@ import pytest
 
 from langfuse import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
+from langfuse._utils.environment import common_release_envs
 
 
 class TestClientInitialization:
@@ -134,6 +135,20 @@ class TestClientInitialization:
 
         assert client._resources is not None
         assert client._resources.sample_rate == 0.0
+
+    def test_empty_ci_release_falls_back_to_next_variable(self, monkeypatch):
+        for name in [*common_release_envs, "LANGFUSE_RELEASE"]:
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv("RENDER_GIT_COMMIT", "")
+        monkeypatch.setenv("GITHUB_SHA", "github-sha")
+
+        client = Langfuse(
+            public_key="test_pk_release",
+            secret_key="test_sk",
+            tracing_enabled=False,
+        )
+
+        assert client._release == "github-sha"
 
     def test_base_url_env_var(self, cleanup_env_vars):
         """Test that LANGFUSE_BASE_URL environment variable is used correctly."""
