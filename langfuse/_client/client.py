@@ -4,6 +4,7 @@ This module implements Langfuse's core observability functionality on top of the
 """
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -3066,7 +3067,7 @@ class Langfuse:
                                         evaluations=evaluations,
                                     )
 
-                                    if asyncio.iscoroutine(result):
+                                    if inspect.isawaitable(result):
                                         result = await result
 
                                     composite_evals = _normalize_evaluator_result(
