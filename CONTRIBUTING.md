@@ -123,6 +123,10 @@ The workflow will automatically:
 - Publish to PyPI
 - Create a git tag and GitHub release with auto-generated release notes
 
+Prerequisites:
+- PyPI Trusted Publishing configured for `langfuse` with workflow `release.yml` and environment `protected branches`
+- A release GitHub App installed on this repository with only Contents read/write. Its client ID is the `RELEASE_APP_CLIENT_ID` variable and its private key the `RELEASE_APP_PRIVATE_KEY` secret, both on the `protected branches` environment. The App must be allowed to bypass the `main` pull request requirement and push restriction, and the `v*` tag rulesets, because the workflow pushes the version commit and tag directly
+
 ### SDK Reference
 
 Note: The generated SDK reference is currently work in progress.

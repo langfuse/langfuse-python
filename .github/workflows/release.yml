@@ -33,7 +33,7 @@ on:
         default: ""
 
 permissions:
-  contents: write
+  contents: read # Pushes and GitHub releases use the release GitHub App token
   id-token: write # Required for PyPI Trusted Publishing via OIDC
 
 concurrency:
@@ -93,7 +93,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
           persist-credentials: false
 
       - name: Install uv and set Python version
@@ -104,14 +103,9 @@ jobs:
           enable-cache: false
 
       - name: Configure Git
-        env:
-          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
         run: |
           git config user.name "langfuse-bot"
           git config user.email "langfuse-bot@langfuse.com"
-
-          echo "$GH_ACCESS_TOKEN" | gh auth login --with-token
-          gh auth setup-git
 
       - name: Get current version
         id: current-version
@@ -316,13 +310,26 @@ jobs:
         env:
           STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
+      # Minted after the build and smoke tests so build backends and test installs never
+      # see a write token. The App needs Contents read/write on this repo and must be
+      # allowed to bypass the main branch protection and the v* tag rulesets.
+      - name: Create release GitHub App token
+        id: release-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Create and push tag
         id: push-tag
         run: |
+          gh auth setup-git
           git tag "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
           git push origin "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
         env:
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
           STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Publish to PyPI
@@ -341,7 +348,7 @@ jobs:
             $prerelease_flag \
             dist/*.whl dist/*.tar.gz
         env:
-          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
           VERSION: ${{ steps.new-version.outputs.version }}
           IS_PRERELEASE: ${{ steps.new-version.outputs.is_prerelease }}
 
