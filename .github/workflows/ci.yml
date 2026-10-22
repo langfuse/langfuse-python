@@ -152,23 +152,34 @@ jobs:
       # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
       HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # GitHub withholds secrets from fork PRs, so provider calls there can only fail.
+      # The suite still runs on same-repo PRs and on main, where a missing key fails loudly.
+      SKIP_LIVE_PROVIDER: ${{ matrix.suite == 'live_provider' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
     name: ${{ matrix.job_name }}
     steps:
+      - name: Skip live-provider tests on fork PRs
+        if: ${{ env.SKIP_LIVE_PROVIDER == 'true' }}
+        run: echo "::notice::Live-provider tests are skipped on fork PRs because provider secrets are unavailable. They run after merge on main."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         with:
           persist-credentials: false
       - name: Install uv and set Python version
+        if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.11.2"
           python-version: "3.13"
           enable-cache: true # zizmor: ignore[cache-poisoning] CI-only, no artifacts published
       - name: Install the project dependencies
+        if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         run: uv sync --locked
       - name: Check uv Python version
+        if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         run: uv run --frozen python --version
       - name: Prepare langfuse server compose
+        if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         run: |
           mkdir -p ./langfuse-server
           LANGFUSE_SERVER_SHA="$(git ls-remote https://github.com/langfuse/langfuse.git HEAD | cut -f1)"
@@ -177,6 +188,7 @@ jobs:
           echo "${LANGFUSE_SERVER_SHA}"
 
       - name: Run langfuse server
+        if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         run: |
           cd ./langfuse-server
 
@@ -194,6 +206,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Health check for langfuse server
+        if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         run: |
           echo "Checking if the langfuse server is up..."
           retry_count=0
@@ -264,7 +277,7 @@ jobs:
           fi
 
       - name: Run live-provider tests
-        if: ${{ matrix.suite == 'live_provider' }}
+        if: ${{ matrix.suite == 'live_provider' && env.SKIP_LIVE_PROVIDER != 'true' }}
         run: |
           uv run --frozen python --version
           uv run --frozen pytest \
