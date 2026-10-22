@@ -932,3 +932,55 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+
+def test_compact_nested_json_keeps_closing_braces():
+    """Regression test: compact nested JSON must not lose closing braces.
+
+    Covers langfuse/langfuse#18131: _escape_json_for_langchain treated every
+    ``}}`` as a pre-escaped pair and never popped the stack entry pushed for
+    the JSON ``{`` it doubled, so ``{"a": {"b": 1}}`` rendered as
+    ``{"a": {"b": 1}`` (one closing brace short).
+    """
+    prompt_string = 'Example: {"a": {"b": 1}}'
+
+    prompt = TextPromptClient(
+        Prompt_Text(
+            type="text",
+            name="compact_nested_json_test",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=prompt_string,
+        )
+    )
+
+    langchain_prompt_string = prompt.get_langchain_prompt()
+    assert langchain_prompt_string == 'Example: {{"a": {{"b": 1}}}}'
+
+    langchain_prompt = PromptTemplate.from_template(langchain_prompt_string)
+    assert langchain_prompt.format() == prompt_string
+
+
+def test_pre_escaped_placeholder_inside_nested_json():
+    """A pre-escaped ``{{name}}`` placeholder next to JSON closing braces must
+    be left alone while each doubled JSON ``{`` still gets its own ``}}``.
+    """
+    prompt_string = 'Reply with JSON like {"user": {"name": "{name}"}}'
+
+    prompt = TextPromptClient(
+        Prompt_Text(
+            type="text",
+            name="placeholder_inside_nested_json_test",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=prompt_string,
+        )
+    )
+
+    langchain_prompt_string = prompt.get_langchain_prompt()
+    langchain_prompt = PromptTemplate.from_template(langchain_prompt_string)
+    assert langchain_prompt.format(name="Ann") == 'Reply with JSON like {"user": {"name": "Ann"}}'
