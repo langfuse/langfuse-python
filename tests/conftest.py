@@ -102,11 +102,13 @@ def langfuse_memory_client(
         from langfuse._client.span_filter import is_default_export_span
 
         self.public_key = kwargs.get("public_key", "test-public-key")
+        self._uses_default_export_filter = kwargs.get("should_export_span") is None
         self._should_export_span = (
             kwargs.get("should_export_span") or is_default_export_span
         )
         self._app_root_lock = threading.Lock()
         self._span_export_expectation_by_id = {}
+        self._open_langfuse_spans_by_id = {}
         BatchSpanProcessor.__init__(
             self,
             span_exporter=memory_exporter,
