@@ -33,7 +33,7 @@ on:
         default: ""
 
 permissions:
-  contents: read # Pushes and GitHub releases use the release GitHub App token
+  contents: read
   id-token: write # Required for PyPI Trusted Publishing via OIDC
 
 concurrency:
@@ -310,9 +310,6 @@ jobs:
         env:
           STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
-      # Minted after the build and smoke tests so build backends and test installs never
-      # see a write token. The App needs Contents read/write on this repo and must be
-      # allowed to bypass the main branch protection and the v* tag rulesets.
       - name: Create release GitHub App token
         id: release-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
