@@ -47,7 +47,7 @@ with langfuse.start_as_current_observation(as_type="span", name="process-request
         # Your LLM call logic here
         generation.update(output="Generated response")
 
-# All spans are automatically closed when exiting their context blocks
+# All spans are automatically closed when exiting their context blocks.
 
 
 # Flush events in short-lived applications
