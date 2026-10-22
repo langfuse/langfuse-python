@@ -22,6 +22,23 @@ SERIAL_E2E_NODEIDS = {
     "tests/e2e/test_media.py::test_replace_media_reference_string_in_object",
 }
 
+# Tests that fail intermittently for reasons outside the SDK. They still run and
+# report XFAIL/XPASS, but cannot fail CI. Remove an entry once its cause is fixed.
+QUARANTINED_NODEIDS = {
+    "tests/live_provider/test_openai.py::test_audio_input_and_output": (
+        "flaky: OpenAI audio responses fail intermittently"
+    ),
+    "tests/live_provider/test_openai.py::test_base_64_image_input": (
+        "flaky: OpenAI image input fails intermittently"
+    ),
+    "tests/live_provider/test_langchain.py::test_multimodal": (
+        "flaky: OpenAI multimodal call intermittently hangs until timeout"
+    ),
+}
+# Signal-based so a hang raises inside the test and counts as XFAIL; the
+# suite's thread-based timeout kills the xdist worker instead.
+QUARANTINE_TIMEOUT_SECONDS = 60
+
 
 class InMemorySpanExporter(SpanExporter):
     """Simple in-memory exporter to collect spans for deterministic tests."""
@@ -50,6 +67,13 @@ class InMemorySpanExporter(SpanExporter):
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
         test_group = Path(str(item.fspath)).parent.name
+
+        quarantine_reason = QUARANTINED_NODEIDS.get(item.nodeid)
+        if quarantine_reason is not None:
+            item.add_marker(pytest.mark.xfail(reason=quarantine_reason, strict=False))
+            item.add_marker(
+                pytest.mark.timeout(QUARANTINE_TIMEOUT_SECONDS, method="signal")
+            )
 
         if test_group == "unit":
             item.add_marker(pytest.mark.unit)

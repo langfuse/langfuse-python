@@ -102,6 +102,12 @@ Minimum verification matrix:
 
 - This suite uses real provider calls and runs as one dedicated CI suite. CI skips it on fork PRs, which have no provider secrets.
 - Any test that calls a model provider belongs here, never in `tests/e2e`, so fork PRs stay green on the e2e shards.
+
+### Quarantine
+
+- `QUARANTINED_NODEIDS` in `tests/conftest.py` lists tests that fail intermittently for reasons outside the SDK. They still run but are marked non-strict `xfail`, so CI reports XFAIL/XPASS instead of failing.
+- Quarantine only with evidence of flakiness, such as the same commit both passing and failing in CI. Do not quarantine deterministic failures.
+- Remove the entry once the cause is fixed.
 - Do not split or shard `tests/live_provider` into separate smoke and extended jobs unless the team explicitly changes that policy.
 - Keep assertions focused on stable provider-facing behavior rather than brittle observation counts.
 
