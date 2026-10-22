@@ -87,7 +87,7 @@ from langfuse.model import ChatPromptClient, TextPromptClient
             4,
             [
                 "You are a helpful assistant",
-                "['invalid message', {'role': 'user', 'content': 'valid message'}]",
+                "invalid message",
                 "valid message",
                 "Help me with coding",
             ],
