@@ -1125,9 +1125,10 @@ class LangfuseObservationWrapper:
         """
         if as_type == "event":
             timestamp = time_ns()
-            event_span = self._langfuse_client._otel_tracer.start_span(
-                name=name, start_time=timestamp
-            )
+            with otel_trace_api.use_span(self._otel_span):
+                event_span = self._langfuse_client._otel_tracer.start_span(
+                    name=name, start_time=timestamp
+                )
             return cast(
                 LangfuseEvent,
                 LangfuseEvent(
