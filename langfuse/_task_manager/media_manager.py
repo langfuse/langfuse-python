@@ -45,6 +45,7 @@ class MediaManager:
         self._enabled = os.environ.get(
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
+        self._accepting_uploads = True
 
     def reinitialize(
         self,
@@ -56,6 +57,35 @@ class MediaManager:
         self._api_client = api_client
         self._httpx_client = httpx_client
         self._queue = media_upload_queue
+
+    def stop_accepting_uploads(self) -> None:
+        """Skip media found from now on, as the consumers are about to stop."""
+        self._accepting_uploads = False
+
+    def drop_pending_uploads(self) -> None:
+        """Acknowledge uploads queued after the consumers stopped.
+
+        A thread that checked the flag just before stop_accepting_uploads()
+        can still queue its upload, and flush() would wait for it forever.
+        """
+        dropped = 0
+        while True:
+            try:
+                upload_job = self._queue.get_nowait()
+            except Empty:
+                break
+
+            # signal_shutdown() already marked its sentinels done.
+            if upload_job is not _SHUTDOWN_SENTINEL:
+                self._queue.task_done()
+                dropped += 1
+
+        if dropped:
+            logger.warning(
+                "Media upload dropped: Langfuse client has been shut down. "
+                "%s queued upload(s).",
+                dropped,
+            )
 
     def process_next_media_upload(self) -> None:
         try:
@@ -342,6 +372,15 @@ class MediaManager:
                 dataset_item_id=None,
                 field=field,
             )
+
+            if not self._accepting_uploads:
+                logger.warning(
+                    "Media upload dropped: Langfuse client has been shut down. "
+                    "media_id=%s trace_id=%s",
+                    media._media_id,
+                    trace_id,
+                )
+                return
 
             self._queue.put(
                 item=upload_media_job,
