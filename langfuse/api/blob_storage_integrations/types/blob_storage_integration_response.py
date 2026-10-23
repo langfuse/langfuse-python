@@ -53,7 +53,7 @@ class BlobStorageIntegrationResponse(UniversalBaseModel):
         FieldMetadata(alias="exportFieldGroups"),
     ] = pydantic.Field(default=None)
     """
-    Field groups included in each exported observation row. An empty list is treated as all groups during export.
+    Field groups included in each exported observation and score row. An empty list is treated as all observation groups and no score groups during export. Core score columns are always exported.
     """
 
     next_sync_at: typing_extensions.Annotated[

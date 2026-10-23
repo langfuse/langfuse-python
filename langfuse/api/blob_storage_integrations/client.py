@@ -159,7 +159,7 @@ class BlobStorageIntegrationsClient:
             **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
 
         export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
-            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+            Field groups to include in each exported observation and score row. Applies to all export sources; must include the observation `core` group if provided. Core score columns are always exported; score groups add columns on top. When omitted on create, all observation groups are selected and no score groups. When omitted on update, the existing value is preserved.
 
             `exportFieldGroups` requires `exportSource` to be provided in the same request.
 
@@ -438,7 +438,7 @@ class AsyncBlobStorageIntegrationsClient:
             **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
 
         export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
-            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+            Field groups to include in each exported observation and score row. Applies to all export sources; must include the observation `core` group if provided. Core score columns are always exported; score groups add columns on top. When omitted on create, all observation groups are selected and no score groups. When omitted on update, the existing value is preserved.
 
             `exportFieldGroups` requires `exportSource` to be provided in the same request.
 
