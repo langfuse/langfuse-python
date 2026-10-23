@@ -6,11 +6,10 @@ import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
 
 
-class UpdateSkillRequest(UniversalBaseModel):
-    tags: typing.List[str] = pydantic.Field()
-    """
-    The complete set of tags to apply to every version of the skill. Pass an empty list to clear all tags.
-    """
+class TopicFacetRef(UniversalBaseModel):
+    id: str
+    name: str
+    version: int
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
