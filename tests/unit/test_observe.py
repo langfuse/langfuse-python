@@ -33,6 +33,105 @@ def _finished_spans_by_name(memory_exporter: Any, name: str) -> list[Any]:
     return [span for span in memory_exporter.get_finished_spans() if span.name == name]
 
 
+def test_capture_input_free_function_keyword_only_cls(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(capture_input=True)
+    def classify(value: str, *, cls: str = "news") -> str:
+        return cls
+
+    assert classify("article", cls="sports") == "sports"
+    langfuse_memory_client.flush()
+
+    span = _finished_spans_by_name(memory_exporter, "classify")[0]
+    assert json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+    ) == {
+        "args": ["article"],
+        "kwargs": {"cls": "sports"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_capture_input_async_free_function_keyword_only_cls(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(capture_input=True)
+    async def classify(value: str, *, cls: str = "news") -> str:
+        return cls
+
+    assert await classify("article", cls="sports") == "sports"
+    langfuse_memory_client.flush()
+
+    span = _finished_spans_by_name(memory_exporter, "classify")[0]
+    assert json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+    ) == {
+        "args": ["article"],
+        "kwargs": {"cls": "sports"},
+    }
+
+
+def test_capture_input_instance_method_drops_self(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    class Classifier:
+        @observe(capture_input=True)
+        def classify(self, value: str) -> str:
+            return value
+
+    assert Classifier().classify("article") == "article"
+    langfuse_memory_client.flush()
+
+    span = _finished_spans_by_name(memory_exporter, "classify")[0]
+    assert json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+    ) == {
+        "args": ["article"],
+        "kwargs": {},
+    }
+
+
+def test_capture_input_classmethod_drops_cls(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    class Classifier:
+        @classmethod
+        @observe(capture_input=True)
+        def classify(cls, value: str) -> str:
+            return value
+
+    assert Classifier.classify("article") == "article"
+    langfuse_memory_client.flush()
+
+    span = _finished_spans_by_name(memory_exporter, "classify")[0]
+    assert json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+    ) == {
+        "args": ["article"],
+        "kwargs": {},
+    }
+
+
+def test_capture_input_free_function_later_positional_self(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(capture_input=True)
+    def classify(value: str, self: str | None = None) -> str | None:
+        return self
+
+    assert classify("article", "news") == "news"
+    langfuse_memory_client.flush()
+
+    span = _finished_spans_by_name(memory_exporter, "classify")[0]
+    assert json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+    ) == {
+        "args": ["article", "news"],
+        "kwargs": {},
+    }
+
+
 @pytest.mark.asyncio
 async def test_capture_output_false_preserves_type_when_current_span_is_updated(
     langfuse_memory_client: Any, memory_exporter: Any
