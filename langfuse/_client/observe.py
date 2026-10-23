@@ -7,6 +7,7 @@ from typing import (
     Any,
     AsyncGenerator,
     Callable,
+    Coroutine,
     Dict,
     Generator,
     Iterable,
@@ -569,7 +570,7 @@ observe = _decorator.observe
 
 
 class _ContextPreservedSyncGeneratorWrapper:
-    """Sync generator wrapper that ensures each iteration runs in preserved context."""
+    """Preserve tracing context across synchronous generator operations."""
 
     def __init__(
         self,
@@ -648,9 +649,19 @@ class _ContextPreservedSyncGeneratorWrapper:
             pass
 
     def __next__(self) -> Any:
+        return self._advance(method=self.generator.__next__)
+
+    def send(self, value: Any) -> Any:
+        return self._advance(method=self.generator.send, args=(value,))
+
+    def throw(self, *args: Any) -> Any:
+        return self._advance(method=self.generator.throw, args=args)
+
+    def _advance(
+        self, *, method: Callable[..., Any], args: Tuple[Any, ...] = ()
+    ) -> Any:
         try:
-            # Run the generator's __next__ in the preserved context
-            item = self.context.run(next, self.generator)
+            item: Any = self.context.run(method, *args)
             if self.capture_output:
                 self.items.append(item)
 
@@ -660,13 +671,13 @@ class _ContextPreservedSyncGeneratorWrapper:
             self._finalize()
             raise  # Re-raise StopIteration
 
-        except (Exception, asyncio.CancelledError) as e:
+        except BaseException as e:
             self._finalize_with_error(e)
             raise
 
 
 class _ContextPreservedAsyncGeneratorWrapper:
-    """Async generator wrapper that ensures each iteration runs in preserved context."""
+    """Preserve tracing context across asynchronous generator operations."""
 
     def __init__(
         self,
@@ -767,12 +778,43 @@ class _ContextPreservedAsyncGeneratorWrapper:
             self._finalize()
 
     async def __anext__(self) -> Any:
+        return await self._advance(method=self.generator.__anext__)
+
+    async def asend(self, value: Any) -> Any:
+        return await self._advance(method=self.generator.asend, args=(value,))
+
+    async def athrow(self, *args: Any) -> Any:
+        return await self._advance(method=self.generator.athrow, args=args)
+
+    async def _run_operation(
+        self, method: Callable[..., Coroutine[Any, Any, Any]], args: Tuple[Any, ...]
+    ) -> Tuple[Any, Optional[BaseException]]:
         try:
-            # Run the generator's __anext__ in the preserved context
-            item = await asyncio.create_task(
-                self.generator.__anext__(),  # type: ignore
+            return await method(*args), None
+        except (KeyboardInterrupt, SystemExit) as error:
+            # Tasks otherwise re-raise these before their awaiter can handle them.
+            return None, error
+
+    async def _advance(
+        self,
+        *,
+        method: Callable[..., Coroutine[Any, Any, Any]],
+        args: Tuple[Any, ...] = (),
+    ) -> Any:
+        try:
+            operation: Coroutine[Any, Any, Tuple[Any, Optional[BaseException]]] = (
+                self._run_operation(method=method, args=args)
+            )
+            item: Any
+            error: Optional[BaseException]
+            # Run the generator operation in the preserved context.
+            item, error = await asyncio.create_task(
+                coro=operation,
                 context=self.context,
             )
+
+            if error is not None:
+                raise error
 
             if self.capture_output:
                 self.items.append(item)
@@ -789,6 +831,6 @@ class _ContextPreservedAsyncGeneratorWrapper:
                 raise
             self._finalize_with_error(e)
             raise
-        except Exception as e:
+        except BaseException as e:
             self._finalize_with_error(e)
             raise
