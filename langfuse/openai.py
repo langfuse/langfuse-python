@@ -1037,8 +1037,12 @@ def _finalize_stream_response(
     generation: LangfuseGeneration,
     completion_start_time: Optional[datetime],
     model_parameters: Optional[Any] = None,
+    error: Optional[Exception] = None,
 ) -> None:
     try:
+        if error is not None:
+            generation.update(status_message=str(error), level="ERROR")
+
         model, completion, usage, metadata, service_tier = (
             _extract_streamed_response_api_response(items)
             if resource.object == "Responses" or resource.object == "AsyncResponses"
@@ -1083,7 +1087,7 @@ def _instrument_openai_stream(
     is_finalized = False
     close = response.close
 
-    def finalize_once() -> None:
+    def finalize_once(error: Optional[Exception] = None) -> None:
         nonlocal is_finalized
         if is_finalized:
             return
@@ -1095,6 +1099,7 @@ def _instrument_openai_stream(
             generation=generation,
             completion_start_time=completion_start_time,
             model_parameters=model_parameters,
+            error=error,
         )
 
     response._langfuse_finalize_once = finalize_once  # type: ignore[attr-defined]
@@ -1109,6 +1114,9 @@ def _instrument_openai_stream(
                     completion_start_time = _get_timestamp()
 
                 yield item
+        except Exception as ex:
+            finalize_once(error=ex)
+            raise
         finally:
             finalize_once()
 
@@ -1145,7 +1153,7 @@ def _instrument_openai_async_stream(
     is_finalized = False
     close = response.close
 
-    async def finalize_once() -> None:
+    async def finalize_once(error: Optional[Exception] = None) -> None:
         nonlocal is_finalized
         if is_finalized:
             return
@@ -1157,6 +1165,7 @@ def _instrument_openai_async_stream(
             generation=generation,
             completion_start_time=completion_start_time,
             model_parameters=model_parameters,
+            error=error,
         )
 
     response._langfuse_finalize_once = finalize_once  # type: ignore[attr-defined]
@@ -1171,6 +1180,9 @@ def _instrument_openai_async_stream(
                     completion_start_time = _get_timestamp()
 
                 yield item
+        except Exception as ex:
+            await finalize_once(error=ex)
+            raise
         finally:
             await finalize_once()
 
@@ -1471,6 +1483,9 @@ class LangfuseResponseGeneratorSync:
                     self.completion_start_time = _get_timestamp()
 
                 yield i
+        except Exception as ex:
+            self._finalize(error=ex)
+            raise
         finally:
             self._finalize()
 
@@ -1488,6 +1503,9 @@ class LangfuseResponseGeneratorSync:
             self._finalize()
 
             raise
+        except Exception as ex:
+            self._finalize(error=ex)
+            raise
 
     def __enter__(self) -> Any:
         return self.__iter__()
@@ -1504,7 +1522,7 @@ class LangfuseResponseGeneratorSync:
         finally:
             self._finalize()
 
-    def _finalize(self) -> None:
+    def _finalize(self, error: Optional[Exception] = None) -> None:
         if self._is_finalized:
             return
 
@@ -1515,6 +1533,7 @@ class LangfuseResponseGeneratorSync:
             generation=self.generation,
             completion_start_time=self.completion_start_time,
             model_parameters=self.model_parameters,
+            error=error,
         )
 
 
@@ -1545,6 +1564,9 @@ class LangfuseResponseGeneratorAsync:
                     self.completion_start_time = _get_timestamp()
 
                 yield i
+        except Exception as ex:
+            await self._finalize(error=ex)
+            raise
         finally:
             await self._finalize()
 
@@ -1562,6 +1584,9 @@ class LangfuseResponseGeneratorAsync:
             await self._finalize()
 
             raise
+        except Exception as ex:
+            await self._finalize(error=ex)
+            raise
 
     async def __aenter__(self) -> Any:
         return self.__aiter__()
@@ -1569,7 +1594,7 @@ class LangfuseResponseGeneratorAsync:
     async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         await self.aclose()
 
-    async def _finalize(self) -> None:
+    async def _finalize(self, error: Optional[Exception] = None) -> None:
         if self._is_finalized:
             return
 
@@ -1580,6 +1605,7 @@ class LangfuseResponseGeneratorAsync:
             generation=self.generation,
             completion_start_time=self.completion_start_time,
             model_parameters=self.model_parameters,
+            error=error,
         )
 
     async def close(self) -> None:

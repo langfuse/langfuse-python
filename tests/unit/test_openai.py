@@ -49,8 +49,10 @@ class DummyOpenAIAsyncStream(lf_openai.AsyncStream):
 class DummyGeneration:
     def __init__(self) -> None:
         self.end_calls = 0
+        self.updates = []
 
     def update(self, **kwargs):
+        self.updates.append(kwargs)
         return self
 
     def end(self) -> None:
@@ -568,6 +570,7 @@ def test_streaming_chat_completion_exports_ttft(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != "ERROR"
     assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
@@ -632,6 +635,7 @@ def test_openai_stream_preserves_original_stream_contract(
     span = get_span("unit-openai-native-stream")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != "ERROR"
     assert (
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
@@ -705,6 +709,7 @@ def test_openai_stream_break_still_finalizes_generation(
     span = get_span("unit-openai-native-stream-break")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != "ERROR"
     assert (
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
@@ -791,6 +796,7 @@ async def test_openai_async_stream_preserves_original_stream_contract(
     span = get_span("unit-openai-native-async-stream")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != "ERROR"
     assert (
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
@@ -880,6 +886,44 @@ async def test_openai_async_stream_break_still_finalizes_generation(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != "ERROR"
+
+
+@pytest.mark.asyncio
+async def test_openai_async_stream_cancellation_does_not_mark_generation_error(
+    langfuse_memory_client, get_span
+):
+    cancelled = asyncio.CancelledError()
+
+    def chunks_then_cancel():
+        yield _make_single_chunk_stream()
+        raise cancelled
+
+    raw_stream = DummyOpenAIAsyncStream(chunks_then_cancel(), DummyAsyncResponse())
+    async with lf_openai.AsyncOpenAI(api_key="test") as openai_client:
+        with patch.object(
+            openai_client.chat.completions, "_post", return_value=raw_stream
+        ):
+            stream = await openai_client.chat.completions.create(
+                name="unit-openai-stream-cancelled",
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "hello"}],
+                stream=True,
+            )
+
+        with pytest.raises(asyncio.CancelledError) as error:
+            async for _ in stream:
+                pass
+
+        await stream.aclose()
+
+    assert error.value is cancelled
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-stream-cancelled")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != "ERROR"
+    assert LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE not in span.attributes
 
 
 def test_fallback_sync_stream_finalizes_once():
@@ -901,6 +945,7 @@ def test_fallback_sync_stream_finalizes_once():
         next(wrapper)
 
     assert generation.end_calls == 1
+    assert all(update.get("level") != "ERROR" for update in generation.updates)
 
 
 def test_fallback_sync_stream_exit_finalizes_once():
@@ -942,6 +987,7 @@ async def test_fallback_async_stream_finalizes_once():
         await wrapper.__anext__()
 
     assert generation.end_calls == 1
+    assert all(update.get("level") != "ERROR" for update in generation.updates)
 
 
 @pytest.mark.asyncio
@@ -981,6 +1027,107 @@ async def test_fallback_async_stream_aclose_finalizes_once():
     await wrapper.aclose()
 
     assert generation.end_calls == 1
+
+
+@pytest.mark.parametrize("direct_next", [False, True], ids=["iterate", "next"])
+def test_fallback_sync_stream_error_preserves_partial_response(
+    direct_next, langfuse_memory_client, get_span, json_attr
+):
+    error = RuntimeError("stream failed")
+    chunks = _make_chat_stream_chunks()
+
+    def response():
+        yield from chunks
+        raise error
+
+    generation = langfuse_memory_client.start_observation(
+        as_type="generation", name="unit-fallback-stream-error"
+    )
+    wrapper = lf_openai_module.LangfuseResponseGeneratorSync(
+        resource=SimpleNamespace(object="Completions", type="chat"),
+        response=response(),
+        generation=generation,
+    )
+    received = []
+
+    with patch.object(generation, "end", wraps=generation.end) as end:
+        with pytest.raises(RuntimeError) as caught:
+            if direct_next:
+                while True:
+                    received.append(next(wrapper))
+            else:
+                received.extend(wrapper)
+
+        wrapper.close()
+        assert end.call_count == 1
+
+    assert caught.value is error
+    assert received == chunks
+    langfuse_memory_client.flush()
+    span = get_span("unit-fallback-stream-error")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    assert span.attributes[
+        LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE
+    ] == str(error)
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "prompt_tokens": 3,
+        "completion_tokens": 1,
+        "total_tokens": 4,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("direct_next", [False, True], ids=["iterate", "anext"])
+async def test_fallback_async_stream_error_preserves_partial_response(
+    direct_next, langfuse_memory_client, get_span, json_attr
+):
+    error = RuntimeError("stream failed")
+    chunks = _make_chat_stream_chunks()
+
+    async def response():
+        for chunk in chunks:
+            yield chunk
+        raise error
+
+    generation = langfuse_memory_client.start_observation(
+        as_type="generation", name="unit-fallback-async-stream-error"
+    )
+    wrapper = lf_openai_module.LangfuseResponseGeneratorAsync(
+        resource=SimpleNamespace(object="Completions", type="chat"),
+        response=response(),
+        generation=generation,
+    )
+    received = []
+
+    with patch.object(generation, "end", wraps=generation.end) as end:
+        with pytest.raises(RuntimeError) as caught:
+            if direct_next:
+                while True:
+                    received.append(await wrapper.__anext__())
+            else:
+                async for chunk in wrapper:
+                    received.append(chunk)
+
+        await wrapper.aclose()
+        assert end.call_count == 1
+
+    assert caught.value is error
+    assert received == chunks
+    langfuse_memory_client.flush()
+    span = get_span("unit-fallback-async-stream-error")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    assert span.attributes[
+        LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE
+    ] == str(error)
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "prompt_tokens": 3,
+        "completion_tokens": 1,
+        "total_tokens": 4,
+    }
 
 
 def test_embedding_exports_dimensions_and_count(
@@ -1403,14 +1550,31 @@ def _chat_completion_chunk_sse_body():
     )
 
 
-def _mock_transport_openai_client(async_client: bool = False):
+def _chat_completion_stream_error_sse_body():
+    return (
+        'data: {"id":"chatcmpl-test","object":"chat.completion.chunk",'
+        '"created":1700000000,"model":"gpt-4o-mini-2024-07-18",'
+        '"choices":[{"index":0,"delta":{"role":"assistant","content":"Hel"},'
+        '"finish_reason":null}]}\n\n'
+        'data: {"error":{"message":"stream failed","type":"server_error",'
+        '"code":"server_error"}}\n\n'
+    )
+
+
+def _mock_transport_openai_client(
+    async_client: bool = False, sse_body: str | None = None
+):
     import httpx
 
     def handler(request: httpx.Request) -> httpx.Response:
         if b'"stream": true' in request.content or b'"stream":true' in request.content:
             return httpx.Response(
                 200,
-                content=_chat_completion_chunk_sse_body().encode(),
+                content=(
+                    sse_body
+                    if sse_body is not None
+                    else _chat_completion_chunk_sse_body()
+                ).encode(),
                 headers={"content-type": "text/event-stream"},
             )
 
@@ -1426,6 +1590,67 @@ def _mock_transport_openai_client(async_client: bool = False):
         api_key="test",
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
+
+
+def test_openai_stream_error_marks_generation_error(langfuse_memory_client, get_span):
+    chunks = []
+    with _mock_transport_openai_client(
+        sse_body=_chat_completion_stream_error_sse_body()
+    ) as openai_client:
+        stream = openai_client.chat.completions.create(
+            name="unit-openai-stream-error",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "hello"}],
+            stream=True,
+        )
+
+        with pytest.raises(lf_openai.APIError, match="stream failed") as error:
+            for chunk in stream:
+                chunks.append(chunk)
+
+        stream.close()
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["Hel"]
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-stream-error")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "Hel"
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) == "ERROR"
+    assert span.attributes[
+        LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE
+    ] == str(error.value)
+
+
+@pytest.mark.asyncio
+async def test_openai_async_stream_error_marks_generation_error(
+    langfuse_memory_client, get_span
+):
+    chunks = []
+    async with _mock_transport_openai_client(
+        async_client=True, sse_body=_chat_completion_stream_error_sse_body()
+    ) as openai_client:
+        stream = await openai_client.chat.completions.create(
+            name="unit-openai-async-stream-error",
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "hello"}],
+            stream=True,
+        )
+
+        with pytest.raises(lf_openai.APIError, match="stream failed") as error:
+            async for chunk in stream:
+                chunks.append(chunk)
+
+        await stream.aclose()
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["Hel"]
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-async-stream-error")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "Hel"
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) == "ERROR"
+    assert span.attributes[
+        LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE
+    ] == str(error.value)
 
 
 def test_with_raw_response_chat_completion_captures_output_and_usage(
