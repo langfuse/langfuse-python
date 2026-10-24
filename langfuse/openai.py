@@ -458,7 +458,7 @@ def _extract_chat_response(kwargs: Any) -> Any:
         response.update({"tool_calls": kwargs["tool_calls"]})
 
     if kwargs.get("audio") is not None:
-        audio = kwargs["audio"].__dict__
+        audio = kwargs["audio"].__dict__.copy()
 
         if "data" in audio and audio["data"] is not None:
             base64_data_uri = f"data:audio/{audio.get('format', 'wav')};base64,{audio.get('data', None)}"

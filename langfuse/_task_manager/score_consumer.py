@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, cast
 import backoff
 import httpx
 
+from langfuse._client.environment_variables import (
+    LANGFUSE_FLUSH_AT,
+    LANGFUSE_FLUSH_INTERVAL,
+)
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.serializer import EventSerializer
 from langfuse.api import LangfuseAPI
@@ -32,7 +36,8 @@ if _configured_batch_size_bytes > _SCORES_BODY_LIMIT_BYTES:
         _SCORES_BODY_LIMIT_BYTES,
     )
 MAX_BATCH_SIZE_BYTES = min(_configured_batch_size_bytes, _SCORES_BODY_LIMIT_BYTES)
-_SHUTDOWN_SENTINEL = object()
+# Ends the batch being collected. Never counted as an unfinished queue task.
+_WAKE_SIGNAL = object()
 
 
 def _is_retryable(error: Exception) -> bool:
@@ -71,6 +76,15 @@ class ScoreConsumer(threading.Thread):
         self._score_queue = score_queue
         self._identifier = identifier
         self._api_client = api_client
+
+        env_flush_at = os.environ.get(LANGFUSE_FLUSH_AT)
+        if flush_at is None and env_flush_at is not None:
+            flush_at = int(env_flush_at)
+
+        env_flush_interval = os.environ.get(LANGFUSE_FLUSH_INTERVAL)
+        if flush_interval is None and env_flush_interval is not None:
+            flush_interval = float(env_flush_interval)
+
         self._flush_at = flush_at or 15
         self._flush_interval = flush_interval or 1
         self._max_retries = max_retries or 3
@@ -99,8 +113,7 @@ class ScoreConsumer(threading.Thread):
                     block=True, timeout=self._flush_interval - elapsed
                 )
 
-                if score is _SHUTDOWN_SENTINEL:
-                    self._score_queue.task_done()
+                if score is _WAKE_SIGNAL:
                     break
 
                 try:
@@ -199,15 +212,20 @@ class ScoreConsumer(threading.Thread):
             for _ in batch:
                 self._score_queue.task_done()
 
+    def wake(self) -> None:
+        try:
+            self._score_queue.put(_WAKE_SIGNAL, block=False)
+        except Full:
+            return
+
+        # Mark it done now, since no consumer may take it (e.g. when shutdown()
+        # stops the consumer first) and queue.join() would then never return.
+        self._score_queue.task_done()
+
     def pause(self) -> None:
         """Pause the consumer."""
         self.running = False
-        try:
-            self._score_queue.put(_SHUTDOWN_SENTINEL, block=False)
-        except Full:
-            # If the queue is full, the consumer will wake up naturally while
-            # draining items, so a dedicated shutdown signal is not required.
-            pass
+        self.wake()
 
     def _upload_batch(self, batch: List[Dict[str, Any]]) -> None:
         logger.debug("API: Sending batch of %s scores to Langfuse API", len(batch))

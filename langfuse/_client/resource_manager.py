@@ -487,6 +487,13 @@ class LangfuseResourceManager:
                 (for example ``traceId``).
             force_sample: Enqueue the score even if its trace is sampled out.
         """
+        if self._shutdown:
+            langfuse_logger.warning(
+                "Score dropped: Langfuse client has been shut down."
+            )
+
+            return
+
         try:
             trace_id = score.get("traceId")
             tracer_provider = (
@@ -592,6 +599,10 @@ class LangfuseResourceManager:
         ):
             self.tracer_provider.force_flush()
             langfuse_logger.debug("Successfully flushed OTEL tracer provider")
+
+        for score_consumer in self._score_consumers:
+            if score_consumer.is_alive():
+                score_consumer.wake()
 
         self._score_queue.join()
         langfuse_logger.debug("Successfully flushed score queue")

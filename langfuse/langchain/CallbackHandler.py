@@ -852,6 +852,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         except Exception as e:
             langfuse_logger.exception(e)
         finally:
+            self._deregister_langfuse_prompt(run_id)
+
             if parent_run_id is None:
                 self._exit_propagation_context(run_id)
                 self._reset(run_id)
@@ -1369,6 +1371,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         except Exception as e:
             langfuse_logger.exception(e)
         finally:
+            self._updated_completion_start_time_memo.discard(run_id)
+
             if parent_run_id is None:
                 self._reset(run_id)
 

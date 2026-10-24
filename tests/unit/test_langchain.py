@@ -356,6 +356,127 @@ def test_control_flow_errors_use_default_level_and_keep_status_message(
         )
 
 
+def test_streamed_llm_error_cleans_only_its_completion_start_time_memo(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+    failed_run_id = uuid4()
+    active_run_id = uuid4()
+    failed_context = copy_context()
+    active_context = copy_context()
+
+    for context, run_id in (
+        (failed_context, failed_run_id),
+        (active_context, active_run_id),
+    ):
+        context.run(
+            handler.on_llm_start,
+            {"name": "TestLLM"},
+            ["prompt"],
+            run_id=run_id,
+            metadata={"ls_model_name": "test-model"},
+            invocation_params={},
+        )
+        context.run(handler.on_llm_new_token, "first token", run_id=run_id)
+
+    response = LLMResult(generations=[[Generation(text="done")]], llm_output={})
+
+    try:
+        assert failed_run_id in handler._updated_completion_start_time_memo
+        assert active_run_id in handler._updated_completion_start_time_memo
+
+        failed_context.run(
+            handler.on_llm_error,
+            RuntimeError("synthetic failure"),
+            run_id=failed_run_id,
+        )
+
+        assert active_run_id in handler._updated_completion_start_time_memo
+        assert failed_run_id not in handler._updated_completion_start_time_memo
+    finally:
+        active_context.run(
+            handler.on_llm_end,
+            response,
+            run_id=active_run_id,
+        )
+
+
+def test_chain_error_deregisters_prompt_registered_for_the_run(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+    prompt_chain_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"name": "RootChain"},
+        {"input": "hi"},
+        run_id=root_run_id,
+    )
+    handler.on_chain_start(
+        {"name": "PromptChain"},
+        {"input": "hi"},
+        run_id=prompt_chain_run_id,
+        parent_run_id=root_run_id,
+        metadata={"langfuse_prompt": "sentinel-prompt"},
+    )
+
+    assert handler._prompt_to_parent_run_map.get(root_run_id) == "sentinel-prompt"
+
+    handler.on_chain_error(
+        RuntimeError("synthetic failure"),
+        run_id=root_run_id,
+    )
+
+    assert root_run_id not in handler._prompt_to_parent_run_map
+
+
+def test_nested_chain_error_deregisters_propagated_prompt(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+    prompt_chain_run_id = uuid4()
+    nested_chain_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"name": "RootChain"},
+        {"input": "hi"},
+        run_id=root_run_id,
+    )
+    handler.on_chain_start(
+        {"name": "PromptChain"},
+        {"input": "hi"},
+        run_id=prompt_chain_run_id,
+        parent_run_id=root_run_id,
+        metadata={"langfuse_prompt": "sentinel-prompt"},
+    )
+    handler.on_chain_start(
+        {"name": "NestedChain"},
+        {"input": "hi"},
+        run_id=nested_chain_run_id,
+        parent_run_id=root_run_id,
+    )
+
+    assert (
+        handler._prompt_to_parent_run_map.get(nested_chain_run_id) == "sentinel-prompt"
+    )
+
+    handler.on_chain_error(
+        RuntimeError("synthetic failure"),
+        run_id=nested_chain_run_id,
+        parent_run_id=root_run_id,
+    )
+
+    assert nested_chain_run_id not in handler._prompt_to_parent_run_map
+
+    # The parent-level registration survives so a following LLM sibling
+    # can still consume it, matching the success-path lifecycle.
+    assert handler._prompt_to_parent_run_map.get(root_run_id) == "sentinel-prompt"
+
+
 def test_control_flow_resume_uses_thread_keyed_explicit_resume_context(
     memory_exporter, langfuse_memory_client, monkeypatch
 ):

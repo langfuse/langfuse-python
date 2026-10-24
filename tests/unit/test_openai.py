@@ -1,14 +1,20 @@
 import asyncio
+import base64
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from openai.types.chat import ChatCompletionChunk, ChatCompletionMessage
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+)
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
 from pydantic import BaseModel
 
 import langfuse.openai as lf_openai_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse.media import LangfuseMedia
 from langfuse.openai import openai as lf_openai
 
 
@@ -249,6 +255,64 @@ def _make_single_chunk_stream():
             )
         ],
         usage=None,
+    )
+
+
+def test_chat_completion_audio_preserves_provider_response(
+    langfuse_memory_client, get_span, json_attr
+):
+    encoded_audio = base64.b64encode(b"audio bytes").decode()
+    response = ChatCompletion.model_validate(
+        {
+            "id": "audio-response",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "test-audio",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {
+                        "role": "assistant",
+                        "audio": {
+                            "id": "audio-test",
+                            "data": encoded_audio,
+                            "expires_at": 1,
+                            "transcript": "hello",
+                        },
+                    },
+                }
+            ],
+        }
+    )
+    original = response.model_dump_json()
+    openai_client = lf_openai.OpenAI(api_key="test")
+    with (
+        patch.object(openai_client.chat.completions, "_post", return_value=response),
+        patch.object(
+            langfuse_memory_client._resources._media_manager,
+            "_process_upload_media_job",
+        ),
+    ):
+        result = openai_client.chat.completions.create(
+            name="unit-openai-audio",
+            model="test-audio",
+            messages=[{"role": "user", "content": "Say hello"}],
+            modalities=["text", "audio"],
+            audio={"voice": "alloy", "format": "wav"},
+        )
+        langfuse_memory_client.flush()
+
+    assert result is response
+    assert result.model_dump_json() == original
+    assert base64.b64decode(result.choices[0].message.audio.data) == b"audio bytes"
+    output = json_attr(
+        get_span("unit-openai-audio"), LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+    )
+    assert output["audio"]["transcript"] == "hello"
+    assert (
+        LangfuseMedia.parse_reference_string(output["audio"]["data"])["content_type"]
+        == "audio/wav"
     )
 
 
