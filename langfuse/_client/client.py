@@ -1947,9 +1947,15 @@ class Langfuse:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
 
         try:
-            # The model turned bools and ints into floats (True -> 1.0); keep that.
-            if isinstance(value, (bool, int)):
-                value = float(value)
+            # The model coerced every non-str value to float (True -> 1.0,
+            # numpy.bool_ -> 1.0, Decimal("0.75") -> 0.75); keep that.
+            # Typed as float | str, but evaluators often return numpy or Decimal values.
+            raw_value: Any = value
+            if not isinstance(raw_value, (str, float)):
+                try:
+                    value = float(raw_value)
+                except (TypeError, ValueError):
+                    pass
 
             score = {
                 "id": score_id,
