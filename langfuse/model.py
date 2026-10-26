@@ -157,10 +157,21 @@ class BasePromptClient(ABC):
         pass
 
     @staticmethod
-    def _get_langchain_prompt_string(content: str) -> str:
+    def _get_langchain_prompt_string(
+        content: str, data: Optional[Dict[str, Any]] = None
+    ) -> str:
         json_escaped_content = BasePromptClient._escape_json_for_langchain(content)
 
-        return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", json_escaped_content)
+        def replace_variable(match: re.Match[str]) -> str:
+            name = match.group(1).strip()
+            if data is not None and name in data:
+                value = "" if data[name] is None else str(data[name])
+                return value.replace("{", "{{").replace("}", "}}")
+            if re.fullmatch(r"\w+", name):
+                return "{" + name + "}"
+            return match.group(0)
+
+        return re.sub(r"{{\s*([^{}]+?)\s*}}", replace_variable, json_escaped_content)
 
     @staticmethod
     def _escape_json_for_langchain(text: str) -> str:
@@ -266,13 +277,7 @@ class TextPromptClient(BasePromptClient):
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
-        prompt = (
-            TemplateParser.compile_template(self.prompt, kwargs)
-            if kwargs
-            else self.prompt
-        )
-
-        return self._get_langchain_prompt_string(prompt)
+        return self._get_langchain_prompt_string(self.prompt, kwargs)
 
 
 class ChatPromptClient(BasePromptClient):
@@ -443,7 +448,14 @@ class ChatPromptClient(BasePromptClient):
             List of messages in the format expected by Langchain's ChatPromptTemplate:
             (role, content) tuples for regular messages or MessagesPlaceholder objects for unresolved placeholders.
         """
-        compiled_messages = self.compile(**kwargs)
+        placeholder_names = {
+            message["name"]
+            for message in self.prompt
+            if message["type"] == "placeholder"
+        }
+        compiled_messages = self.compile(
+            **{key: value for key, value in kwargs.items() if key in placeholder_names}
+        )
         langchain_messages: List[Union[Tuple[str, str], Any]] = []
 
         for msg in compiled_messages:
@@ -464,7 +476,7 @@ class ChatPromptClient(BasePromptClient):
                     langchain_messages.append(
                         (
                             msg["role"],  # type: ignore
-                            self._get_langchain_prompt_string(msg["content"]),  # type: ignore
+                            self._get_langchain_prompt_string(msg["content"], kwargs),  # type: ignore
                         ),
                     )
 
