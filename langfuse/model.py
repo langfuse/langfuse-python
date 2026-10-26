@@ -160,9 +160,11 @@ class BasePromptClient(ABC):
     def _get_langchain_prompt_string(
         content: str, data: Optional[Dict[str, Any]] = None
     ) -> str:
+        supplied = data or {}
         values = {
-            name: "" if value is None else str(value)
-            for name, value in (data or {}).items()
+            name: "" if supplied[name] is None else str(supplied[name])
+            for name in TemplateParser.find_variable_names(content)
+            if name in supplied
         }
         marker = "\ue000"
         while marker in content or any(marker in value for value in values.values()):

@@ -1059,3 +1059,30 @@ def test_unfilled_variable_next_to_json_close_keeps_working(prompt_type):
         template = ChatPromptTemplate.from_messages(client.get_langchain_prompt())
         rendered = template.format_messages(question=42)[0].content
     assert rendered == '{"answer": 42}'
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+def test_unused_precompiled_values_are_not_stringified(prompt_type):
+    class Unused:
+        def __str__(self):
+            raise AssertionError("an unused value must not be evaluated")
+
+    fields = dict(name="unused_context", version=1, config={}, tags=[], labels=[])
+    source = "Question: {{question}}"
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(
+            client.get_langchain_prompt(unused=Unused())
+        )
+        rendered = template.format(question="Hello")
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(
+            client.get_langchain_prompt(unused=Unused())
+        )
+        rendered = template.format_messages(question="Hello")[0].content
+    assert rendered == "Question: Hello"
