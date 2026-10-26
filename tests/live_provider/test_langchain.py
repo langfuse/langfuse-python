@@ -360,7 +360,7 @@ def test_get_langchain_prompt():
             name=f"test_{i}",
             prompt=test_prompt,
             config={
-                "model": "gpt-3.5-turbo-1106",
+                "model": "gpt-4o-mini",
                 "temperature": 0,
             },
             labels=["production"],
@@ -398,7 +398,7 @@ def test_get_langchain_chat_prompt():
             prompt=test_prompt,
             type="chat",
             config={
-                "model": "gpt-3.5-turbo-1106",
+                "model": "gpt-4o-mini",
                 "temperature": 0,
             },
             labels=["production"],

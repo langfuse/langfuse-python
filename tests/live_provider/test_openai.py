@@ -49,7 +49,7 @@ def test_openai_chat_completion(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[
             {"role": "assistant", "content": "You are an expert mathematician"},
             {"role": "user", "content": "1 + 1 = "},
@@ -76,7 +76,7 @@ def test_openai_chat_completion(openai):
         {"content": "1 + 1 = ", "role": "user"},
     ]
     assert generation[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-0125" in generation[0].model
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -99,7 +99,7 @@ def test_openai_chat_completion_stream(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -126,7 +126,7 @@ def test_openai_chat_completion_stream(openai):
 
     assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation[0].type == "GENERATION"
-    assert "gpt-3.5-turbo-0125" in generation[0].model
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -154,7 +154,7 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -185,7 +185,7 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
 
     assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation[0].type == "GENERATION"
-    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -263,7 +263,7 @@ def test_openai_chat_completion_with_langfuse_prompt(openai):
 
     openai.OpenAI().chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "Make me laugh"}],
         langfuse_prompt=prompt_client,
     )
@@ -318,7 +318,7 @@ def test_openai_chat_completion_fail(openai):
 
 def test_openai_chat_completion_without_extra_param(openai):
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -331,7 +331,7 @@ def test_openai_chat_completion_two_calls(openai):
     generation_name = create_uuid()
     completion = openai.OpenAI().chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "1 + 1 = "}],
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -341,7 +341,7 @@ def test_openai_chat_completion_two_calls(openai):
 
     completion_2 = openai.OpenAI().chat.completions.create(
         name=generation_name_2,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "2 + 2 = "}],
         temperature=0,
         metadata={"someKey": "someResponse"},
@@ -532,7 +532,7 @@ def test_openai_completion_stream_fail(openai):
     with pytest.raises(Exception):
         openai.OpenAI().completions.create(
             name=generation_name,
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             prompt="1 + 1 = ",
             temperature=0,
             metadata={"someKey": "someResponse"},
@@ -549,7 +549,7 @@ def test_openai_completion_stream_fail(openai):
 
     assert generation[0].input == "1 + 1 = "
     assert generation[0].type == "GENERATION"
-    assert generation[0].model == "gpt-3.5-turbo"
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -620,7 +620,7 @@ async def test_async_chat(openai):
 
     completion = await client.chat.completions.create(
         messages=[{"role": "user", "content": "1 + 1 = "}],
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         name=generation_name,
     )
 
@@ -634,7 +634,7 @@ async def test_async_chat(openai):
 
     assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation[0].type == "GENERATION"
-    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -661,7 +661,7 @@ async def test_async_chat_stream(openai):
 
     completion = await client.chat.completions.create(
         messages=[{"role": "user", "content": "1 + 1 = "}],
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         name=generation_name,
         stream=True,
     )
@@ -677,7 +677,7 @@ async def test_async_chat_stream(openai):
     assert generation[0].name == generation_name
     assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation[0].type == "GENERATION"
-    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -708,7 +708,7 @@ async def test_async_chat_stream_with_anext(openai):
 
     completion = await client.chat.completions.create(
         messages=[{"role": "user", "content": "Give me a one-liner joke"}],
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         name=generation_name,
         stream=True,
     )
@@ -736,7 +736,7 @@ async def test_async_chat_stream_with_anext(openai):
         {"content": "Give me a one-liner joke", "role": "user"}
     ]
     assert generation[0].type == "GENERATION"
-    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -773,7 +773,7 @@ def test_openai_function_call(openai):
 
     response = openai.OpenAI().chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
         functions=[
             {
@@ -812,7 +812,7 @@ def test_openai_function_call_streamed(openai):
 
     response = openai.OpenAI().chat.completions.create(
         name=generation_name,
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": "Explain how to assemble a PC"}],
         functions=[
             {
@@ -864,7 +864,7 @@ def test_openai_tool_call(openai):
     ]
     messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
     openai.OpenAI().chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=messages,
         tools=tools,
         tool_choice="auto",
@@ -911,7 +911,7 @@ def test_openai_tool_call_streamed(openai):
     ]
     messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
     response = openai.OpenAI().chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=messages,
         tools=tools,
         tool_choice="required",
@@ -1097,7 +1097,7 @@ async def test_close_async_stream(openai):
 
     stream = await client.chat.completions.create(
         messages=[{"role": "user", "content": "1 + 1 = "}],
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         name=generation_name,
         stream=True,
     )
@@ -1115,7 +1115,7 @@ async def test_close_async_stream(openai):
     assert generation[0].name == generation_name
     assert generation[0].input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation[0].type == "GENERATION"
-    assert generation[0].model == "gpt-3.5-turbo-0125"
+    assert "gpt-4o-mini" in generation[0].model
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time
@@ -1449,9 +1449,9 @@ def test_response_api_reasoning(openai):
 
     client.responses.create(
         name=generation_name,
-        model="o3-mini",
+        model="gpt-5-nano",
         input="How much wood would a woodchuck chuck?",
-        reasoning={"effort": "high"},
+        reasoning={"effort": "minimal"},
     )
     langfuse.flush()
 
@@ -1462,7 +1462,7 @@ def test_response_api_reasoning(openai):
     assert generationData.name == generation_name
     assert generation[0].input == "How much wood would a woodchuck chuck?"
     assert generationData.type == "GENERATION"
-    assert "o3-mini" in generationData.model
+    assert "gpt-5-nano" in generationData.model
     assert generationData.start_time is not None
     assert generationData.end_time is not None
     assert generationData.start_time < generationData.end_time
