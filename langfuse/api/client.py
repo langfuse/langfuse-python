@@ -40,6 +40,7 @@ if typing.TYPE_CHECKING:
     from .scim.client import AsyncScimClient, ScimClient
     from .score_configs.client import AsyncScoreConfigsClient, ScoreConfigsClient
     from .scores.client import AsyncScoresClient, ScoresClient
+    from .skills.client import AsyncSkillsClient, SkillsClient
     from .trace.client import AsyncTraceClient, TraceClient
     from .unstable.client import AsyncUnstableClient, UnstableClient
 
@@ -147,6 +148,7 @@ class LangfuseAPI:
         self._scim: typing.Optional[ScimClient] = None
         self._score_configs: typing.Optional[ScoreConfigsClient] = None
         self._scores: typing.Optional[ScoresClient] = None
+        self._skills: typing.Optional[SkillsClient] = None
         self._trace: typing.Optional[TraceClient] = None
         self._unstable: typing.Optional[UnstableClient] = None
 
@@ -353,6 +355,14 @@ class LangfuseAPI:
         return self._scores
 
     @property
+    def skills(self):
+        if self._skills is None:
+            from .skills.client import SkillsClient  # noqa: E402
+
+            self._skills = SkillsClient(client_wrapper=self._client_wrapper)
+        return self._skills
+
+    @property
     def trace(self):
         if self._trace is None:
             from .trace.client import TraceClient  # noqa: E402
@@ -472,6 +482,7 @@ class AsyncLangfuseAPI:
         self._scim: typing.Optional[AsyncScimClient] = None
         self._score_configs: typing.Optional[AsyncScoreConfigsClient] = None
         self._scores: typing.Optional[AsyncScoresClient] = None
+        self._skills: typing.Optional[AsyncSkillsClient] = None
         self._trace: typing.Optional[AsyncTraceClient] = None
         self._unstable: typing.Optional[AsyncUnstableClient] = None
 
@@ -684,6 +695,14 @@ class AsyncLangfuseAPI:
 
             self._scores = AsyncScoresClient(client_wrapper=self._client_wrapper)
         return self._scores
+
+    @property
+    def skills(self):
+        if self._skills is None:
+            from .skills.client import AsyncSkillsClient  # noqa: E402
+
+            self._skills = AsyncSkillsClient(client_wrapper=self._client_wrapper)
+        return self._skills
 
     @property
     def trace(self):
