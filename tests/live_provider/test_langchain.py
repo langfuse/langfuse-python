@@ -35,7 +35,7 @@ def test_callback_generated_from_trace_chat():
     with langfuse.start_as_current_observation(name="parent") as span:
         trace_id = span.trace_id
         handler = CallbackHandler()
-        chat = ChatOpenAI(temperature=0)
+        chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
         messages = [
             SystemMessage(
@@ -86,7 +86,7 @@ def test_callback_generated_from_lcel_chain():
         trace_id = span.trace_id
         handler = CallbackHandler()
         prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
-        model = ChatOpenAI(temperature=0)
+        model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         chain = prompt | model
 
         chain.invoke(
@@ -139,7 +139,7 @@ def test_basic_chat_openai():
 
     # Initialize handler
     handler = CallbackHandler()
-    chat = ChatOpenAI(temperature=0)
+    chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
     # Prepare messages
     messages = [
@@ -767,7 +767,7 @@ def test_get_langchain_chat_prompt_with_precompiled_prompt():
 def test_callback_openai_functions_with_tools():
     handler = CallbackHandler()
 
-    llm = ChatOpenAI(model="gpt-4", temperature=0, callbacks=[handler])
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, callbacks=[handler])
 
     class StandardizedAddress(BaseModel):
         street: str = Field(description="The street name and number")
