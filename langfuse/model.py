@@ -160,17 +160,23 @@ class BasePromptClient(ABC):
     def _get_langchain_prompt_string(
         content: str, data: Optional[Dict[str, Any]] = None
     ) -> str:
-        def replace_variable(match: re.Match[str]) -> str:
-            name = match.group(1).strip()
-            if data is not None and name in data:
-                value = "" if data[name] is None else str(data[name])
-                return value.replace("{", "{{").replace("}", "}}")
-            if re.fullmatch(r"\w+", name):
-                return "{" + name + "}"
-            return match.group(0)
-
-        compiled = re.sub(r"{{\s*([^{}]+?)\s*}}", replace_variable, content)
-        return BasePromptClient._escape_json_for_langchain(compiled)
+        values = {
+            name: "" if value is None else str(value)
+            for name, value in (data or {}).items()
+        }
+        marker = "\ue000"
+        while marker in content or any(marker in value for value in values.values()):
+            marker = chr(ord(marker) + 1)
+        # Keep supplied braces opaque to template parsing, while leaving quotes
+        # visible for JSON examples completed by a supplied value.
+        protected_values = {
+            name: value.replace("{", marker + "open").replace("}", marker + "close")
+            for name, value in values.items()
+        }
+        compiled = TemplateParser.compile_template(content, protected_values)
+        json_escaped_content = BasePromptClient._escape_json_for_langchain(compiled)
+        converted = re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", json_escaped_content)
+        return converted.replace(marker + "open", "{{").replace(marker + "close", "}}")
 
     @staticmethod
     def _escape_json_for_langchain(text: str) -> str:

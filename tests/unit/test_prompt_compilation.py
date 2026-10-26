@@ -942,6 +942,7 @@ def test_tool_calls_preservation_in_message_placeholder():
         "Use {{name}}",
         "Compare {question}",
         "An unmatched { brace",
+        "Private \ue000 and NUL \0 with {name}",
         'JSON: {"name": "Ada"}',
         "",
         None,
@@ -1039,3 +1040,22 @@ def test_precompiled_values_can_complete_json_example(prompt_type):
         )
         rendered = template.format_messages()[0].content
     assert rendered == '{ "name": "Ada" }'
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+def test_unfilled_variable_next_to_json_close_keeps_working(prompt_type):
+    fields = dict(name="json_variable", version=1, config={}, tags=[], labels=[])
+    source = '{"answer": {{question}}}'
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(client.get_langchain_prompt())
+        rendered = template.format(question=42)
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(client.get_langchain_prompt())
+        rendered = template.format_messages(question=42)[0].content
+    assert rendered == '{"answer": 42}'
