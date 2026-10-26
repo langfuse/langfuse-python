@@ -532,7 +532,7 @@ def test_openai_completion_stream_fail(openai):
     with pytest.raises(Exception):
         openai.OpenAI().completions.create(
             name=generation_name,
-            model="gpt-4o-mini",
+            model="fake",
             prompt="1 + 1 = ",
             temperature=0,
             metadata={"someKey": "someResponse"},
@@ -549,7 +549,7 @@ def test_openai_completion_stream_fail(openai):
 
     assert generation[0].input == "1 + 1 = "
     assert generation[0].type == "GENERATION"
-    assert "gpt-4o-mini" in generation[0].model
+    assert generation[0].model == "fake"
     assert generation[0].start_time is not None
     assert generation[0].end_time is not None
     assert generation[0].start_time < generation[0].end_time

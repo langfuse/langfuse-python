@@ -5,6 +5,7 @@ import time
 from time import sleep
 from typing import Any, Dict, Literal
 
+import httpx
 import pytest
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
@@ -886,7 +887,9 @@ def test_langfuse_overhead():
 
 def test_multimodal():
     handler = CallbackHandler()
-    model = ChatOpenAI(model="gpt-4o-mini")
+    # A dedicated client keeps a quarantine timeout that interrupts this request
+    # from leaving langchain-openai's cached default client unusable for later tests.
+    model = ChatOpenAI(model="gpt-4o-mini", http_client=httpx.Client())
 
     image_data = encode_file_to_base64("static/puton.jpg")
 
