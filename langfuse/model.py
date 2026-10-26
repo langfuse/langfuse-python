@@ -160,8 +160,6 @@ class BasePromptClient(ABC):
     def _get_langchain_prompt_string(
         content: str, data: Optional[Dict[str, Any]] = None
     ) -> str:
-        json_escaped_content = BasePromptClient._escape_json_for_langchain(content)
-
         def replace_variable(match: re.Match[str]) -> str:
             name = match.group(1).strip()
             if data is not None and name in data:
@@ -171,7 +169,8 @@ class BasePromptClient(ABC):
                 return "{" + name + "}"
             return match.group(0)
 
-        return re.sub(r"{{\s*([^{}]+?)\s*}}", replace_variable, json_escaped_content)
+        compiled = re.sub(r"{{\s*([^{}]+?)\s*}}", replace_variable, content)
+        return BasePromptClient._escape_json_for_langchain(compiled)
 
     @staticmethod
     def _escape_json_for_langchain(text: str) -> str:

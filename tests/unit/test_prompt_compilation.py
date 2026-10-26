@@ -1016,3 +1016,26 @@ def test_precompiled_non_word_names_keep_working(prompt_type):
         )
         rendered = template.format_messages(question="Hello")[0].content
     assert rendered == "Context: Keep {name} / Ada / Hello"
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+def test_precompiled_values_can_complete_json_example(prompt_type):
+    fields = dict(name="json_context", version=1, config={}, tags=[], labels=[])
+    source = "{ {{context}} }"
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(
+            client.get_langchain_prompt(context='"name": "Ada"')
+        )
+        rendered = template.format()
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(
+            client.get_langchain_prompt(context='"name": "Ada"')
+        )
+        rendered = template.format_messages()[0].content
+    assert rendered == '{ "name": "Ada" }'
