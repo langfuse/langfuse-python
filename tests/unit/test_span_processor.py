@@ -1,4 +1,5 @@
 import gzip
+import json
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -25,6 +26,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 )
 
 import langfuse._client.span_processor as span_processor_module
+from langfuse import LangfuseOtelSpanAttributes, propagate_attributes
 from langfuse._client.client import Langfuse
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
@@ -400,3 +402,98 @@ def test_on_end_formats_span_only_when_debug_enabled(
     assert ("Processing span name='llm-call'" in caplog.text) == bool(
         expected_formatter_calls
     )
+
+
+@pytest.fixture
+def skills_tracer(memory_exporter):
+    providers = []
+
+    def create(skills):
+        provider = TracerProvider()
+        provider.add_span_processor(
+            LangfuseSpanProcessor(
+                public_key="pk-test",
+                secret_key="sk-test",
+                base_url="http://localhost:3000",
+                span_exporter=memory_exporter,
+                should_export_span=lambda span: True,
+                skills=skills,
+            )
+        )
+        providers.append(provider)
+        return provider.get_tracer("test-skills"), provider
+
+    yield create
+    for provider in providers:
+        provider.shutdown()
+
+
+def test_skills_attachment_default_and_nested_overrides(skills_tracer):
+    key = LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
+    catalog = [{"name": "configured", "version": 2}]
+    tracer, _ = skills_tracer({"available": catalog})
+    with tracer.start_as_current_span("default") as span:
+        assert key not in span.attributes
+    with propagate_attributes(attach_skills=True):
+        with tracer.start_as_current_span("enabled") as span:
+            assert json.loads(span.attributes[key]) == catalog
+        with propagate_attributes(attach_skills=False):
+            with tracer.start_as_current_span("disabled") as span:
+                assert key not in span.attributes
+            with propagate_attributes(skills_available=[]):
+                with tracer.start_as_current_span("explicit") as span:
+                    assert span.attributes[key] == "[]"
+        with tracer.start_as_current_span("restored") as span:
+            assert json.loads(span.attributes[key]) == catalog
+
+
+@pytest.mark.parametrize("propagated", [[], [{"name": "propagated"}]])
+def test_skill_attachment_precedence(skills_tracer, propagated):
+    key = LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
+    tracer, _ = skills_tracer({"available": [{"name": "configured"}]})
+    with propagate_attributes(attach_skills=True, skills_available=propagated):
+        with tracer.start_as_current_span("propagated") as span:
+            assert json.loads(span.attributes[key]) == propagated
+        with tracer.start_as_current_span("direct", attributes={key: "[]"}) as span:
+            assert span.attributes[key] == "[]"
+
+
+def test_configured_skills_are_serialized_once(skills_tracer):
+    skills = [{"name": "configured", "future_field": {"enabled": True}}]
+    tracer, _ = skills_tracer({"available": skills})
+    skills.clear()
+    with propagate_attributes(attach_skills=True):
+        with tracer.start_as_current_span("configured") as span:
+            assert json.loads(
+                span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE]
+            ) == [{"name": "configured", "future_field": {"enabled": True}}]
+
+
+def test_skill_catalog_is_scoped_to_its_project(memory_exporter):
+    provider = TracerProvider()
+    for project in ("A", "B"):
+        provider.add_span_processor(
+            LangfuseSpanProcessor(
+                public_key=project,
+                secret_key="test-secret",
+                base_url="http://localhost:3000",
+                span_exporter=memory_exporter,
+                skills={
+                    "available": [{"name": project}],
+                },
+            )
+        )
+    try:
+        tracer = provider.get_tracer("langfuse-sdk", attributes={"public_key": "B"})
+        with (
+            propagate_attributes(attach_skills=True),
+            tracer.start_as_current_span("project-b") as span,
+        ):
+            assert (
+                span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE]
+                == '[{"name":"B"}]'
+            )
+        provider.force_flush()
+        assert len(memory_exporter.get_finished_spans()) == 1
+    finally:
+        provider.shutdown()

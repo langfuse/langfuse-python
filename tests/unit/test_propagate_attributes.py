@@ -3831,3 +3831,72 @@ class TestPropagateAttributesPrompt(TestPropagateAttributesBase):
         self.verify_missing_attribute(
             after_span, LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME
         )
+
+
+class TestPropagatedSkills(TestPropagateAttributesBase):
+    def test_catalog_replaces_inherited_and_updates_current_span(
+        self, langfuse_client, memory_exporter
+    ):
+        outer = [{"name": "refund", "version": 2, "future_field": {"enabled": True}}]
+        with propagate_attributes(skills_available=outer):
+            with langfuse_client.start_as_current_observation(name="parent"):
+                with propagate_attributes(skills_available=[]):
+                    langfuse_client.start_observation(name="cleared").end()
+                langfuse_client.start_observation(name="restored").end()
+        langfuse_client.start_observation(name="outside").end()
+        for name in ("parent", "cleared"):
+            _assert_json_attribute(
+                self.get_span_by_name(memory_exporter, name),
+                LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
+                [],
+            )
+        _assert_json_attribute(
+            self.get_span_by_name(memory_exporter, "restored"),
+            LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
+            outer,
+        )
+        self.verify_missing_attribute(
+            self.get_span_by_name(memory_exporter, "outside"),
+            LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
+        )
+
+    def test_skills_never_use_baggage(self):
+        from opentelemetry import baggage, context
+
+        from langfuse._client.propagation import _get_propagated_attributes_from_context
+
+        with propagate_attributes(
+            skills_available=[{"name": "local"}],
+            attach_skills=True,
+            as_baggage=True,
+        ):
+            assert not any("skills" in key for key in baggage.get_all())
+        incoming = baggage.set_baggage(
+            "langfuse_skills_available", '[{"name":"remote"}]'
+        )
+        incoming = baggage.set_baggage(
+            "langfuse_attach_skills", "true", context=incoming
+        )
+        incoming = baggage.set_baggage(
+            "langfuse_available_skills", '[{"name":"legacy"}]', context=incoming
+        )
+        incoming = baggage.set_baggage(
+            "langfuse_attach_discovered_skills", "true", context=incoming
+        )
+        assert not _get_propagated_attributes_from_context(incoming)
+        assert not _get_propagated_attributes_from_context(context.get_current())
+
+    def test_invalid_serialization_keeps_outer_catalog(
+        self, langfuse_client, memory_exporter, caplog
+    ):
+        with propagate_attributes(skills_available=[{"name": "outer"}]):
+            with propagate_attributes(
+                skills_available=[{"name": "bad", "extra": object()}]
+            ):
+                langfuse_client.start_observation(name="child").end()
+        _assert_json_attribute(
+            self.get_span_by_name(memory_exporter, "child"),
+            LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
+            [{"name": "outer"}],
+        )
+        assert "Failed to serialize available skills" in caplog.text
