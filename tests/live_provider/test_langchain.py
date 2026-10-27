@@ -5,6 +5,7 @@ import time
 from time import sleep
 from typing import Any, Dict, Literal
 
+import httpx
 import pytest
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
@@ -35,7 +36,7 @@ def test_callback_generated_from_trace_chat():
     with langfuse.start_as_current_observation(name="parent") as span:
         trace_id = span.trace_id
         handler = CallbackHandler()
-        chat = ChatOpenAI(temperature=0)
+        chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
         messages = [
             SystemMessage(
@@ -86,7 +87,7 @@ def test_callback_generated_from_lcel_chain():
         trace_id = span.trace_id
         handler = CallbackHandler()
         prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
-        model = ChatOpenAI(temperature=0)
+        model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         chain = prompt | model
 
         chain.invoke(
@@ -139,7 +140,7 @@ def test_basic_chat_openai():
 
     # Initialize handler
     handler = CallbackHandler()
-    chat = ChatOpenAI(temperature=0)
+    chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
     # Prepare messages
     messages = [
@@ -360,7 +361,7 @@ def test_get_langchain_prompt():
             name=f"test_{i}",
             prompt=test_prompt,
             config={
-                "model": "gpt-3.5-turbo-1106",
+                "model": "gpt-4o-mini",
                 "temperature": 0,
             },
             labels=["production"],
@@ -398,7 +399,7 @@ def test_get_langchain_chat_prompt():
             prompt=test_prompt,
             type="chat",
             config={
-                "model": "gpt-3.5-turbo-1106",
+                "model": "gpt-4o-mini",
                 "temperature": 0,
             },
             labels=["production"],
@@ -767,7 +768,7 @@ def test_get_langchain_chat_prompt_with_precompiled_prompt():
 def test_callback_openai_functions_with_tools():
     handler = CallbackHandler()
 
-    llm = ChatOpenAI(model="gpt-4", temperature=0, callbacks=[handler])
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, callbacks=[handler])
 
     class StandardizedAddress(BaseModel):
         street: str = Field(description="The street name and number")
@@ -886,7 +887,9 @@ def test_langfuse_overhead():
 
 def test_multimodal():
     handler = CallbackHandler()
-    model = ChatOpenAI(model="gpt-4o-mini")
+    # A dedicated client keeps a quarantine timeout that interrupts this request
+    # from leaving langchain-openai's cached default client unusable for later tests.
+    model = ChatOpenAI(model="gpt-4o-mini", http_client=httpx.Client())
 
     image_data = encode_file_to_base64("static/puton.jpg")
 
