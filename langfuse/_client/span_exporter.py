@@ -112,7 +112,7 @@ class LangfuseTransformingSpanExporter(SpanExporter):
                 span,
                 self._process_media_attributes(
                     span=span,
-                    attributes=dict(span.attributes or {}),
+                    attributes=_attributes_dict(span.attributes),
                 ),
             )
             for span in spans
@@ -574,8 +574,19 @@ def _create_otel_span_data(
         if instrumentation_scope
         else None,
         attributes=MappingProxyType(dict(attributes)),
-        resource_attributes=MappingProxyType(dict(span.resource.attributes or {})),
+        resource_attributes=MappingProxyType(
+            _attributes_dict(span.resource.attributes)
+        ),
     )
+
+
+def _attributes_dict(
+    attributes: Optional[MappingCollection[str, Any]],
+) -> Dict[str, AttributeValue]:
+    # The SDK types attribute values as the recursive ``AnyValue``, which also
+    # allows bytes, mappings and None. The exporter passes such values through
+    # unchanged, so they are treated as opaque ``AttributeValue``s here.
+    return cast(Dict[str, AttributeValue], dict(attributes or {}))
 
 
 def _clean_attribute_value(*, key: str, value: Any) -> Optional[AttributeValue]:
