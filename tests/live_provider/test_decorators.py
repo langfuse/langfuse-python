@@ -49,7 +49,7 @@ def test_decorators_langchain():
         # Get langfuse callback handler for LangChain
         handler = CallbackHandler()
         prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
-        model = ChatOpenAI(temperature=0)
+        model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
         chain = prompt | model
 
@@ -135,7 +135,7 @@ async def test_async_nested_openai_chat_stream():
     @observe(capture_output=False)
     async def level_2_function():
         gen = await AsyncOpenAI().chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": "1 + 1 = "}],
             temperature=0,
             metadata={"someKey": "someResponse"},
@@ -201,7 +201,7 @@ async def test_async_nested_openai_chat_stream():
     assert generation.metadata["someKey"] == "someResponse"
     assert generation.input == [{"content": "1 + 1 = ", "role": "user"}]
     assert generation.type == "GENERATION"
-    assert "gpt-3.5-turbo" in generation.model
+    assert "gpt-4o-mini" in generation.model
     assert generation.start_time is not None
     assert generation.end_time is not None
     assert generation.start_time < generation.end_time
@@ -217,4 +217,4 @@ async def test_async_nested_openai_chat_stream():
     assert generation.usage_details["output"] is not None
     assert generation.usage_details["total"] is not None
     print(generation)
-    assert generation.output == "2"
+    assert "2" in generation.output
