@@ -69,7 +69,7 @@ def test_nested_observations():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             output="mock_output",
         )
         langfuse.update_current_generation(version="version-1")
@@ -150,7 +150,7 @@ def test_nested_observations_with_non_parentheses_decorator():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             output="mock_output",
         )
         langfuse.update_current_generation(version="version-1")
@@ -233,7 +233,7 @@ def test_exception_in_wrapped_function():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
         )
         with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
             pass
@@ -307,7 +307,7 @@ def test_concurrent_decorator_executions():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
         )
         with propagate_attributes(trace_name=mock_name, session_id=mock_session_id):
             pass
@@ -590,7 +590,7 @@ def test_decorated_class_and_instance_methods():
             langfuse.update_current_generation(
                 metadata=mock_deep_metadata,
                 usage_details={"input": 150, "output": 50, "total": 300},
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 output="mock_output",
             )
 

@@ -626,7 +626,7 @@ class TestBasicSpans(TestOTelBase):
                 with main_span.start_as_current_observation(
                     as_type="generation",
                     name="llm-call",
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     input={"prompt": "Summarize this text"},
                     metadata={"service": "OpenAI"},
                 ) as generation:
@@ -960,7 +960,7 @@ class TestBasicSpans(TestOTelBase):
             gen1 = main_span.start_observation(
                 as_type="generation",
                 name="generation-1",
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 input={"prompt": "First prompt"},
                 output={"text": "First response"},
                 model_parameters={"temperature": 0.7},
@@ -1009,7 +1009,7 @@ class TestBasicSpans(TestOTelBase):
         )
         assert (
             gen1_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
-            == "gpt-3.5-turbo"
+            == "gpt-4o-mini"
         )
 
         assert (
@@ -1822,7 +1822,7 @@ class TestMetadataHandling(TestOTelBase):
 
         async def update_config_model():
             # Update just model
-            update = {"config": {"model": "gpt-3.5-turbo"}}
+            update = {"config": {"model": "gpt-4o-mini"}}
             return _flatten_and_serialize_metadata(update, "observation")
 
         async def update_telemetry_platform():
@@ -1906,7 +1906,7 @@ class TestMetadataHandling(TestOTelBase):
         # Verify model update only changed model
         assert config_key in model_result
         model_config = json.loads(model_result[config_key])
-        assert model_config["model"] == "gpt-3.5-turbo"
+        assert model_config["model"] == "gpt-4o-mini"
         assert "parameters" not in model_config  # Shouldn't be present
 
         # Verify platform update only changed platform
@@ -3366,7 +3366,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
                 main_span.update(
                     metadata={
                         "llm_config": {
-                            "model": "gpt-3.5-turbo"  # Update model
+                            "model": "gpt-4o-mini"  # Update model
                         }
                     }
                 )
@@ -3427,7 +3427,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
         # Verify metadata structure (if implementation supports proper nesting)
         if "llm_config" in metadata:
             # These assertions may fail if the implementation doesn't support proper nesting
-            assert metadata["llm_config"]["model"] == "gpt-3.5-turbo"
+            assert metadata["llm_config"]["model"] == "gpt-4o-mini"
 
             if "parameters" in metadata["llm_config"]:
                 assert metadata["llm_config"]["parameters"]["temperature"] == 0.8
