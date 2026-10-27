@@ -965,6 +965,7 @@ class BatchEvaluationRunner:
                 logger.error(
                     "Failed to fetch batch after %s retries: %s", max_retries, e
                 )
+                self.client.flush()
 
                 return self._build_result(
                     total_items_fetched=total_items_fetched,

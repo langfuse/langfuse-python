@@ -237,25 +237,30 @@ async def test_max_items_reached_on_last_page_has_no_resume_token():
 
 
 @pytest.mark.asyncio
-async def test_fetch_failure_returns_resume_token_for_failed_page():
-    runner, api, _ = make_runner([make_observation(i) for i in range(6)])
-    api.fail_on_call = 2
+@pytest.mark.parametrize("fail_on_call", [1, 2])
+async def test_fetch_failure_returns_resume_token_for_failed_page(fail_on_call):
+    runner, api, client = make_runner([make_observation(i) for i in range(6)])
+    api.fail_on_call = fail_on_call
 
     failed = await run(runner, fetch_batch_size=2, max_retries=0)
 
+    processed = (fail_on_call - 1) * 2
     assert failed.completed is False
-    assert failed.total_items_processed == 2
+    assert failed.total_items_processed == processed
     token = failed.resume_token
     assert token is not None
-    assert token.cursor == "2"
-    assert token.last_processed_id == "obs-4"
+    assert token.cursor == (str(processed) if processed else None)
+    assert token.last_processed_id == (f"obs-{6 - processed}" if processed else "")
+    assert client.create_score.call_count == processed
+    client.flush.assert_called_once()
 
     api.fail_on_call = None
     resumed = await run(runner, fetch_batch_size=2, resume_from=token)
 
     assert resumed.completed is True
-    assert set(resumed.item_evaluations) == {"obs-3", "obs-2", "obs-1", "obs-0"}
+    assert set(resumed.item_evaluations) == {f"obs-{i}" for i in range(6 - processed)}
     assert api.calls[-1]["request_options"] == {"max_retries": 3}
+    assert client.flush.call_count == 2
 
 
 @pytest.mark.asyncio
