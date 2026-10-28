@@ -631,3 +631,20 @@ def test_named_inputs_excludes_langfuse_public_key(
     langfuse_memory_client.flush()
 
     assert _observation_input(memory_exporter, "with_public_key") == {"query": "q"}
+
+
+def test_named_inputs_keeps_first_argument_when_cls_is_not_first(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="parse", named_inputs=True)
+    def parse(data: str, *, cls: str) -> str:
+        return data
+
+    parse(data="payload", cls="Model")
+
+    langfuse_memory_client.flush()
+
+    assert _observation_input(memory_exporter, "parse") == {
+        "data": "payload",
+        "cls": "Model",
+    }

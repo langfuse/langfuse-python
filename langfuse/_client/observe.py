@@ -478,8 +478,9 @@ class LangfuseDecorator:
                 pass  # fall back to the args/kwargs format below
             else:
                 arguments = dict(bound.arguments)
-                if is_method:
-                    arguments.pop(next(iter(signature.parameters)), None)
+                first_param = next(iter(signature.parameters), None)
+                if is_method and first_param in ("self", "cls"):
+                    arguments.pop(first_param, None)
 
                 return arguments
 
