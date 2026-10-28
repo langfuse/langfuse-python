@@ -4,11 +4,19 @@ import datetime as dt
 import typing
 from json.decoder import JSONDecodeError
 
-from ...commons.errors.access_denied_error import AccessDeniedError
+from ...commons.errors.access_denied_error import (
+    AccessDeniedError as commons_errors_access_denied_error_AccessDeniedError,
+)
 from ...commons.errors.error import Error
-from ...commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ...commons.errors.not_found_error import NotFoundError
-from ...commons.errors.unauthorized_error import UnauthorizedError
+from ...commons.errors.method_not_allowed_error import (
+    MethodNotAllowedError as commons_errors_method_not_allowed_error_MethodNotAllowedError,
+)
+from ...commons.errors.not_found_error import (
+    NotFoundError as commons_errors_not_found_error_NotFoundError,
+)
+from ...commons.errors.unauthorized_error import (
+    UnauthorizedError as commons_errors_unauthorized_error_UnauthorizedError,
+)
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.datetime_utils import serialize_datetime
@@ -16,92 +24,168 @@ from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.jsonable_encoder import jsonable_encoder
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
-from ...core.serialization import convert_and_respect_annotation_metadata
-from .types.delete_skill_version_response import DeleteSkillVersionResponse
-from .types.skill_file_contents_response import SkillFileContentsResponse
-from .types.skill_meta_list_response import SkillMetaListResponse
-from .types.skill_version import SkillVersion
-from .types.skill_version_file_create_input import SkillVersionFileCreateInput
+from ..errors.errors.access_denied_error import (
+    AccessDeniedError as unstable_errors_errors_access_denied_error_AccessDeniedError,
+)
+from ..errors.errors.bad_request_error import BadRequestError
+from ..errors.errors.internal_server_error import InternalServerError
+from ..errors.errors.method_not_allowed_error import (
+    MethodNotAllowedError as unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError,
+)
+from ..errors.errors.not_found_error import (
+    NotFoundError as unstable_errors_errors_not_found_error_NotFoundError,
+)
+from ..errors.errors.too_many_requests_error import TooManyRequestsError
+from ..errors.errors.unauthorized_error import (
+    UnauthorizedError as unstable_errors_errors_unauthorized_error_UnauthorizedError,
+)
+from ..errors.types.public_api_error import PublicApiError
+from .types.topic_facet import TopicFacet
+from .types.topic_facet_list import TopicFacetList
+from .types.topic_list import TopicList
+from .types.topic_with_status import TopicWithStatus
+from .types.topics_order_by import TopicsOrderBy
 
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
 
-
-class RawSkillsClient:
+class RawTopicsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def list(
+    def list_facets(
         self,
         *,
-        name: typing.Optional[str] = None,
-        search: typing.Optional[str] = None,
-        tag: typing.Optional[str] = None,
+        filter: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        from_updated_at: typing.Optional[dt.datetime] = None,
-        to_updated_at: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[SkillMetaListResponse]:
+    ) -> HttpResponse[TopicFacetList]:
         """
-        List skills with metadata and timestamps from their latest version, shared tags, and the version assigned to production when present.
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        List the project's Topics facets. Only active facets (attached to the
+        project's Topics rule, or all facets if the project has no rule) are
+        returned unless `filter` contains an `active` condition.
+
+        `filter` is a JSON array of filter conditions combined with AND.
+        String matching is case-insensitive. Columns: `id` (stringOptions),
+        `name` (string, stringOptions), `description` (string), `isBuiltIn`
+        (boolean), `active` (boolean).
 
         Parameters
         ----------
-        name : typing.Optional[str]
-            Filter by exact skill name.
-
-        search : typing.Optional[str]
-            Case-insensitive search across skill names and latest-version descriptions.
-
-        tag : typing.Optional[str]
-            Filter by a shared skill tag.
+        filter : typing.Optional[str]
+            JSON array of filter conditions, for example `[{"type":"string","column":"name","operator":"contains","value":"issue"}]`.
 
         page : typing.Optional[int]
+            1-based page number. Defaults to `1`.
 
         limit : typing.Optional[int]
-
-        from_updated_at : typing.Optional[dt.datetime]
-            Include skills whose latest version was updated at or after this timestamp.
-
-        to_updated_at : typing.Optional[dt.datetime]
-            Include skills whose latest version was updated before this timestamp.
+            Maximum number of items per page. Defaults to `50`, at most `100`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[SkillMetaListResponse]
+        HttpResponse[TopicFacetList]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
+            "api/public/unstable/topic-facets",
             method="GET",
             params={
-                "name": name,
-                "search": search,
-                "tag": tag,
+                "filter": filter,
                 "page": page,
                 "limit": limit,
-                "fromUpdatedAt": serialize_datetime(from_updated_at)
-                if from_updated_at is not None
-                else None,
-                "toUpdatedAt": serialize_datetime(to_updated_at)
-                if to_updated_at is not None
-                else None,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    SkillMetaListResponse,
+                    TopicFacetList,
                     parse_obj_as(
-                        type_=SkillMetaListResponse,  # type: ignore
+                        type_=TopicFacetList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 400:
                 raise Error(
                     headers=dict(_response.headers),
@@ -114,7 +198,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 401:
-                raise UnauthorizedError(
+                raise commons_errors_unauthorized_error_UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -125,7 +209,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 403:
-                raise AccessDeniedError(
+                raise commons_errors_access_denied_error_AccessDeniedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -136,7 +220,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -147,7 +231,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 404:
-                raise NotFoundError(
+                raise commons_errors_not_found_error_NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -170,53 +254,117 @@ class RawSkillsClient:
             body=_response_json,
         )
 
-    def create_version(
-        self,
-        *,
-        files: typing.Sequence[SkillVersionFileCreateInput],
-        commit_message: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[SkillVersion]:
+    def get_facet(
+        self, facet_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[TopicFacet]:
         """
-        Create skill version
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        Get one Topics facet by id, including inactive facets.
 
         Parameters
         ----------
-        files : typing.Sequence[SkillVersionFileCreateInput]
-
-        commit_message : typing.Optional[str]
+        facet_id : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[SkillVersion]
+        HttpResponse[TopicFacet]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
-            method="POST",
-            json={
-                "files": convert_and_respect_annotation_metadata(
-                    object_=files,
-                    annotation=typing.Sequence[SkillVersionFileCreateInput],
-                    direction="write",
-                ),
-                "commitMessage": commit_message,
-            },
+            f"api/public/unstable/topic-facets/{jsonable_encoder(facet_id)}",
+            method="GET",
             request_options=request_options,
-            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    SkillVersion,
+                    TopicFacet,
                     parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
+                        type_=TopicFacet,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 400:
                 raise Error(
                     headers=dict(_response.headers),
@@ -229,7 +377,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 401:
-                raise UnauthorizedError(
+                raise commons_errors_unauthorized_error_UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -240,7 +388,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 403:
-                raise AccessDeniedError(
+                raise commons_errors_access_denied_error_AccessDeniedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -251,7 +399,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -262,7 +410,234 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 404:
-                raise NotFoundError(
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    def list(
+        self,
+        *,
+        from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
+        filter: typing.Optional[str] = None,
+        order_by: typing.Optional[TopicsOrderBy] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[TopicList]:
+        """
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        List the topics of each active facet's current published map, with
+        the number of traces currently assigned to each topic in the window.
+        Retired topics are not listed. `facets` holds per-facet trace counts
+        by topic status.
+
+        The window applies to the trace start time. It defaults to the last
+        7 days and can span at most 93 days.
+
+        `filter` is a JSON array of filter conditions combined with AND.
+        String matching is case-insensitive. Columns: `facetId`
+        (stringOptions), `facetName` (string, stringOptions), `id`
+        (stringOptions), `name` (string, stringOptions). Facet conditions also
+        restrict `facets`.
+
+        Parameters
+        ----------
+        from_timestamp : typing.Optional[dt.datetime]
+            Start of the window (trace start time, inclusive). Defaults to 7 days before `toTimestamp`.
+
+        to_timestamp : typing.Optional[dt.datetime]
+            End of the window (trace start time, exclusive). Defaults to now.
+
+        filter : typing.Optional[str]
+            JSON array of filter conditions, for example `[{"type":"stringOptions","column":"facetName","operator":"any of","value":["Issues"]}]`.
+
+        order_by : typing.Optional[TopicsOrderBy]
+            Defaults to `traceCount.desc`.
+
+        page : typing.Optional[int]
+            1-based page number. Defaults to `1`.
+
+        limit : typing.Optional[int]
+            Maximum number of items per page. Defaults to `50`, at most `100`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[TopicList]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/public/unstable/topics",
+            method="GET",
+            params={
+                "fromTimestamp": serialize_datetime(from_timestamp)
+                if from_timestamp is not None
+                else None,
+                "toTimestamp": serialize_datetime(to_timestamp)
+                if to_timestamp is not None
+                else None,
+                "filter": filter,
+                "orderBy": order_by,
+                "page": page,
+                "limit": limit,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    TopicList,
+                    parse_obj_as(
+                        type_=TopicList,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -287,49 +662,136 @@ class RawSkillsClient:
 
     def get(
         self,
-        skill_name: str,
+        topic_id: str,
         *,
-        version: typing.Optional[int] = None,
-        label: typing.Optional[str] = None,
+        from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[SkillVersion]:
+    ) -> HttpResponse[TopicWithStatus]:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        Get one topic by its stable id. Topics on the current map are always
+        found. A retired topic is found while traces in the window are still
+        assigned to it, with `inCurrentMap: false`.
 
         Parameters
         ----------
-        skill_name : str
+        topic_id : str
 
-        version : typing.Optional[int]
+        from_timestamp : typing.Optional[dt.datetime]
+            Start of the window used for `traceCount`. Defaults to 7 days before `toTimestamp`.
 
-        label : typing.Optional[str]
+        to_timestamp : typing.Optional[dt.datetime]
+            End of the window used for `traceCount`. Defaults to now.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[SkillVersion]
+        HttpResponse[TopicWithStatus]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            f"api/public/unstable/topics/{jsonable_encoder(topic_id)}",
             method="GET",
             params={
-                "version": version,
-                "label": label,
+                "fromTimestamp": serialize_datetime(from_timestamp)
+                if from_timestamp is not None
+                else None,
+                "toTimestamp": serialize_datetime(to_timestamp)
+                if to_timestamp is not None
+                else None,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    SkillVersion,
+                    TopicWithStatus,
                     parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
+                        type_=TopicWithStatus,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 400:
                 raise Error(
                     headers=dict(_response.headers),
@@ -342,7 +804,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 401:
-                raise UnauthorizedError(
+                raise commons_errors_unauthorized_error_UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -353,7 +815,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 403:
-                raise AccessDeniedError(
+                raise commons_errors_access_denied_error_AccessDeniedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -364,7 +826,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -375,444 +837,7 @@ class RawSkillsClient:
                     ),
                 )
             if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    def update(
-        self,
-        skill_name: str,
-        *,
-        tags: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[SkillVersion]:
-        """
-        Replace the shared tags across all versions of a skill. An empty tags list clears all tags. Returns the latest skill version with the updated tags.
-
-        Parameters
-        ----------
-        skill_name : str
-
-        tags : typing.Sequence[str]
-            The complete set of tags to apply to every version of the skill. Pass an empty list to clear all tags.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[SkillVersion]
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
-            method="PATCH",
-            json={
-                "tags": tags,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SkillVersion,
-                    parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    def get_file_contents(
-        self,
-        *,
-        sha256hashes: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[SkillFileContentsResponse]:
-        """
-        Read a batch of text contents by canonical base64-encoded SHA-256 hashes.
-
-        Parameters
-        ----------
-        sha256hashes : str
-            Comma-separated list of one to 50 canonical base64-encoded SHA-256 hashes from skill file manifests. URL-encode the value, including +, /, and = characters.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[SkillFileContentsResponse]
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills/files/content",
-            method="GET",
-            params={
-                "sha256Hashes": sha256hashes,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SkillFileContentsResponse,
-                    parse_obj_as(
-                        type_=SkillFileContentsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    def set_labels(
-        self,
-        skill_name: str,
-        skill_version: int,
-        *,
-        labels: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[SkillVersion]:
-        """
-        Replace the labels on a skill version and atomically move them from other versions.
-
-        Parameters
-        ----------
-        skill_name : str
-
-        skill_version : int
-
-        labels : typing.Sequence[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[SkillVersion]
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
-            method="PATCH",
-            json={
-                "labels": labels,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SkillVersion,
-                    parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    def delete_version(
-        self,
-        skill_name: str,
-        skill_version: int,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[DeleteSkillVersionResponse]:
-        """
-        Delete one immutable skill version. Unreferenced blobs are retained for asynchronous cleanup.
-
-        Parameters
-        ----------
-        skill_name : str
-
-        skill_version : int
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[DeleteSkillVersionResponse]
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    DeleteSkillVersionResponse,
-                    parse_obj_as(
-                        type_=DeleteSkillVersionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
+                raise commons_errors_not_found_error_NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -836,81 +861,551 @@ class RawSkillsClient:
         )
 
 
-class AsyncRawSkillsClient:
+class AsyncRawTopicsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    async def list_facets(
+        self,
+        *,
+        filter: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[TopicFacetList]:
+        """
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        List the project's Topics facets. Only active facets (attached to the
+        project's Topics rule, or all facets if the project has no rule) are
+        returned unless `filter` contains an `active` condition.
+
+        `filter` is a JSON array of filter conditions combined with AND.
+        String matching is case-insensitive. Columns: `id` (stringOptions),
+        `name` (string, stringOptions), `description` (string), `isBuiltIn`
+        (boolean), `active` (boolean).
+
+        Parameters
+        ----------
+        filter : typing.Optional[str]
+            JSON array of filter conditions, for example `[{"type":"string","column":"name","operator":"contains","value":"issue"}]`.
+
+        page : typing.Optional[int]
+            1-based page number. Defaults to `1`.
+
+        limit : typing.Optional[int]
+            Maximum number of items per page. Defaults to `50`, at most `100`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[TopicFacetList]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/public/unstable/topic-facets",
+            method="GET",
+            params={
+                "filter": filter,
+                "page": page,
+                "limit": limit,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    TopicFacetList,
+                    parse_obj_as(
+                        type_=TopicFacetList,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
+
+    async def get_facet(
+        self, facet_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[TopicFacet]:
+        """
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        Get one Topics facet by id, including inactive facets.
+
+        Parameters
+        ----------
+        facet_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[TopicFacet]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/public/unstable/topic-facets/{jsonable_encoder(facet_id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    TopicFacet,
+                    parse_obj_as(
+                        type_=TopicFacet,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise Error(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise commons_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise commons_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise commons_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(
+                status_code=_response.status_code,
+                headers=dict(_response.headers),
+                body=_response.text,
+            )
+        raise ApiError(
+            status_code=_response.status_code,
+            headers=dict(_response.headers),
+            body=_response_json,
+        )
 
     async def list(
         self,
         *,
-        name: typing.Optional[str] = None,
-        search: typing.Optional[str] = None,
-        tag: typing.Optional[str] = None,
+        from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
+        filter: typing.Optional[str] = None,
+        order_by: typing.Optional[TopicsOrderBy] = None,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        from_updated_at: typing.Optional[dt.datetime] = None,
-        to_updated_at: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[SkillMetaListResponse]:
+    ) -> AsyncHttpResponse[TopicList]:
         """
-        List skills with metadata and timestamps from their latest version, shared tags, and the version assigned to production when present.
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        List the topics of each active facet's current published map, with
+        the number of traces currently assigned to each topic in the window.
+        Retired topics are not listed. `facets` holds per-facet trace counts
+        by topic status.
+
+        The window applies to the trace start time. It defaults to the last
+        7 days and can span at most 93 days.
+
+        `filter` is a JSON array of filter conditions combined with AND.
+        String matching is case-insensitive. Columns: `facetId`
+        (stringOptions), `facetName` (string, stringOptions), `id`
+        (stringOptions), `name` (string, stringOptions). Facet conditions also
+        restrict `facets`.
 
         Parameters
         ----------
-        name : typing.Optional[str]
-            Filter by exact skill name.
+        from_timestamp : typing.Optional[dt.datetime]
+            Start of the window (trace start time, inclusive). Defaults to 7 days before `toTimestamp`.
 
-        search : typing.Optional[str]
-            Case-insensitive search across skill names and latest-version descriptions.
+        to_timestamp : typing.Optional[dt.datetime]
+            End of the window (trace start time, exclusive). Defaults to now.
 
-        tag : typing.Optional[str]
-            Filter by a shared skill tag.
+        filter : typing.Optional[str]
+            JSON array of filter conditions, for example `[{"type":"stringOptions","column":"facetName","operator":"any of","value":["Issues"]}]`.
+
+        order_by : typing.Optional[TopicsOrderBy]
+            Defaults to `traceCount.desc`.
 
         page : typing.Optional[int]
+            1-based page number. Defaults to `1`.
 
         limit : typing.Optional[int]
-
-        from_updated_at : typing.Optional[dt.datetime]
-            Include skills whose latest version was updated at or after this timestamp.
-
-        to_updated_at : typing.Optional[dt.datetime]
-            Include skills whose latest version was updated before this timestamp.
+            Maximum number of items per page. Defaults to `50`, at most `100`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[SkillMetaListResponse]
+        AsyncHttpResponse[TopicList]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
+            "api/public/unstable/topics",
             method="GET",
             params={
-                "name": name,
-                "search": search,
-                "tag": tag,
+                "fromTimestamp": serialize_datetime(from_timestamp)
+                if from_timestamp is not None
+                else None,
+                "toTimestamp": serialize_datetime(to_timestamp)
+                if to_timestamp is not None
+                else None,
+                "filter": filter,
+                "orderBy": order_by,
                 "page": page,
                 "limit": limit,
-                "fromUpdatedAt": serialize_datetime(from_updated_at)
-                if from_updated_at is not None
-                else None,
-                "toUpdatedAt": serialize_datetime(to_updated_at)
-                if to_updated_at is not None
-                else None,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    SkillMetaListResponse,
+                    TopicList,
                     parse_obj_as(
-                        type_=SkillMetaListResponse,  # type: ignore
+                        type_=TopicList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 400:
                 raise Error(
                     headers=dict(_response.headers),
@@ -923,7 +1418,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 401:
-                raise UnauthorizedError(
+                raise commons_errors_unauthorized_error_UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -934,7 +1429,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 403:
-                raise AccessDeniedError(
+                raise commons_errors_access_denied_error_AccessDeniedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -945,7 +1440,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -956,122 +1451,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    async def create_version(
-        self,
-        *,
-        files: typing.Sequence[SkillVersionFileCreateInput],
-        commit_message: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[SkillVersion]:
-        """
-        Create skill version
-
-        Parameters
-        ----------
-        files : typing.Sequence[SkillVersionFileCreateInput]
-
-        commit_message : typing.Optional[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[SkillVersion]
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
-            method="POST",
-            json={
-                "files": convert_and_respect_annotation_metadata(
-                    object_=files,
-                    annotation=typing.Sequence[SkillVersionFileCreateInput],
-                    direction="write",
-                ),
-                "commitMessage": commit_message,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SkillVersion,
-                    parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
+                raise commons_errors_not_found_error_NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -1096,49 +1476,136 @@ class AsyncRawSkillsClient:
 
     async def get(
         self,
-        skill_name: str,
+        topic_id: str,
         *,
-        version: typing.Optional[int] = None,
-        label: typing.Optional[str] = None,
+        from_timestamp: typing.Optional[dt.datetime] = None,
+        to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[SkillVersion]:
+    ) -> AsyncHttpResponse[TopicWithStatus]:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Unstable: Topics is in closed beta. The shape may change without notice.
+
+        Get one topic by its stable id. Topics on the current map are always
+        found. A retired topic is found while traces in the window are still
+        assigned to it, with `inCurrentMap: false`.
 
         Parameters
         ----------
-        skill_name : str
+        topic_id : str
 
-        version : typing.Optional[int]
+        from_timestamp : typing.Optional[dt.datetime]
+            Start of the window used for `traceCount`. Defaults to 7 days before `toTimestamp`.
 
-        label : typing.Optional[str]
+        to_timestamp : typing.Optional[dt.datetime]
+            End of the window used for `traceCount`. Defaults to now.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[SkillVersion]
+        AsyncHttpResponse[TopicWithStatus]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            f"api/public/unstable/topics/{jsonable_encoder(topic_id)}",
             method="GET",
             params={
-                "version": version,
-                "label": label,
+                "fromTimestamp": serialize_datetime(from_timestamp)
+                if from_timestamp is not None
+                else None,
+                "toTimestamp": serialize_datetime(to_timestamp)
+                if to_timestamp is not None
+                else None,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    SkillVersion,
+                    TopicWithStatus,
                     parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
+                        type_=TopicWithStatus,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise unstable_errors_errors_unauthorized_error_UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise unstable_errors_errors_access_denied_error_AccessDeniedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise unstable_errors_errors_not_found_error_NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 405:
+                raise unstable_errors_errors_method_not_allowed_error_MethodNotAllowedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        PublicApiError,
+                        parse_obj_as(
+                            type_=PublicApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 400:
                 raise Error(
                     headers=dict(_response.headers),
@@ -1151,7 +1618,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 401:
-                raise UnauthorizedError(
+                raise commons_errors_unauthorized_error_UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -1162,7 +1629,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 403:
-                raise AccessDeniedError(
+                raise commons_errors_access_denied_error_AccessDeniedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -1173,7 +1640,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 405:
-                raise MethodNotAllowedError(
+                raise commons_errors_method_not_allowed_error_MethodNotAllowedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -1184,444 +1651,7 @@ class AsyncRawSkillsClient:
                     ),
                 )
             if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    async def update(
-        self,
-        skill_name: str,
-        *,
-        tags: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[SkillVersion]:
-        """
-        Replace the shared tags across all versions of a skill. An empty tags list clears all tags. Returns the latest skill version with the updated tags.
-
-        Parameters
-        ----------
-        skill_name : str
-
-        tags : typing.Sequence[str]
-            The complete set of tags to apply to every version of the skill. Pass an empty list to clear all tags.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[SkillVersion]
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
-            method="PATCH",
-            json={
-                "tags": tags,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SkillVersion,
-                    parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    async def get_file_contents(
-        self,
-        *,
-        sha256hashes: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[SkillFileContentsResponse]:
-        """
-        Read a batch of text contents by canonical base64-encoded SHA-256 hashes.
-
-        Parameters
-        ----------
-        sha256hashes : str
-            Comma-separated list of one to 50 canonical base64-encoded SHA-256 hashes from skill file manifests. URL-encode the value, including +, /, and = characters.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[SkillFileContentsResponse]
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills/files/content",
-            method="GET",
-            params={
-                "sha256Hashes": sha256hashes,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SkillFileContentsResponse,
-                    parse_obj_as(
-                        type_=SkillFileContentsResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    async def set_labels(
-        self,
-        skill_name: str,
-        skill_version: int,
-        *,
-        labels: typing.Sequence[str],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[SkillVersion]:
-        """
-        Replace the labels on a skill version and atomically move them from other versions.
-
-        Parameters
-        ----------
-        skill_name : str
-
-        skill_version : int
-
-        labels : typing.Sequence[str]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[SkillVersion]
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
-            method="PATCH",
-            json={
-                "labels": labels,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SkillVersion,
-                    parse_obj_as(
-                        type_=SkillVersion,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(
-                status_code=_response.status_code,
-                headers=dict(_response.headers),
-                body=_response.text,
-            )
-        raise ApiError(
-            status_code=_response.status_code,
-            headers=dict(_response.headers),
-            body=_response_json,
-        )
-
-    async def delete_version(
-        self,
-        skill_name: str,
-        skill_version: int,
-        *,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[DeleteSkillVersionResponse]:
-        """
-        Delete one immutable skill version. Unreferenced blobs are retained for asynchronous cleanup.
-
-        Parameters
-        ----------
-        skill_name : str
-
-        skill_version : int
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[DeleteSkillVersionResponse]
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    DeleteSkillVersionResponse,
-                    parse_obj_as(
-                        type_=DeleteSkillVersionResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise Error(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise AccessDeniedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 405:
-                raise MethodNotAllowedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
+                raise commons_errors_not_found_error_NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
