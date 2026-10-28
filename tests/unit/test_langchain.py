@@ -4,7 +4,12 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    FunctionMessage,
+    HumanMessage,
+    ToolMessage,
+)
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
 from langchain_core.prompts import ChatPromptTemplate
@@ -97,6 +102,42 @@ def test_chat_model_callback_exports_generation_span(
         "completion_tokens": 2,
         "total_tokens": 6,
     }
+
+
+def test_chat_model_input_keeps_message_names(
+    langfuse_memory_client, get_span, json_attr
+):
+    response = ChatResult(
+        generations=[ChatGeneration(message=AIMessage(content="sunny"), text="sunny")]
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test").invoke(
+            [
+                HumanMessage(content="weather?", name="alice"),
+                AIMessage(
+                    content="",
+                    tool_calls=[{"name": "get_weather", "args": {}, "id": "call_1"}],
+                ),
+                ToolMessage(content="sunny", tool_call_id="call_1", name="get_weather"),
+                FunctionMessage(content="sunny", name="get_weather"),
+                HumanMessage(content="legacy", additional_kwargs={"name": "bob"}),
+            ],
+            config={"callbacks": [CallbackHandler()]},
+        )
+
+    langfuse_memory_client.flush()
+    messages = json_attr(
+        get_span("ChatOpenAI"), LangfuseOtelSpanAttributes.OBSERVATION_INPUT
+    )
+
+    assert [(message["role"], message.get("name")) for message in messages] == [
+        ("user", "alice"),
+        ("assistant", None),
+        ("tool", "get_weather"),
+        ("function", "get_weather"),
+        ("user", "bob"),
+    ]
 
 
 def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
