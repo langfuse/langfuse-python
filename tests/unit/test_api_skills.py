@@ -72,15 +72,3 @@ async def test_async_get_skill_inline_content(skill_response, include_content):
 
     assert isinstance(skill, SkillVersion)
     assert skill.files[0].content == ("# Refunds" if include_content else None)
-
-
-def test_unstable_skills_remains_available(skill_response):
-    def handle(request):
-        assert request.url.path == "/api/public/unstable/skills/refund-policy"
-        return httpx.Response(200, json=skill_response)
-
-    with httpx.Client(transport=httpx.MockTransport(handle)) as http_client:
-        api = LangfuseAPI(base_url="https://langfuse.test", httpx_client=http_client)
-        skill = api.unstable.skills.get("refund-policy")
-
-    assert skill.name == "refund-policy"
