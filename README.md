@@ -54,35 +54,6 @@ with langfuse.start_as_current_observation(as_type="span", name="process-request
 langfuse.flush()
 ```
 
-## Skills
-
-Attach skills to spans to display them on generation observations in Langfuse.
-
-```python
-from langfuse import Langfuse, discover_skills, propagate_attributes
-
-skills = discover_skills(dir=".agents/skills")
-langfuse = Langfuse(skills={"available": skills})
-with propagate_attributes(attach_skills=True):
-    ...
-```
-
-Provide skills directly to override the configured list without an attachment flag.
-
-```python
-with propagate_attributes(skills_available=[{"name": "refund-policy", "version": 2}]):
-    ...
-```
-
-Discovery reads `langfuse-skills.lock` from the skills directory, falling back to the working directory.
-
-Fetch skill contents through the generated API.
-
-```python
-skill = langfuse.api.skills.get("refund-policy", label="production", include_content=True)
-skill = await langfuse.async_api.skills.get("refund-policy", include_content=True)
-```
-
 ## Docs
 
 - SDK guide: https://langfuse.com/docs/observability/sdk/overview
