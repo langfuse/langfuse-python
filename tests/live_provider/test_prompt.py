@@ -23,7 +23,7 @@ def test_create_chat_prompt():
     second_prompt_client = langfuse.get_prompt(prompt_name, type="chat")
 
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o-mini",
         messages=prompt_client.compile(animal="dog", occupation="doctor"),
     )
 
@@ -67,7 +67,7 @@ def test_create_chat_prompt_with_placeholders():
     )
 
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o-mini",
         messages=messages,
     )
 
