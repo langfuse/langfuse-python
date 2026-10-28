@@ -340,8 +340,8 @@ def test_reserved_keys_already_written_cost_no_extra_slot(small_limit_client, ge
 
 
 def test_reserved_keys_depend_on_observation_type(langfuse_memory_client, get_span):
-    assert len(_RESERVED_SPAN_ATTRIBUTE_KEYS) == 7
-    assert len(_RESERVED_OBSERVATION_ATTRIBUTE_KEYS) == 14
+    assert len(_RESERVED_SPAN_ATTRIBUTE_KEYS) == 8
+    assert len(_RESERVED_OBSERVATION_ATTRIBUTE_KEYS) == 15
     for observation_type in ("generation", "embedding", None):
         assert (
             _reserved_attribute_keys(observation_type)
@@ -375,8 +375,8 @@ def test_reserved_keys_depend_on_observation_type(langfuse_memory_client, get_sp
     generation = get_span("typed-generation")
     span_count = len(_metadata_keys(span))
     generation_count = len(_metadata_keys(generation))
-    # The span reserves 5 open slots (level, status message, version, output,
-    # plus environment when unset) instead of 12 for the generation.
+    # The span reserves 6 open slots (level, status message, version, output,
+    # skills, plus environment when unset) instead of 13 for the generation.
     assert span_count - generation_count == 7
     assert span.dropped_attributes == 0
     assert generation.dropped_attributes == 0
@@ -674,3 +674,21 @@ def test_experiment_with_large_metadata_keeps_output_and_experiment_attributes(
     warnings = _limit_warnings(caplog)
     assert warnings
     assert all("other attribute(s)" not in w.getMessage() for w in warnings)
+
+
+def test_metadata_reserves_room_for_later_skill_availability(
+    small_limit_client, get_span
+):
+    observation = small_limit_client.start_observation(
+        name="late-skills", metadata={f"key_{i}": i for i in range(130)}
+    )
+    before = dict(observation._otel_span.attributes)
+    observation.update(available_skills=[{"name": "support", "version": 2}])
+    observation.end()
+    small_limit_client.flush()
+
+    attributes = get_span("late-skills").attributes
+    assert all(attributes[key] == value for key, value in before.items())
+    assert json.loads(
+        attributes[LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE]
+    ) == [{"name": "support", "version": 2}]

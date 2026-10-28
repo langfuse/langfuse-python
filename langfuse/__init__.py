@@ -65,6 +65,7 @@ from ._client.constants import ObservationTypeLiteral
 from ._client.get_client import get_client
 from ._client.observe import observe
 from ._client.propagation import propagate_attributes
+from ._client.skills import discover_skills
 from ._client.span import (
     LangfuseAgent,
     LangfuseChain,
@@ -93,6 +94,8 @@ from .types import (
     OtelSpanData,
     OtelSpanIdentifier,
     OtelSpanPatch,
+    SkillReference,
+    SkillsConfig,
 )
 
 Langfuse = _client_module.Langfuse
@@ -104,6 +107,9 @@ __all__ = [
     "get_client",
     "observe",
     "propagate_attributes",
+    "discover_skills",
+    "SkillReference",
+    "SkillsConfig",
     "ObservationTypeLiteral",
     "LangfuseSpan",
     "LangfuseGeneration",

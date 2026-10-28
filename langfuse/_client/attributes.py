@@ -18,11 +18,12 @@ from langfuse._client.constants import (
     ObservationTypeGenerationLike,
     ObservationTypeSpanLike,
 )
+from langfuse._client.skills import serialize_available_skills
 from langfuse._utils.serializer import EventSerializer
 from langfuse.api import MapValue
 from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
-from langfuse.types import SpanLevel
+from langfuse.types import SkillReference, SpanLevel
 
 
 class LangfuseOtelSpanAttributes:
@@ -41,6 +42,7 @@ class LangfuseOtelSpanAttributes:
     OBSERVATION_STATUS_MESSAGE = "langfuse.observation.status_message"
     OBSERVATION_INPUT = "langfuse.observation.input"
     OBSERVATION_OUTPUT = "langfuse.observation.output"
+    OBSERVATION_SKILLS_AVAILABLE = "langfuse.observation.skills_available"
 
     # Langfuse-observation of type Generation attributes
     OBSERVATION_COMPLETION_START_TIME = "langfuse.observation.completion_start_time"
@@ -87,6 +89,7 @@ def create_trace_attributes(
 def create_span_attributes(
     *,
     metadata: Optional[Any] = None,
+    available_skills: Optional[list[SkillReference]] = None,
     input: Optional[Any] = None,
     output: Optional[Any] = None,
     level: Optional[SpanLevel] = None,
@@ -103,6 +106,7 @@ def create_span_attributes(
         LangfuseOtelSpanAttributes.VERSION: version,
         LangfuseOtelSpanAttributes.OBSERVATION_INPUT: _serialize(input),
         LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT: _serialize(output),
+        **create_available_skills_attributes(available_skills),
         **_flatten_and_serialize_metadata(metadata, "observation"),
     }
 
@@ -114,6 +118,7 @@ def create_generation_attributes(
     name: Optional[str] = None,
     completion_start_time: Optional[datetime] = None,
     metadata: Optional[Any] = None,
+    available_skills: Optional[list[SkillReference]] = None,
     level: Optional[SpanLevel] = None,
     status_message: Optional[str] = None,
     version: Optional[str] = None,
@@ -148,10 +153,20 @@ def create_generation_attributes(
         LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS: _serialize(
             model_parameters
         ),
+        **create_available_skills_attributes(available_skills),
         **_flatten_and_serialize_metadata(metadata, "observation"),
     }
 
     return {k: v for k, v in attributes.items() if v is not None}
+
+
+def create_available_skills_attributes(
+    available_skills: Optional[list[SkillReference]],
+) -> dict[str, str]:
+    serialized = serialize_available_skills(available_skills)
+    if serialized is None:
+        return {}
+    return {LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE: serialized}
 
 
 def _serialize(obj: Any) -> Optional[str]:

@@ -40,7 +40,9 @@ from langfuse._client.environment_variables import (
 from langfuse._client.propagation import (
     _get_langfuse_trace_id_from_baggage,
     _get_propagated_attributes_from_context,
+    _get_propagated_context_key,
 )
+from langfuse._client.skills import serialize_available_skills
 from langfuse._client.span import _set_span_attributes_within_limit
 from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
 from langfuse._client.span_filter import (
@@ -52,7 +54,7 @@ from langfuse._client.utils import span_formatter
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._version import __version__ as langfuse_version
 from langfuse.logger import langfuse_logger
-from langfuse.types import MaskOtelSpansFunction
+from langfuse.types import MaskOtelSpansFunction, SkillsConfig
 
 
 def _resolve_max_batch_size_bytes() -> Optional[int]:
@@ -157,7 +159,13 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         media_manager: Optional[MediaManager] = None,
         mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         otel_compression: Optional[Literal["gzip", "none"]] = None,
+        skills: Optional[SkillsConfig] = None,
     ):
+        self._available_skills = (
+            serialize_available_skills(skills["available"])
+            if skills is not None
+            else None
+        )
         self.public_key = public_key
         self._should_export_span = should_export_span or is_default_export_span
 
@@ -242,6 +250,21 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                     LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
                 )
             }
+
+        skills_key = LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
+        # Existing span skills take precedence over propagation, then configured skills.
+        if skills_key in existing_attributes:
+            propagated_attributes.pop(skills_key, None)
+        elif (
+            skills_key not in propagated_attributes
+            and self._available_skills is not None
+            and (not is_langfuse_span(span) or self._is_langfuse_project_span(span))
+            and context_api.get_value(
+                _get_propagated_context_key("attach_skills"), context=context
+            )
+            is True
+        ):
+            propagated_attributes[skills_key] = self._available_skills
 
         if propagated_attributes:
             _set_span_attributes_within_limit(span, propagated_attributes)

@@ -57,6 +57,7 @@ def _create_client_from_instance(
         id_generator=instance.id_generator,
         span_exporter=instance.span_exporter,
         otel_compression=instance.otel_compression,
+        skills=instance.skills,
         httpx_client=instance.httpx_client,
     )
 

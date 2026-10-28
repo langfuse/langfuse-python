@@ -43,9 +43,11 @@ from langfuse._client.attributes import (
     _serialize_metadata_value,
 )
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
+from langfuse._client.skills import serialize_available_skills
 from langfuse._client.span import _set_span_attributes_within_limit
 from langfuse.logger import langfuse_logger
 from langfuse.model import PromptClient
+from langfuse.types import SkillReference
 
 PropagatedKeys = Literal[
     "user_id",
@@ -57,6 +59,7 @@ PropagatedKeys = Literal[
     "environment",
     "prompt_name",
     "prompt_version",
+    "skills_available",
 ]
 
 InternalPropagatedKeys = Literal[
@@ -79,6 +82,7 @@ propagated_keys: List[Union[PropagatedKeys, InternalPropagatedKeys]] = [
     "environment",
     "prompt_name",
     "prompt_version",
+    "skills_available",
     "experiment_id",
     "experiment_name",
     "experiment_metadata",
@@ -125,6 +129,8 @@ def propagate_attributes(
     trace_name: Optional[str] = None,
     environment: Optional[str] = None,
     prompt: Optional[Union[PromptClient, Mapping[str, Any]]] = None,
+    skills_available: Optional[List[SkillReference]] = None,
+    attach_skills: Optional[bool] = None,
     as_baggage: bool = False,
 ) -> _AgnosticContextManager[Any]:
     """Propagate trace-level attributes to all spans created within this context.
@@ -185,6 +191,11 @@ def propagate_attributes(
             takes precedence over the local client default configured via
             `Langfuse(environment=...)` or `LANGFUSE_TRACING_ENVIRONMENT` for spans
             created while this propagation context is active.
+        skills_available: Skill references with name and optional version; replaces
+            skills on the current span and in inherited context, including when empty.
+            Never sent as baggage.
+        attach_skills: Attach the configured skill catalog to spans
+            created in this context; disabled by default. Never sent as baggage.
         as_baggage: If True, propagates attributes using OpenTelemetry baggage for
             cross-process/service propagation. **Security warning**: When enabled,
             attribute values are added to HTTP headers on ALL outbound requests.
@@ -314,6 +325,8 @@ def propagate_attributes(
         trace_name=trace_name,
         environment=environment,
         prompt=prompt,
+        skills_available=skills_available,
+        attach_skills=attach_skills,
         as_baggage=as_baggage,
     )
 
@@ -329,11 +342,29 @@ def _propagate_attributes(
     trace_name: Optional[str] = None,
     environment: Optional[str] = None,
     prompt: Optional[Union[PromptClient, Mapping[str, Any]]] = None,
+    skills_available: Optional[List[SkillReference]] = None,
+    attach_skills: Optional[bool] = None,
     as_baggage: bool = False,
     experiment: Optional[PropagatedExperimentAttributes] = None,
 ) -> Generator[Any, Any, Any]:
     context = otel_context_api.get_current()
     current_span = otel_trace_api.get_current_span()
+
+    serialized_skills = serialize_available_skills(skills_available)
+    if serialized_skills is not None:
+        context = _set_propagated_attribute(
+            key="skills_available",
+            value=serialized_skills,
+            context=context,
+            span=current_span,
+            as_baggage=False,
+        )
+    if isinstance(attach_skills, bool):
+        context = otel_context_api.set_value(
+            key=_get_propagated_context_key("attach_skills"),
+            value=attach_skills,
+            context=context,
+        )
 
     propagated_string_attributes: Dict[str, Optional[Union[str, List[str]]]] = {
         "user_id": user_id,
@@ -785,6 +816,7 @@ def _get_propagated_span_key(key: str) -> str:
         "metadata": LangfuseOtelSpanAttributes.TRACE_METADATA,
         "prompt_name": LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_NAME,
         "prompt_version": LangfuseOtelSpanAttributes.OBSERVATION_PROMPT_VERSION,
+        "skills_available": LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
         "experiment_id": LangfuseOtelSpanAttributes.EXPERIMENT_ID,
         "experiment_name": LangfuseOtelSpanAttributes.EXPERIMENT_NAME,
         "experiment_metadata": LangfuseOtelSpanAttributes.EXPERIMENT_METADATA,
