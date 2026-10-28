@@ -4,8 +4,8 @@ import typing
 
 import pydantic
 import typing_extensions
-from ....core.pydantic_utilities import UniversalBaseModel
-from ....core.serialization import FieldMetadata
+from ...core.pydantic_utilities import UniversalBaseModel
+from ...core.serialization import FieldMetadata
 
 
 class SkillFile(UniversalBaseModel):
@@ -17,6 +17,10 @@ class SkillFile(UniversalBaseModel):
     content_length: typing_extensions.Annotated[
         int, FieldMetadata(alias="contentLength")
     ]
+    content: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    UTF-8 text content, included when fetching a skill with includeContent enabled.
+    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

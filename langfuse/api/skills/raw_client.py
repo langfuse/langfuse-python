@@ -4,19 +4,19 @@ import datetime as dt
 import typing
 from json.decoder import JSONDecodeError
 
-from ...commons.errors.access_denied_error import AccessDeniedError
-from ...commons.errors.error import Error
-from ...commons.errors.method_not_allowed_error import MethodNotAllowedError
-from ...commons.errors.not_found_error import NotFoundError
-from ...commons.errors.unauthorized_error import UnauthorizedError
-from ...core.api_error import ApiError
-from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.datetime_utils import serialize_datetime
-from ...core.http_response import AsyncHttpResponse, HttpResponse
-from ...core.jsonable_encoder import jsonable_encoder
-from ...core.pydantic_utilities import parse_obj_as
-from ...core.request_options import RequestOptions
-from ...core.serialization import convert_and_respect_annotation_metadata
+from ..commons.errors.access_denied_error import AccessDeniedError
+from ..commons.errors.error import Error
+from ..commons.errors.method_not_allowed_error import MethodNotAllowedError
+from ..commons.errors.not_found_error import NotFoundError
+from ..commons.errors.unauthorized_error import UnauthorizedError
+from ..core.api_error import ApiError
+from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ..core.datetime_utils import serialize_datetime
+from ..core.http_response import AsyncHttpResponse, HttpResponse
+from ..core.jsonable_encoder import jsonable_encoder
+from ..core.pydantic_utilities import parse_obj_as
+from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from .types.delete_skill_version_response import DeleteSkillVersionResponse
 from .types.skill_file_contents_response import SkillFileContentsResponse
 from .types.skill_meta_list_response import SkillMetaListResponse
@@ -75,7 +75,7 @@ class RawSkillsClient:
         HttpResponse[SkillMetaListResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
+            "api/public/skills",
             method="GET",
             params={
                 "name": name,
@@ -194,7 +194,7 @@ class RawSkillsClient:
         HttpResponse[SkillVersion]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
+            "api/public/skills",
             method="POST",
             json={
                 "files": convert_and_respect_annotation_metadata(
@@ -291,10 +291,11 @@ class RawSkillsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        include_content: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SkillVersion]:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Set includeContent to return file contents inline, or use each file's sha256Hash with getFileContents.
 
         Parameters
         ----------
@@ -304,6 +305,9 @@ class RawSkillsClient:
 
         label : typing.Optional[str]
 
+        include_content : typing.Optional[bool]
+            Include UTF-8 text content in each file. Defaults to false.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -312,11 +316,12 @@ class RawSkillsClient:
         HttpResponse[SkillVersion]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}",
             method="GET",
             params={
                 "version": version,
                 "label": label,
+                "includeContent": include_content,
             },
             request_options=request_options,
         )
@@ -423,7 +428,7 @@ class RawSkillsClient:
         HttpResponse[SkillVersion]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}",
             method="PATCH",
             json={
                 "tags": tags,
@@ -531,7 +536,7 @@ class RawSkillsClient:
         HttpResponse[SkillFileContentsResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills/files/content",
+            "api/public/skills/files/content",
             method="GET",
             params={
                 "sha256Hashes": sha256hashes,
@@ -643,7 +648,7 @@ class RawSkillsClient:
         HttpResponse[SkillVersion]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
             method="PATCH",
             json={
                 "labels": labels,
@@ -753,7 +758,7 @@ class RawSkillsClient:
         HttpResponse[DeleteSkillVersionResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
             method="DELETE",
             request_options=request_options,
         )
@@ -884,7 +889,7 @@ class AsyncRawSkillsClient:
         AsyncHttpResponse[SkillMetaListResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
+            "api/public/skills",
             method="GET",
             params={
                 "name": name,
@@ -1003,7 +1008,7 @@ class AsyncRawSkillsClient:
         AsyncHttpResponse[SkillVersion]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills",
+            "api/public/skills",
             method="POST",
             json={
                 "files": convert_and_respect_annotation_metadata(
@@ -1100,10 +1105,11 @@ class AsyncRawSkillsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        include_content: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SkillVersion]:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Set includeContent to return file contents inline, or use each file's sha256Hash with getFileContents.
 
         Parameters
         ----------
@@ -1113,6 +1119,9 @@ class AsyncRawSkillsClient:
 
         label : typing.Optional[str]
 
+        include_content : typing.Optional[bool]
+            Include UTF-8 text content in each file. Defaults to false.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1121,11 +1130,12 @@ class AsyncRawSkillsClient:
         AsyncHttpResponse[SkillVersion]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}",
             method="GET",
             params={
                 "version": version,
                 "label": label,
+                "includeContent": include_content,
             },
             request_options=request_options,
         )
@@ -1232,7 +1242,7 @@ class AsyncRawSkillsClient:
         AsyncHttpResponse[SkillVersion]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}",
             method="PATCH",
             json={
                 "tags": tags,
@@ -1340,7 +1350,7 @@ class AsyncRawSkillsClient:
         AsyncHttpResponse[SkillFileContentsResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "api/public/unstable/skills/files/content",
+            "api/public/skills/files/content",
             method="GET",
             params={
                 "sha256Hashes": sha256hashes,
@@ -1452,7 +1462,7 @@ class AsyncRawSkillsClient:
         AsyncHttpResponse[SkillVersion]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
             method="PATCH",
             json={
                 "labels": labels,
@@ -1562,7 +1572,7 @@ class AsyncRawSkillsClient:
         AsyncHttpResponse[DeleteSkillVersionResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
+            f"api/public/skills/{jsonable_encoder(skill_name)}/versions/{jsonable_encoder(skill_version)}",
             method="DELETE",
             request_options=request_options,
         )
