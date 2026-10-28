@@ -15,31 +15,51 @@ _CLI_LOCK = "langfuse-skills.lock"
 def discover_skills(*, dir: str) -> list[SkillReference]:
     """Read immediate skill directories and optional CLI installation metadata.
 
-    Directories must contain a regular SKILL.md file. Hidden directories and
-    symlinks are skipped. The configured directory's langfuse-skills.lock takes
-    precedence over the working directory's lock. Unlocked skills use their
-    directory name without a version. Lock records do not verify local edits.
+    Directories must contain a regular SKILL.md file. Hidden directories are
+    skipped and symlinks are followed. The configured directory's
+    langfuse-skills.lock takes precedence over the working directory's lock.
+    Unlocked skills use their directory name without a version. Lock records
+    do not verify local edits.
 
-    Missing directories return an empty list. Unreadable directories or malformed
-    lockfiles raise; invalid individual lock entries and duplicate names are skipped.
+    Missing directories return an empty list. Unreadable or malformed lockfiles
+    warn and fall back to directory names. Entries that cannot be inspected,
+    invalid lock entries, and duplicate names are skipped with a warning.
     """
     root = Path(os.path.abspath(dir))
     if _stat_if_exists(root) is None:
         return []
 
-    locked = _read_cli_lock(_find_cli_lock(root))
+    locked: dict[Path, SkillReference] = {}
+    try:
+        locked = _read_cli_lock(_find_cli_lock(root))
+    except (OSError, ValueError) as error:
+        langfuse_logger.warning(
+            "Could not read skill lockfile for %s. Using directory names without versions: %s",
+            root,
+            error,
+        )
     available: dict[str, SkillReference] = {}
     with os.scandir(root) as entries:
         candidates = sorted(entries, key=lambda entry: entry.name)
     for candidate in candidates:
-        if candidate.name.startswith(".") or not candidate.is_dir(
-            follow_symlinks=False
-        ):
+        if candidate.name.startswith("."):
             continue
-        skill_file = _stat_if_exists(Path(candidate.path) / "SKILL.md")
-        if skill_file is None or not stat.S_ISREG(skill_file.st_mode):
+        directory = Path(candidate.path)
+        try:
+            directory_stat = _stat_if_exists(directory)
+            if directory_stat is None or not stat.S_ISDIR(directory_stat.st_mode):
+                continue
+            skill_file = _stat_if_exists(directory / "SKILL.md")
+            if skill_file is None or not stat.S_ISREG(skill_file.st_mode):
+                continue
+        except OSError as error:
+            langfuse_logger.warning(
+                "Skipping skill directory %s: could not inspect files: %s",
+                directory,
+                error,
+            )
             continue
-        skill = locked.get(Path(candidate.path), {"name": candidate.name})
+        skill = locked.get(directory, {"name": candidate.name})
         name = skill["name"]
         if len(name) > 128:
             langfuse_logger.warning(
@@ -55,7 +75,7 @@ def discover_skills(*, dir: str) -> list[SkillReference]:
 
 def _stat_if_exists(path: Path) -> Optional[os.stat_result]:
     try:
-        return path.lstat()
+        return path.stat()
     except FileNotFoundError:
         return None
 
@@ -80,7 +100,6 @@ def _read_cli_lock(file: Optional[Path]) -> dict[Path, SkillReference]:
     if (
         not isinstance(value, dict)
         or type(value.get("lockVersion")) is not int
-        or value["lockVersion"] != 1
         or not isinstance(value.get("skills"), list)
     ):
         message = f"Unsupported or invalid skill lockfile {file}."

@@ -15,7 +15,7 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_COMPRESSION,
     OTEL_EXPORTER_OTLP_TRACES_COMPRESSION,
 )
-from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, SpanLimits, TracerProvider
 from opentelemetry.sdk.trace.export import (
     SimpleSpanProcessor,
     SpanExporter,
@@ -408,8 +408,8 @@ def test_on_end_formats_span_only_when_debug_enabled(
 def skills_tracer(memory_exporter):
     providers = []
 
-    def create(skills):
-        provider = TracerProvider()
+    def create(skills, *, span_limits=None):
+        provider = TracerProvider(span_limits=span_limits)
         provider.add_span_processor(
             LangfuseSpanProcessor(
                 public_key="pk-test",
@@ -428,10 +428,10 @@ def skills_tracer(memory_exporter):
         provider.shutdown()
 
 
-def test_skills_attachment_default_and_nested_overrides(skills_tracer):
+def test_skills_attachment_default_and_nested_overrides(skills_tracer, memory_exporter):
     key = LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
     catalog = [{"name": "configured", "version": 2}]
-    tracer, _ = skills_tracer({"available": catalog})
+    tracer, provider = skills_tracer({"available": catalog})
     with tracer.start_as_current_span("default") as span:
         assert key not in span.attributes
     with propagate_attributes(attach_skills=True):
@@ -443,8 +443,17 @@ def test_skills_attachment_default_and_nested_overrides(skills_tracer):
             with propagate_attributes(skills_available=[]):
                 with tracer.start_as_current_span("explicit") as span:
                     assert span.attributes[key] == "[]"
-        with tracer.start_as_current_span("restored") as span:
-            assert json.loads(span.attributes[key]) == catalog
+        with tracer.start_as_current_span("restored"):
+            pass
+    provider.force_flush()
+    default, enabled, disabled, explicit, restored = (
+        memory_exporter.get_finished_spans()
+    )
+    assert key not in default.attributes
+    assert json.loads(enabled.attributes[key]) == catalog
+    assert key not in disabled.attributes
+    assert explicit.attributes[key] == "[]"
+    assert json.loads(restored.attributes[key]) == catalog
 
 
 @pytest.mark.parametrize("propagated", [[], [{"name": "propagated"}]])
@@ -458,15 +467,33 @@ def test_skill_attachment_precedence(skills_tracer, propagated):
             assert span.attributes[key] == "[]"
 
 
-def test_configured_skills_are_serialized_once(skills_tracer):
+def test_configured_skills_are_serialized_once(skills_tracer, memory_exporter):
     skills = [{"name": "configured", "future_field": {"enabled": True}}]
-    tracer, _ = skills_tracer({"available": skills})
+    tracer, provider = skills_tracer({"available": skills})
     skills.clear()
     with propagate_attributes(attach_skills=True):
-        with tracer.start_as_current_span("configured") as span:
-            assert json.loads(
-                span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE]
-            ) == [{"name": "configured", "future_field": {"enabled": True}}]
+        span = tracer.start_span("configured")
+    span.end()
+    provider.force_flush()
+    span = memory_exporter.get_finished_spans()[0]
+    assert json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE]
+    ) == [{"name": "configured", "future_field": {"enabled": True}}]
+
+
+def test_configured_skills_respect_span_attribute_limit(
+    skills_tracer, memory_exporter, caplog
+):
+    tracer, provider = skills_tracer(
+        {"available": [{"name": "configured"}]},
+        span_limits=SpanLimits(max_attributes=1),
+    )
+    with propagate_attributes(attach_skills=True):
+        span = tracer.start_span("full", attributes={"keep": "value"})
+    span.end()
+    provider.force_flush()
+    assert dict(memory_exporter.get_finished_spans()[0].attributes) == {"keep": "value"}
+    assert LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE in caplog.text
 
 
 def test_skill_catalog_is_scoped_to_its_project(memory_exporter):

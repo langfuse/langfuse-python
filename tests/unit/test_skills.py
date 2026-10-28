@@ -15,13 +15,13 @@ def _install(root, name):
     return directory
 
 
-def _write_lock(root, skills):
+def _write_lock(root, skills, lock_version=1):
     (root / "langfuse-skills.lock").write_text(
-        json.dumps({"lockVersion": 1, "skills": skills}), encoding="utf-8"
+        json.dumps({"lockVersion": lock_version, "skills": skills}), encoding="utf-8"
     )
 
 
-def test_discovery_only_includes_immediate_regular_skill_directories(
+def test_discovery_follows_symlinks_and_only_includes_immediate_skills(
     tmp_path, monkeypatch
 ):
     monkeypatch.chdir(tmp_path)
@@ -34,18 +34,27 @@ def test_discovery_only_includes_immediate_regular_skill_directories(
     (root / "file-link" / "SKILL.md").symlink_to(root / "plain" / "SKILL.md")
     (root / "directory-marker" / "SKILL.md").mkdir(parents=True)
 
-    assert discover_skills(dir=str(root)) == [{"name": "plain"}]
+    assert discover_skills(dir=str(root)) == [
+        {"name": "directory-link"},
+        {"name": "file-link"},
+        {"name": "plain"},
+    ]
     assert discover_skills(dir=str(tmp_path / "missing")) == []
 
 
+@pytest.mark.parametrize("lock_version", [1, 2])
 def test_configured_lock_precedes_cwd_and_resolves_paths_from_lock(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, lock_version
 ):
     monkeypatch.chdir(tmp_path)
     root = tmp_path / "skills"
     _install(root, "customer")
     _write_lock(tmp_path, [{"path": "skills/customer", "name": "cwd", "version": 1}])
-    _write_lock(root, [{"path": "customer", "name": "configured", "version": 2}])
+    _write_lock(
+        root,
+        [{"path": "customer", "name": "configured", "version": 2}],
+        lock_version=lock_version,
+    )
 
     assert discover_skills(dir="skills") == [{"name": "configured", "version": 2}]
     (root / "langfuse-skills.lock").unlink()
@@ -82,13 +91,63 @@ def test_invalid_entries_duplicates_and_long_names_preserve_other_skills(
 
 @pytest.mark.parametrize(
     "content",
-    ["not json", '{"lockVersion":2,"skills":[]}', '{"lockVersion":true,"skills":[]}'],
+    ["not json", '{"lockVersion":1,"skills":{}}', '{"lockVersion":true,"skills":[]}'],
 )
-def test_malformed_lock_fails_explicit_discovery(tmp_path, monkeypatch, content):
+def test_malformed_lock_falls_back_to_directory_names(
+    tmp_path, monkeypatch, content, caplog
+):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "langfuse-skills.lock").write_text(content, encoding="utf-8")
-    with pytest.raises(ValueError):
-        discover_skills(dir=str(tmp_path))
+    root = tmp_path / "skills"
+    _install(root, "customer")
+    _write_lock(tmp_path, [{"path": "skills/customer", "name": "cwd", "version": 1}])
+    (root / "langfuse-skills.lock").write_text(content, encoding="utf-8")
+
+    assert discover_skills(dir=str(root)) == [{"name": "customer"}]
+    assert "Could not read skill lockfile" in caplog.text
+
+
+def test_discovery_follows_lock_symlink(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / "skills"
+    _install(root, "customer")
+    _write_lock(tmp_path, [{"path": "customer", "name": "locked", "version": 2}])
+    (root / "langfuse-skills.lock").symlink_to(tmp_path / "langfuse-skills.lock")
+
+    assert discover_skills(dir=str(root)) == [{"name": "locked", "version": 2}]
+
+
+@pytest.mark.parametrize("kind", ["directory", "symlink-loop"])
+def test_unreadable_lock_falls_back_to_directory_names(
+    tmp_path, monkeypatch, kind, caplog
+):
+    monkeypatch.chdir(tmp_path)
+    _install(tmp_path, "customer")
+    lock = tmp_path / "langfuse-skills.lock"
+    if kind == "directory":
+        lock.mkdir()
+    else:
+        lock.symlink_to(lock)
+
+    assert discover_skills(dir=str(tmp_path)) == [{"name": "customer"}]
+    assert "Could not read skill lockfile" in caplog.text
+
+
+@pytest.mark.parametrize("broken_path", ["directory", "SKILL.md"])
+def test_discovery_skips_entries_with_filesystem_errors(
+    tmp_path, monkeypatch, broken_path, caplog
+):
+    monkeypatch.chdir(tmp_path)
+    _install(tmp_path, "valid")
+    broken = tmp_path / "broken"
+    if broken_path == "SKILL.md":
+        broken.mkdir()
+        broken = broken / "SKILL.md"
+    broken.symlink_to(broken)
+    (tmp_path / "missing-target").symlink_to(tmp_path / "missing")
+
+    assert discover_skills(dir=str(tmp_path)) == [{"name": "valid"}]
+    assert "Skipping skill directory" in caplog.text
+    assert "missing-target" not in caplog.text
 
 
 def test_serialization_preserves_extra_fields():

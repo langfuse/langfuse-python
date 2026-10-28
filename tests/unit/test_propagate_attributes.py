@@ -10,12 +10,14 @@ import json
 from datetime import datetime
 
 import pytest
+from opentelemetry import baggage, context
 from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 
 from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
 from langfuse._client.constants import LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT
 from langfuse._client.datasets import DatasetClient
+from langfuse._client.propagation import _get_propagated_attributes_from_context
 from langfuse.api import Dataset, DatasetItem, DatasetStatus
 from tests.unit.test_otel import TestOTelBase
 
@@ -3860,11 +3862,36 @@ class TestPropagatedSkills(TestPropagateAttributesBase):
             LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
         )
 
-    def test_skills_never_use_baggage(self):
-        from opentelemetry import baggage, context
+    @pytest.mark.parametrize("skills", [[{"name": "refund"}], []])
+    @pytest.mark.parametrize("set_on_update", [False, True])
+    def test_propagation_updates_current_observation_skills(
+        self, langfuse_client, memory_exporter, skills, set_on_update
+    ):
+        inherited = [{"name": "child"}]
+        with propagate_attributes(skills_available=[{"name": "outer"}]):
+            with langfuse_client.start_as_current_observation(
+                name="parent", available_skills=None if set_on_update else skills
+            ) as parent:
+                if set_on_update:
+                    parent.update(available_skills=skills)
+                assert (
+                    json.loads(
+                        parent._otel_span.attributes[
+                            LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
+                        ]
+                    )
+                    == skills
+                )
+                with propagate_attributes(skills_available=inherited):
+                    langfuse_client.start_observation(name="child").end()
+        for name, expected in (("parent", inherited), ("child", inherited)):
+            _assert_json_attribute(
+                self.get_span_by_name(memory_exporter, name),
+                LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
+                expected,
+            )
 
-        from langfuse._client.propagation import _get_propagated_attributes_from_context
-
+    def test_skills_baggage_is_read_but_not_written(self):
         with propagate_attributes(
             skills_available=[{"name": "local"}],
             attach_skills=True,
@@ -3874,16 +3901,9 @@ class TestPropagatedSkills(TestPropagateAttributesBase):
         incoming = baggage.set_baggage(
             "langfuse_skills_available", '[{"name":"remote"}]'
         )
-        incoming = baggage.set_baggage(
-            "langfuse_attach_skills", "true", context=incoming
-        )
-        incoming = baggage.set_baggage(
-            "langfuse_available_skills", '[{"name":"legacy"}]', context=incoming
-        )
-        incoming = baggage.set_baggage(
-            "langfuse_attach_discovered_skills", "true", context=incoming
-        )
-        assert not _get_propagated_attributes_from_context(incoming)
+        assert _get_propagated_attributes_from_context(incoming) == {
+            LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE: '[{"name":"remote"}]'
+        }
         assert not _get_propagated_attributes_from_context(context.get_current())
 
     def test_invalid_serialization_keeps_outer_catalog(

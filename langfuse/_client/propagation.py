@@ -103,9 +103,6 @@ class PropagatedExperimentAttributes(TypedDict):
     experiment_item_root_observation_id: str
 
 
-_ATTACH_SKILLS_CONTEXT_KEY = otel_context_api.create_key("langfuse_attach_skills")
-
-
 def _detach_context_token_safely(token: Any) -> None:
     """Detach a context token without emitting noisy async teardown errors.
 
@@ -195,9 +192,10 @@ def propagate_attributes(
             `Langfuse(environment=...)` or `LANGFUSE_TRACING_ENVIRONMENT` for spans
             created while this propagation context is active.
         skills_available: Skill references with name and optional version; replaces
-            the inherited catalog, including when empty. Never sent as baggage.
-        attach_skills: Attach the configured skill catalog to new spans
-            in this context; disabled by default. Never sent as baggage.
+            skills on the current span and in inherited context, including when empty.
+            Never sent as baggage.
+        attach_skills: Attach the configured skill catalog to spans
+            created in this context; disabled by default. Never sent as baggage.
         as_baggage: If True, propagates attributes using OpenTelemetry baggage for
             cross-process/service propagation. **Security warning**: When enabled,
             attribute values are added to HTTP headers on ALL outbound requests.
@@ -363,7 +361,7 @@ def _propagate_attributes(
         )
     if isinstance(attach_skills, bool):
         context = otel_context_api.set_value(
-            key=_ATTACH_SKILLS_CONTEXT_KEY,
+            key=_get_propagated_context_key("attach_skills"),
             value=attach_skills,
             context=context,
         )
@@ -520,13 +518,7 @@ def _get_propagated_attributes_from_context(
     # Handle baggage
     baggage_entries = baggage.get_all(context=context)
     for baggage_key, baggage_value in baggage_entries.items():
-        if baggage_key in (
-            LANGFUSE_TRACE_ID_BAGGAGE_KEY,
-            "langfuse_skills_available",
-            "langfuse_attach_skills",
-            "langfuse_available_skills",
-            "langfuse_attach_discovered_skills",
-        ):
+        if baggage_key == LANGFUSE_TRACE_ID_BAGGAGE_KEY:
             continue
 
         if baggage_key.startswith(LANGFUSE_BAGGAGE_PREFIX):

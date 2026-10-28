@@ -41,7 +41,6 @@ if TYPE_CHECKING:
 
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
-    create_available_skills_attributes,
     create_generation_attributes,
     create_span_attributes,
     create_trace_attributes,
@@ -1178,7 +1177,6 @@ class LangfuseObservationWrapper:
         with otel_trace_api.use_span(self._otel_span):
             new_otel_span = self._langfuse_client._otel_tracer.start_span(
                 name=name,
-                attributes=create_available_skills_attributes(available_skills),
             )
 
         common_args = {
@@ -1469,7 +1467,6 @@ class LangfuseObservationWrapper:
 
         with otel_trace_api.use_span(self._otel_span):
             new_otel_span = self._langfuse_client._otel_tracer.start_span(
-                attributes=create_available_skills_attributes(available_skills),
                 name=name,
                 start_time=timestamp,
             )

@@ -38,9 +38,9 @@ from langfuse._client.environment_variables import (
     LANGFUSE_OTEL_TRACES_EXPORT_PATH,
 )
 from langfuse._client.propagation import (
-    _ATTACH_SKILLS_CONTEXT_KEY,
     _get_langfuse_trace_id_from_baggage,
     _get_propagated_attributes_from_context,
+    _get_propagated_context_key,
 )
 from langfuse._client.skills import serialize_available_skills
 from langfuse._client.span import _set_span_attributes_within_limit
@@ -252,13 +252,16 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             }
 
         skills_key = LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
+        # Existing span skills take precedence over propagation, then configured skills.
         if skills_key in existing_attributes:
             propagated_attributes.pop(skills_key, None)
         elif (
             skills_key not in propagated_attributes
             and self._available_skills is not None
             and (not is_langfuse_span(span) or self._is_langfuse_project_span(span))
-            and context_api.get_value(_ATTACH_SKILLS_CONTEXT_KEY, context=context)
+            and context_api.get_value(
+                _get_propagated_context_key("attach_skills"), context=context
+            )
             is True
         ):
             propagated_attributes[skills_key] = self._available_skills

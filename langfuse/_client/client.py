@@ -43,7 +43,6 @@ from packaging.version import Version
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     _serialize,
-    create_available_skills_attributes,
 )
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
@@ -708,7 +707,6 @@ class Langfuse:
                 ):
                     otel_span = self._otel_tracer.start_span(
                         name=name,
-                        attributes=create_available_skills_attributes(available_skills),
                     )
                     _set_span_attributes_within_limit(
                         otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
@@ -732,9 +730,7 @@ class Langfuse:
                         prompt=prompt,
                     )
 
-        otel_span = self._otel_tracer.start_span(
-            name=name, attributes=create_available_skills_attributes(available_skills)
-        )
+        otel_span = self._otel_tracer.start_span(name=name)
 
         return self._create_observation_from_otel_span(
             otel_span=otel_span,
@@ -1356,7 +1352,6 @@ class Langfuse:
         prompt: Optional[PromptClient] = None,
     ) -> Any:
         with self._otel_tracer.start_as_current_span(
-            attributes=create_available_skills_attributes(available_skills),
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
@@ -1668,7 +1663,6 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self._otel_tracer.start_span(
-                        attributes=create_available_skills_attributes(available_skills),
                         name=name,
                         start_time=timestamp,
                     )
@@ -1696,7 +1690,6 @@ class Langfuse:
         otel_span = self._otel_tracer.start_span(
             name=name,
             start_time=timestamp,
-            attributes=create_available_skills_attributes(available_skills),
         )
 
         return cast(

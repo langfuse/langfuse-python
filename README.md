@@ -79,8 +79,8 @@ Discovery reads `langfuse-skills.lock` from the skills directory, falling back t
 Fetch skill contents through the generated API.
 
 ```python
-skill = langfuse.api.unstable.skills.get("refund-policy", label="production", include_content=True)
-skill = await langfuse.async_api.unstable.skills.get("refund-policy", include_content=True)
+skill = langfuse.api.skills.get("refund-policy", label="production", include_content=True)
+skill = await langfuse.async_api.skills.get("refund-policy", include_content=True)
 ```
 
 ## Docs
