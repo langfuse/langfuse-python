@@ -524,7 +524,7 @@ def test_create_generation():
     generation = langfuse.start_observation(
         as_type="generation",
         name="query-generation",
-        model="gpt-3.5-turbo-0125",
+        model="gpt-4o-mini",
         model_parameters={
             "max_tokens": "1000",
             "temperature": "0.9",
@@ -568,7 +568,7 @@ def test_create_generation():
     assert generation_api.name == "query-generation"
     assert generation_api.start_time is not None
     assert generation_api.end_time is not None
-    assert generation_api.model == "gpt-3.5-turbo-0125"
+    assert generation_api.model == "gpt-4o-mini"
     assert generation_api.model_parameters == {
         "max_tokens": "1000",
         "temperature": "0.9",
@@ -1174,7 +1174,7 @@ def test_end_generation():
     generation = langfuse.start_observation(
         as_type="generation",
         name="query-generation",
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         model_parameters={"max_tokens": "1000", "temperature": "0.9"},
         input=[
             {"role": "system", "content": "You are a helpful assistant."},
