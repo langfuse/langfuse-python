@@ -247,6 +247,96 @@ def test_root_chain_metadata_propagates_trace_name(
     assert len(find_spans("ChatOpenAI")) == 1
 
 
+@pytest.mark.asyncio
+async def test_root_chain_metadata_propagates_session_id_to_children_on_ainvoke(
+    langfuse_memory_client, get_span
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(content="knock knock"),
+                text="knock knock",
+            )
+        ],
+        llm_output={"model_name": "gpt-4o-mini"},
+    )
+
+    with patch.object(ChatOpenAI, "_agenerate", return_value=response):
+        handler = CallbackHandler()
+        prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
+        chain = prompt | ChatOpenAI(api_key="test", temperature=0) | StrOutputParser()
+
+        result = await chain.ainvoke(
+            {"topic": "otters"},
+            config={
+                "callbacks": [handler],
+                "metadata": {
+                    "langfuse_session_id": "async-session",
+                    "langfuse_user_id": "async-user",
+                },
+            },
+        )
+
+    assert result == "knock knock"
+
+    langfuse_memory_client.flush()
+
+    for span_name in (
+        "RunnableSequence",
+        "ChatPromptTemplate",
+        "ChatOpenAI",
+        "StrOutputParser",
+    ):
+        span = get_span(span_name)
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID]
+            == "async-session"
+        ), span_name
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.TRACE_USER_ID] == "async-user"
+        ), span_name
+
+
+def test_child_run_keeps_attributes_propagated_in_its_own_context(
+    langfuse_memory_client, get_span
+):
+    handler = CallbackHandler()
+    root_run_id = uuid4()
+    child_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"id": ["RunnableSequence"]},
+        {"topic": "otters"},
+        run_id=root_run_id,
+        metadata={"langfuse_session_id": "root-session"},
+    )
+
+    def start_child_with_own_session():
+        with callback_handler_module.propagate_attributes(session_id="child-session"):
+            handler.on_chain_start(
+                {"id": ["ChildChain"]},
+                {"topic": "otters"},
+                run_id=child_run_id,
+                parent_run_id=root_run_id,
+            )
+
+    copy_context().run(start_child_with_own_session)
+    copy_context().run(
+        handler.on_chain_end,
+        {"output": "done"},
+        run_id=child_run_id,
+        parent_run_id=root_run_id,
+    )
+    handler.on_chain_end({"output": "done"}, run_id=root_run_id)
+
+    langfuse_memory_client.flush()
+
+    assert (
+        get_span("ChildChain").attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID]
+        == "child-session"
+    )
+
+
 def test_root_chain_exports_when_end_runs_in_copied_context(
     langfuse_memory_client, get_span
 ):
