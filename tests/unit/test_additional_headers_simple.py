@@ -6,7 +6,8 @@ This module tests that additional headers are properly configured in the HTTP cl
 from typing import Sequence
 
 import httpx
-from opentelemetry.sdk.trace import ReadableSpan
+import pytest
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from langfuse._client.client import Langfuse
@@ -261,3 +262,218 @@ class TestAdditionalHeadersSimple:
         )
 
         assert processor.span_exporter is custom_exporter
+
+
+def _langfuse_otlp_exporter(langfuse: Langfuse):
+    """Return the OTLP exporter behind a client's Langfuse span processor."""
+    from langfuse._client.span_processor import LangfuseSpanProcessor
+
+    processor = next(
+        p
+        for p in langfuse._resources.tracer_provider._active_span_processor._span_processors
+        if isinstance(p, LangfuseSpanProcessor)
+    )
+    exporter = processor.span_exporter
+
+    # Langfuse wraps the OTLP exporter to handle media
+    return getattr(exporter, "_exporter", exporter)
+
+
+class TestProjectIdHeader:
+    """The configured project ID is sent in the x-langfuse-project-id header."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_state(self, monkeypatch):
+        from langfuse._client.resource_manager import LangfuseResourceManager
+
+        monkeypatch.delenv("LANGFUSE_PROJECT_ID", raising=False)
+        LangfuseResourceManager.reset()
+        yield
+        LangfuseResourceManager.reset()
+
+    def test_header_on_otlp_exporter_and_api_clients(self):
+        langfuse = Langfuse(
+            public_key="pk-lf-org",
+            secret_key="sk-lf-org",
+            base_url="https://mock-host.com",
+            project_id="project-a",
+            tracer_provider=TracerProvider(),
+        )
+
+        exporter = _langfuse_otlp_exporter(langfuse)
+        assert exporter._client._headers["x-langfuse-project-id"] == "project-a"
+        assert (
+            langfuse.api._client_wrapper.get_headers()["x-langfuse-project-id"]
+            == "project-a"
+        )
+        assert (
+            langfuse.async_api._client_wrapper.get_headers()["x-langfuse-project-id"]
+            == "project-a"
+        )
+
+    def test_no_header_without_project_id(self):
+        langfuse = Langfuse(
+            public_key="pk-lf-project",
+            secret_key="sk-lf-project",
+            base_url="https://mock-host.com",
+            tracer_provider=TracerProvider(),
+        )
+
+        exporter = _langfuse_otlp_exporter(langfuse)
+        assert "x-langfuse-project-id" not in exporter._client._headers
+        assert "x-langfuse-project-id" not in (
+            langfuse.api._client_wrapper.get_headers()
+        )
+
+    def test_env_var_sets_project_id(self, monkeypatch):
+        monkeypatch.setenv("LANGFUSE_PROJECT_ID", "project-from-env")
+
+        langfuse = Langfuse(
+            public_key="pk-lf-org",
+            secret_key="sk-lf-org",
+            base_url="https://mock-host.com",
+            tracing_enabled=False,
+        )
+
+        assert langfuse._resources.project_id == "project-from-env"
+        assert (
+            langfuse.api._client_wrapper.get_headers()["x-langfuse-project-id"]
+            == "project-from-env"
+        )
+
+    def test_argument_wins_over_env_var(self, monkeypatch):
+        monkeypatch.setenv("LANGFUSE_PROJECT_ID", "project-from-env")
+
+        langfuse = Langfuse(
+            public_key="pk-lf-org",
+            secret_key="sk-lf-org",
+            base_url="https://mock-host.com",
+            project_id="project-from-arg",
+            tracer_provider=TracerProvider(),
+        )
+
+        assert langfuse._resources.project_id == "project-from-arg"
+        exporter = _langfuse_otlp_exporter(langfuse)
+        assert exporter._client._headers["x-langfuse-project-id"] == "project-from-arg"
+        assert (
+            langfuse.api._client_wrapper.get_headers()["x-langfuse-project-id"]
+            == "project-from-arg"
+        )
+
+    def test_custom_httpx_client_requests_carry_header(self):
+        captured_requests = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_requests.append(request)
+            return httpx.Response(200, json={"data": []})
+
+        custom_client = httpx.Client(
+            transport=httpx.MockTransport(handler),
+            headers={"X-Existing-Header": "existing-value"},
+        )
+
+        langfuse = Langfuse(
+            public_key="pk-lf-org",
+            secret_key="sk-lf-org",
+            base_url="https://mock-host.com",
+            project_id="project-a",
+            httpx_client=custom_client,
+            tracing_enabled=False,
+        )
+        langfuse.api.projects.get()
+
+        assert len(captured_requests) == 1
+        assert captured_requests[0].headers["x-langfuse-project-id"] == "project-a"
+        assert captured_requests[0].headers["x-existing-header"] == "existing-value"
+
+    @pytest.mark.parametrize(
+        "header_name",
+        ["x-langfuse-project-id", "X-Langfuse-Project-Id", "langfuse-project-id"],
+    )
+    def test_conflicting_additional_header_raises(self, header_name):
+        with pytest.raises(ValueError, match="Conflicting project IDs"):
+            Langfuse(
+                public_key="pk-lf-org",
+                secret_key="sk-lf-org",
+                base_url="https://mock-host.com",
+                project_id="project-a",
+                additional_headers={header_name: "project-b"},
+                tracing_enabled=False,
+            )
+
+    @pytest.mark.parametrize(
+        "header_name", ["X-LANGFUSE-PROJECT-ID", "Langfuse-Project-Id"]
+    )
+    def test_conflicting_httpx_client_header_raises(self, header_name):
+        custom_client = httpx.Client(headers={header_name: "project-b"})
+
+        with pytest.raises(ValueError, match="httpx_client.headers"):
+            Langfuse(
+                public_key="pk-lf-org",
+                secret_key="sk-lf-org",
+                base_url="https://mock-host.com",
+                project_id="project-a",
+                httpx_client=custom_client,
+                tracing_enabled=False,
+            )
+
+    def test_conflicting_header_raises_with_project_id_from_env(self, monkeypatch):
+        monkeypatch.setenv("LANGFUSE_PROJECT_ID", "project-a")
+
+        with pytest.raises(ValueError, match="Conflicting project IDs"):
+            Langfuse(
+                public_key="pk-lf-org",
+                secret_key="sk-lf-org",
+                base_url="https://mock-host.com",
+                additional_headers={"x-langfuse-project-id": "project-b"},
+                tracing_enabled=False,
+            )
+
+    def test_matching_headers_are_accepted(self):
+        langfuse = Langfuse(
+            public_key="pk-lf-org",
+            secret_key="sk-lf-org",
+            base_url="https://mock-host.com",
+            project_id="project-a",
+            additional_headers={"X-Langfuse-Project-Id": "project-a"},
+            httpx_client=httpx.Client(headers={"langfuse-project-id": "project-a"}),
+            tracing_enabled=False,
+        )
+
+        assert langfuse._resources.project_id == "project-a"
+
+    def test_header_without_project_id_is_left_alone(self):
+        langfuse = Langfuse(
+            public_key="pk-lf-org",
+            secret_key="sk-lf-org",
+            base_url="https://mock-host.com",
+            additional_headers={"x-langfuse-project-id": "project-b"},
+            tracer_provider=TracerProvider(),
+        )
+
+        assert langfuse._resources.project_id is None
+        assert (
+            langfuse._resources.httpx_client.headers["x-langfuse-project-id"]
+            == "project-b"
+        )
+        exporter = _langfuse_otlp_exporter(langfuse)
+        assert exporter._client._headers["x-langfuse-project-id"] == "project-b"
+
+    def test_custom_span_exporter_warns_about_project_id(self, caplog):
+        with caplog.at_level("WARNING", logger="langfuse"):
+            Langfuse(
+                public_key="pk-lf-org",
+                secret_key="sk-lf-org",
+                base_url="https://mock-host.com",
+                project_id="project-a",
+                tracer_provider=TracerProvider(),
+                span_exporter=NoOpSpanExporter(),
+            )
+
+        assert (
+            sum(
+                "project_id is not sent by a custom span_exporter" in r.message
+                for r in caplog.records
+            )
+            == 1
+        )

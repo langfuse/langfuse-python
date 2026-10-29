@@ -41,7 +41,8 @@ langfuse.flush()
 ```
 
 Configuration is via constructor args or environment variables: `LANGFUSE_PUBLIC_KEY`,
-`LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (defaults to https://cloud.langfuse.com). See `langfuse._client.environment_variables`
+`LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` (defaults to https://cloud.langfuse.com), and
+`LANGFUSE_PROJECT_ID` (required with organization API keys). See `langfuse._client.environment_variables`
 for the full list.
 
 Docs: https://langfuse.com/docs — machine-readable index: https://langfuse.com/llms.txt

@@ -30,6 +30,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import format_span_id, format_trace_id
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse._client.constants import PROJECT_ID_HEADER
 from langfuse._client.environment_variables import (
     LANGFUSE_FLUSH_AT,
     LANGFUSE_FLUSH_INTERVAL,
@@ -127,6 +128,38 @@ def _resolve_compression(otel_compression: Optional[str]) -> Compression:
     return Compression.Gzip
 
 
+class _ForbiddenExportHintFilter(logging.Filter):
+    """Log a one-time hint when the OTLP exporter reports a 403 export failure.
+
+    The exporter logs failures but does not return the status code, so this filter
+    watches its log records. It never suppresses a record.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._hint_logged = False
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if (
+            not self._hint_logged
+            and record.levelno >= logging.ERROR
+            and str(record.msg).startswith("Failed to export")
+            and isinstance(record.args, tuple)
+            and 403 in record.args
+        ):
+            self._hint_logged = True
+            langfuse_logger.error(
+                "Span export was rejected with 403 Forbidden. If you are using an "
+                "organization API key, set LANGFUSE_PROJECT_ID or pass project_id to "
+                "Langfuse() to name the project to write to."
+            )
+
+        return True
+
+
+_FORBIDDEN_EXPORT_HINT_FILTER = _ForbiddenExportHintFilter()
+
+
 class LangfuseSpanProcessor(BatchSpanProcessor):
     """OpenTelemetry span processor that exports spans to the Langfuse API.
 
@@ -150,6 +183,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
         public_key: str,
         secret_key: str,
         base_url: str,
+        project_id: Optional[str] = None,
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
         flush_interval: Optional[float] = None,
@@ -167,6 +201,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             else None
         )
         self.public_key = public_key
+        self.project_id = project_id
         self._should_export_span = should_export_span or is_default_export_span
 
         self._app_root_lock = threading.Lock()
@@ -193,6 +228,8 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 "x-langfuse-public-key": public_key,
                 "x-langfuse-ingestion-version": "4",
             }
+            if project_id is not None:
+                default_headers[PROJECT_ID_HEADER] = project_id
 
             # Merge additional headers if provided
             headers = {**default_headers, **(additional_headers or {})}
@@ -212,11 +249,23 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 compression=_resolve_compression(otel_compression),
                 max_request_size=_resolve_max_batch_size_bytes(),
             )
-        elif otel_compression is not None:
-            langfuse_logger.warning(
-                "otel_compression is ignored because a custom span_exporter was "
-                "provided. Configure compression on the exporter instead."
+            # addFilter ignores a filter that is already installed
+            logging.getLogger(OTLPSpanExporter.__module__).addFilter(
+                _FORBIDDEN_EXPORT_HINT_FILTER
             )
+        else:
+            if otel_compression is not None:
+                langfuse_logger.warning(
+                    "otel_compression is ignored because a custom span_exporter was "
+                    "provided. Configure compression on the exporter instead."
+                )
+            if project_id is not None:
+                langfuse_logger.warning(
+                    "project_id is not sent by a custom span_exporter. Set the '%s: "
+                    "%s' header on the exporter if it sends spans to Langfuse.",
+                    PROJECT_ID_HEADER,
+                    project_id,
+                )
 
         if media_manager is not None or mask_otel_spans is not None:
             span_exporter = LangfuseTransformingSpanExporter(
@@ -293,15 +342,20 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             # Only export spans that belong to the scoped project
             # This is important to not send spans to wrong project in multi-project setups
             if is_langfuse_span(span) and not self._is_langfuse_project_span(span):
-                langfuse_logger.debug(
-                    "Security: Span rejected - belongs to project '%s' but processor is for "
-                    "'%s'. This prevents cross-project data leakage in multi-project "
-                    "environments.",
-                    span.instrumentation_scope.attributes.get("public_key")
+                scope_attributes = (
+                    span.instrumentation_scope.attributes
                     if span.instrumentation_scope
                     and span.instrumentation_scope.attributes
-                    else None,
+                    else {}
+                )
+                langfuse_logger.debug(
+                    "Security: Span rejected - belongs to public_key '%s' / project_id "
+                    "'%s' but processor is for '%s' / '%s'. This prevents cross-project "
+                    "data leakage in multi-project environments.",
+                    scope_attributes.get("public_key"),
+                    scope_attributes.get("project_id"),
                     self.public_key,
+                    self.project_id,
                 )
                 return
 
@@ -400,13 +454,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             return False
 
         if span.instrumentation_scope is not None:
-            public_key_on_span = (
-                span.instrumentation_scope.attributes.get("public_key", None)
-                if span.instrumentation_scope.attributes
-                else None
-            )
+            scope_attributes = span.instrumentation_scope.attributes or {}
 
-            return public_key_on_span == self.public_key
+            return (
+                scope_attributes.get("public_key", None) == self.public_key
+                and scope_attributes.get("project_id", None) == self.project_id
+            )
 
         return False
 
