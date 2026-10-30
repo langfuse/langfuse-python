@@ -441,7 +441,8 @@ class ChatPromptClient(BasePromptClient):
 
         Returns:
             List of messages in the format expected by Langchain's ChatPromptTemplate:
-            (role, content) tuples for regular messages or MessagesPlaceholder objects for unresolved placeholders.
+            (role, content) tuples for regular messages, LangChain message objects for tool calls
+            and tool results, or MessagesPlaceholder objects for unresolved placeholders.
         """
         compiled_messages = self.compile(**kwargs)
         langchain_messages: List[Union[Tuple[str, str], Any]] = []
@@ -459,6 +460,18 @@ class ChatPromptClient(BasePromptClient):
                 except ImportError as e:
                     import_error = "langchain_core is required to use get_langchain_prompt() with unresolved placeholders."
                     raise ImportError(import_error) from e
+            elif isinstance(msg, dict) and (
+                msg.get("tool_calls") or msg.get("tool_call_id")
+            ):
+                try:
+                    from langchain_core.messages import convert_to_messages  # noqa: PLC0415, I001
+                except ImportError as e:
+                    import_error = "langchain_core is required to use get_langchain_prompt() with tool messages."
+                    raise ImportError(import_error) from e
+
+                langchain_messages.extend(
+                    convert_to_messages([msg])  # type: ignore[list-item]
+                )
             else:
                 if isinstance(msg, dict) and "role" in msg and "content" in msg:
                     langchain_messages.append(

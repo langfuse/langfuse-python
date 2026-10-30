@@ -1,4 +1,5 @@
 import pytest
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 from langfuse.api import ChatMessage, Prompt_Chat
@@ -733,7 +734,12 @@ Configuration:
         assert formatted_messages[0].content == expected_system
         assert formatted_messages[1].content == expected_user
 
-    def test_chat_prompt_with_placeholders_langchain(self):
+    @pytest.mark.parametrize(
+        "assistant_fields",
+        [{}, {"tool_calls": None}, {"tool_calls": []}],
+        ids=["absent", "none", "empty"],
+    )
+    def test_chat_prompt_with_placeholders_langchain(self, assistant_fields):
         """Test that chat prompts with placeholders work correctly with Langchain."""
         from langfuse.api import Prompt_Chat
 
@@ -768,7 +774,11 @@ Configuration:
             task="addition",
             examples=[
                 {"role": "user", "content": "Example: What is 2+2?"},
-                {"role": "assistant", "content": "2+2 equals 4."},
+                {
+                    "role": "assistant",
+                    "content": "2+2 equals {{answer}}.",
+                    **assistant_fields,
+                },
             ],
         )
 
@@ -778,7 +788,7 @@ Configuration:
             == "You are a helpful assistant with math capabilities."
         )
         assert compiled_messages[1]["content"] == "Example: What is 2+2?"
-        assert compiled_messages[2]["content"] == "2+2 equals 4."
+        assert compiled_messages[2]["content"] == "2+2 equals {{answer}}."
         assert compiled_messages[3]["content"] == "Help me with addition."
 
         langchain_messages = prompt_client.get_langchain_prompt(
@@ -787,11 +797,15 @@ Configuration:
             task="addition",
             examples=[
                 {"role": "user", "content": "Example: What is 2+2?"},
-                {"role": "assistant", "content": "2+2 equals 4."},
+                {
+                    "role": "assistant",
+                    "content": "2+2 equals {{answer}}.",
+                    **assistant_fields,
+                },
             ],
         )
         langchain_prompt = ChatPromptTemplate.from_messages(langchain_messages)
-        formatted_messages = langchain_prompt.format_messages()
+        formatted_messages = langchain_prompt.format_messages(answer="4")
 
         assert len(formatted_messages) == 4
         assert (
@@ -932,3 +946,15 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+    langchain_messages = prompt_client.get_langchain_prompt(
+        task="weather inquiry", message_history=message_history_with_tool_calls
+    )
+    formatted_messages = ChatPromptTemplate.from_messages(
+        langchain_messages
+    ).format_messages()
+
+    assert isinstance(formatted_messages[2], AIMessage)
+    assert formatted_messages[2].tool_calls[0]["id"] == "call_123"
+    assert isinstance(formatted_messages[3], ToolMessage)
+    assert formatted_messages[3].tool_call_id == "call_123"
