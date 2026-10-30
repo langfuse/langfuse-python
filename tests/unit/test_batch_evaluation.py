@@ -109,6 +109,81 @@ async def run(runner: BatchEvaluationRunner, **kwargs: Any):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("async_evaluator", [False, True])
+@pytest.mark.parametrize("shape", ["dict", "dict-list", "mixed"])
+async def test_dictionary_evaluations_create_scores(async_evaluator, shape):
+    runner, _, client = make_runner([make_observation(1)])
+    score = {
+        "name": "quality",
+        "value": 0.75,
+        "comment": "matched",
+        "metadata": {"source": "rule"},
+        "data_type": "NUMERIC",
+        "config_id": "score-config",
+    }
+    result_value = score if shape == "dict" else [score]
+    if shape == "mixed":
+        result_value.append(Evaluation(name="length", value=8))
+
+    def evaluator(**kwargs):
+        return result_value
+
+    async def async_fn(**kwargs):
+        return result_value
+
+    result = await run(runner, evaluators=[async_fn if async_evaluator else evaluator])
+
+    assert result.total_items_processed == 1
+    assert result.total_items_failed == 0
+    assert result.total_scores_created == (2 if shape == "mixed" else 1)
+    assert all(
+        isinstance(evaluation, Evaluation)
+        for evaluation in result.item_evaluations["obs-1"]
+    )
+    client.create_score.assert_any_call(
+        observation_id="obs-1", trace_id="trace-1", **score
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_evaluator", [False, True])
+@pytest.mark.parametrize("as_list", [False, True])
+async def test_dictionary_composite_evaluations_create_scores(async_evaluator, as_list):
+    runner, _, client = make_runner([make_observation(1)])
+
+    def composite(**kwargs):
+        assert all(
+            isinstance(evaluation, Evaluation) for evaluation in kwargs["evaluations"]
+        )
+        score = {"name": "combined", "value": 0.5, "comment": "composite"}
+        return [score] if as_list else score
+
+    async def async_composite(**kwargs):
+        return composite(**kwargs)
+
+    result = await run(
+        runner, composite_evaluator=async_composite if async_evaluator else composite
+    )
+
+    assert result.total_items_processed == 1
+    assert result.total_composite_scores_created == 1
+    assert [evaluation.name for evaluation in result.item_evaluations["obs-1"]] == [
+        "length",
+        "combined",
+    ]
+    client.create_score.assert_any_call(
+        observation_id="obs-1",
+        trace_id="trace-1",
+        name="combined",
+        value=0.5,
+        comment="composite",
+        metadata={},
+        data_type=None,
+        config_id=None,
+    )
+
+
+@pytest.mark.asyncio
 async def test_paginates_with_cursor_and_scores_observations():
     runner, api, client = make_runner([make_observation(i) for i in range(5)])
 

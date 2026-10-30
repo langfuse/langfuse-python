@@ -24,7 +24,11 @@ from typing import (
 )
 
 from langfuse.api import ObservationV2
-from langfuse.experiment import Evaluation, EvaluatorFunction
+from langfuse.experiment import (
+    Evaluation,
+    EvaluatorFunction,
+    _normalize_evaluator_result,
+)
 from langfuse.logger import langfuse_logger as logger
 
 if TYPE_CHECKING:
@@ -1253,12 +1257,7 @@ class BatchEvaluationRunner:
         if asyncio.iscoroutine(result):
             result = await result
 
-        if isinstance(result, (dict, Evaluation)):
-            return [result]  # type: ignore
-        elif isinstance(result, list):
-            return result
-        else:
-            return []
+        return _normalize_evaluator_result(result)
 
     async def _run_mapper(
         self,
@@ -1317,12 +1316,7 @@ class BatchEvaluationRunner:
         if asyncio.iscoroutine(result):
             result = await result
 
-        if isinstance(result, (dict, Evaluation)):
-            return [result]  # type: ignore
-        elif isinstance(result, list):
-            return result
-        else:
-            return []
+        return _normalize_evaluator_result(result)
 
     def _create_score(
         self,
