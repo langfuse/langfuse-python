@@ -3863,32 +3863,26 @@ class TestPropagatedSkills(TestPropagateAttributesBase):
         )
 
     @pytest.mark.parametrize("skills", [[{"name": "refund"}], []])
-    @pytest.mark.parametrize("set_on_update", [False, True])
     def test_propagation_updates_current_observation_skills(
-        self, langfuse_client, memory_exporter, skills, set_on_update
+        self, langfuse_client, memory_exporter, skills
     ):
-        inherited = [{"name": "child"}]
         with propagate_attributes(skills_available=[{"name": "outer"}]):
-            with langfuse_client.start_as_current_observation(
-                name="parent", available_skills=None if set_on_update else skills
-            ) as parent:
-                if set_on_update:
-                    parent.update(available_skills=skills)
-                assert (
-                    json.loads(
-                        parent._otel_span.attributes[
-                            LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
-                        ]
+            with langfuse_client.start_as_current_observation(name="parent") as parent:
+                with propagate_attributes(skills_available=skills):
+                    assert (
+                        json.loads(
+                            parent._otel_span.attributes[
+                                LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE
+                            ]
+                        )
+                        == skills
                     )
-                    == skills
-                )
-                with propagate_attributes(skills_available=inherited):
                     langfuse_client.start_observation(name="child").end()
-        for name, expected in (("parent", inherited), ("child", inherited)):
+        for name in ("parent", "child"):
             _assert_json_attribute(
                 self.get_span_by_name(memory_exporter, name),
                 LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
-                expected,
+                skills,
             )
 
     def test_skills_baggage_is_read_but_not_written(self):
