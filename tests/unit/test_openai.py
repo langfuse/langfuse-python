@@ -3,6 +3,7 @@ import base64
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 import pytest
 from openai.types.chat import ChatCompletion
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
@@ -1012,6 +1013,45 @@ def test_embedding_exports_dimensions_and_count(
     }
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "input": 2
+    }
+
+
+@pytest.mark.parametrize("dimensions", [1, 2, 3])
+def test_base64_embedding_exports_vector_dimensions(
+    langfuse_memory_client, get_span, json_attr, dimensions
+):
+    encoded_embedding = base64.b64encode(bytes(4 * dimensions)).decode()
+
+    def respond(request):
+        return httpx.Response(
+            200,
+            json={
+                "model": "text-embedding-3-small",
+                "object": "list",
+                "data": [
+                    {"index": 0, "object": "embedding", "embedding": encoded_embedding}
+                ],
+                "usage": {"prompt_tokens": 2, "total_tokens": 2},
+            },
+        )
+
+    with lf_openai.OpenAI(
+        api_key="test",
+        http_client=httpx.Client(transport=httpx.MockTransport(respond)),
+    ) as openai_client:
+        result = openai_client.embeddings.create(
+            name="unit-openai-base64-embedding",
+            model="text-embedding-3-small",
+            input="hello world",
+            encoding_format="base64",
+        )
+
+    assert result.data[0].embedding == encoded_embedding
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-base64-embedding")
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT) == {
+        "dimensions": dimensions,
+        "count": 1,
     }
 
 

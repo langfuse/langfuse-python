@@ -23,6 +23,7 @@ through the raw-response API and would otherwise produce duplicate observations.
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
+import base64
 import json
 import os
 import types
@@ -963,8 +964,13 @@ def _get_langfuse_data_from_default_response(
                 if hasattr(first_embedding, "embedding")
                 else first_embedding.get("embedding", [])
             )
+            if isinstance(embedding_vector, str):
+                # Base64 embeddings contain one float32 per dimension.
+                dimensions = len(base64.b64decode(embedding_vector)) // 4
+            else:
+                dimensions = len(embedding_vector) if embedding_vector else 0
             completion = {
-                "dimensions": len(embedding_vector) if embedding_vector else 0,
+                "dimensions": dimensions,
                 "count": len(data),
             }
 
