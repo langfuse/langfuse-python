@@ -150,6 +150,21 @@ def test_discovery_skips_entries_with_filesystem_errors(
     assert "missing-target" not in caplog.text
 
 
+@pytest.mark.parametrize("kind", ["file", "symlink-loop"])
+def test_unreadable_skills_directory_returns_empty_list(
+    tmp_path, monkeypatch, kind, caplog
+):
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / "skills"
+    if kind == "file":
+        root.write_text("not a directory", encoding="utf-8")
+    else:
+        root.symlink_to(root)
+
+    assert discover_skills(dir=str(root)) == []
+    assert "Could not read skills directory" in caplog.text
+
+
 def test_serialization_preserves_extra_fields():
     skills = [{"name": "customer", "version": 2, "futureField": {"nested": True}}]
     assert json.loads(serialize_available_skills(skills)) == skills

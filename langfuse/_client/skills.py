@@ -21,12 +21,23 @@ def discover_skills(*, dir: str) -> list[SkillReference]:
     Unlocked skills use their directory name without a version. Lock records
     do not verify local edits.
 
-    Missing directories return an empty list. Unreadable or malformed lockfiles
-    warn and fall back to directory names. Entries that cannot be inspected,
-    invalid lock entries, and duplicate names are skipped with a warning.
+    Missing directories return an empty list; unreadable ones warn and return
+    an empty list. Unreadable or malformed lockfiles warn and fall back to
+    directory names. Entries that cannot be inspected, invalid lock entries,
+    and duplicate names are skipped with a warning.
     """
     root = Path(os.path.abspath(dir))
-    if _stat_if_exists(root) is None:
+    try:
+        if _stat_if_exists(root) is None:
+            return []
+        with os.scandir(root) as entries:
+            candidates = sorted(entries, key=lambda entry: entry.name)
+    except OSError as error:
+        langfuse_logger.warning(
+            "Could not read skills directory %s. No skills discovered: %s",
+            root,
+            error,
+        )
         return []
 
     locked: dict[Path, SkillReference] = {}
@@ -39,8 +50,6 @@ def discover_skills(*, dir: str) -> list[SkillReference]:
             error,
         )
     available: dict[str, SkillReference] = {}
-    with os.scandir(root) as entries:
-        candidates = sorted(entries, key=lambda entry: entry.name)
     for candidate in candidates:
         if candidate.name.startswith("."):
             continue
