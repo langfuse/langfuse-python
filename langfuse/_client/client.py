@@ -213,7 +213,7 @@ class Langfuse:
         release (Optional[str]): Release version/hash of your application. Used for grouping analytics by release.
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
-        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to data set through Langfuse SDK APIs such as `start_observation()` and `update()`.
+        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to data set through Langfuse SDK APIs such as `start_observation()`, `update()`, `create_dataset_item()` and `create_score(comment=)`.
         mask_otel_spans (Optional[MaskOtelSpansFunction]): Synchronous export-stage hook for masking raw OpenTelemetry span attributes before this Langfuse client sends them to Langfuse. Use this for spans created by third-party OpenTelemetry instrumentations, or when you need to inspect final span attributes after export filtering and Langfuse media handling. It does not modify spans already exported through other OpenTelemetry exporters.
 
             The hook receives one OpenTelemetry export batch. A batch is not guaranteed to contain a complete trace, request, or Langfuse observation tree. The hook usually runs on the OpenTelemetry batch span processor worker thread; during `flush()` and shutdown it may run on the caller thread. Keep it synchronous, deterministic, and fast.
@@ -1882,6 +1882,20 @@ class Langfuse:
         environment: Optional[str] = None,
     ) -> None: ...
 
+    def _apply_mask(self, data: Any) -> Any:
+        """Apply the configured mask to data sent outside a span, matching span masking."""
+        if data is None or not self._mask:
+            return data
+        try:
+            return self._mask(data=data)
+        except Exception as e:
+            langfuse_logger.error(
+                "Masking error: Custom mask function threw exception when processing "
+                "data. Using fallback masking. Error: %s",
+                e,
+            )
+            return "<fully masked due to failed mask function>"
+
     def create_score(
         self,
         *,
@@ -1951,6 +1965,9 @@ class Langfuse:
             return
 
         score_id = score_id or self._create_observation_id()
+        comment = self._apply_mask(comment)
+        if comment is not None and not isinstance(comment, str):
+            comment = json.dumps(comment)
 
         # The API rejects timestamps without a UTC offset; naive values are UTC.
         if timestamp is not None and timestamp.tzinfo is None:
@@ -3422,7 +3439,7 @@ class Langfuse:
             result = self.api.datasets.create(
                 name=name,
                 description=description,
-                metadata=metadata,
+                metadata=self._apply_mask(metadata),
                 input_schema=input_schema,
                 expected_output_schema=expected_output_schema,
             )
@@ -3521,9 +3538,9 @@ class Langfuse:
 
             result = self.api.dataset_items.create(
                 dataset_name=dataset_name,
-                input=input,
-                expected_output=expected_output,
-                metadata=metadata,
+                input=self._apply_mask(input),
+                expected_output=self._apply_mask(expected_output),
+                metadata=self._apply_mask(metadata),
                 source_trace_id=source_trace_id,
                 source_observation_id=source_observation_id,
                 status=status,
