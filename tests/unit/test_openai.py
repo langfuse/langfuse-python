@@ -1016,11 +1016,19 @@ def test_embedding_exports_dimensions_and_count(
     }
 
 
-@pytest.mark.parametrize("dimensions", [1, 2, 3])
+@pytest.mark.parametrize(
+    "encoded_embedding, dimensions",
+    [
+        ("AAAAAA==", 1),
+        ("AAAAAAAAAAA=", 2),
+        ("AAAAAAAAAAAAAAAA", 3),
+        pytest.param("!invalid!", 9, id="invalid-base64"),
+        pytest.param("\u2603", 1, id="non-ascii"),
+    ],
+)
 def test_base64_embedding_exports_vector_dimensions(
-    langfuse_memory_client, get_span, json_attr, dimensions
+    langfuse_memory_client, get_span, json_attr, encoded_embedding, dimensions
 ):
-    encoded_embedding = base64.b64encode(bytes(4 * dimensions)).decode()
 
     def respond(request):
         return httpx.Response(

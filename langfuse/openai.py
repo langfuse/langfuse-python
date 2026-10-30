@@ -24,6 +24,7 @@ See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
 import base64
+import binascii
 import json
 import os
 import types
@@ -965,8 +966,11 @@ def _get_langfuse_data_from_default_response(
                 else first_embedding.get("embedding", [])
             )
             if isinstance(embedding_vector, str):
-                # Base64 embeddings contain one float32 per dimension.
-                dimensions = len(base64.b64decode(embedding_vector)) // 4
+                try:
+                    # Base64 embeddings contain one float32 per dimension.
+                    dimensions = len(base64.b64decode(embedding_vector)) // 4
+                except (binascii.Error, ValueError):
+                    dimensions = len(embedding_vector)
             else:
                 dimensions = len(embedding_vector) if embedding_vector else 0
             completion = {
