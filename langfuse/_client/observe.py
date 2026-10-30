@@ -93,6 +93,7 @@ class LangfuseDecorator:
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
+        named_inputs: bool = False,
     ) -> Callable[[F], F]: ...
 
     def observe(
@@ -104,6 +105,7 @@ class LangfuseDecorator:
         capture_input: Optional[bool] = None,
         capture_output: Optional[bool] = None,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
+        named_inputs: bool = False,
     ) -> Union[F, Callable[[F], F]]:
         """Wrap a function to create and manage Langfuse tracing around its execution, supporting both synchronous and asynchronous functions.
 
@@ -132,6 +134,8 @@ class LangfuseDecorator:
             transform_to_string (Optional[Callable[[Iterable], str]]): For functions returning generators, joins the
                     yielded chunks into the string stored as output. Without it, chunks are concatenated if all are
                     strings, otherwise stored as a list.
+            named_inputs (bool): Record input as `{"param": value}` instead of `{"args": [...], "kwargs": {...}}`.
+                    Falls back to the latter if the arguments can't be bound to the signature. Defaults to False.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -224,6 +228,7 @@ class LangfuseDecorator:
                     capture_input=should_capture_input,
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
+                    named_inputs=named_inputs,
                 )
                 if _is_coroutine_function(func)
                 else self._sync_observe(
@@ -233,6 +238,7 @@ class LangfuseDecorator:
                     capture_input=should_capture_input,
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
+                    named_inputs=named_inputs,
                 )
             )
 
@@ -260,6 +266,7 @@ class LangfuseDecorator:
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
+        named_inputs: bool = False,
     ) -> F:
         @wraps(func)
         async def async_wrapper(*args: Tuple[Any], **kwargs: Dict[str, Any]) -> Any:
@@ -281,6 +288,8 @@ class LangfuseDecorator:
                     is_method=self._is_method(func),
                     func_args=args,
                     func_kwargs=kwargs,
+                    func=func,
+                    named_inputs=named_inputs,
                 )
                 if capture_input
                 else None
@@ -353,6 +362,7 @@ class LangfuseDecorator:
         capture_input: bool,
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
+        named_inputs: bool = False,
     ) -> F:
         @wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -372,6 +382,8 @@ class LangfuseDecorator:
                     is_method=self._is_method(func),
                     func_args=args,
                     func_kwargs=kwargs,
+                    func=func,
+                    named_inputs=named_inputs,
                 )
                 if capture_input
                 else None
@@ -448,7 +460,30 @@ class LangfuseDecorator:
         is_method: bool = False,
         func_args: Tuple = (),
         func_kwargs: Dict = {},
+        func: Optional[Callable] = None,
+        named_inputs: bool = False,
     ) -> Dict:
+        if named_inputs and func is not None:
+            try:
+                signature = inspect.signature(func)
+                bound = signature.bind(
+                    *func_args,
+                    **{
+                        k: v
+                        for k, v in func_kwargs.items()
+                        if k != "langfuse_public_key"
+                    },
+                )
+            except Exception:
+                pass  # fall back to the args/kwargs format below
+            else:
+                arguments = dict(bound.arguments)
+                first_param = next(iter(signature.parameters), None)
+                if is_method and first_param in ("self", "cls"):
+                    arguments.pop(first_param, None)
+
+                return arguments
+
         # Remove implicitly passed "self" or "cls" argument for instance or class methods
         logged_args = func_args[1:] if is_method else func_args
 

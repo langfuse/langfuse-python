@@ -523,3 +523,128 @@ async def test_observe_treats_legacy_marked_coroutine_function_as_async(
 
     span = _finished_spans_by_name(memory_exporter, "marked")[0]
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "done"
+
+
+def _observation_input(memory_exporter: Any, name: str) -> Any:
+    span = _finished_spans_by_name(memory_exporter, name)[0]
+    return json.loads(span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT])
+
+
+def test_named_inputs_records_passed_arguments_by_name(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="positional", named_inputs=True)
+    def positional(query: str, lang: str, limit: int = 10) -> str:
+        return query
+
+    @observe(name="keyword", named_inputs=True)
+    def keyword(query: str, lang: str, limit: int = 10) -> str:
+        return query
+
+    positional("how do I return an item?", "en")
+    keyword(lang="en", query="how do I return an item?")
+
+    langfuse_memory_client.flush()
+
+    expected = {"query": "how do I return an item?", "lang": "en"}
+    assert _observation_input(memory_exporter, "positional") == expected
+    assert _observation_input(memory_exporter, "keyword") == expected
+
+
+def test_named_inputs_excludes_self(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    class Assistant:
+        @observe(name="answer", named_inputs=True)
+        def answer(self, query: str) -> str:
+            return query
+
+    Assistant().answer("q")
+
+    langfuse_memory_client.flush()
+
+    assert _observation_input(memory_exporter, "answer") == {"query": "q"}
+
+
+@pytest.mark.asyncio
+async def test_named_inputs_for_async_function(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="async_answer", named_inputs=True)
+    async def async_answer(query: str, lang: str) -> str:
+        return query
+
+    await async_answer("q", lang="en")
+
+    langfuse_memory_client.flush()
+
+    assert _observation_input(memory_exporter, "async_answer") == {
+        "query": "q",
+        "lang": "en",
+    }
+
+
+def test_named_inputs_falls_back_when_binding_fails(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="strict", named_inputs=True)
+    def strict(query: str) -> str:
+        return query
+
+    with pytest.raises(TypeError):
+        cast(Any, strict)("q", extra=1)
+
+    langfuse_memory_client.flush()
+
+    assert _observation_input(memory_exporter, "strict") == {
+        "args": ["q"],
+        "kwargs": {"extra": 1},
+    }
+
+
+def test_inputs_are_not_named_by_default(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="default_input")
+    def default_input(query: str, lang: str) -> str:
+        return query
+
+    default_input("q", lang="en")
+
+    langfuse_memory_client.flush()
+
+    assert _observation_input(memory_exporter, "default_input") == {
+        "args": ["q"],
+        "kwargs": {"lang": "en"},
+    }
+
+
+def test_named_inputs_excludes_langfuse_public_key(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="with_public_key", named_inputs=True)
+    def with_public_key(query: str) -> str:
+        return query
+
+    cast(Any, with_public_key)("q", langfuse_public_key="test-public-key")
+
+    langfuse_memory_client.flush()
+
+    assert _observation_input(memory_exporter, "with_public_key") == {"query": "q"}
+
+
+def test_named_inputs_keeps_first_argument_when_cls_is_not_first(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="parse", named_inputs=True)
+    def parse(data: str, *, cls: str) -> str:
+        return data
+
+    parse(data="payload", cls="Model")
+
+    langfuse_memory_client.flush()
+
+    assert _observation_input(memory_exporter, "parse") == {
+        "data": "payload",
+        "cls": "Model",
+    }
