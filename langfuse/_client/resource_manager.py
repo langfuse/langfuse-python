@@ -21,7 +21,7 @@ import threading
 import urllib.request
 import weakref
 from queue import Full, Queue
-from typing import Any, Callable, Dict, List, Literal, Optional, cast
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, cast
 
 import httpx
 from opentelemetry import trace as otel_trace_api
@@ -33,7 +33,7 @@ from opentelemetry.sdk.trace.sampling import Decision, TraceIdRatioBased
 from opentelemetry.trace import Tracer
 
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
-from langfuse._client.constants import LANGFUSE_TRACER_NAME
+from langfuse._client.constants import LANGFUSE_TRACER_NAME, PROJECT_ID_HEADER
 from langfuse._client.environment_variables import (
     LANGFUSE_MEDIA_UPLOAD_ENABLED,
     LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT,
@@ -53,11 +53,24 @@ from langfuse.types import MaskFunction, MaskOtelSpansFunction, SkillsConfig
 from .._version import __version__ as langfuse_version
 
 
+def _get_tracer_attributes(
+    public_key: str, project_id: Optional[str]
+) -> Dict[str, str]:
+    """Return the instrumentation-scope attributes that identify a client's spans."""
+    attributes = {"public_key": public_key}
+    if project_id is not None:
+        attributes["project_id"] = project_id
+
+    return attributes
+
+
 class LangfuseResourceManager:
     """Thread-safe singleton that provides access to the OpenTelemetry tracer and processors.
 
-    This class implements a thread-safe singleton pattern keyed by the public API key,
-    ensuring that only one tracer instance exists per API key combination. It manages
+    This class implements a thread-safe singleton pattern keyed by the public API key
+    and the configured project ID, ensuring that only one tracer instance exists per
+    combination. Organization API keys can write to many projects, so clients sharing a
+    public key but targeting different projects get separate instances. It manages
     the lifecycle of the OpenTelemetry tracer provider, span processors, and resource
     attributes, as well as background threads for media uploads and score delivery.
 
@@ -79,7 +92,7 @@ class LangfuseResourceManager:
     making this implementation suitable for multi-threaded and asyncio applications.
     """
 
-    _instances: Dict[str, "LangfuseResourceManager"] = {}
+    _instances: Dict[Tuple[str, Optional[str]], "LangfuseResourceManager"] = {}
     _lock = threading.RLock()
     _otel_tracer: Tracer
     _media_manager: MediaManager
@@ -115,6 +128,7 @@ class LangfuseResourceManager:
         public_key: str,
         secret_key: str,
         base_url: str,
+        project_id: Optional[str] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -134,24 +148,27 @@ class LangfuseResourceManager:
         otel_compression: Optional[Literal["gzip", "none"]] = None,
         skills: Optional[SkillsConfig] = None,
     ) -> "LangfuseResourceManager":
-        if public_key in cls._instances:
-            return cls._instances[public_key]
+        instance_key = (public_key, project_id)
+
+        if instance_key in cls._instances:
+            return cls._instances[instance_key]
 
         with cls._lock:
-            if public_key not in cls._instances:
+            if instance_key not in cls._instances:
                 instance = super(LangfuseResourceManager, cls).__new__(cls)
 
                 # Initialize tracer (will be noop until init instance)
                 instance._otel_tracer = otel_trace_api.get_tracer(
                     LANGFUSE_TRACER_NAME,
                     langfuse_version,
-                    attributes={"public_key": public_key},
+                    attributes=_get_tracer_attributes(public_key, project_id),
                 )
 
                 instance._initialize_instance(
                     public_key=public_key,
                     secret_key=secret_key,
                     base_url=base_url,
+                    project_id=project_id,
                     timeout=timeout,
                     environment=environment,
                     release=release,
@@ -174,9 +191,9 @@ class LangfuseResourceManager:
                     skills=skills,
                 )
 
-                cls._instances[public_key] = instance
+                cls._instances[instance_key] = instance
 
-            return cls._instances[public_key]
+            return cls._instances[instance_key]
 
     def _initialize_instance(
         self,
@@ -184,6 +201,7 @@ class LangfuseResourceManager:
         public_key: str,
         secret_key: str,
         base_url: str,
+        project_id: Optional[str] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -204,6 +222,7 @@ class LangfuseResourceManager:
         skills: Optional[SkillsConfig] = None,
     ) -> None:
         self.public_key = public_key
+        self.project_id = project_id
         self.secret_key = secret_key
         self.tracing_enabled = tracing_enabled
         self.base_url = base_url
@@ -255,6 +274,7 @@ class LangfuseResourceManager:
                 public_key=self.public_key,
                 secret_key=secret_key,
                 base_url=base_url,
+                project_id=self.project_id,
                 timeout=timeout,
                 flush_at=flush_at,
                 flush_interval=flush_interval,
@@ -271,7 +291,7 @@ class LangfuseResourceManager:
             self._otel_tracer = tracer_provider.get_tracer(
                 LANGFUSE_TRACER_NAME,
                 langfuse_version,
-                attributes={"public_key": self.public_key},
+                attributes=_get_tracer_attributes(self.public_key, self.project_id),
             )
 
         self._init_consumer_threads()
@@ -307,8 +327,10 @@ class LangfuseResourceManager:
 
         langfuse_logger.info(
             "Startup: Langfuse tracer successfully initialized | public_key=%s | "
-            "base_url=%s | environment=%s | sample_rate=%s | media_threads=%s",
+            "project_id=%s | base_url=%s | environment=%s | sample_rate=%s | "
+            "media_threads=%s",
             self.public_key,
+            self.project_id,
             base_url,
             environment or "default",
             sample_rate if sample_rate is not None else 1.0,
@@ -349,6 +371,14 @@ class LangfuseResourceManager:
                 timeout=self.timeout, headers=client_headers
             )
 
+        # Set on the generated clients rather than the httpx client, so a
+        # caller-provided httpx_client sends it too.
+        api_headers = (
+            {PROJECT_ID_HEADER: self.project_id}
+            if self.project_id is not None
+            else None
+        )
+
         self.api = LangfuseAPI(
             base_url=self.base_url,
             username=self.public_key,
@@ -356,6 +386,7 @@ class LangfuseResourceManager:
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=langfuse_version,
             x_langfuse_public_key=self.public_key,
+            headers=api_headers,
             httpx_client=self.httpx_client,
             timeout=self.timeout,
         )
@@ -366,6 +397,7 @@ class LangfuseResourceManager:
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=langfuse_version,
             x_langfuse_public_key=self.public_key,
+            headers=api_headers,
             timeout=self.timeout,
         )
 
