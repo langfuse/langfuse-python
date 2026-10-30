@@ -679,12 +679,12 @@ def test_experiment_with_large_metadata_keeps_output_and_experiment_attributes(
 def test_metadata_reserves_room_for_later_skill_availability(
     small_limit_client, get_span
 ):
-    observation = small_limit_client.start_observation(
+    with small_limit_client.start_as_current_observation(
         name="late-skills", metadata={f"key_{i}": i for i in range(130)}
-    )
-    before = dict(observation._otel_span.attributes)
-    observation.update(available_skills=[{"name": "support", "version": 2}])
-    observation.end()
+    ) as observation:
+        before = dict(observation._otel_span.attributes)
+        with propagate_attributes(skills_available=[{"name": "support", "version": 2}]):
+            pass
     small_limit_client.flush()
 
     attributes = get_span("late-skills").attributes

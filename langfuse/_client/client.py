@@ -144,7 +144,6 @@ from langfuse.types import (
     MaskFunction,
     MaskOtelSpansFunction,
     ScoreDataType,
-    SkillReference,
     SkillsConfig,
     SpanLevel,
     TraceContext,
@@ -491,7 +490,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -513,7 +511,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -529,7 +526,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -545,7 +541,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -561,7 +556,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -577,7 +571,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -593,7 +586,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -609,7 +601,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -631,7 +622,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -646,7 +636,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -679,7 +668,6 @@ class Langfuse:
             input: Input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the observation
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the observation
             status_message: Optional status message for the observation
@@ -718,7 +706,6 @@ class Langfuse:
                         input=input,
                         output=output,
                         metadata=metadata,
-                        available_skills=available_skills,
                         version=version,
                         level=level,
                         status_message=status_message,
@@ -738,7 +725,6 @@ class Langfuse:
             input=input,
             output=output,
             metadata=metadata,
-            available_skills=available_skills,
             version=version,
             level=level,
             status_message=status_message,
@@ -758,7 +744,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -792,7 +777,6 @@ class Langfuse:
                 input=input,
                 output=output,
                 metadata=metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -816,7 +800,6 @@ class Langfuse:
                 input=input,
                 output=output,
                 metadata=metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -835,7 +818,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -858,7 +840,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -875,7 +856,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -892,7 +872,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -909,7 +888,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -926,7 +904,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -943,7 +920,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -960,7 +936,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -983,7 +958,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -999,7 +973,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1036,7 +1009,6 @@ class Langfuse:
             input: Input data for the operation (can be any JSON-serializable object)
             output: Output data from the operation (can be any JSON-serializable object)
             metadata: Additional metadata to associate with the observation
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the observation (info, warning, error)
             status_message: Optional status message for the observation
@@ -1107,7 +1079,6 @@ class Langfuse:
                             input=input,
                             output=output,
                             metadata=metadata,
-                            available_skills=available_skills,
                             version=version,
                             level=level,
                             status_message=status_message,
@@ -1132,7 +1103,6 @@ class Langfuse:
                     input=input,
                     output=output,
                     metadata=metadata,
-                    available_skills=available_skills,
                     version=version,
                     level=level,
                     status_message=status_message,
@@ -1174,7 +1144,6 @@ class Langfuse:
                             input=input,
                             output=output,
                             metadata=metadata,
-                            available_skills=available_skills,
                             version=version,
                             level=level,
                             status_message=status_message,
@@ -1198,7 +1167,6 @@ class Langfuse:
                     input=input,
                     output=output,
                     metadata=metadata,
-                    available_skills=available_skills,
                     version=version,
                     level=level,
                     status_message=status_message,
@@ -1216,7 +1184,6 @@ class Langfuse:
             input=input,
             output=output,
             metadata=metadata,
-            available_skills=available_skills,
             version=version,
             level=level,
             status_message=status_message,
@@ -1290,7 +1257,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1311,7 +1277,6 @@ class Langfuse:
                 input=input,
                 output=output,
                 metadata=metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -1340,7 +1305,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1377,7 +1341,6 @@ class Langfuse:
                     "input": input,
                     "output": output,
                     "metadata": metadata,
-                    "available_skills": available_skills,
                     "version": version,
                     "level": level,
                     "status_message": status_message,
@@ -1424,7 +1387,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1446,7 +1408,6 @@ class Langfuse:
             input: Updated input data for the model
             output: Output from the model (e.g., completions)
             metadata: Additional metadata to associate with the generation
-            available_skills: Skills available to this observation.
             version: Version identifier for the model or component
             level: Importance level of the generation (info, warning, error)
             status_message: Optional status message for the generation
@@ -1493,7 +1454,6 @@ class Langfuse:
                 input=input,
                 output=output,
                 metadata=metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -1512,7 +1472,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1528,7 +1487,6 @@ class Langfuse:
             input: Updated input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the span
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
@@ -1575,7 +1533,6 @@ class Langfuse:
                 input=input,
                 output=output,
                 metadata=metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -1620,7 +1577,6 @@ class Langfuse:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1635,7 +1591,6 @@ class Langfuse:
             input: Input data for the operation (can be any JSON-serializable object)
             output: Output data from the operation (can be any JSON-serializable object)
             metadata: Additional metadata to associate with the span
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
@@ -1680,7 +1635,6 @@ class Langfuse:
                             input=input,
                             output=output,
                             metadata=metadata,
-                            available_skills=available_skills,
                             version=version,
                             level=level,
                             status_message=status_message,
@@ -1702,7 +1656,6 @@ class Langfuse:
                 input=input,
                 output=output,
                 metadata=metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
