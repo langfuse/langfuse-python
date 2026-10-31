@@ -2237,6 +2237,55 @@ class TestMetadataHandling(TestOTelBase):
         assert _serialize_metadata_value(value) == via_event_serializer
         assert _serialize_metadata_value(value) == js_json_stringify
 
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            ("\ud800", '"\\ud800"'),
+            ("\udcff", '"\\udcff"'),
+            ({"nested": ["ü", "\udcff"]}, '{"nested":["ü","\\udcff"]}'),
+            ("ü \ud800 🚀", '"ü \\ud800 🚀"'),
+            ("ü Läufe 🚀 日本", '"ü Läufe 🚀 日本"'),
+        ],
+        ids=["high-surrogate", "low-surrogate", "nested", "mixed", "unicode"],
+    )
+    def test_metadata_values_survive_otlp_encoding(
+        self, langfuse_memory_client, memory_exporter, value, expected
+    ):
+        from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
+
+        with langfuse_memory_client.start_as_current_observation(
+            name="metadata-otlp",
+            metadata={"value": value, "sibling": "kept", "unicode": "ü 🚀 日本"},
+        ):
+            pass
+        langfuse_memory_client.flush()
+
+        spans = [
+            span
+            for span in memory_exporter.get_finished_spans()
+            if span.name == "metadata-otlp"
+        ]
+        assert len(spans) == 1
+        encoded = encode_spans(spans)
+        encoded_spans = [
+            span
+            for resource in encoded.resource_spans
+            for scope in resource.scope_spans
+            for span in scope.spans
+        ]
+        assert len(encoded_spans) == 1
+        assert encoded_spans[0].name == "metadata-otlp"
+
+        attributes = {
+            attribute.key: attribute.value.string_value
+            for attribute in encoded_spans[0].attributes
+        }
+        prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+        assert attributes[f"{prefix}.sibling"] == '"kept"'
+        assert attributes[f"{prefix}.unicode"] == '"ü 🚀 日本"'
+        assert attributes[f"{prefix}.value"] == expected
+        assert json.loads(attributes[f"{prefix}.value"]) == value
+
     def test_str_subclass_metadata_goes_through_event_serializer(self):
         """str subclasses keep EventSerializer handling, e.g. str enums."""
         from enum import Enum
