@@ -866,7 +866,22 @@ Configuration:
         assert langchain_messages[2] == ("user", "Help me with coding")
 
 
-def test_tool_calls_preservation_in_message_placeholder():
+@pytest.mark.parametrize(
+    "assistant_content,tool_content,expected_assistant_content,expected_tool_content",
+    [
+        ("", "It's sunny, 72°F", "", "It's sunny, 72°F"),
+        (
+            "Checking {{location}}",
+            "It's sunny in {{location}}",
+            "Checking Paris",
+            "It's sunny in Paris",
+        ),
+    ],
+    ids=["literal-content", "templated-content"],
+)
+def test_tool_calls_preservation_in_message_placeholder(
+    assistant_content, tool_content, expected_assistant_content, expected_tool_content
+):
     """Test that tool calls are preserved when compiling message placeholders."""
     from langfuse.api import Prompt_Chat
 
@@ -893,7 +908,7 @@ def test_tool_calls_preservation_in_message_placeholder():
         {"role": "user", "content": "What's the weather like?"},
         {
             "role": "assistant",
-            "content": "",
+            "content": assistant_content,
             "tool_calls": [
                 {
                     "id": "call_123",
@@ -907,7 +922,7 @@ def test_tool_calls_preservation_in_message_placeholder():
         },
         {
             "role": "tool",
-            "content": "It's sunny, 72°F",
+            "content": tool_content,
             "tool_call_id": "call_123",
             "name": "get_weather",
         },
@@ -931,7 +946,7 @@ def test_tool_calls_preservation_in_message_placeholder():
 
     # Assistant message with TOOL CALLS
     assert compiled_messages[2]["role"] == "assistant"
-    assert compiled_messages[2]["content"] == ""
+    assert compiled_messages[2]["content"] == assistant_content
     assert "tool_calls" in compiled_messages[2]
     assert len(compiled_messages[2]["tool_calls"]) == 1
     assert compiled_messages[2]["tool_calls"][0]["id"] == "call_123"
@@ -939,7 +954,7 @@ def test_tool_calls_preservation_in_message_placeholder():
 
     # TOOL CALL results message
     assert compiled_messages[3]["role"] == "tool"
-    assert compiled_messages[3]["content"] == "It's sunny, 72°F"
+    assert compiled_messages[3]["content"] == tool_content
     assert compiled_messages[3]["tool_call_id"] == "call_123"
     assert compiled_messages[3]["name"] == "get_weather"
 
@@ -952,9 +967,19 @@ def test_tool_calls_preservation_in_message_placeholder():
     )
     formatted_messages = ChatPromptTemplate.from_messages(
         langchain_messages
-    ).format_messages()
+    ).format_messages(location="Paris")
 
     assert isinstance(formatted_messages[2], AIMessage)
-    assert formatted_messages[2].tool_calls[0]["id"] == "call_123"
+    assert formatted_messages[2].content == expected_assistant_content
+    assert formatted_messages[2].tool_calls == [
+        {
+            "id": "call_123",
+            "type": "tool_call",
+            "name": "get_weather",
+            "args": {"location": "San Francisco"},
+        }
+    ]
     assert isinstance(formatted_messages[3], ToolMessage)
+    assert formatted_messages[3].content == expected_tool_content
     assert formatted_messages[3].tool_call_id == "call_123"
+    assert formatted_messages[3].name == "get_weather"
