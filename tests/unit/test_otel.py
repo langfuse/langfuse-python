@@ -7,6 +7,7 @@ from typing import List, Sequence
 
 import pytest
 from opentelemetry import trace as trace_api
+from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -2251,8 +2252,6 @@ class TestMetadataHandling(TestOTelBase):
     def test_metadata_values_survive_otlp_encoding(
         self, langfuse_memory_client, memory_exporter, value, expected
     ):
-        from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
-
         with langfuse_memory_client.start_as_current_observation(
             name="metadata-otlp",
             metadata={"value": value, "sibling": "kept", "unicode": "ü 🚀 日本"},
