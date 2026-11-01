@@ -838,7 +838,8 @@ class BatchEvaluationRunner:
         This is the main implementation method that orchestrates the entire batch
         evaluation process: fetching items from `GET /api/public/v2/observations`
         with cursor pagination, mapping, evaluating, creating scores, and tracking
-        statistics.
+        statistics. On completion, queued scores are flushed before returning
+        without blocking the caller's event loop.
 
         Args:
             mapper: Function to transform `ObservationV2` items to evaluator inputs.
@@ -1060,7 +1061,7 @@ class BatchEvaluationRunner:
 
         if verbose:
             logger.info("Flushing scores to Langfuse...")
-        self.client.flush()
+        await asyncio.to_thread(self.client.flush)
 
         if verbose:
             logger.info(
