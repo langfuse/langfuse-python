@@ -375,7 +375,7 @@ class RawProjectsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ProjectDeletionResponse]:
         """
-        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously.
+        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously. Deleting the AI Gateway ingestion project turns off the AI Gateway for the organization until another ingestion project is selected.
 
         Parameters
         ----------
@@ -1161,7 +1161,7 @@ class AsyncRawProjectsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ProjectDeletionResponse]:
         """
-        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously.
+        Delete a project by ID (requires organization-scoped API key). Project deletion is processed asynchronously. Deleting the AI Gateway ingestion project turns off the AI Gateway for the organization until another ingestion project is selected.
 
         Parameters
         ----------
