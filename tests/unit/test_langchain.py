@@ -487,6 +487,32 @@ def test_control_flow_errors_use_default_level_and_keep_status_message(
         )
 
 
+def test_error_without_message_uses_exception_type_as_status_message(
+    langfuse_memory_client, get_span
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    handler.on_tool_start(
+        {"name": "failing_tool"},
+        "{}",
+        run_id=run_id,
+    )
+    handler.on_tool_error(
+        ValueError(),
+        run_id=run_id,
+    )
+
+    handler._langfuse_client.flush()
+
+    span = get_span("failing_tool")
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+        == "ValueError"
+    )
+
+
 def test_streamed_llm_error_cleans_only_its_completion_start_time_memo(
     langfuse_memory_client,
 ):
