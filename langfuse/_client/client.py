@@ -226,7 +226,7 @@ class Langfuse:
     Parameters:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
         secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
-        project_id (Optional[str]): ID of the Langfuse project this client sends data to. Required with organization API keys, which can write to any project in their organization; leave it unset for project API keys. Can also be set via LANGFUSE_PROJECT_ID environment variable; the argument takes precedence. When set, the client sends it in the `x-langfuse-project-id` header on span exports and API requests, and uses it for trace and experiment URLs. Each client is bound to one project: create one client per project, and look them up with `get_client(public_key=..., project_id=...)`. Raises `ValueError` if `additional_headers` or `httpx_client.headers` set `x-langfuse-project-id` or `langfuse-project-id` to a different value.
+        project_id (Optional[str]): Langfuse project that receives this client's data. Required for organization API keys; omit for project API keys. Can also be set via LANGFUSE_PROJECT_ID environment variable. Use one client per project. Raises `ValueError` if a project header in `additional_headers` or `httpx_client` names a different project.
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.

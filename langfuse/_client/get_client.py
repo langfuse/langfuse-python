@@ -76,31 +76,25 @@ def get_client(
     Returns an existing Langfuse client or creates a new one if none exists. In multi-project setups,
     providing a public_key is required. Multi-project support is experimental - see Langfuse docs.
 
-    A client is identified by its public key and its project ID. Project API keys leave
-    the project ID unset. An organization API key can back several clients, one per
-    project, so pass the project_id as well to pick one of them.
-
     Behavior:
     - Single project: Returns existing client or creates new one
-    - Multi-project: Requires public_key (and project_id for an organization key shared
-      by several clients) to return a specific client
-    - No public_key in multi-project, or a public_key shared by several clients without
-      a project_id: Returns disabled client to prevent data leakage
+    - Multi-project: Requires public_key to return specific client, plus project_id when one organization key serves several projects
+    - No public_key in multi-project: Returns disabled client to prevent data leakage
 
-    The function uses a singleton pattern per (public_key, project_id) to conserve resources and maintain state.
+    The function uses a singleton pattern per public_key and project_id to conserve resources and maintain state.
 
     Args:
         public_key (Optional[str]): Project identifier
             - With key: Returns client for that project
             - Without key: Returns single client or disabled client if multiple exist
-        project_id (Optional[str]): Project ID the client was created with. Only needed
-            to choose between several clients that share an organization API key.
+        project_id (Optional[str]): Selects the client for this project when one
+            organization API key serves several projects.
 
     Returns:
         Langfuse: Client instance in one of three states:
-            1. Client for specified public_key (and project_id)
+            1. Client for specified public_key and project_id
             2. Default client for single-project setup
-            3. Disabled client when the lookup matches no client or more than one
+            3. Disabled client when no client or several clients match
 
     Security:
         Disables tracing when multiple projects exist without explicit key to prevent

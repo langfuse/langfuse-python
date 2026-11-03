@@ -39,10 +39,8 @@ LANGFUSE_PROJECT_ID = "LANGFUSE_PROJECT_ID"
 """
 .. envvar:: LANGFUSE_PROJECT_ID
 
-ID of the Langfuse project the client sends data to. Required with organization API
-keys, which can write to any project in their organization. When set, the SDK sends
-it on every request in the ``x-langfuse-project-id`` header. Leave it unset for
-project API keys.
+Langfuse project that receives the client's data. Required for organization API keys;
+leave unset for project API keys.
 """
 
 LANGFUSE_BASE_URL = "LANGFUSE_BASE_URL"
