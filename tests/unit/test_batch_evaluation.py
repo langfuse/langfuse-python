@@ -337,6 +337,10 @@ async def test_observation_scores_can_be_duplicated_onto_trace():
     result = await run(runner, _add_observation_scores_to_trace=True)
 
     assert result.total_scores_created == 2
+    evaluator_stat = next(
+        s for s in result.evaluator_stats if s.name == "length_evaluator"
+    )
+    assert evaluator_stat.total_scores_created == result.total_scores_created
     targets = [
         (call.kwargs.get("observation_id"), call.kwargs["trace_id"])
         for call in client.create_score.call_args_list
@@ -450,3 +454,25 @@ async def test_duplicate_rows_split_across_an_empty_page_are_evaluated_once():
         call.kwargs["observation_id"] for call in client.create_score.call_args_list
     ]
     assert sorted(scored_ids) == [f"obs-{i}" for i in range(4)]
+
+
+@pytest.mark.asyncio
+async def test_max_items_processes_requested_count_when_pages_contain_duplicates():
+    # Observations with a boundary duplicate between page 1 and page 2
+    duplicate = make_observation(1).model_copy(
+        update={"updated_at": BASE_TIME + timedelta(hours=1)}
+    )
+    runner, _, _ = make_runner(
+        [
+            make_observation(0),
+            make_observation(1),
+            duplicate,
+            make_observation(2),
+            make_observation(3),
+        ]
+    )
+
+    result = await run(runner, max_items=3, fetch_batch_size=2)
+
+    assert result.total_items_processed == 3
+    assert set(result.item_evaluations.keys()) == {"obs-1", "obs-2", "obs-3"}
