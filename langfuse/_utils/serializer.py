@@ -249,6 +249,5 @@ def serialize_datetime(v: dt.datetime) -> str:
     if v.tzinfo is not None:
         return _serialize_zoned_datetime(v)
     else:
-        local_tz = dt.datetime.now().astimezone().tzinfo
-        localized_dt = v.replace(tzinfo=local_tz)
+        localized_dt = v.astimezone()
         return _serialize_zoned_datetime(localized_dt)
