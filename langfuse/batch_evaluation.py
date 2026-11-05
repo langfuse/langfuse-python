@@ -38,6 +38,9 @@ work without extra configuration. Available groups: core, basic, time, io,
 metadata, model, usage, prompt, metrics, trace_context.
 """
 
+# The v2 observations API scans for up to 45 s before it returns a page.
+_OBSERVATIONS_FETCH_TIMEOUT_SECONDS = 60
+
 
 def _with_time_fields(fields: Optional[str]) -> str:
     """Add the ``time`` group, whose ``updatedAt`` picks the newest duplicate row."""
@@ -962,9 +965,7 @@ class BatchEvaluationRunner:
                     fields=fields,
                 )
             except Exception as e:
-                logger.error(
-                    "Failed to fetch batch after %s retries: %s", max_retries, e
-                )
+                logger.error("Failed to fetch batch: %s", e)
 
                 return self._build_result(
                     total_items_fetched=total_items_fetched,
@@ -1010,7 +1011,6 @@ class BatchEvaluationRunner:
             items_to_process = self._deduplicate_page(
                 items, skip_ids=previous_page_ids | {resumed_item_id}
             )
-            previous_page_ids = {item.id for item in items}
 
             results = await asyncio.gather(
                 *[process_item(item) for item in items_to_process]
@@ -1034,6 +1034,7 @@ class BatchEvaluationRunner:
                     item_evaluations[item_id] = evaluations
 
             if items:
+                previous_page_ids = {item.id for item in items}
                 last_item_timestamp = items[-1].start_time.isoformat()
                 last_item_id = items[-1].id
 
@@ -1053,8 +1054,10 @@ class BatchEvaluationRunner:
                         total_scores_created,
                     )
 
+            # The API can return short or empty pages before the end; only a
+            # missing cursor marks the end.
             cursor = next_cursor
-            if cursor is None or not items:
+            if cursor is None:
                 has_more = False
                 break
 
@@ -1117,7 +1120,10 @@ class BatchEvaluationRunner:
             limit=limit,
             cursor=cursor,
             filter=filter,
-            request_options={"max_retries": max_retries},
+            request_options={
+                "max_retries": max_retries,
+                "timeout_in_seconds": _OBSERVATIONS_FETCH_TIMEOUT_SECONDS,
+            },
         )
 
         return list(response.data), response.meta.cursor
