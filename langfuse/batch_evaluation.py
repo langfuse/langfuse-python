@@ -468,9 +468,9 @@ class BatchEvaluationResumeToken:
     exactly where the previous one stopped, without re-evaluating or skipping
     items, even if new observations were ingested in the meantime.
 
-    A token is returned when a run stops because a batch fetch failed after all
-    retries (`completed=False`) or because `max_items` was reached while more
-    items exist (`has_more_items=True`).
+    A token is returned when a run stops because a batch fetch failed
+    (`completed=False`) or because `max_items` was reached while more items may
+    exist (`has_more_items=True`).
 
     Attributes:
         filter: The original JSON filter string used to query items. Pass the
@@ -478,7 +478,8 @@ class BatchEvaluationResumeToken:
         cursor: Cursor of the next page to fetch. None if no page was fetched yet.
         last_processed_timestamp: ISO 8601 start time of the oldest processed
             observation. Only used to resume when `cursor` is None, by fetching
-            observations that started strictly before this timestamp.
+            observations that started at or before this timestamp, skipping
+            `last_processed_id`.
         last_processed_id: The ID of the last processed observation, for reference.
         last_page_ids: IDs of the observations on the last processed page. A
             resumed run skips these, because unmerged duplicate rows of one
@@ -569,13 +570,13 @@ class BatchEvaluationResult:
         evaluator_stats: List of per-evaluator statistics (success/failure rates, scores created).
         resume_token: Token for continuing the run. Set when a batch fetch failed
             (`completed=False`) or when `max_items` was reached while more items
-            exist (`has_more_items=True`); None otherwise.
+            may exist (`has_more_items=True`); None otherwise.
         completed: False if the run stopped because a batch fetch failed, True otherwise
             (including when it stopped at `max_items`).
         duration_seconds: Total time taken to execute the batch evaluation.
         failed_item_ids: List of observation IDs for items that failed evaluation.
         error_summary: Dictionary mapping error types to occurrence counts.
-        has_more_items: True if max_items limit was reached but more items exist.
+        has_more_items: True if the run stopped at max_items and more items may exist.
         item_evaluations: Dictionary mapping observation IDs to their evaluation results (both regular and composite).
 
     Examples:
@@ -629,7 +630,7 @@ class BatchEvaluationResult:
                 print("Pass it as resume_from to continue")
 
         if result.has_more_items:
-            print(f"ℹ️  More items available beyond max_items limit")
+            print(f"ℹ️  More items may be available beyond max_items limit")
         ```
 
         Performance monitoring:
@@ -688,7 +689,7 @@ class BatchEvaluationResult:
             duration_seconds: Total execution time.
             failed_item_ids: IDs of failed items.
             error_summary: Error types and counts.
-            has_more_items: Whether more items exist beyond max_items.
+            has_more_items: Whether more items may exist beyond max_items.
             item_evaluations: Dictionary mapping item IDs to their evaluation results.
 
         Note:
@@ -787,7 +788,7 @@ class BatchEvaluationResult:
                 lines.append("  Use resume_from parameter to continue")
 
         if self.has_more_items:
-            lines.append("\nNote: More items available beyond max_items limit")
+            lines.append("\nNote: More items may be available beyond max_items limit")
 
         lines.append("=" * 60)
         return "\n".join(lines)
@@ -852,7 +853,8 @@ class BatchEvaluationRunner:
             metadata: Metadata to add to all created scores.
             _add_observation_scores_to_trace: Private option to duplicate
                 observation-level scores onto the parent trace.
-            max_retries: Maximum retries for failed batch fetches.
+            max_retries: Maximum retries of a batch fetch on HTTP 408, 409, 429
+                and 5xx responses. Other fetch errors are not retried.
             verbose: If True, log progress to console.
             resume_from: Resume token from a previous run. If `filter` is omitted,
                 the token's filter is reused.
@@ -1101,15 +1103,15 @@ class BatchEvaluationRunner:
             filter: JSON filter string for querying.
             cursor: Cursor returned with the previous page; None for the first page.
             limit: Number of items to request.
-            max_retries: Maximum number of retry attempts.
+            max_retries: Maximum retries on HTTP 408, 409, 429 and 5xx responses.
             fields: Comma-separated v2 field groups to include.
 
         Returns:
-            Tuple of the page's observations and the cursor for the next page
-            (None when there are no more pages).
+            Tuple of the page's observations, which may be empty, and the cursor
+            for the next page (None when there are no more pages).
 
         Raises:
-            Exception: If all retry attempts fail.
+            Exception: If the fetch fails.
         """
         response = await asyncio.to_thread(
             self.client.api.observations.get_many,
@@ -1475,7 +1477,7 @@ class BatchEvaluationRunner:
             start_time: Start time (unix timestamp).
             failed_item_ids: IDs of failed items.
             error_summary: Error type counts.
-            has_more_items: Whether more items exist beyond max_items.
+            has_more_items: Whether more items may exist beyond max_items.
             item_evaluations: Dictionary mapping item IDs to their evaluation results.
 
         Returns:

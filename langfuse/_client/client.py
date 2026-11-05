@@ -444,8 +444,33 @@ class Langfuse:
           user, session, tags and input/output are on its root observation. Read
           scores with `api.scores.get_many` and experiments with `api.experiments`.
 
+        - **Read observation pages until `meta.cursor` is absent.** Pages can be
+          short or empty before the end. The server scans for up to 45 seconds per
+          request, so pass `request_options={"timeout_in_seconds": 60}`, and pass
+          `from_start_time` when you know a lower bound (otherwise the server
+          scans back to 2020-01-01). A 422 means the request hit a server resource
+          limit: narrow the time range rather than retrying unchanged. A `startTime`
+          condition in the JSON `filter` overrides `from_start_time` and
+          `to_start_time`.
+
         - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
+
+        Reading all observations of a trace:
+        ```python
+        observations, cursor = [], None
+        while True:
+            page = langfuse.api.observations.get_many(
+                trace_id=trace_id,
+                from_start_time=since,
+                cursor=cursor,
+                request_options={"timeout_in_seconds": 60},
+            )
+            observations.extend(page.data)
+            cursor = page.meta.cursor
+            if cursor is None:
+                break
+        ```
 
 
         See also: `async_api`,
@@ -2226,8 +2251,8 @@ class Langfuse:
             *readable* yet: server-side ingestion is asynchronous, so flushed data
             may not be queryable for 15-30 seconds —
             `api.observations.get_many(trace_id=...)` may return empty results right
-            after a successful flush. See the `api` property docs for a bounded retry
-            pattern, or
+            after a successful flush. Poll with a deadline instead of a fixed sleep;
+            see
             https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
         if self._resources is not None:
@@ -3196,7 +3221,9 @@ class Langfuse:
                 - '[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]'
                 - '[{"type": "string", "column": "traceName", "operator": "=", "value": "chat"}]'
                 - '[{"type": "datetime", "column": "startTime", "operator": ">=", "value": "2026-01-01T00:00:00Z"}]'
-                Default: None (fetches all observations).
+                Without a `startTime` lower bound, the server only reads back to
+                2020-01-01, and a selective filter can take many slow requests to get
+                there. Add a `startTime` lower bound when you can. Default: None.
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Maximum 1000. Default: 50.
             fields: Comma-separated list of observation field groups to fetch. Available
@@ -3216,8 +3243,9 @@ class Langfuse:
                 combined metrics. Default: None.
             metadata: Optional metadata dict to add to all created scores. Useful for
                 tracking evaluation runs, versions, or other context. Default: None.
-            max_retries: Maximum number of retry attempts for failed batch fetches.
-                Default: 3.
+            max_retries: Maximum retries of a batch fetch on HTTP 408, 409, 429 and
+                5xx responses. Other fetch errors, such as timeouts or a 422, stop
+                the run with `completed=False` and a resume token. Default: 3.
             verbose: If True, logs progress information to console. Useful for monitoring
                 long-running evaluations. Default: False.
             resume_from: Optional resume token from a previous run that stopped early
@@ -3236,12 +3264,12 @@ class Langfuse:
                 - total_evaluations_failed: Individual evaluator failures
                 - evaluator_stats: Per-evaluator statistics (success rate, scores created)
                 - resume_token: Token for continuing the run (set after a fetch failure
-                  or when max_items was reached while more items exist)
+                  or when max_items was reached while more items may exist)
                 - completed: False if the run stopped because a fetch failed
                 - duration_seconds: Total execution time
                 - failed_item_ids: Observation IDs of items that failed
                 - error_summary: Error types and counts
-                - has_more_items: True if max_items reached but more exist
+                - has_more_items: True if max_items was reached and more items may exist
                 - item_evaluations: Evaluations per observation ID
 
         Raises:
@@ -3317,7 +3345,7 @@ class Langfuse:
             )
             ```
 
-            Continuing a run that stopped early:
+            Processing in chunks of `max_items`:
             ```python
             result = client.run_batched_evaluation(
                 mapper=generation_mapper,
@@ -3325,19 +3353,26 @@ class Langfuse:
                 max_items=10000,
             )
 
-            while result.resume_token:
+            while result.has_more_items:
                 result = client.run_batched_evaluation(
-                        mapper=generation_mapper,
+                    mapper=generation_mapper,
                     evaluators=[accuracy_evaluator],
                     max_items=10000,
                     resume_from=result.resume_token,
                 )
+
+            if not result.completed:
+                # resume_from=result.resume_token retries the failed page. A 422
+                # usually repeats, and a token only resumes its own filter, so
+                # start a new run whose filter adds a narrower startTime range.
+                ...
             ```
 
         Note:
             - Evaluator failures are logged but don't stop the batch evaluation
             - Individual item failures are tracked but don't stop processing
-            - Fetch failures are retried up to `max_retries` times
+            - Fetches are retried up to `max_retries` times on HTTP 408, 409, 429
+              and 5xx responses; other fetch errors stop the run
             - All scores are automatically flushed to Langfuse at the end
             - Resuming uses the pagination cursor, so items are neither skipped nor
               evaluated twice
