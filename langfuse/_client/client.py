@@ -172,6 +172,17 @@ def _serialize_evaluations(evaluations: List[Evaluation]) -> List[Dict[str, Any]
     ]
 
 
+def _to_api_chat_messages(messages: List[Any]) -> List[Any]:
+    # ChatPromptClient.prompt and ChatMessageWithPlaceholdersDict use
+    # type="message", but the API models only accept "chatmessage".
+    return [
+        {**message, "type": "chatmessage"}
+        if isinstance(message, dict) and message.get("type") == "message"
+        else message
+        for message in messages
+    ]
+
+
 class Langfuse:
     """Main client for Langfuse tracing and platform features.
 
@@ -3825,7 +3836,9 @@ class Langfuse:
 
                     fallback_client_args: Dict[str, Any] = {
                         "name": name,
-                        "prompt": fallback,
+                        "prompt": _to_api_chat_messages(fallback)
+                        if isinstance(fallback, list)
+                        else fallback,
                         "type": type,
                         "version": version or 0,
                         "config": {},
@@ -4027,7 +4040,7 @@ class Langfuse:
                 request: Union[CreateChatPromptRequest, CreateTextPromptRequest] = (
                     CreateChatPromptRequest(
                         name=name,
-                        prompt=cast(Any, prompt),
+                        prompt=_to_api_chat_messages(prompt),
                         labels=labels,
                         tags=tags,
                         config=config or {},
