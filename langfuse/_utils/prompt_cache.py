@@ -134,9 +134,8 @@ class PromptCacheTaskManager(object):
 
         atexit.unregister(self.shutdown)
 
-        for consumer in self._consumers:
-            consumer.pause()
-
+        # Busy workers must consume their sentinels after finishing queued work.
+        # Pausing them here would leave unfinished items in the queue.
         for _ in self._consumers:
             self._queue.put(_SHUTDOWN_SENTINEL)
 
