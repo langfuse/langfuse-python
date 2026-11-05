@@ -58,11 +58,16 @@ class FakeObservationsApi:
         )
         self.calls: List[Dict[str, Any]] = []
         self.fail_on_call: Optional[int] = None
+        self.empty_page_on_call: Optional[int] = None
 
     def get_many(self, **kwargs: Any) -> ObservationsV2Response:
         self.calls.append(kwargs)
         if self.fail_on_call is not None and len(self.calls) == self.fail_on_call:
             raise ConnectionError("fetch failed")
+        if len(self.calls) == self.empty_page_on_call:
+            # The API returns an empty page with a cursor when its scan deadline
+            # passes before it finds matching rows.
+            return ObservationsV2Response(data=[], meta={"cursor": kwargs["cursor"]})
 
         matching = [o for o in self.observations if self._matches(o, kwargs["filter"])]
         start = int(kwargs["cursor"]) if kwargs["cursor"] else 0
@@ -224,6 +229,20 @@ async def test_max_items_aligns_pages_and_resume_continues_without_gaps():
     assert set(first.item_evaluations) | set(second.item_evaluations) == {
         f"obs-{i}" for i in range(10)
     }
+
+
+@pytest.mark.asyncio
+async def test_empty_page_with_cursor_does_not_end_the_run():
+    runner, api, _ = make_runner([make_observation(i) for i in range(5)])
+    api.empty_page_on_call = 2
+
+    result = await run(runner, fetch_batch_size=2)
+
+    assert [call["cursor"] for call in api.calls] == [None, "2", "2", "4"]
+    assert result.completed is True
+    assert result.has_more_items is False
+    assert result.resume_token is None
+    assert set(result.item_evaluations) == {f"obs-{i}" for i in range(5)}
 
 
 @pytest.mark.asyncio
@@ -410,3 +429,21 @@ async def test_resume_skips_duplicate_rows_split_across_the_page_boundary():
         call.kwargs["observation_id"] for call in client.create_score.call_args_list
     ]
     assert sorted(scored_ids) == [f"obs-{i}" for i in range(5)]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_rows_split_across_an_empty_page_are_evaluated_once():
+    duplicate = make_observation(2).model_copy(
+        update={"updated_at": BASE_TIME + timedelta(hours=1)}
+    )
+    runner, api, client = make_runner(
+        [make_observation(i) for i in range(4)] + [duplicate]
+    )
+    api.empty_page_on_call = 2
+
+    await run(runner, fetch_batch_size=2)
+
+    scored_ids = [
+        call.kwargs["observation_id"] for call in client.create_score.call_args_list
+    ]
+    assert sorted(scored_ids) == [f"obs-{i}" for i in range(4)]
