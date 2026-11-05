@@ -1010,7 +1010,6 @@ class BatchEvaluationRunner:
             items_to_process = self._deduplicate_page(
                 items, skip_ids=previous_page_ids | {resumed_item_id}
             )
-            previous_page_ids = {item.id for item in items}
 
             results = await asyncio.gather(
                 *[process_item(item) for item in items_to_process]
@@ -1034,6 +1033,7 @@ class BatchEvaluationRunner:
                     item_evaluations[item_id] = evaluations
 
             if items:
+                previous_page_ids = {item.id for item in items}
                 last_item_timestamp = items[-1].start_time.isoformat()
                 last_item_id = items[-1].id
 
@@ -1053,8 +1053,10 @@ class BatchEvaluationRunner:
                         total_scores_created,
                     )
 
+            # The API can return short or empty pages before the end; only a
+            # missing cursor marks the end.
             cursor = next_cursor
-            if cursor is None or not items:
+            if cursor is None:
                 has_more = False
                 break
 
