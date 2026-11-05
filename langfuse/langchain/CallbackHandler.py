@@ -1749,21 +1749,32 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
             usage_model["cache_creation"], dict
         ):
             cache_creation = usage_model.pop("cache_creation")
-            total_cache_creation_tokens = 0
+            tier_key_map = {
+                "ephemeral_5m_input_tokens": "input_cache_creation_5m",
+                "ephemeral_1h_input_tokens": "input_cache_creation_1h",
+            }
+            attributed = 0
 
             for key, value in cache_creation.items():
                 if not isinstance(value, int):
                     continue
 
-                usage_model[f"cache_creation_{key}"] = value
-                total_cache_creation_tokens += value
+                langfuse_key = tier_key_map.get(key, f"input_cache_creation_{key}")
+                usage_model[langfuse_key] = value
+                if value > 0:
+                    attributed += value
 
-            # Aggregate mirrors Anthropic's legacy cache_creation_input_tokens field;
-            # keep the API-provided value if it is already present
-            if total_cache_creation_tokens > 0:
-                usage_model.setdefault(
-                    "cache_creation_input_tokens", total_cache_creation_tokens
-                )
+            if attributed > 0:
+                for aggregate_key in (
+                    "cache_creation_input_tokens",
+                    "input_cache_creation",
+                ):
+                    if aggregate_key in usage_model:
+                        remainder = usage_model[aggregate_key] - attributed
+                        if remainder > 0:
+                            usage_model[aggregate_key] = remainder
+                        else:
+                            del usage_model[aggregate_key]
 
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
