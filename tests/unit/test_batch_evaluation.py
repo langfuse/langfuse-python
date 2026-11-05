@@ -429,3 +429,21 @@ async def test_resume_skips_duplicate_rows_split_across_the_page_boundary():
         call.kwargs["observation_id"] for call in client.create_score.call_args_list
     ]
     assert sorted(scored_ids) == [f"obs-{i}" for i in range(5)]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_rows_split_across_an_empty_page_are_evaluated_once():
+    duplicate = make_observation(2).model_copy(
+        update={"updated_at": BASE_TIME + timedelta(hours=1)}
+    )
+    runner, api, client = make_runner(
+        [make_observation(i) for i in range(4)] + [duplicate]
+    )
+    api.empty_page_on_call = 2
+
+    await run(runner, fetch_batch_size=2)
+
+    scored_ids = [
+        call.kwargs["observation_id"] for call in client.create_score.call_args_list
+    ]
+    assert sorted(scored_ids) == [f"obs-{i}" for i in range(4)]
