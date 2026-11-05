@@ -27,6 +27,7 @@ import json
 import os
 import types
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from inspect import isawaitable, isclass
@@ -311,7 +312,12 @@ class OpenAiArgsExtractor:
         self.args["trace_id"] = trace_id
         self.args["parent_observation_id"] = parent_observation_id
 
-        self.kwargs = kwargs
+        # Materialize one-shot iterators (e.g. a generator of messages) so that
+        # reading them for tracing does not leave OpenAI with an empty argument.
+        self.kwargs = {
+            key: list(value) if isinstance(value, Iterator) else value
+            for key, value in kwargs.items()
+        }
 
     def get_langfuse_args(self) -> Any:
         return {**self.args, **self.kwargs}

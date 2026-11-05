@@ -372,6 +372,43 @@ def test_chat_completion_exports_generation_span(
     }
 
 
+def test_chat_completion_does_not_consume_messages_iterator(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = ChatCompletion.model_validate(
+        {
+            "id": "chatcmpl-1",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "gpt-4o-mini",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hi"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+    )
+    messages = [{"role": "user", "content": "hello"}]
+
+    with patch.object(
+        openai_client.chat.completions, "_post", return_value=response
+    ) as post:
+        openai_client.chat.completions.create(
+            name="unit-openai-iterator",
+            model="gpt-4o-mini",
+            messages=(message for message in messages),
+        )
+
+    assert post.call_args.kwargs["body"]["messages"] == messages
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-iterator")
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == messages
+
+
 def test_chat_completion_with_none_choices_does_not_crash(
     langfuse_memory_client, get_span, json_attr
 ):
