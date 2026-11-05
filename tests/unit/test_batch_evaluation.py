@@ -255,7 +255,10 @@ async def test_fetch_failure_returns_resume_token_for_failed_page():
 
     assert resumed.completed is True
     assert set(resumed.item_evaluations) == {"obs-3", "obs-2", "obs-1", "obs-0"}
-    assert api.calls[-1]["request_options"] == {"max_retries": 3}
+    assert api.calls[-1]["request_options"] == {
+        "max_retries": 3,
+        "timeout_in_seconds": 60,
+    }
 
 
 @pytest.mark.asyncio

@@ -38,6 +38,9 @@ work without extra configuration. Available groups: core, basic, time, io,
 metadata, model, usage, prompt, metrics, trace_context.
 """
 
+# The v2 observations API scans for up to 45 s before it returns a page.
+_OBSERVATIONS_FETCH_TIMEOUT_SECONDS = 60
+
 
 def _with_time_fields(fields: Optional[str]) -> str:
     """Add the ``time`` group, whose ``updatedAt`` picks the newest duplicate row."""
@@ -962,9 +965,7 @@ class BatchEvaluationRunner:
                     fields=fields,
                 )
             except Exception as e:
-                logger.error(
-                    "Failed to fetch batch after %s retries: %s", max_retries, e
-                )
+                logger.error("Failed to fetch batch: %s", e)
 
                 return self._build_result(
                     total_items_fetched=total_items_fetched,
@@ -1117,7 +1118,10 @@ class BatchEvaluationRunner:
             limit=limit,
             cursor=cursor,
             filter=filter,
-            request_options={"max_retries": max_retries},
+            request_options={
+                "max_retries": max_retries,
+                "timeout_in_seconds": _OBSERVATIONS_FETCH_TIMEOUT_SECONDS,
+            },
         )
 
         return list(response.data), response.meta.cursor
