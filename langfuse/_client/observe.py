@@ -189,6 +189,7 @@ class LangfuseDecorator:
               - langfuse_trace_id: Explicitly set the trace ID for this function call
               - langfuse_parent_observation_id: Explicitly set the parent span ID
               - langfuse_public_key: Use a specific Langfuse project (when multiple clients exist)
+              - langfuse_project_id: Use the client for this project (when several clients share an organization API key)
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
@@ -286,10 +287,13 @@ class LangfuseDecorator:
                 else None
             )
             public_key = cast(str, kwargs.pop("langfuse_public_key", None))
+            project_id = cast(Optional[str], kwargs.pop("langfuse_project_id", None))
 
-            # Set public key in execution context for nested decorated functions
-            with _set_current_public_key(public_key):
-                langfuse_client = get_client(public_key=public_key)
+            # Set client identity in execution context for nested decorated functions
+            with _set_current_public_key(public_key, project_id):
+                langfuse_client = get_client(
+                    public_key=public_key, project_id=project_id
+                )
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],
@@ -377,10 +381,13 @@ class LangfuseDecorator:
                 else None
             )
             public_key = kwargs.pop("langfuse_public_key", None)
+            project_id = kwargs.pop("langfuse_project_id", None)
 
-            # Set public key in execution context for nested decorated functions
-            with _set_current_public_key(public_key):
-                langfuse_client = get_client(public_key=public_key)
+            # Set client identity in execution context for nested decorated functions
+            with _set_current_public_key(public_key, project_id):
+                langfuse_client = get_client(
+                    public_key=public_key, project_id=project_id
+                )
                 context_manager: Optional[
                     Union[
                         _AgnosticContextManager[LangfuseGeneration],

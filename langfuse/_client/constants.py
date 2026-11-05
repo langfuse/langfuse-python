@@ -9,6 +9,12 @@ from typing_extensions import TypeAlias
 
 LANGFUSE_TRACER_NAME = "langfuse-sdk"
 
+PROJECT_ID_HEADER = "x-langfuse-project-id"
+"""Header naming the target project. Required with organization API keys."""
+
+# Lowercase header names the server reads as the target project
+PROJECT_ID_HEADER_NAMES = (PROJECT_ID_HEADER, "langfuse-project-id")
+
 LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT = "sdk-experiment"
 
 MASK_FALLBACK_VALUE = "<fully masked due to failed mask function>"
