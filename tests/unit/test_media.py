@@ -275,3 +275,116 @@ def test_init_with_urlsafe_base64_data_uri():
     assert media._source == "base64_data_uri"
     assert media._content_type == "application/octet-stream"
     assert media._content_bytes == original_bytes
+
+
+@pytest.fixture
+def media_resolution_client():
+    media_api = Mock()
+    media_api.get.return_value = SimpleNamespace(
+        url="https://example.com/image.jpg", content_type="image/jpeg"
+    )
+    response = Mock(content=b"image")
+    httpx_client = Mock()
+    httpx_client.get.return_value = response
+    return SimpleNamespace(
+        api=SimpleNamespace(media=media_api),
+        _resources=SimpleNamespace(httpx_client=httpx_client),
+    )
+
+
+def test_resolve_media_references_downloads_repeated_media_once(
+    media_resolution_client,
+):
+    client = media_resolution_client
+    reference = "@@@langfuseMedia:type=image/jpeg|id=repeated|source=bytes@@@"
+    original = {"text": f"{reference} {reference}", "messages": [reference]}
+
+    result = LangfuseMedia.resolve_media_references(
+        obj=original, langfuse_client=client, resolve_with="base64_data_uri"
+    )
+
+    uri = "data:image/jpeg;base64,aW1hZ2U="
+    assert result == {"text": f"{uri} {uri}", "messages": [uri]}
+    assert original == {"text": f"{reference} {reference}", "messages": [reference]}
+    client.api.media.get.assert_called_once_with("repeated")
+    client._resources.httpx_client.get.assert_called_once_with(
+        "https://example.com/image.jpg", timeout=10
+    )
+
+    LangfuseMedia.resolve_media_references(
+        obj=original, langfuse_client=client, resolve_with="base64_data_uri"
+    )
+    assert client.api.media.get.call_count == 2
+    assert client._resources.httpx_client.get.call_count == 2
+
+
+def test_resolve_media_references_keeps_distinct_media_separate(
+    media_resolution_client,
+):
+    client = media_resolution_client
+    references = [
+        f"@@@langfuseMedia:type=image/jpeg|id={media_id}|source=bytes@@@"
+        for media_id in ("first", "second")
+    ]
+    client._resources.httpx_client.get.side_effect = [
+        Mock(content=b"first"),
+        Mock(content=b"second"),
+    ]
+
+    result = LangfuseMedia.resolve_media_references(
+        obj=references + references,
+        langfuse_client=client,
+        resolve_with="base64_data_uri",
+    )
+
+    assert (
+        result
+        == [
+            "data:image/jpeg;base64,Zmlyc3Q=",
+            "data:image/jpeg;base64,c2Vjb25k",
+        ]
+        * 2
+    )
+    assert client.api.media.get.call_count == 2
+    assert client._resources.httpx_client.get.call_count == 2
+
+
+@pytest.mark.parametrize("failure_stage", ["metadata", "download"])
+def test_resolve_media_references_retries_failed_media(
+    media_resolution_client, failure_stage
+):
+    client = media_resolution_client
+    reference = "@@@langfuseMedia:type=image/jpeg|id=repeated|source=bytes@@@"
+    if failure_stage == "metadata":
+        client.api.media.get.side_effect = [
+            RuntimeError("temporary failure"),
+            client.api.media.get.return_value,
+        ]
+    else:
+        client._resources.httpx_client.get.side_effect = [
+            RuntimeError("temporary failure"),
+            client._resources.httpx_client.get.return_value,
+        ]
+
+    result = LangfuseMedia.resolve_media_references(
+        obj=[reference] * 3,
+        langfuse_client=client,
+        resolve_with="base64_data_uri",
+    )
+
+    assert result == [reference] + ["data:image/jpeg;base64,aW1hZ2U="] * 2
+    assert client.api.media.get.call_count == 2
+
+
+def test_resolve_media_references_retains_depth_limit(media_resolution_client):
+    reference = "@@@langfuseMedia:type=image/jpeg|id=repeated|source=bytes@@@"
+    result = LangfuseMedia.resolve_media_references(
+        obj={"image": reference, "nested": {"image": reference}},
+        langfuse_client=media_resolution_client,
+        resolve_with="base64_data_uri",
+        max_depth=1,
+    )
+    assert result == {
+        "image": "data:image/jpeg;base64,aW1hZ2U=",
+        "nested": {"image": reference},
+    }
