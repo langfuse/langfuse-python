@@ -73,8 +73,8 @@ def iter_observation_pages(
             request_options=options,
             **params,
         )
-        yield page
         fetched += len(page.data)
+        yield page
         cursor = page.meta.cursor
         if not cursor:
             return
@@ -102,8 +102,8 @@ async def aiter_observation_pages(
             request_options=options,
             **params,
         )
-        yield page
         fetched += len(page.data)
+        yield page
         cursor = page.meta.cursor
         if not cursor:
             return
