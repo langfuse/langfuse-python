@@ -15,11 +15,14 @@ from hashlib import sha256
 from time import time_ns
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
+    Iterator,
     List,
     Literal,
     Optional,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -40,6 +43,7 @@ from opentelemetry.util._decorator import (
 )
 from packaging.version import Version
 
+from langfuse._client import pagination
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     _serialize,
@@ -107,9 +111,12 @@ from langfuse.api import (
     LangfuseAPI,
     MapValue,
     NotFoundError,
+    ObservationLevel,
+    ObservationsV2Response,
     Prompt_Chat,
     Prompt_Text,
 )
+from langfuse.api.core import RequestOptions
 from langfuse.api.core.datetime_utils import serialize_datetime
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
@@ -144,6 +151,7 @@ from langfuse.types import (
     MaskFunction,
     MaskOtelSpansFunction,
     ScoreDataType,
+    SkillsConfig,
     SpanLevel,
     TraceContext,
 )
@@ -252,6 +260,7 @@ class Langfuse:
         additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and in the default OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well. If `span_exporter` is provided, these headers are not wired into that exporter and must be configured on the exporter instance directly.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
         id_generator (Optional[IdGenerator]): OpenTelemetry ID generator to use when Langfuse creates its own TracerProvider. If omitted, the OpenTelemetry SDK default is used. If `tracer_provider` is provided, or an OpenTelemetry TracerProvider is already registered globally, configure the ID generator on that provider instead.
+        skills (Optional[SkillsConfig]): Configure available skills; attach them with propagate_attributes(attach_skills=True). Shared clients use the first configuration for their public key.
         span_exporter (Optional[SpanExporter]): Custom OpenTelemetry span exporter for the Langfuse span processor. If omitted, Langfuse creates an OTLPSpanExporter pointed at the Langfuse OTLP endpoint. If provided, Langfuse does not wire `base_url`, exporter headers, exporter auth, exporter timeout, `otel_compression`, or the `LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES` request size limit into it. Configure endpoint, headers, timeout, and compression on the exporter instance directly. If you are sending spans to Langfuse v4 or using Langfuse Cloud Fast Preview, include `x-langfuse-ingestion-version=4` on the exporter to enable real time processing of exported spans.
         otel_compression (Optional[Literal["gzip", "none"]]): Compression for span batches sent by the default OTLP span exporter: "gzip" (default) or "none" to send uncompressed. If unset, the LANGFUSE_OTEL_COMPRESSION, OTEL_EXPORTER_OTLP_TRACES_COMPRESSION and OTEL_EXPORTER_OTLP_COMPRESSION environment variables apply, in that order, then gzip. Values are case-insensitive; an invalid value falls through to the next setting.
 
@@ -320,6 +329,7 @@ class Langfuse:
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
         otel_compression: Optional[Literal["gzip", "none"]] = None,
+        skills: Optional[SkillsConfig] = None,
     ):
         self._base_url = (
             base_url
@@ -408,6 +418,7 @@ class Langfuse:
             id_generator=id_generator,
             span_exporter=span_exporter,
             otel_compression=otel_compression,
+            skills=skills,
         )
         self._mask = self._resources.mask
 
@@ -440,11 +451,15 @@ class Langfuse:
           user, session, tags and input/output are on its root observation. Read
           scores with `api.scores.get_many` and experiments with `api.experiments`.
 
+        - **Page through observations with `iter_observation_pages`.** Pages can be
+          short or empty before the end, and a request can take up to 45 seconds.
+          `iter_observation_pages` / `aiter_observation_pages` follow `meta.cursor`
+          until it is absent and raise the per-request timeout accordingly.
+
         - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
 
-
-        See also: `async_api`,
+        See also: `async_api`, `iter_observation_pages`,
         https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
         (ingestion lag: #ingestion-lag),
         https://langfuse.com/docs/api-and-data-platform/features/observations-api,
@@ -475,6 +490,164 @@ class Langfuse:
             raise AttributeError("Langfuse client is not initialized")
 
         self._resources.async_api = value
+
+    def iter_observation_pages(
+        self,
+        *,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        max_items: Optional[int] = None,
+        fields: Optional[str] = None,
+        expand_metadata: Optional[str] = None,
+        name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        type: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        level: Optional[ObservationLevel] = None,
+        parent_observation_id: Optional[str] = None,
+        is_root_observation: Optional[bool] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
+        from_start_time: Optional[datetime] = None,
+        to_start_time: Optional[datetime] = None,
+        version: Optional[str] = None,
+        filter: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> Iterator[ObservationsV2Response]:
+        """Yield pages of `GET /api/public/v2/observations` until the server returns no cursor.
+
+        A page can be short or empty while more data remains, so only a missing
+        `meta.cursor` ends the iteration. Every page is yielded, including empty
+        ones. To resume later, save `page.meta.cursor` after processing a page and
+        pass it back as `cursor` with the same other arguments.
+
+        Args:
+            limit: Rows per request, at most 1000.
+            cursor: Cursor to resume from.
+            max_items: Stop after this many rows. The last request asks only for the
+                remaining rows, so the last page's cursor resumes right after them.
+            fields: Comma-separated field groups to include, e.g. `"basic,usage,model"`.
+                Defaults to `core` and `basic` on the server.
+            expand_metadata: Comma-separated metadata keys to return non-truncated.
+            name: Filter by observation name.
+            user_id: Filter by user ID.
+            session_id: Filter by session ID.
+            type: Filter by observation type, e.g. `"GENERATION"`.
+            trace_id: Filter by trace ID.
+            level: Filter by level, e.g. `"ERROR"`.
+            parent_observation_id: Filter by the physical parent observation ID.
+            is_root_observation: Filter by whether an observation is a logical root.
+            environment: Filter by one or more environments.
+            from_start_time: Only observations starting at or after this datetime.
+            to_start_time: Only observations starting before this datetime.
+            version: Filter by version.
+            filter: JSON array of filter conditions. Takes precedence over the
+                individual filter arguments; see `api.observations.get_many`.
+            request_options: Passed to every request. `timeout_in_seconds` defaults
+                to 60 because the server may scan for up to 45 s per request.
+
+        Errors propagate and end the iteration. A 422 means the server hit a resource
+        limit, usually its time budget; the same request tends to fail again, so
+        narrow the time range or add filters instead of retrying it unchanged.
+
+        Without a lower time bound the server searches back only to 2020-01-01. A
+        `startTime` condition in `filter` makes the server ignore `from_start_time`
+        and `to_start_time`, so put both bounds in `filter`. Rows are not
+        deduplicated; dedupe by `id` if you need unique observations.
+
+        Example:
+            ```python
+            from datetime import datetime, timedelta, timezone
+
+            from langfuse import get_client
+
+            langfuse = get_client()
+            since = datetime.now(timezone.utc) - timedelta(days=7)
+
+            for page in langfuse.iter_observation_pages(
+                trace_id="abc123", from_start_time=since, limit=1000
+            ):
+                for observation in page.data:
+                    print(observation.id, observation.name)
+            ```
+        """
+        return pagination.iter_observation_pages(
+            self.api,
+            limit=limit,
+            cursor=cursor,
+            max_items=max_items,
+            request_options=request_options,
+            fields=fields,
+            expand_metadata=expand_metadata,
+            name=name,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            trace_id=trace_id,
+            level=level,
+            parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
+            filter=filter,
+        )
+
+    def aiter_observation_pages(
+        self,
+        *,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        max_items: Optional[int] = None,
+        fields: Optional[str] = None,
+        expand_metadata: Optional[str] = None,
+        name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        type: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        level: Optional[ObservationLevel] = None,
+        parent_observation_id: Optional[str] = None,
+        is_root_observation: Optional[bool] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
+        from_start_time: Optional[datetime] = None,
+        to_start_time: Optional[datetime] = None,
+        version: Optional[str] = None,
+        filter: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> AsyncIterator[ObservationsV2Response]:
+        """Async version of `iter_observation_pages`, using `async_api`.
+
+        Example:
+            ```python
+            async for page in langfuse.aiter_observation_pages(trace_id="abc123"):
+                for observation in page.data:
+                    print(observation.id, observation.name)
+            ```
+        """
+        return pagination.aiter_observation_pages(
+            self.async_api,
+            limit=limit,
+            cursor=cursor,
+            max_items=max_items,
+            request_options=request_options,
+            fields=fields,
+            expand_metadata=expand_metadata,
+            name=name,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            trace_id=trace_id,
+            level=level,
+            parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
+            filter=filter,
+        )
 
     @overload
     def start_observation(
@@ -689,7 +862,9 @@ class Langfuse:
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
-                    otel_span = self._otel_tracer.start_span(name=name)
+                    otel_span = self._otel_tracer.start_span(
+                        name=name,
+                    )
                     _set_span_attributes_within_limit(
                         otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
                     )
@@ -1612,7 +1787,8 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self._otel_tracer.start_span(
-                        name=name, start_time=timestamp
+                        name=name,
+                        start_time=timestamp,
                     )
                     _set_span_attributes_within_limit(
                         otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
@@ -1634,7 +1810,10 @@ class Langfuse:
                         ).end(end_time=timestamp),
                     )
 
-        otel_span = self._otel_tracer.start_span(name=name, start_time=timestamp)
+        otel_span = self._otel_tracer.start_span(
+            name=name,
+            start_time=timestamp,
+        )
 
         return cast(
             LangfuseEvent,
@@ -2216,8 +2395,8 @@ class Langfuse:
             *readable* yet: server-side ingestion is asynchronous, so flushed data
             may not be queryable for 15-30 seconds —
             `api.observations.get_many(trace_id=...)` may return empty results right
-            after a successful flush. See the `api` property docs for a bounded retry
-            pattern, or
+            after a successful flush. Poll with a deadline instead of a fixed sleep;
+            see
             https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
         if self._resources is not None:
@@ -3186,7 +3365,9 @@ class Langfuse:
                 - '[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]'
                 - '[{"type": "string", "column": "traceName", "operator": "=", "value": "chat"}]'
                 - '[{"type": "datetime", "column": "startTime", "operator": ">=", "value": "2026-01-01T00:00:00Z"}]'
-                Default: None (fetches all observations).
+                Without a `startTime` lower bound, the server only reads back to
+                2020-01-01, and a selective filter can take many slow requests to get
+                there. Add a `startTime` lower bound when you can. Default: None.
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
                 Larger values may be faster but use more memory. Maximum 1000. Default: 50.
             fields: Comma-separated list of observation field groups to fetch. Available
@@ -3206,8 +3387,9 @@ class Langfuse:
                 combined metrics. Default: None.
             metadata: Optional metadata dict to add to all created scores. Useful for
                 tracking evaluation runs, versions, or other context. Default: None.
-            max_retries: Maximum number of retry attempts for failed batch fetches.
-                Default: 3.
+            max_retries: Maximum retries of a batch fetch on HTTP 408, 409, 429 and
+                5xx responses. Other fetch errors, such as timeouts or a 422, stop
+                the run with `completed=False` and a resume token. Default: 3.
             verbose: If True, logs progress information to console. Useful for monitoring
                 long-running evaluations. Default: False.
             resume_from: Optional resume token from a previous run that stopped early
@@ -3226,12 +3408,12 @@ class Langfuse:
                 - total_evaluations_failed: Individual evaluator failures
                 - evaluator_stats: Per-evaluator statistics (success rate, scores created)
                 - resume_token: Token for continuing the run (set after a fetch failure
-                  or when max_items was reached while more items exist)
+                  or when max_items was reached while more items may exist)
                 - completed: False if the run stopped because a fetch failed
                 - duration_seconds: Total execution time
                 - failed_item_ids: Observation IDs of items that failed
                 - error_summary: Error types and counts
-                - has_more_items: True if max_items reached but more exist
+                - has_more_items: True if max_items was reached and more items may exist
                 - item_evaluations: Evaluations per observation ID
 
         Raises:
@@ -3307,7 +3489,7 @@ class Langfuse:
             )
             ```
 
-            Continuing a run that stopped early:
+            Processing in chunks of `max_items`:
             ```python
             result = client.run_batched_evaluation(
                 mapper=generation_mapper,
@@ -3315,19 +3497,26 @@ class Langfuse:
                 max_items=10000,
             )
 
-            while result.resume_token:
+            while result.has_more_items:
                 result = client.run_batched_evaluation(
-                        mapper=generation_mapper,
+                    mapper=generation_mapper,
                     evaluators=[accuracy_evaluator],
                     max_items=10000,
                     resume_from=result.resume_token,
                 )
+
+            if not result.completed:
+                # resume_from=result.resume_token retries the failed page. A 422
+                # usually repeats, and a token only resumes its own filter, so
+                # start a new run whose filter adds a narrower startTime range.
+                ...
             ```
 
         Note:
             - Evaluator failures are logged but don't stop the batch evaluation
             - Individual item failures are tracked but don't stop processing
-            - Fetch failures are retried up to `max_retries` times
+            - Fetches are retried up to `max_retries` times on HTTP 408, 409, 429
+              and 5xx responses; other fetch errors stop the run
             - All scores are automatically flushed to Langfuse at the end
             - Resuming uses the pagination cursor, so items are neither skipped nor
               evaluated twice
@@ -3763,7 +3952,7 @@ class Langfuse:
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
-            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
+            fetch_timeout_seconds: Optional[int]: The timeout in seconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type

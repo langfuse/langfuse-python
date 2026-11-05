@@ -4,13 +4,13 @@ import typing
 
 import pydantic
 from ....core.pydantic_utilities import UniversalBaseModel
-from .skill_list_pagination import SkillListPagination
-from .skill_meta import SkillMeta
+from ....utils.pagination.types.meta_response import MetaResponse
+from .topic_facet import TopicFacet
 
 
-class SkillMetaListResponse(UniversalBaseModel):
-    data: typing.List[SkillMeta]
-    meta: SkillListPagination
+class TopicFacetList(UniversalBaseModel):
+    data: typing.List[TopicFacet]
+    meta: MetaResponse
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

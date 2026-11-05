@@ -13,7 +13,7 @@ if typing.TYPE_CHECKING:
         DashboardWidgetsClient,
     )
     from .dashboards.client import AsyncDashboardsClient, DashboardsClient
-    from .skills.client import AsyncSkillsClient, SkillsClient
+    from .topics.client import AsyncTopicsClient, TopicsClient
 
 
 class UnstableClient:
@@ -22,7 +22,7 @@ class UnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[DashboardWidgetsClient] = None
         self._dashboards: typing.Optional[DashboardsClient] = None
-        self._skills: typing.Optional[SkillsClient] = None
+        self._topics: typing.Optional[TopicsClient] = None
 
     @property
     def with_raw_response(self) -> RawUnstableClient:
@@ -54,12 +54,12 @@ class UnstableClient:
         return self._dashboards
 
     @property
-    def skills(self):
-        if self._skills is None:
-            from .skills.client import SkillsClient  # noqa: E402
+    def topics(self):
+        if self._topics is None:
+            from .topics.client import TopicsClient  # noqa: E402
 
-            self._skills = SkillsClient(client_wrapper=self._client_wrapper)
-        return self._skills
+            self._topics = TopicsClient(client_wrapper=self._client_wrapper)
+        return self._topics
 
 
 class AsyncUnstableClient:
@@ -68,7 +68,7 @@ class AsyncUnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[AsyncDashboardWidgetsClient] = None
         self._dashboards: typing.Optional[AsyncDashboardsClient] = None
-        self._skills: typing.Optional[AsyncSkillsClient] = None
+        self._topics: typing.Optional[AsyncTopicsClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawUnstableClient:
@@ -102,9 +102,9 @@ class AsyncUnstableClient:
         return self._dashboards
 
     @property
-    def skills(self):
-        if self._skills is None:
-            from .skills.client import AsyncSkillsClient  # noqa: E402
+    def topics(self):
+        if self._topics is None:
+            from .topics.client import AsyncTopicsClient  # noqa: E402
 
-            self._skills = AsyncSkillsClient(client_wrapper=self._client_wrapper)
-        return self._skills
+            self._topics = AsyncTopicsClient(client_wrapper=self._client_wrapper)
+        return self._topics

@@ -59,6 +59,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
         "mask_otel_spans": mask_otel_spans,
         "additional_headers": {"X-Custom": "value"},
         "span_exporter": span_exporter,
+        "skills": {"available": [{"name": "support", "version": 2}]},
     }
 
     original_client = Langfuse(**settings)
@@ -76,6 +77,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
     assert rm.mask_otel_spans is mask_otel_spans
     assert rm.additional_headers == settings["additional_headers"]
     assert rm.span_exporter is span_exporter
+    assert rm.skills is settings["skills"]
 
     original_client.shutdown()
 

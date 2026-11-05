@@ -340,6 +340,19 @@ class ParsedMediaReference(TypedDict):
     content_type: MediaContentType
 
 
+class SkillReference(TypedDict):
+    """A skill available to an agent, optionally pinned to a version."""
+
+    name: str
+    version: NotRequired[int]
+
+
+class SkillsConfig(TypedDict):
+    """Skills to attach when propagation enables attach_skills."""
+
+    available: list[SkillReference]
+
+
 class TraceContext(TypedDict):
     trace_id: str
     parent_span_id: NotRequired[str]
@@ -358,4 +371,6 @@ __all__ = [
     "OtelSpanPatch",
     "ParsedMediaReference",
     "TraceContext",
+    "SkillReference",
+    "SkillsConfig",
 ]
