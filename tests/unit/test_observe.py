@@ -3,6 +3,7 @@ import contextvars
 import gc
 import inspect
 import json
+from functools import partial
 from typing import Any, AsyncGenerator, Generator, cast
 
 import pytest
@@ -31,6 +32,76 @@ class SpanRecorder:
 
 def _finished_spans_by_name(memory_exporter: Any, name: str) -> list[Any]:
     return [span for span in memory_exporter.get_finished_spans() if span.name == name]
+
+
+@pytest.mark.parametrize("name", [None, "custom_name"])
+def test_observe_partial_function(
+    langfuse_memory_client: Any, memory_exporter: Any, name: str | None
+) -> None:
+    def add(first: int, second: int, *, extra: int = 0) -> int:
+        return first + second + extra
+
+    observed = observe(name=name)(partial(add, 2, extra=4))
+
+    assert observed(3) == 9
+
+    langfuse_memory_client.flush()
+
+    spans = memory_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].name == (name or "add")
+    assert (
+        json.loads(spans[0].attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT])
+        == 9
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", [None, "custom_name"])
+async def test_observe_async_partial_function(
+    langfuse_memory_client: Any, memory_exporter: Any, name: str | None
+) -> None:
+    async def add(first: int, second: int, *, extra: int = 0) -> int:
+        await asyncio.sleep(0)
+        return first + second + extra
+
+    observed = observe(name=name)(partial(add, 2, extra=4))
+
+    assert inspect.iscoroutinefunction(observed)
+    assert await observed(3) == 9
+
+    langfuse_memory_client.flush()
+
+    spans = memory_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].name == (name or "add")
+    assert (
+        json.loads(spans[0].attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT])
+        == 9
+    )
+
+
+@pytest.mark.parametrize("function_name", [None, "custom_add"])
+def test_observe_nested_partial_function(
+    langfuse_memory_client: Any, memory_exporter: Any, function_name: str | None
+) -> None:
+    def add(first: int, second: int) -> int:
+        return first + second
+
+    inner = partial(add, 2)
+    # Partials with attributes are not flattened when wrapped in another partial.
+    cast(Any, inner).description = "bound first argument"
+    if function_name:
+        cast(Any, inner).__name__ = function_name
+    observed = observe(partial(inner, 3))
+
+    assert observed() == 5
+
+    langfuse_memory_client.flush()
+
+    spans = memory_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].name == (function_name or "add")
 
 
 @pytest.mark.asyncio
