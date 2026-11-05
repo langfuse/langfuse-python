@@ -16,7 +16,14 @@ class TopicFacet(UniversalBaseModel):
     is_built_in: typing_extensions.Annotated[bool, FieldMetadata(alias="isBuiltIn")]
     active: bool = pydantic.Field()
     """
-    Whether the facet is attached to the project's Topics rule. True for all facets if the project has no rule.
+    Whether a Topics rule runs the facet. True for all facets if the project has no rule.
+    """
+
+    rule_ids: typing_extensions.Annotated[
+        typing.List[str], FieldMetadata(alias="ruleIds")
+    ] = pydantic.Field()
+    """
+    The rules that run the facet.
     """
 
     version: int = pydantic.Field()
