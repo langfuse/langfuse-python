@@ -129,7 +129,11 @@ def test_compile_with_placeholders(
 def langfuse():
     from langfuse._client.resource_manager import LangfuseResourceManager
 
-    langfuse_instance = Langfuse()
+    langfuse_instance = Langfuse(
+        public_key="pk-lf-test",
+        secret_key="sk-lf-test",
+        base_url="http://localhost:3000",
+    )
     langfuse_instance.api = Mock()
 
     if langfuse_instance._resources is None:
