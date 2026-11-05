@@ -15,11 +15,14 @@ from hashlib import sha256
 from time import time_ns
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
+    Iterator,
     List,
     Literal,
     Optional,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -40,6 +43,7 @@ from opentelemetry.util._decorator import (
 )
 from packaging.version import Version
 
+from langfuse._client import pagination
 from langfuse._client.attributes import (
     LangfuseOtelSpanAttributes,
     _serialize,
@@ -107,9 +111,12 @@ from langfuse.api import (
     LangfuseAPI,
     MapValue,
     NotFoundError,
+    ObservationLevel,
+    ObservationsV2Response,
     Prompt_Chat,
     Prompt_Text,
 )
+from langfuse.api.core import RequestOptions
 from langfuse.api.core.datetime_utils import serialize_datetime
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
@@ -444,36 +451,15 @@ class Langfuse:
           user, session, tags and input/output are on its root observation. Read
           scores with `api.scores.get_many` and experiments with `api.experiments`.
 
-        - **Read observation pages until `meta.cursor` is absent.** Pages can be
-          short or empty before the end. The server scans for up to 45 seconds per
-          request, so pass `request_options={"timeout_in_seconds": 60}`, and pass
-          `from_start_time` when you know a lower bound (otherwise the server
-          scans back to 2020-01-01). A 422 means the request hit a server resource
-          limit: narrow the time range rather than retrying unchanged. A `startTime`
-          condition in the JSON `filter` overrides `from_start_time` and
-          `to_start_time`.
+        - **Page through observations with `iter_observation_pages`.** Pages can be
+          short or empty before the end, and a request can take up to 45 seconds.
+          `iter_observation_pages` / `aiter_observation_pages` follow `meta.cursor`
+          until it is absent and raise the per-request timeout accordingly.
 
         - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
         v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
 
-        Reading all observations of a trace:
-        ```python
-        observations, cursor = [], None
-        while True:
-            page = langfuse.api.observations.get_many(
-                trace_id=trace_id,
-                from_start_time=since,
-                cursor=cursor,
-                request_options={"timeout_in_seconds": 60},
-            )
-            observations.extend(page.data)
-            cursor = page.meta.cursor
-            if cursor is None:
-                break
-        ```
-
-
-        See also: `async_api`,
+        See also: `async_api`, `iter_observation_pages`,
         https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
         (ingestion lag: #ingestion-lag),
         https://langfuse.com/docs/api-and-data-platform/features/observations-api,
@@ -504,6 +490,164 @@ class Langfuse:
             raise AttributeError("Langfuse client is not initialized")
 
         self._resources.async_api = value
+
+    def iter_observation_pages(
+        self,
+        *,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        max_items: Optional[int] = None,
+        fields: Optional[str] = None,
+        expand_metadata: Optional[str] = None,
+        name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        type: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        level: Optional[ObservationLevel] = None,
+        parent_observation_id: Optional[str] = None,
+        is_root_observation: Optional[bool] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
+        from_start_time: Optional[datetime] = None,
+        to_start_time: Optional[datetime] = None,
+        version: Optional[str] = None,
+        filter: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> Iterator[ObservationsV2Response]:
+        """Yield pages of `GET /api/public/v2/observations` until the server returns no cursor.
+
+        A page can be short or empty while more data remains, so only a missing
+        `meta.cursor` ends the iteration. Every page is yielded, including empty
+        ones. To resume later, save `page.meta.cursor` after processing a page and
+        pass it back as `cursor` with the same other arguments.
+
+        Args:
+            limit: Rows per request, at most 1000.
+            cursor: Cursor to resume from.
+            max_items: Stop after this many rows. The last request asks only for the
+                remaining rows, so the last page's cursor resumes right after them.
+            fields: Comma-separated field groups to include, e.g. `"basic,usage,model"`.
+                Defaults to `core` and `basic` on the server.
+            expand_metadata: Comma-separated metadata keys to return non-truncated.
+            name: Filter by observation name.
+            user_id: Filter by user ID.
+            session_id: Filter by session ID.
+            type: Filter by observation type, e.g. `"GENERATION"`.
+            trace_id: Filter by trace ID.
+            level: Filter by level, e.g. `"ERROR"`.
+            parent_observation_id: Filter by the physical parent observation ID.
+            is_root_observation: Filter by whether an observation is a logical root.
+            environment: Filter by one or more environments.
+            from_start_time: Only observations starting at or after this datetime.
+            to_start_time: Only observations starting before this datetime.
+            version: Filter by version.
+            filter: JSON array of filter conditions. Takes precedence over the
+                individual filter arguments; see `api.observations.get_many`.
+            request_options: Passed to every request. `timeout_in_seconds` defaults
+                to 60 because the server may scan for up to 45 s per request.
+
+        Errors propagate and end the iteration. A 422 means the server hit a resource
+        limit, usually its time budget; the same request tends to fail again, so
+        narrow the time range or add filters instead of retrying it unchanged.
+
+        Without a lower time bound the server searches back only to 2020-01-01. A
+        `startTime` condition in `filter` makes the server ignore `from_start_time`
+        and `to_start_time`, so put both bounds in `filter`. Rows are not
+        deduplicated; dedupe by `id` if you need unique observations.
+
+        Example:
+            ```python
+            from datetime import datetime, timedelta, timezone
+
+            from langfuse import get_client
+
+            langfuse = get_client()
+            since = datetime.now(timezone.utc) - timedelta(days=7)
+
+            for page in langfuse.iter_observation_pages(
+                trace_id="abc123", from_start_time=since, limit=1000
+            ):
+                for observation in page.data:
+                    print(observation.id, observation.name)
+            ```
+        """
+        return pagination.iter_observation_pages(
+            self.api,
+            limit=limit,
+            cursor=cursor,
+            max_items=max_items,
+            request_options=request_options,
+            fields=fields,
+            expand_metadata=expand_metadata,
+            name=name,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            trace_id=trace_id,
+            level=level,
+            parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
+            filter=filter,
+        )
+
+    def aiter_observation_pages(
+        self,
+        *,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        max_items: Optional[int] = None,
+        fields: Optional[str] = None,
+        expand_metadata: Optional[str] = None,
+        name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        type: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        level: Optional[ObservationLevel] = None,
+        parent_observation_id: Optional[str] = None,
+        is_root_observation: Optional[bool] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
+        from_start_time: Optional[datetime] = None,
+        to_start_time: Optional[datetime] = None,
+        version: Optional[str] = None,
+        filter: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> AsyncIterator[ObservationsV2Response]:
+        """Async version of `iter_observation_pages`, using `async_api`.
+
+        Example:
+            ```python
+            async for page in langfuse.aiter_observation_pages(trace_id="abc123"):
+                for observation in page.data:
+                    print(observation.id, observation.name)
+            ```
+        """
+        return pagination.aiter_observation_pages(
+            self.async_api,
+            limit=limit,
+            cursor=cursor,
+            max_items=max_items,
+            request_options=request_options,
+            fields=fields,
+            expand_metadata=expand_metadata,
+            name=name,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            trace_id=trace_id,
+            level=level,
+            parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
+            filter=filter,
+        )
 
     @overload
     def start_observation(

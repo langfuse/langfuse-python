@@ -15,7 +15,7 @@ Capabilities:
 - **Prompt management**: `Langfuse.get_prompt`, `Langfuse.create_prompt` with
   client-side caching and version/label control.
 - **Full REST API**: `Langfuse.api` (sync) / `Langfuse.async_api` (async) clients.
-  `iter_observation_pages` / `aiter_observation_pages` page through observations.
+  `Langfuse.iter_observation_pages` / `Langfuse.aiter_observation_pages` page through observations.
 
 Quickstart:
 
@@ -65,7 +65,6 @@ from ._client.attributes import LangfuseOtelSpanAttributes
 from ._client.constants import ObservationTypeLiteral
 from ._client.get_client import get_client
 from ._client.observe import observe
-from ._client.pagination import aiter_observation_pages, iter_observation_pages
 from ._client.propagation import propagate_attributes
 from ._client.skills import discover_skills
 from ._client.span import (
@@ -109,8 +108,6 @@ __all__ = [
     "get_client",
     "observe",
     "propagate_attributes",
-    "iter_observation_pages",
-    "aiter_observation_pages",
     "discover_skills",
     "SkillReference",
     "SkillsConfig",

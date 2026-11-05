@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import httpx
 import pytest
 
-from langfuse import aiter_observation_pages, iter_observation_pages
+from langfuse._client.client import Langfuse
 from langfuse.api import (
     AsyncLangfuseAPI,
     LangfuseAPI,
@@ -59,15 +59,21 @@ def scripted(mode: str, *responses: Any) -> ScriptedObservations:
     return cls(*responses)
 
 
+def client_with(api: Optional[Any] = None, async_api: Optional[Any] = None) -> Langfuse:
+    client = object.__new__(Langfuse)
+    client._resources = SimpleNamespace(api=api, async_api=async_api)  # type: ignore[assignment]
+    return client
+
+
 def collect(
     mode: str, observations: ScriptedObservations, **kwargs: Any
 ) -> Tuple[List[ObservationsV2Response], Optional[Exception]]:
-    api: Any = SimpleNamespace(observations=observations)
+    api = SimpleNamespace(observations=observations)
     pages: List[ObservationsV2Response] = []
 
     if mode == "sync":
         try:
-            for p in iter_observation_pages(api, **kwargs):
+            for p in client_with(api=api).iter_observation_pages(**kwargs):
                 pages.append(p)
         except Exception as e:
             return pages, e
@@ -75,7 +81,7 @@ def collect(
 
     async def run() -> Optional[Exception]:
         try:
-            async for p in aiter_observation_pages(api, **kwargs):
+            async for p in client_with(async_api=api).aiter_observation_pages(**kwargs):
                 pages.append(p)
         except Exception as e:
             return e
@@ -166,18 +172,21 @@ def test_generated_client_uses_60s_timeout_over_the_client_default(mode: str) ->
     )
     if mode == "sync":
         with httpx.Client(transport=httpx.MockTransport(handler)) as http:
-            api = LangfuseAPI(**client_kwargs, httpx_client=http)
-            pages = list(iter_observation_pages(api, trace_id="t1"))
+            client = client_with(api=LangfuseAPI(**client_kwargs, httpx_client=http))
+            pages = list(client.iter_observation_pages(trace_id="t1"))
     else:
 
         async def run() -> List[ObservationsV2Response]:
             transport = httpx.MockTransport(handler)
             async with httpx.AsyncClient(transport=transport) as http:
-                api = AsyncLangfuseAPI(**client_kwargs, httpx_client=http)
-                return [p async for p in aiter_observation_pages(api, trace_id="t1")]
+                client = client_with(
+                    async_api=AsyncLangfuseAPI(**client_kwargs, httpx_client=http)
+                )
+                return [p async for p in client.aiter_observation_pages(trace_id="t1")]
 
         pages = asyncio.run(run())
 
     assert len(pages) == 2
     assert [r.url.params.get("cursor") for r in requests] == [None, "c1"]
+    assert all(r.url.params.get("traceId") == "t1" for r in requests)
     assert all(r.extensions["timeout"]["read"] == 60 for r in requests)
