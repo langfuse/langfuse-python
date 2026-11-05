@@ -3808,7 +3808,7 @@ class Langfuse:
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
             max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
-            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
+            fetch_timeout_seconds: Optional[int]: The timeout in seconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
