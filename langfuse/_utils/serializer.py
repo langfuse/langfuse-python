@@ -187,10 +187,26 @@ class EventSerializer(JSONEncoder):
                 return [self.default(item) for item in obj]
 
             if hasattr(obj, "__slots__"):
-                return {
-                    slot: self.default(getattr(obj, slot, None))
-                    for slot in obj.__slots__
-                }
+                obj_id = id(obj)
+
+                if obj_id in self.seen:
+                    # Break on circular references
+                    return type(obj).__name__
+                else:
+                    self.seen.add(obj_id)
+                    try:
+                        slots = (
+                            (obj.__slots__,)
+                            if isinstance(obj.__slots__, str)
+                            else obj.__slots__
+                        )
+                        return {
+                            slot: self.default(getattr(obj, slot, None))
+                            for slot in slots
+                        }
+                    finally:
+                        self.seen.remove(obj_id)
+
             elif hasattr(obj, "__dict__"):
                 obj_id = id(obj)
 
@@ -199,8 +215,10 @@ class EventSerializer(JSONEncoder):
                     return type(obj).__name__
                 else:
                     self.seen.add(obj_id)
-                    result = {k: self.default(v) for k, v in vars(obj).items()}
-                    self.seen.remove(obj_id)
+                    try:
+                        result = {k: self.default(v) for k, v in vars(obj).items()}
+                    finally:
+                        self.seen.remove(obj_id)
 
                     return result
 
