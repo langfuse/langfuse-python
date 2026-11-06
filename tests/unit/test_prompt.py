@@ -1,3 +1,4 @@
+from threading import Event
 from unittest.mock import Mock, patch
 
 import pytest
@@ -579,6 +580,58 @@ def test_skip_redundant_refresh_when_cache_already_updated(
     )
 
     add_task_mock.assert_not_called()
+
+
+@pytest.mark.parametrize("not_found", [False, True])
+@pytest.mark.parametrize("replace", [False, True])
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_old_refresh_does_not_overwrite_or_delete_new_cache_entry(
+    mock_time, langfuse: Langfuse, not_found: bool, replace: bool
+) -> None:
+    """An in-flight refresh must not change a newer prompt cache entry."""
+    name = "refresh-race"
+    cache = langfuse._resources.prompt_cache
+    key = PromptCache.generate_cache_key(name, version=None, label=None)
+    old = Prompt_Text(
+        name=name, version=1, prompt="old", labels=[], type="text", config={}, tags=[]
+    )
+    new = Prompt_Text(
+        name=name, version=2, prompt="new", labels=[], type="text", config={}, tags=[]
+    )
+    started = Event()
+    release = Event()
+    response_ready = Event()
+
+    def delayed_fetch(*args, **kwargs):
+        """Hold the old response until a newer cache entry has been stored."""
+        started.set()
+        assert release.wait(timeout=10)
+        response_ready.set()
+        if not_found:
+            raise NotFoundError({"message": "not found"})
+        return old
+
+    mock_time.return_value = 0
+    cache.set(key, TextPromptClient(old), None)
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+    langfuse.api.prompts.get.side_effect = delayed_fetch
+    try:
+        assert langfuse.get_prompt(name, max_retries=0).version == 1
+        assert started.wait(timeout=10)
+        cache.invalidate(name)
+        if replace:
+            cache.set(key, TextPromptClient(new), None)
+    finally:
+        release.set()
+        wait_for_prompt_refresh(langfuse)
+
+    assert response_ready.is_set(), "Background fetch did not reach its response"
+    current = cache.get(key)
+    if replace:
+        assert current is not None
+        assert current.value.version == 2
+    else:
+        assert current is None
 
 
 @patch.object(PromptCacheItem, "get_epoch_seconds")
