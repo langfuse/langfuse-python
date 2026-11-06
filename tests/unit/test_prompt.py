@@ -600,11 +600,13 @@ def test_old_refresh_does_not_overwrite_or_delete_new_cache_entry(
     )
     started = Event()
     release = Event()
+    response_ready = Event()
 
     def delayed_fetch(*args, **kwargs):
         """Hold the old response until a newer cache entry has been stored."""
         started.set()
         assert release.wait(timeout=10)
+        response_ready.set()
         if not_found:
             raise NotFoundError({"message": "not found"})
         return old
@@ -623,6 +625,7 @@ def test_old_refresh_does_not_overwrite_or_delete_new_cache_entry(
         release.set()
         wait_for_prompt_refresh(langfuse)
 
+    assert response_ready.is_set(), "Background fetch did not reach its response"
     current = cache.get(key)
     if replace:
         assert current is not None
