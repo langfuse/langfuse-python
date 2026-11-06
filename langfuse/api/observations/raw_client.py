@@ -54,7 +54,10 @@ class RawObservationsClient:
         ## Cursor-based Pagination
         This endpoint uses cursor-based pagination for efficient traversal of large datasets.
         The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
+        to retrieve the next page of results. The `limit` parameter is a maximum: a page may contain
+        fewer items than the requested limit, including zero items, while `meta.cursor` is present.
+        Continue requesting pages until `meta.cursor` is absent.
+        Requests without a lower start-time bound may search only from January 1, 2020.
 
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
@@ -90,7 +93,7 @@ class RawObservationsClient:
             Example: "key1,key2"
 
         limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
+            Maximum number of items to return per page. A page may contain fewer items, including zero items, while meta.cursor is present. Maximum 1000, default 50.
 
         cursor : typing.Optional[str]
             Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
@@ -399,7 +402,10 @@ class AsyncRawObservationsClient:
         ## Cursor-based Pagination
         This endpoint uses cursor-based pagination for efficient traversal of large datasets.
         The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
+        to retrieve the next page of results. The `limit` parameter is a maximum: a page may contain
+        fewer items than the requested limit, including zero items, while `meta.cursor` is present.
+        Continue requesting pages until `meta.cursor` is absent.
+        Requests without a lower start-time bound may search only from January 1, 2020.
 
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
@@ -435,7 +441,7 @@ class AsyncRawObservationsClient:
             Example: "key1,key2"
 
         limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
+            Maximum number of items to return per page. A page may contain fewer items, including zero items, while meta.cursor is present. Maximum 1000, default 50.
 
         cursor : typing.Optional[str]
             Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
