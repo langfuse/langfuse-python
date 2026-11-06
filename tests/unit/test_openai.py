@@ -5,6 +5,7 @@ from contextlib import suppress
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 import pytest
 from openai.types.chat import ChatCompletion
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
@@ -618,8 +619,6 @@ def test_chat_completion_error_marks_generation_error(langfuse_memory_client, ge
 async def test_async_request_cancelled_before_response_ends_observation(
     resource, stream, langfuse_memory_client, find_spans
 ):
-    import httpx
-
     request_started = asyncio.Event()
     release_response = asyncio.Event()
     cancellations = []
