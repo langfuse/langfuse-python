@@ -31,6 +31,16 @@ from langfuse.media import LangfuseMedia, LangfuseMediaReference
             lambda item: isinstance(item.input["image"], LangfuseMediaReference),
         ),
         (
+            DatasetItemMediaReferenceField.INPUT,
+            {
+                "00": [
+                    {"2": "@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"}
+                ]
+            },
+            "$[00][0][2]",
+            lambda item: isinstance(item.input["00"][0]["2"], LangfuseMediaReference),
+        ),
+        (
             DatasetItemMediaReferenceField.EXPECTED_OUTPUT,
             ["@@@langfuseMedia:type=image/png|id=media-id|source=bytes@@@"],
             "$[0]",

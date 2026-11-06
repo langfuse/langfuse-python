@@ -18,6 +18,19 @@ _JSONPATH_PLUS_CASES = [
     ("bracket key", {"arr[0]": _REF}, "$['arr[0]']", {"arr[0]": "__MEDIA__"}),
     ("dot key", {"a.b": _REF}, "$['a.b']", {"a.b": "__MEDIA__"}),
     ("list root", [_REF], "$[0]", ["__MEDIA__"]),
+    ("numeric key", {"0": _REF}, "$[0]", {"0": "__MEDIA__"}),
+    (
+        "leading zero key",
+        {"01": _REF, "1": "keep"},
+        "$[01]",
+        {"01": "__MEDIA__", "1": "keep"},
+    ),
+    (
+        "nested numeric key",
+        {"00": [{"2": _REF}]},
+        "$[00][0][2]",
+        {"00": [{"2": "__MEDIA__"}]},
+    ),
     (
         "list element",
         {"items": [0, _REF, 2]},
@@ -72,11 +85,11 @@ def test_set_value_at_path_matches_jsonpath_plus(value, json_path, expected):
 @pytest.mark.parametrize(
     ("value", "json_path"),
     [
-        # All-digit keys and keys containing "']" are indistinguishable / broken in
-        # jsonpath-plus' output, so they cannot be resolved and must raise (the
-        # caller leaves the value unchanged rather than guessing).
-        ({"0": _REF}, "$[0]"),
+        # Keys containing "']" are broken in jsonpath-plus' output.
         ({"a']b": _REF}, "$['a']b']"),
+        ({"1": _REF}, "$[0]"),
+        ({"01": _REF}, "$[00]"),
+        ([_REF], "$[00]"),
         # Malformed paths the API should never emit.
         ("x", "image"),
         ({"a": _REF}, "$['a'"),
