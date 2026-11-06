@@ -1056,6 +1056,14 @@ def _finalize_stream_response(
                 model_parameters, service_tier
             ),
         )
+        if metadata.get("status") == "failed":
+            response_error = metadata.get("error")
+            generation.update(
+                level="ERROR",
+                status_message=response_error.message
+                if response_error is not None
+                else None,
+            )
     except Exception:
         pass
     finally:
