@@ -3,7 +3,7 @@ import contextvars
 import gc
 import inspect
 import json
-from typing import Any, AsyncGenerator, Generator, cast
+from typing import Any, AsyncGenerator, AsyncIterable, Generator, cast
 
 import pytest
 
@@ -94,11 +94,16 @@ def test_sync_generator_preserves_context_without_output_capture(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "use_async_iterable", [False, True], ids=["generator", "iterable"]
+)
 async def test_streaming_response_preserves_context_without_output_capture(
-    langfuse_memory_client: Any, memory_exporter: Any
+    langfuse_memory_client: Any, memory_exporter: Any, use_async_iterable: bool
 ) -> None:
+    """Stream both supported body shapes while retaining the endpoint span."""
+
     class StreamingResponse:
-        def __init__(self, body_iterator: AsyncGenerator[str, None]) -> None:
+        def __init__(self, body_iterator: AsyncIterable[str]) -> None:
             self.body_iterator = body_iterator
 
     @observe(name="stream_step")
@@ -109,9 +114,14 @@ async def test_streaming_response_preserves_context_without_output_capture(
         for index in range(2):
             yield await stream_step(index)
 
+    class AsyncBody:
+        def __aiter__(self) -> AsyncGenerator[str, None]:
+            """Create the body iterator when streaming starts."""
+            return body()
+
     @observe(name="endpoint", capture_output=False)
     async def endpoint() -> StreamingResponse:
-        return StreamingResponse(body())
+        return StreamingResponse(AsyncBody() if use_async_iterable else body())
 
     response = await endpoint()
 
@@ -267,6 +277,71 @@ async def test_async_generator_wrapper_aclose_preserves_context() -> None:
 
     assert seen == ["preserved"]
     assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_iterable_wrapper_closes_returned_iterator_in_context() -> None:
+    """Close the iterator created by the iterable within the saved context."""
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    class Body:
+        def __aiter__(self) -> AsyncGenerator[str, None]:
+            """Yield a chunk and record the context used for cleanup."""
+
+            async def generate() -> AsyncGenerator[str, None]:
+                try:
+                    yield "item_0"
+                    yield "item_1"
+                finally:
+                    seen.append(marker.get())
+
+            return generate()
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        Body(), context, cast(Any, span), False, None
+    )
+
+    assert await anext(wrapper) == "item_0"
+    marker.set("ambient-now")
+    await wrapper.aclose()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_iterable_wrapper_closes_without_iterator_aclose() -> None:
+    """Finish the span when the active iterator has no async close method."""
+
+    class Iterator:
+        async def __anext__(self) -> str:
+            """Return a chunk without exposing an aclose method."""
+            return "item_0"
+
+        def __aiter__(self) -> "Iterator":
+            """Return this iterator for async iteration."""
+            return self
+
+    class Body:
+        def __aiter__(self) -> Iterator:
+            """Create an iterator without an aclose method."""
+            return Iterator()
+
+    span = SpanRecorder()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        Body(), contextvars.copy_context(), cast(Any, span), False, None
+    )
+
+    assert await anext(wrapper) == "item_0"
+    await wrapper.aclose()
+    await wrapper.aclose()
+
+    assert span.ended == 1
+    assert span.updates == []
 
 
 def test_sync_generator_wrapper_close_closes_generator_after_span_ended() -> None:
