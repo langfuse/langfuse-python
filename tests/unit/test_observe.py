@@ -279,6 +279,71 @@ async def test_async_generator_wrapper_aclose_preserves_context() -> None:
     assert span.ended == 1
 
 
+@pytest.mark.asyncio
+async def test_async_iterable_wrapper_closes_returned_iterator_in_context() -> None:
+    """Close the iterator created by the iterable within the saved context."""
+    marker = contextvars.ContextVar("marker", default="ambient")
+    seen: list[str] = []
+
+    class Body:
+        def __aiter__(self) -> AsyncGenerator[str, None]:
+            """Yield a chunk and record the context used for cleanup."""
+
+            async def generate() -> AsyncGenerator[str, None]:
+                try:
+                    yield "item_0"
+                    yield "item_1"
+                finally:
+                    seen.append(marker.get())
+
+            return generate()
+
+    span = SpanRecorder()
+    context = contextvars.copy_context()
+    context.run(marker.set, "preserved")
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        Body(), context, cast(Any, span), False, None
+    )
+
+    assert await anext(wrapper) == "item_0"
+    marker.set("ambient-now")
+    await wrapper.aclose()
+
+    assert seen == ["preserved"]
+    assert span.ended == 1
+
+
+@pytest.mark.asyncio
+async def test_async_iterable_wrapper_closes_without_iterator_aclose() -> None:
+    """Finish the span when the active iterator has no async close method."""
+
+    class Iterator:
+        async def __anext__(self) -> str:
+            """Return a chunk without exposing an aclose method."""
+            return "item_0"
+
+        def __aiter__(self) -> "Iterator":
+            """Return this iterator for async iteration."""
+            return self
+
+    class Body:
+        def __aiter__(self) -> Iterator:
+            """Create an iterator without an aclose method."""
+            return Iterator()
+
+    span = SpanRecorder()
+    wrapper = _ContextPreservedAsyncGeneratorWrapper(
+        Body(), contextvars.copy_context(), cast(Any, span), False, None
+    )
+
+    assert await anext(wrapper) == "item_0"
+    await wrapper.aclose()
+    await wrapper.aclose()
+
+    assert span.ended == 1
+    assert span.updates == []
+
+
 def test_sync_generator_wrapper_close_closes_generator_after_span_ended() -> None:
     marker = contextvars.ContextVar("marker", default="ambient")
     seen: list[str] = []
