@@ -17,7 +17,7 @@ from langfuse.batch_evaluation import (
     BatchEvaluationRunner,
     EvaluatorInputs,
 )
-from langfuse.experiment import Evaluation
+from langfuse.experiment import Evaluation, create_evaluator_from_autoevals
 
 BASE_TIME = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -374,6 +374,60 @@ async def test_item_failures_and_evaluator_failures_are_tracked():
     assert stats["failing_evaluator"].failed_runs == 1
     assert stats["length_evaluator"].successful_runs == 1
     assert client.create_score.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_evaluators_sharing_a_name_get_separate_stats():
+    runner, _, client = make_runner([make_observation(i) for i in range(3)])
+
+    def make_evaluator(*, fail: bool):
+        def evaluator(*, output, **kwargs):
+            if fail:
+                raise RuntimeError("boom")
+            return [Evaluation(name="a", value=1), Evaluation(name="b", value=2)]
+
+        return evaluator
+
+    result = await run(
+        runner, evaluators=[make_evaluator(fail=False), make_evaluator(fail=True)]
+    )
+
+    assert [
+        (s.name, s.total_runs, s.successful_runs, s.failed_runs, s.total_scores_created)
+        for s in result.evaluator_stats
+    ] == [("evaluator", 3, 3, 0, 6), ("evaluator", 3, 0, 3, 0)]
+    assert result.total_evaluations_failed == 3
+    assert client.create_score.call_count == 6
+
+
+@pytest.mark.asyncio
+async def test_autoevals_evaluators_get_separate_stats():
+    runner, _, _ = make_runner([make_observation(i) for i in range(2)])
+
+    class FakeScorer:
+        def __init__(self, name: str, score: float):
+            self.name = name
+            self.score = score
+
+        def __call__(self, **kwargs):
+            return SimpleNamespace(name=self.name, score=self.score, metadata=None)
+
+    evaluators = [
+        create_evaluator_from_autoevals(FakeScorer("Levenshtein", 0.5)),
+        create_evaluator_from_autoevals(FakeScorer("ExactMatch", 1.0)),
+    ]
+
+    result = await run(runner, evaluators=evaluators)
+
+    assert len(result.evaluator_stats) == 2
+    assert [(s.total_runs, s.total_scores_created) for s in result.evaluator_stats] == [
+        (2, 2),
+        (2, 2),
+    ]
+    assert [e.name for e in result.item_evaluations["obs-0"]] == [
+        "Levenshtein",
+        "ExactMatch",
+    ]
 
 
 @pytest.mark.asyncio

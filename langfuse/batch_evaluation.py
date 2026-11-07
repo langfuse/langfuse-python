@@ -894,11 +894,13 @@ class BatchEvaluationRunner:
         item_evaluations: Dict[str, List[Evaluation]] = {}
         previously_processed = resume_from.items_processed if resume_from else 0
 
+        # Keyed by position: evaluators can share a __name__ (e.g. every
+        # create_evaluator_from_autoevals() result is "langfuse_evaluator").
         evaluator_stats_dict = {
-            getattr(evaluator, "__name__", "unknown_evaluator"): EvaluatorStats(
+            index: EvaluatorStats(
                 name=getattr(evaluator, "__name__", "unknown_evaluator")
             )
-            for evaluator in evaluators
+            for index, evaluator in enumerate(evaluators)
         }
 
         semaphore = asyncio.Semaphore(max_concurrency)
@@ -1138,7 +1140,7 @@ class BatchEvaluationRunner:
         composite_evaluator: Optional[CompositeEvaluatorFunction],
         metadata: Optional[Dict[str, Any]],
         _add_observation_scores_to_trace: bool,
-        evaluator_stats_dict: Dict[str, EvaluatorStats],
+        evaluator_stats_dict: Dict[int, EvaluatorStats],
     ) -> Tuple[int, int, int, List[Evaluation]]:
         """Process a single item: map, evaluate, create scores.
 
@@ -1150,7 +1152,7 @@ class BatchEvaluationRunner:
             metadata: Additional metadata to add to scores.
             _add_observation_scores_to_trace: Whether to duplicate
                 observation-level scores at trace level.
-            evaluator_stats_dict: Dictionary tracking evaluator statistics.
+            evaluator_stats_dict: Evaluator statistics keyed by evaluator position.
 
         Returns:
             Tuple of (scores_created, composite_scores_created, evaluations_failed, all_evaluations).
@@ -1169,9 +1171,9 @@ class BatchEvaluationRunner:
         evaluator_inputs = await self._run_mapper(mapper, item)
 
         evaluations: List[Evaluation] = []
-        for evaluator in evaluators:
+        for index, evaluator in enumerate(evaluators):
             evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
-            stats = evaluator_stats_dict[evaluator_name]
+            stats = evaluator_stats_dict[index]
             stats.total_runs += 1
 
             try:
@@ -1459,7 +1461,7 @@ class BatchEvaluationRunner:
         total_scores_created: int,
         total_composite_scores_created: int,
         total_evaluations_failed: int,
-        evaluator_stats_dict: Dict[str, EvaluatorStats],
+        evaluator_stats_dict: Dict[int, EvaluatorStats],
         resume_token: Optional[BatchEvaluationResumeToken],
         completed: bool,
         start_time: float,
