@@ -474,6 +474,44 @@ def test_disable_caching_when_ttl_zero(mock_time, langfuse: Langfuse):
 
 
 @patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_ttl_zero_fetch_does_not_write_to_cache(mock_time, langfuse: Langfuse):
+    mock_time.return_value = 0
+    prompt_name = "test_ttl_zero_fetch_does_not_write_to_cache"
+    cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
+
+    def make_prompt(version: int) -> Prompt_Text:
+        return Prompt_Text(
+            name=prompt_name,
+            version=version,
+            prompt=f"Prompt version {version}",
+            labels=[],
+            type="text",
+            config={},
+            tags=[],
+        )
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.side_effect = [make_prompt(1), make_prompt(2), make_prompt(3)]
+
+    # A TTL-0 fetch must not populate an empty cache.
+    langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert langfuse._resources.prompt_cache.get(cache_key) is None
+
+    # A cached call that follows must still go to the server.
+    cached_result = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 2
+    assert cached_result == TextPromptClient(make_prompt(2))
+
+    # A TTL-0 fetch must not replace the entry other callers cache.
+    langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    cached_item = langfuse._resources.prompt_cache.get(cache_key)
+    assert cached_item is not None
+    assert cached_item.value == TextPromptClient(make_prompt(2))
+    assert langfuse.get_prompt(prompt_name) == TextPromptClient(make_prompt(2))
+    assert mock_server_call.call_count == 3
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
 def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
     import logging
 
