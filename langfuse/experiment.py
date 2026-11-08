@@ -21,6 +21,28 @@ from typing import (
     overload,
 )
 
+from langfuse._experiment.errors import (
+    CheckpointCorruptedError,
+    CheckpointMismatchError,
+    EvaluatorTimeoutError,
+    ExperimentExecutionError,
+    FailureBudgetExceededError,
+    RunTimeoutError,
+    TaskTimeoutError,
+)
+from langfuse._experiment.policy import (
+    ExecutionPolicy,
+    FailurePolicy,
+    RetryPolicy,
+    TimeoutPolicy,
+    is_retryable_error,
+)
+from langfuse._experiment.results import (
+    AttemptRecord,
+    EvaluatorFailure,
+    ExecutionSummary,
+    ItemFailure,
+)
 from langfuse.api import DatasetItem
 from langfuse.logger import langfuse_logger as logger
 from langfuse.types import ExperimentScoreType
@@ -397,6 +419,9 @@ class ExperimentResult:
         experiment_url: Optional[str] = None,
         dataset_run_id: Optional[str] = None,
         dataset_run_url: Optional[str] = None,
+        failures: Optional[List[ItemFailure]] = None,
+        evaluator_failures: Optional[List[EvaluatorFailure]] = None,
+        execution: Optional[ExecutionSummary] = None,
     ):
         """Initialize an ExperimentResult with the provided data.
 
@@ -405,6 +430,8 @@ class ExperimentResult:
             run_name: The current experiment run name.
             description: Optional description of the experiment.
             item_results: List of results from processing individual dataset items.
+                Only successfully processed items are included; failed items
+                are recorded in ``failures``.
             run_evaluations: List of aggregate evaluation results for the entire run.
             experiment_id: ID of the experiment run.
             experiment_url: Optional URL to view results in Langfuse UI.
@@ -412,6 +439,14 @@ class ExperimentResult:
                 returns `experiment_id`.
             dataset_run_url: Deprecated alias of `experiment_url`. Used only when
                 `experiment_url` is not provided.
+            failures: List of items that could not be processed (task failures,
+                timeouts, cancellations). Always populated, even without an
+                execution policy; today these failures are only logged.
+            evaluator_failures: List of evaluator calls that failed after all
+                retries. The corresponding item still appears in
+                ``item_results`` with its surviving evaluations.
+            execution: Aggregate statistics about the run (counts, attempts,
+                duration, abort status). Populated by the executor.
         """
         self.name = name
         self.run_name = run_name
@@ -420,6 +455,11 @@ class ExperimentResult:
         self.run_evaluations = run_evaluations
         self.experiment_id = experiment_id
         self.experiment_url = experiment_url or dataset_run_url
+        self.failures = failures if failures is not None else []
+        self.evaluator_failures = (
+            evaluator_failures if evaluator_failures is not None else []
+        )
+        self.execution = execution
 
     @property
     def dataset_run_id(self) -> str:
@@ -626,6 +666,27 @@ class ExperimentResult:
 
         if self.experiment_url:
             output += f"\n🔗 Experiment:\n   {self.experiment_url}"
+
+        # Failures section (only when there are failures).
+        if self.failures or self.evaluator_failures:
+            output += "\n\n⚠ Failures:"
+            for failure in self.failures:
+                output += (
+                    f"\n  • [{failure.stage}] {failure.item_key}: "
+                    f"{failure.error_type}: {failure.error_message}"
+                )
+                if failure.attempts:
+                    output += " (attempts=%s)" % len(failure.attempts)
+            for eval_failure in self.evaluator_failures:
+                output += (
+                    f"\n  • [evaluator:{eval_failure.evaluator_name}] "
+                    f"{eval_failure.item_key}: {eval_failure.error_type}: "
+                    f"{eval_failure.error_message}"
+                )
+            output += "\n"
+
+        if self.execution is not None:
+            output += "\n" + self.execution.format()
 
         return output
 
@@ -1165,6 +1226,7 @@ class RunnerContext:
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
         experiment_id: Optional[str] = None,
+        execution: Optional[ExecutionPolicy] = None,
         _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         resolved_data = data if data is not None else self.data
@@ -1195,6 +1257,7 @@ class RunnerContext:
             max_concurrency=max_concurrency,
             metadata=merged_metadata,
             experiment_id=experiment_id,
+            execution=execution,
             _dataset_version=resolved_dataset_version,
         )
 
@@ -1251,3 +1314,34 @@ class RegressionError(Exception):
         else:
             formatted = "Experiment regression detected"
         super().__init__(formatted)
+
+
+__all__ = [
+    "Evaluation",
+    "EvaluatorFunction",
+    "ExperimentData",
+    "ExperimentItem",
+    "ExperimentItemResult",
+    "ExperimentResult",
+    "RunEvaluatorFunction",
+    "RunnerContext",
+    "RegressionError",
+    "TaskFunction",
+    # Re-exported execution policy types.
+    "AttemptRecord",
+    "CheckpointCorruptedError",
+    "CheckpointMismatchError",
+    "EvaluatorFailure",
+    "EvaluatorTimeoutError",
+    "ExecutionPolicy",
+    "ExecutionSummary",
+    "ExperimentExecutionError",
+    "FailureBudgetExceededError",
+    "FailurePolicy",
+    "ItemFailure",
+    "RetryPolicy",
+    "RunTimeoutError",
+    "TaskTimeoutError",
+    "TimeoutPolicy",
+    "is_retryable_error",
+]

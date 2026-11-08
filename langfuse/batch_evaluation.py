@@ -9,11 +9,13 @@ handling, retry logic, and resume capability.
 
 import asyncio
 import json
+import random
 import time
 from typing import (
     TYPE_CHECKING,
     Any,
     Awaitable,
+    Callable,
     Dict,
     List,
     Optional,
@@ -23,6 +25,13 @@ from typing import (
     Union,
 )
 
+from langfuse._experiment.policy import ExecutionPolicy
+from langfuse._experiment.results import (
+    ExecutionSummary,
+    FailureStage,
+    ItemFailure,
+)
+from langfuse._experiment.retrying import _attempts_from_exception, _run_with_retry
 from langfuse.api import ObservationV2
 from langfuse.experiment import Evaluation, EvaluatorFunction
 from langfuse.logger import langfuse_logger as logger
@@ -581,6 +590,8 @@ class BatchEvaluationResult:
         error_summary: Dictionary mapping error types to occurrence counts.
         has_more_items: True if the run stopped at max_items and more items may exist.
         item_evaluations: Dictionary mapping observation IDs to their evaluation results (both regular and composite).
+        failures: Detailed per-item failure records with stage and attempt history.
+        execution: Execution summary with retry/timeout/abort statistics (see ExecutionSummary).
 
     Examples:
         Basic result inspection:
@@ -676,6 +687,8 @@ class BatchEvaluationResult:
         error_summary: Dict[str, int],
         has_more_items: bool,
         item_evaluations: Dict[str, List["Evaluation"]],
+        failures: Optional[List[ItemFailure]] = None,
+        execution: Optional[ExecutionSummary] = None,
     ):
         """Initialize BatchEvaluationResult with comprehensive statistics.
 
@@ -694,6 +707,10 @@ class BatchEvaluationResult:
             error_summary: Error types and counts.
             has_more_items: Whether more items may exist beyond max_items.
             item_evaluations: Dictionary mapping item IDs to their evaluation results.
+            failures: Detailed per-item failure records (mapper, evaluator,
+                composite, score, or validation stage). Empty when nothing failed.
+            execution: Execution summary (retries, timeouts, aborts). Populated
+                by ``run_async``; None on manually constructed results.
 
         Note:
             All arguments must be provided as keywords.
@@ -712,6 +729,8 @@ class BatchEvaluationResult:
         self.error_summary = error_summary
         self.has_more_items = has_more_items
         self.item_evaluations = item_evaluations
+        self.failures: List[ItemFailure] = list(failures or [])
+        self.execution = execution
 
     def __str__(self) -> str:
         """Return a formatted string representation of the batch evaluation results.
@@ -836,6 +855,7 @@ class BatchEvaluationRunner:
         max_retries: int = 3,
         verbose: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
+        execution: Optional[ExecutionPolicy] = None,
     ) -> BatchEvaluationResult:
         """Run batch evaluation asynchronously.
 
@@ -861,6 +881,10 @@ class BatchEvaluationRunner:
             verbose: If True, log progress to console.
             resume_from: Resume token from a previous run. If `filter` is omitted,
                 the token's filter is reused.
+            execution: Optional execution policy adding retries, timeouts, and a
+                failure budget for mapper/evaluator/composite calls, plus detailed
+                failure records and an execution summary on the result. With None
+                (the default), behavior is unchanged from previous versions.
 
         Returns:
             BatchEvaluationResult with comprehensive statistics.
@@ -870,6 +894,47 @@ class BatchEvaluationRunner:
                 created for a different filter.
         """
         start_time = time.time()
+
+        run_deadline: Optional[float] = None
+        if execution is not None and execution.timeouts.run_timeout is not None:
+            run_deadline = time.monotonic() + execution.timeouts.run_timeout
+        rng = random.Random(
+            execution.seed
+            if execution is not None and execution.seed is not None
+            else None
+        )
+        execution_failures: List[ItemFailure] = []
+        attempt_counters = {"total_attempts": 0}
+        retried_item_keys: Set[str] = set()
+
+        def _attempt_hook_for(item_key: str) -> Callable[[Any], None]:
+            def hook(record: Any) -> None:
+                attempt_counters["total_attempts"] += 1
+                if record.attempt > 1:
+                    retried_item_keys.add(item_key)
+
+            return hook
+
+        def _build_execution_summary(
+            aborted: bool, abort_reason: Optional[str]
+        ) -> ExecutionSummary:
+            failures_by_stage: Dict[str, int] = {}
+            for failure in execution_failures:
+                failures_by_stage[failure.stage] = (
+                    failures_by_stage.get(failure.stage, 0) + 1
+                )
+            return ExecutionSummary(
+                total_items=total_items_fetched,
+                succeeded=total_items_processed,
+                failed=len(execution_failures),
+                skipped_resumed=0,
+                retried_items=len(retried_item_keys),
+                total_attempts=attempt_counters["total_attempts"],
+                aborted=aborted,
+                abort_reason=abort_reason,
+                duration_s=time.time() - start_time,
+                failures_by_stage=failures_by_stage,
+            )
 
         # The token's cursor only continues the query that produced it.
         if resume_from is not None:
@@ -892,6 +957,8 @@ class BatchEvaluationRunner:
         failed_item_ids: List[str] = []
         error_summary: Dict[str, int] = {}
         item_evaluations: Dict[str, List[Evaluation]] = {}
+        aborted = False
+        abort_reason: Optional[str] = None
         previously_processed = resume_from.items_processed if resume_from else 0
 
         evaluator_stats_dict = {
@@ -952,6 +1019,13 @@ class BatchEvaluationRunner:
                     logger.info("Reached max_items limit (%s)", max_items)
                 break
 
+            if run_deadline is not None and time.monotonic() >= run_deadline:
+                if verbose:
+                    logger.info("Run timeout reached, stopping batch evaluation")
+                aborted = True
+                abort_reason = "run timeout"
+                break
+
             # Clamping the page size keeps the cursor aligned with the last
             # processed item, so resuming after max_items skips nothing.
             limit = fetch_batch_size
@@ -984,6 +1058,8 @@ class BatchEvaluationRunner:
                     error_summary=error_summary,
                     has_more_items=False,
                     item_evaluations=item_evaluations,
+                    failures=execution_failures,
+                    execution=_build_execution_summary(False, None),
                 )
 
             batch_number += 1
@@ -994,7 +1070,12 @@ class BatchEvaluationRunner:
 
             async def process_item(
                 item: ObservationV2,
-            ) -> Tuple[str, Union[Tuple[int, int, int, List[Evaluation]], Exception]]:
+            ) -> Tuple[
+                str,
+                Union[Tuple[int, int, int, List[Evaluation]], Exception],
+                List[ItemFailure],
+            ]:
+                item_failures: List[ItemFailure] = []
                 async with semaphore:
                     try:
                         result = await self._process_batch_evaluation_item(
@@ -1005,10 +1086,32 @@ class BatchEvaluationRunner:
                             metadata=metadata,
                             _add_observation_scores_to_trace=_add_observation_scores_to_trace,
                             evaluator_stats_dict=evaluator_stats_dict,
+                            execution=execution,
+                            rng=rng,
+                            attempt_hook_factory=_attempt_hook_for,
+                            item_failures=item_failures,
                         )
-                        return (item.id, result)
+                        return (item.id, result, item_failures)
                     except Exception as e:
-                        return (item.id, e)
+                        if not item_failures:
+                            # Nothing was recorded yet: the item failed before
+                            # or outside the stages that record their own
+                            # failures.
+                            stage: FailureStage = (
+                                "validation" if not item.trace_id else "mapper"
+                            )
+                            item_failures.append(
+                                ItemFailure(
+                                    item=item,
+                                    item_key=item.id,
+                                    stage=stage,
+                                    error_type=type(e).__name__,
+                                    error_message=str(e),
+                                    attempts=_attempts_from_exception(e),
+                                    trace_id=item.trace_id,
+                                )
+                            )
+                        return (item.id, e, item_failures)
 
             items_to_process = self._deduplicate_page(
                 items, skip_ids=previous_page_ids | {resumed_item_id}
@@ -1018,7 +1121,10 @@ class BatchEvaluationRunner:
                 *[process_item(item) for item in items_to_process]
             )
 
-            for item, (item_id, result) in zip(items_to_process, results):
+            for item, (item_id, result, item_failures) in zip(
+                items_to_process, results
+            ):
+                execution_failures.extend(item_failures)
                 if isinstance(result, Exception):
                     total_items_failed += 1
                     failed_item_ids.append(item_id)
@@ -1063,6 +1169,16 @@ class BatchEvaluationRunner:
                 has_more = False
                 break
 
+            if execution is not None and execution.failures.is_exceeded(
+                len(execution_failures),
+                total_items_processed + total_items_failed,
+            ):
+                if verbose:
+                    logger.info("Failure budget exceeded, stopping batch evaluation")
+                aborted = True
+                abort_reason = "failure budget exceeded"
+                break
+
         if verbose:
             logger.info("Flushing scores to Langfuse...")
         self.client.flush()
@@ -1072,6 +1188,29 @@ class BatchEvaluationRunner:
                 "Batch evaluation complete: %s items processed in %.2fs",
                 total_items_processed,
                 time.time() - start_time,
+            )
+
+        if aborted:
+            # A policy abort (run timeout or failure budget) is an incomplete
+            # run: hand back a token that resumes after the last processed
+            # page.
+            return self._build_result(
+                total_items_fetched=total_items_fetched,
+                total_items_processed=total_items_processed,
+                total_items_failed=total_items_failed,
+                total_scores_created=total_scores_created,
+                total_composite_scores_created=total_composite_scores_created,
+                total_evaluations_failed=total_evaluations_failed,
+                evaluator_stats_dict=evaluator_stats_dict,
+                resume_token=build_resume_token(),
+                completed=False,
+                start_time=start_time,
+                failed_item_ids=failed_item_ids,
+                error_summary=error_summary,
+                has_more_items=False,
+                item_evaluations=item_evaluations,
+                failures=execution_failures,
+                execution=_build_execution_summary(True, abort_reason),
             )
 
         return self._build_result(
@@ -1089,6 +1228,8 @@ class BatchEvaluationRunner:
             error_summary=error_summary,
             has_more_items=has_more,
             item_evaluations=item_evaluations,
+            failures=execution_failures,
+            execution=_build_execution_summary(False, None),
         )
 
     async def _fetch_batch_with_retry(
@@ -1139,6 +1280,10 @@ class BatchEvaluationRunner:
         metadata: Optional[Dict[str, Any]],
         _add_observation_scores_to_trace: bool,
         evaluator_stats_dict: Dict[str, EvaluatorStats],
+        execution: Optional[ExecutionPolicy] = None,
+        rng: Optional[random.Random] = None,
+        attempt_hook_factory: Optional[Callable[[str], Callable[[Any], None]]] = None,
+        item_failures: Optional[List[ItemFailure]] = None,
     ) -> Tuple[int, int, int, List[Evaluation]]:
         """Process a single item: map, evaluate, create scores.
 
@@ -1151,6 +1296,10 @@ class BatchEvaluationRunner:
             _add_observation_scores_to_trace: Whether to duplicate
                 observation-level scores at trace level.
             evaluator_stats_dict: Dictionary tracking evaluator statistics.
+            execution: Optional execution policy for retries/timeouts.
+            rng: Random source for retry jitter.
+            attempt_hook_factory: Returns an attempt hook for an item key.
+            item_failures: List collecting this item's detailed failures.
 
         Returns:
             Tuple of (scores_created, composite_scores_created, evaluations_failed, all_evaluations).
@@ -1160,13 +1309,47 @@ class BatchEvaluationRunner:
         """
         if not item.trace_id:
             message = f"Observation {item.id} has no trace_id"
+            if item_failures is not None:
+                item_failures.append(
+                    ItemFailure(
+                        item=item,
+                        item_key=item.id,
+                        stage="validation",
+                        error_type="ValueError",
+                        error_message=message,
+                        attempts=[],
+                        trace_id=None,
+                    )
+                )
             raise ValueError(message)
 
         scores_created = 0
         composite_scores_created = 0
         evaluations_failed = 0
 
-        evaluator_inputs = await self._run_mapper(mapper, item)
+        try:
+            evaluator_inputs = await self._run_stage_with_policy(
+                lambda: self._run_mapper(mapper, item),
+                execution=execution,
+                rng=rng,
+                attempt_hook=(
+                    attempt_hook_factory(item.id) if attempt_hook_factory else None
+                ),
+            )
+        except Exception as e:
+            if item_failures is not None:
+                item_failures.append(
+                    ItemFailure(
+                        item=item,
+                        item_key=item.id,
+                        stage="mapper",
+                        error_type=type(e).__name__,
+                        error_message=str(e),
+                        attempts=_attempts_from_exception(e),
+                        trace_id=item.trace_id,
+                    )
+                )
+            raise
 
         evaluations: List[Evaluation] = []
         for evaluator in evaluators:
@@ -1175,12 +1358,19 @@ class BatchEvaluationRunner:
             stats.total_runs += 1
 
             try:
-                eval_results = await self._run_evaluator_internal(
-                    evaluator,
-                    input=evaluator_inputs.input,
-                    output=evaluator_inputs.output,
-                    expected_output=evaluator_inputs.expected_output,
-                    metadata=evaluator_inputs.metadata,
+                eval_results = await self._run_stage_with_policy(
+                    lambda: self._run_evaluator_internal(
+                        evaluator,
+                        input=evaluator_inputs.input,
+                        output=evaluator_inputs.output,
+                        expected_output=evaluator_inputs.expected_output,
+                        metadata=evaluator_inputs.metadata,
+                    ),
+                    execution=execution,
+                    rng=rng,
+                    attempt_hook=(
+                        attempt_hook_factory(item.id) if attempt_hook_factory else None
+                    ),
                 )
 
                 stats.successful_runs += 1
@@ -1190,6 +1380,19 @@ class BatchEvaluationRunner:
             except Exception as e:
                 stats.failed_runs += 1
                 evaluations_failed += 1
+                if item_failures is not None:
+                    item_failures.append(
+                        ItemFailure(
+                            item=item,
+                            item_key=item.id,
+                            stage="evaluator",
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                            attempts=_attempts_from_exception(e),
+                            trace_id=item.trace_id,
+                            evaluator_name=evaluator_name,
+                        )
+                    )
                 logger.warning(
                     "Evaluator %s failed on item %s: %s",
                     evaluator_name,
@@ -1198,36 +1401,94 @@ class BatchEvaluationRunner:
                 )
 
         for evaluation in evaluations:
-            scores_created += self._create_score(
-                item=item,
-                evaluation=evaluation,
-                additional_metadata=metadata,
-                add_observation_score_to_trace=_add_observation_scores_to_trace,
-            )
+            try:
+                scores_created += self._create_score(
+                    item=item,
+                    evaluation=evaluation,
+                    additional_metadata=metadata,
+                    add_observation_score_to_trace=_add_observation_scores_to_trace,
+                )
+            except Exception as e:
+                if item_failures is not None:
+                    item_failures.append(
+                        ItemFailure(
+                            item=item,
+                            item_key=item.id,
+                            stage="score",
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                            attempts=[],
+                            trace_id=item.trace_id,
+                        )
+                    )
+                raise
 
         if composite_evaluator and evaluations:
+            composite_evals: Optional[List[Evaluation]] = None
             try:
-                composite_evals = await self._run_composite_evaluator(
-                    composite_evaluator,
-                    input=evaluator_inputs.input,
-                    output=evaluator_inputs.output,
-                    expected_output=evaluator_inputs.expected_output,
-                    metadata=evaluator_inputs.metadata,
-                    evaluations=evaluations,
+                composite_evals = await self._run_stage_with_policy(
+                    lambda: self._run_composite_evaluator(
+                        composite_evaluator,
+                        input=evaluator_inputs.input,
+                        output=evaluator_inputs.output,
+                        expected_output=evaluator_inputs.expected_output,
+                        metadata=evaluator_inputs.metadata,
+                        evaluations=evaluations,
+                    ),
+                    execution=execution,
+                    rng=rng,
+                    attempt_hook=(
+                        attempt_hook_factory(item.id) if attempt_hook_factory else None
+                    ),
                 )
-
-                for composite_eval in composite_evals:
-                    composite_scores_created += self._create_score(
-                        item=item,
-                        evaluation=composite_eval,
-                        additional_metadata=metadata,
-                        add_observation_score_to_trace=_add_observation_scores_to_trace,
-                    )
-
-                evaluations.extend(composite_evals)
-
             except Exception as e:
+                if item_failures is not None:
+                    item_failures.append(
+                        ItemFailure(
+                            item=item,
+                            item_key=item.id,
+                            stage="composite",
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                            attempts=_attempts_from_exception(e),
+                            trace_id=item.trace_id,
+                        )
+                    )
                 logger.warning("Composite evaluator failed on item %s: %s", item.id, e)
+
+            if composite_evals is not None:
+                composite_score_error: Optional[Exception] = None
+                for composite_eval in composite_evals:
+                    try:
+                        composite_scores_created += self._create_score(
+                            item=item,
+                            evaluation=composite_eval,
+                            additional_metadata=metadata,
+                            add_observation_score_to_trace=_add_observation_scores_to_trace,
+                        )
+                    except Exception as e:
+                        composite_score_error = e
+                        if item_failures is not None:
+                            item_failures.append(
+                                ItemFailure(
+                                    item=item,
+                                    item_key=item.id,
+                                    stage="score",
+                                    error_type=type(e).__name__,
+                                    error_message=str(e),
+                                    attempts=[],
+                                    trace_id=item.trace_id,
+                                )
+                            )
+                        break
+                if composite_score_error is not None:
+                    logger.warning(
+                        "Composite evaluator failed on item %s: %s",
+                        item.id,
+                        composite_score_error,
+                    )
+                else:
+                    evaluations.extend(composite_evals)
 
         return (
             scores_created,
@@ -1235,6 +1496,34 @@ class BatchEvaluationRunner:
             evaluations_failed,
             evaluations,
         )
+
+    async def _run_stage_with_policy(
+        self,
+        coro_factory: Callable[[], Awaitable[Any]],
+        *,
+        execution: Optional[ExecutionPolicy],
+        rng: Optional[random.Random],
+        attempt_hook: Optional[Callable[[Any], None]],
+    ) -> Any:
+        """Run one mapper/evaluator/composite call under the execution policy.
+
+        Without a policy the coroutine factory is awaited directly, keeping
+        the default code path identical to previous versions. With a policy,
+        the call is retried per ``evaluator_retry`` and bounded by
+        ``evaluator_timeout`` via the shared ``_run_with_retry`` helper.
+        """
+        if execution is None:
+            return await coro_factory()
+        result, _attempts = await _run_with_retry(
+            coro_factory,
+            policy=execution.evaluator_retry,
+            timeout=execution.timeouts.evaluator_timeout,
+            clock=time.monotonic,
+            sleep=asyncio.sleep,
+            rng=rng if rng is not None else random.Random(),
+            attempt_hook=attempt_hook,
+        )
+        return result
 
     async def _run_evaluator_internal(
         self,
@@ -1467,6 +1756,8 @@ class BatchEvaluationRunner:
         error_summary: Dict[str, int],
         has_more_items: bool,
         item_evaluations: Dict[str, List[Evaluation]],
+        failures: Optional[List[ItemFailure]] = None,
+        execution: Optional[ExecutionSummary] = None,
     ) -> BatchEvaluationResult:
         """Build the final BatchEvaluationResult.
 
@@ -1485,6 +1776,8 @@ class BatchEvaluationRunner:
             error_summary: Error type counts.
             has_more_items: Whether more items may exist beyond max_items.
             item_evaluations: Dictionary mapping item IDs to their evaluation results.
+            failures: Detailed per-item failure records.
+            execution: Execution summary for policy-driven runs.
 
         Returns:
             BatchEvaluationResult instance.
@@ -1506,4 +1799,6 @@ class BatchEvaluationRunner:
             error_summary=error_summary,
             has_more_items=has_more_items,
             item_evaluations=item_evaluations,
+            failures=failures,
+            execution=execution,
         )

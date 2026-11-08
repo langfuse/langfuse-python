@@ -4,10 +4,13 @@ This module implements Langfuse's core observability functionality on top of the
 """
 
 import asyncio
+import inspect
 import json
 import logging
 import os
+import random
 import re
+import time
 import urllib.parse
 import uuid
 from datetime import datetime, timezone
@@ -90,9 +93,25 @@ from langfuse._client.span import (
     _set_span_attributes_within_limit,
 )
 from langfuse._client.utils import (
-    get_sha256_hash_hex,
     get_string_span_attribute,
     run_async_safely,
+)
+from langfuse._experiment.executor import (
+    ExperimentExecutor,
+    ItemProcessingFailed,
+    _run_with_retry,
+)
+from langfuse._experiment.item_key import (
+    experiment_item_id_for as _experiment_item_id_for,
+)
+from langfuse._experiment.results import (
+    AttemptRecord as _AttemptRecord,
+)
+from langfuse._experiment.results import (
+    EvaluatorFailure as _EvaluatorFailure,
+)
+from langfuse._experiment.results import (
+    ItemFailure as _ItemFailure,
 )
 from langfuse._utils import _get_timestamp, json_path
 from langfuse._utils.environment import get_common_release_envs
@@ -128,6 +147,7 @@ from langfuse.batch_evaluation import (
 from langfuse.experiment import (
     Evaluation,
     EvaluatorFunction,
+    ExecutionPolicy,
     ExperimentData,
     ExperimentItem,
     ExperimentItemResult,
@@ -2611,6 +2631,7 @@ class Langfuse:
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
         experiment_id: Optional[str] = None,
+        execution: Optional[ExecutionPolicy] = None,
         _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         """Run an experiment on a dataset with automatic tracing and evaluation.
@@ -2813,7 +2834,33 @@ class Langfuse:
             - When using Langfuse datasets, results are automatically linked to the dataset for easy comparison
             - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
             - Async execution is handled automatically with smart event loop detection
+
+        Raises:
+            ValueError: If required parameters are missing or invalid, if
+                `experiment_id` is empty or whitespace-only, or if `execution`
+                enables resume on local (non-dataset) data without an explicit
+                `run_name` or `experiment_id` (a new run name and a random
+                experiment id are generated per call, so the previous run's
+                checkpoint could never be found).
         """
+        if (
+            execution is not None
+            and execution.resume
+            and run_name is None
+            and experiment_id is None
+            and not any(
+                not isinstance(item, dict) and getattr(item, "dataset_id", None)
+                for item in data
+            )
+        ):
+            message = (
+                "resume=True on local (non-dataset) data requires an explicit "
+                "run_name or experiment_id: without one, each call generates a "
+                "new run name and a random experiment id, so the checkpoint "
+                "written by a previous run can never be found."
+            )
+            raise ValueError(message)
+
         return cast(
             ExperimentResult,
             run_async_safely(
@@ -2831,6 +2878,7 @@ class Langfuse:
                     max_concurrency=max_concurrency,
                     metadata=metadata,
                     experiment_id=experiment_id,
+                    execution=execution,
                     dataset_version=_dataset_version,
                 ),
             ),
@@ -2850,6 +2898,7 @@ class Langfuse:
         max_concurrency: int,
         metadata: Optional[Dict[str, Any]] = None,
         experiment_id: Optional[str] = None,
+        execution: Optional[ExecutionPolicy] = None,
         dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         if experiment_id is not None and (
@@ -2880,11 +2929,19 @@ class Langfuse:
             ),
             None,
         )
+        # The id is deterministic when the caller supplied it or when it is
+        # derived from project + dataset + run name; otherwise (local data
+        # without an explicit id) it is random per run, which the executor
+        # must know to key checkpoints and adopt a resumed id.
+        experiment_id_is_deterministic = experiment_id is not None
         if experiment_id is None:
             experiment_id = self._create_experiment_id(
                 project_id=project_id,
                 dataset_id=experiment_dataset_id,
                 run_name=run_name,
+            )
+            experiment_id_is_deterministic = (
+                experiment_dataset_id is not None and project_id is not None
             )
         experiment_item_version = (
             self._format_experiment_item_version(dataset_version)
@@ -2892,44 +2949,60 @@ class Langfuse:
             else None
         )
 
-        # Set up concurrency control
-        semaphore = asyncio.Semaphore(max_concurrency)
+        async def processor(
+            item: ExperimentItem,
+            item_key: str,
+            processor_experiment_id: str,
+            policy: Optional[ExecutionPolicy],
+            attempt_hook: Optional[Callable[[_AttemptRecord], None]],
+            evaluator_failures: List[_EvaluatorFailure],
+        ) -> ExperimentItemResult:
+            return await self._process_experiment_item(
+                item,
+                task,
+                evaluators,
+                composite_evaluator,
+                processor_experiment_id,
+                name,
+                run_name,
+                description,
+                metadata,
+                experiment_item_version,
+                item_key=item_key,
+                policy=policy,
+                attempt_hook=attempt_hook,
+                evaluator_failures=evaluator_failures,
+            )
 
-        # Process all items
-        async def process_item(item: ExperimentItem) -> ExperimentItemResult:
-            async with semaphore:
-                return await self._process_experiment_item(
-                    item,
-                    task,
-                    evaluators,
-                    composite_evaluator,
-                    experiment_id,
-                    name,
-                    run_name,
-                    description,
-                    metadata,
-                    experiment_item_version,
-                )
+        executor = ExperimentExecutor(
+            experiment_id=experiment_id,
+            experiment_id_deterministic=experiment_id_is_deterministic,
+            experiment_name=name,
+            run_name=run_name,
+            data=list(data),
+            dataset_version=experiment_item_version,
+            policy=execution,
+            processor=processor,
+            max_concurrency=max_concurrency,
+        )
+        exec_result = await executor.run(task=task, evaluators=evaluators)
+        # A resumed local-data run adopts the experiment id recorded in the
+        # checkpoint so both runs share one experiment.
+        experiment_id = exec_result.experiment_id
 
-        # Run all items concurrently
-        tasks = [process_item(item) for item in data]
-        item_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Filter out any exceptions and log errors
-        valid_results: List[ExperimentItemResult] = []
-        for i, result in enumerate(item_results):
-            if isinstance(result, Exception):
-                langfuse_logger.error("Item %s failed: %s", i, result)
-            elif isinstance(result, ExperimentItemResult):
-                valid_results.append(result)  # type: ignore
-
-        # Run experiment-level evaluators
+        # Run experiment-level evaluators. Each run evaluator receives the
+        # successful item_results (for backwards compatibility) and, only if
+        # its signature accepts it, the recorded failures so it can compute
+        # honest rates.
         run_evaluations: List[Evaluation] = []
         for run_evaluator in run_evaluators:
             try:
-                evaluations = await _run_evaluator(
-                    run_evaluator, item_results=valid_results
+                kwargs = self._run_evaluator_kwargs(
+                    run_evaluator,
+                    exec_result.item_results,
+                    exec_result.failures,
                 )
+                evaluations = await _run_evaluator(run_evaluator, **kwargs)
                 run_evaluations.extend(evaluations)
             except Exception as e:
                 langfuse_logger.error("Run evaluator failed: %s", e)
@@ -2963,11 +3036,36 @@ class Langfuse:
             name=name,
             run_name=run_name,
             description=description,
-            item_results=valid_results,
+            item_results=exec_result.item_results,
             run_evaluations=run_evaluations,
             experiment_id=experiment_id,
             experiment_url=experiment_url,
+            failures=exec_result.failures,
+            evaluator_failures=exec_result.evaluator_failures,
+            execution=exec_result.summary,
         )
+
+    @staticmethod
+    def _run_evaluator_kwargs(
+        run_evaluator: RunEvaluatorFunction,
+        item_results: List[ExperimentItemResult],
+        failures: List[_ItemFailure],
+    ) -> Dict[str, Any]:
+        """Build kwargs for a run evaluator, passing ``failures`` only if the
+        evaluator declares an explicit ``failures`` parameter.
+
+        Functions that merely accept ``**kwargs`` are left untouched so
+        pre-existing run evaluators keep receiving exactly what they received
+        before."""
+        kwargs: Dict[str, Any] = {"item_results": item_results}
+        try:
+            sig = inspect.signature(run_evaluator)
+        except (TypeError, ValueError):
+            return kwargs
+        params = sig.parameters
+        if "failures" in params:
+            kwargs["failures"] = failures
+        return kwargs
 
     def _create_experiment_id(
         self,
@@ -3013,6 +3111,11 @@ class Langfuse:
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
         experiment_item_version: Optional[str] = None,
+        *,
+        item_key: Optional[str] = None,
+        policy: Optional[ExecutionPolicy] = None,
+        attempt_hook: Optional[Callable[[_AttemptRecord], None]] = None,
+        evaluator_failures: Optional[List[_EvaluatorFailure]] = None,
     ) -> ExperimentItemResult:
         with self.start_as_current_observation(name="experiment-item-run") as span:
             try:
@@ -3068,9 +3171,7 @@ class Langfuse:
                     **experiment_run_metadata,
                 }
 
-                experiment_item_id = (
-                    dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
-                )
+                experiment_item_id = _experiment_item_id_for(item)
                 experiment_span_attributes = {
                     k: v
                     for k, v in {
@@ -3125,15 +3226,69 @@ class Langfuse:
                         # attributes, so the span attribute limit trims the
                         # metadata instead of leaving no room for the output.
                         task_span.update(metadata=final_observation_metadata)
-                        try:
-                            output = await _run_task(task, item)
-                        except Exception as e:
-                            task_span.update(
-                                output=f"Error: {str(e)}",
-                                level="ERROR",
-                                status_message=str(e),
+
+                        task_policy = policy.task_retry if policy is not None else None
+                        task_timeout = (
+                            policy.timeouts.task_timeout if policy is not None else None
+                        )
+                        has_retry = (
+                            task_policy is not None and task_policy.max_attempts > 1
+                        )
+                        has_timeout = task_timeout is not None
+
+                        if not has_retry and not has_timeout:
+                            # Default path: identical trace shape to today.
+                            task_started_at = time.monotonic()
+                            try:
+                                output = await _run_task(task, item)
+                            except Exception as e:
+                                if attempt_hook is not None:
+                                    attempt_hook(
+                                        _AttemptRecord(
+                                            attempt=1,
+                                            started_at=task_started_at,
+                                            duration_s=(
+                                                time.monotonic() - task_started_at
+                                            ),
+                                            error_type=type(e).__name__,
+                                            error_message=str(e),
+                                            retry_after=None,
+                                            will_retry=False,
+                                        )
+                                    )
+                                task_span.update(
+                                    output=f"Error: {str(e)}",
+                                    level="ERROR",
+                                    status_message=str(e),
+                                )
+                                raise
+                            if attempt_hook is not None:
+                                attempt_hook(
+                                    _AttemptRecord(
+                                        attempt=1,
+                                        started_at=task_started_at,
+                                        duration_s=(time.monotonic() - task_started_at),
+                                        error_type=None,
+                                        error_message=None,
+                                        retry_after=None,
+                                        will_retry=False,
+                                    )
+                                )
+                        else:
+                            output, task_attempts = await self._run_task_with_policy(
+                                task=task,
+                                item=item,
+                                task_span=task_span,
+                                task_policy=task_policy,
+                                task_timeout=task_timeout,
+                                policy=policy,
+                                attempt_hook=attempt_hook,
+                                item_key=item_key or experiment_item_id,
                             )
-                            raise
+                            if task_attempts is not None:
+                                self._emit_attempt_observations(
+                                    task_span, task_attempts
+                                )
 
                     task_span.update(output=output)
 
@@ -3180,12 +3335,41 @@ class Langfuse:
                                     "evaluator_index": evaluator_index,
                                 },
                             ) as evaluator_span:
+                                eval_policy = (
+                                    policy.evaluator_retry
+                                    if policy is not None
+                                    else None
+                                )
+                                eval_timeout = (
+                                    policy.timeouts.evaluator_timeout
+                                    if policy is not None
+                                    else None
+                                )
+                                has_eval_retry = (
+                                    eval_policy is not None
+                                    and eval_policy.max_attempts > 1
+                                )
+                                has_eval_timeout = eval_timeout is not None
                                 try:
-                                    eval_results = await _run_evaluator(
-                                        evaluator,
-                                        _raise_on_error=True,
-                                        **evaluator_input,
-                                    )
+                                    if not has_eval_retry and not has_eval_timeout:
+                                        eval_results = await _run_evaluator(
+                                            evaluator,
+                                            _raise_on_error=True,
+                                            **evaluator_input,
+                                        )
+                                    else:
+                                        eval_results = (
+                                            await self._run_evaluator_with_policy(
+                                                evaluator=evaluator,
+                                                evaluator_input=evaluator_input,
+                                                evaluator_span=evaluator_span,
+                                                eval_policy=eval_policy,
+                                                eval_timeout=eval_timeout,
+                                                policy=policy,
+                                                item_key=item_key or experiment_item_id,
+                                                evaluator_failures=evaluator_failures,
+                                            )
+                                        )
                                     evaluator_span.update(
                                         output=_serialize_evaluations(eval_results)
                                     )
@@ -3305,6 +3489,175 @@ class Langfuse:
                 experiment_id=experiment_id,
             )
 
+    async def _run_task_with_policy(
+        self,
+        *,
+        task: Callable,
+        item: ExperimentItem,
+        task_span: Any,
+        task_policy: Any,
+        task_timeout: Optional[float],
+        policy: Optional[ExecutionPolicy],
+        attempt_hook: Optional[Callable[[_AttemptRecord], None]],
+        item_key: str,
+    ) -> Tuple[Any, Optional[List[_AttemptRecord]]]:
+        """Run the task with retry/timeout, emitting attempt observations.
+
+        Returns ``(output, attempts)`` on success. On terminal failure raises
+        ``ItemProcessingFailed`` carrying an ``ItemFailure`` with the
+        recorded attempts.
+        """
+        rng = random.Random(
+            policy.seed if policy is not None and policy.seed is not None else None
+        )
+        clock = time.monotonic
+
+        async def factory() -> Any:
+            return await _run_task(task, item)
+
+        try:
+            output, attempts = await _run_with_retry(
+                factory,
+                policy=task_policy,
+                timeout=task_timeout,
+                clock=clock,
+                sleep=asyncio.sleep,
+                rng=rng,
+                attempt_hook=attempt_hook,
+            )
+            return output, attempts
+        except asyncio.TimeoutError:
+            failure = _ItemFailure(
+                item=item,
+                item_key=item_key,
+                stage="timeout",
+                error_type="TaskTimeoutError",
+                error_message="task timed out after %s seconds" % task_timeout,
+                attempts=[],
+                trace_id=task_span.trace_id,
+            )
+            task_span.update(
+                output=f"Error: {failure.error_message}",
+                level="ERROR",
+                status_message=failure.error_message,
+            )
+            raise ItemProcessingFailed(failure)
+        except Exception as e:
+            failure = _ItemFailure(
+                item=item,
+                item_key=item_key,
+                stage="task",
+                error_type=type(e).__name__,
+                error_message=str(e),
+                attempts=[],
+                trace_id=task_span.trace_id,
+            )
+            task_span.update(
+                output=f"Error: {str(e)}",
+                level="ERROR",
+                status_message=str(e),
+            )
+            raise ItemProcessingFailed(failure)
+
+    async def _run_evaluator_with_policy(
+        self,
+        *,
+        evaluator: Callable,
+        evaluator_input: Dict[str, Any],
+        evaluator_span: Any,
+        eval_policy: Any,
+        eval_timeout: Optional[float],
+        policy: Optional[ExecutionPolicy],
+        item_key: str,
+        evaluator_failures: Optional[List[_EvaluatorFailure]],
+    ) -> List[Evaluation]:
+        """Run one evaluator with retry/timeout, recording an
+        ``EvaluatorFailure`` on terminal failure instead of raising."""
+        rng = random.Random(
+            policy.seed if policy is not None and policy.seed is not None else None
+        )
+        clock = time.monotonic
+
+        async def factory() -> List[Evaluation]:
+            return await _run_evaluator(
+                evaluator, _raise_on_error=True, **evaluator_input
+            )
+
+        try:
+            eval_results, attempts = await _run_with_retry(
+                factory,
+                policy=eval_policy,
+                timeout=eval_timeout,
+                clock=clock,
+                sleep=asyncio.sleep,
+                rng=rng,
+                attempt_hook=None,
+            )
+            return list(eval_results)
+        except asyncio.TimeoutError:
+            failure = _EvaluatorFailure(
+                item_key=item_key,
+                evaluator_name=_get_evaluator_name(evaluator),
+                error_type="EvaluatorTimeoutError",
+                error_message="evaluator timed out after %s seconds" % eval_timeout,
+                attempts=[],
+            )
+            if evaluator_failures is not None:
+                evaluator_failures.append(failure)
+            evaluator_span.update(
+                output={"error": failure.error_message},
+                level="ERROR",
+                status_message=failure.error_message,
+            )
+            langfuse_logger.error("Evaluator failed: %s", failure.error_message)
+            return []
+        except Exception as e:
+            failure = _EvaluatorFailure(
+                item_key=item_key,
+                evaluator_name=_get_evaluator_name(evaluator),
+                error_type=type(e).__name__,
+                error_message=str(e),
+                attempts=[],
+            )
+            if evaluator_failures is not None:
+                evaluator_failures.append(failure)
+            evaluator_span.update(
+                output={"error": str(e)},
+                level="ERROR",
+                status_message=str(e),
+            )
+            langfuse_logger.error("Evaluator failed: %s", e)
+            return []
+
+    @staticmethod
+    def _emit_attempt_observations(
+        task_span: Any, attempts: List[_AttemptRecord]
+    ) -> None:
+        """Emit a WARNING child observation for each failed attempt that was
+        retried, so traces show attempts and backoff separately."""
+        for record in attempts:
+            if record.error_type is None or not record.will_retry:
+                continue
+            with task_span.start_as_current_observation(
+                name="experiment-item-task-attempt",
+                as_type="span",
+                level="WARNING",
+                status_message=record.error_message or "",
+                metadata={
+                    "attempt": record.attempt,
+                    "error_type": record.error_type,
+                    "retry_after": record.retry_after,
+                },
+            ) as attempt_obs:
+                attempt_obs.update(
+                    output={
+                        "attempt": record.attempt,
+                        "error_type": record.error_type,
+                        "error_message": record.error_message,
+                        "will_retry": record.will_retry,
+                    }
+                )
+
     def _create_experiment_run_name(
         self, *, name: Optional[str] = None, run_name: Optional[str] = None
     ) -> str:
@@ -3331,6 +3684,7 @@ class Langfuse:
         _add_observation_scores_to_trace: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
+        execution: Optional[ExecutionPolicy] = None,
     ) -> BatchEvaluationResult:
         """Fetch observations from Langfuse and evaluate each of them.
 
@@ -3396,6 +3750,12 @@ class Langfuse:
                 (fetch failure or `max_items`). Continues exactly after the last
                 processed page. Pass the same `filter`, or omit it to reuse the
                 token's filter. Default: None.
+            execution: Optional `ExecutionPolicy` adding retries and timeouts for
+                mapper/evaluator/composite calls, a run timeout, a failure budget
+                that stops fetching further pages when exceeded (the result then has
+                `completed=False`, a resume token, and `execution.aborted=True`),
+                and detailed `failures` plus an `execution` summary on the result.
+                Default: None (behavior unchanged).
 
 
         Returns:
@@ -3415,6 +3775,8 @@ class Langfuse:
                 - error_summary: Error types and counts
                 - has_more_items: True if max_items was reached and more items may exist
                 - item_evaluations: Evaluations per observation ID
+                - failures: Detailed per-item failure records (stage, error, attempts)
+                - execution: Execution summary with retry/abort statistics
 
         Raises:
             ValueError: If a non-array filter is provided, or the resume token was
@@ -3540,6 +3902,7 @@ class Langfuse:
                     max_retries=max_retries,
                     verbose=verbose,
                     resume_from=resume_from,
+                    execution=execution,
                 )
             ),
         )

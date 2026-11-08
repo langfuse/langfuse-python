@@ -8,6 +8,7 @@ from langfuse.api import (
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
 from langfuse.experiment import (
     EvaluatorFunction,
+    ExecutionPolicy,
     ExperimentResult,
     RunEvaluatorFunction,
     TaskFunction,
@@ -91,6 +92,7 @@ class DatasetClient:
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
         experiment_id: Optional[str] = None,
+        execution: Optional[ExecutionPolicy] = None,
     ) -> ExperimentResult:
         """Run an experiment on this Langfuse dataset with automatic tracking.
 
@@ -311,5 +313,6 @@ class DatasetClient:
             max_concurrency=max_concurrency,
             metadata=metadata,
             experiment_id=experiment_id,
+            execution=execution,
             _dataset_version=self.version,
         )
