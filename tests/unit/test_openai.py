@@ -1023,6 +1023,8 @@ def test_embedding_exports_dimensions_and_count(
         ("AAAAAAAAAAA=", 2),
         ("AAAAAAAAAAAAAAAA", 3),
         pytest.param("!invalid!", 9, id="invalid-base64"),
+        pytest.param("!!!!", 4, id="invalid-base64-characters"),
+        pytest.param("AAAA", 4, id="incomplete-float32"),
         pytest.param("\u2603", 1, id="non-ascii"),
     ],
 )

@@ -968,7 +968,12 @@ def _get_langfuse_data_from_default_response(
             if isinstance(embedding_vector, str):
                 try:
                     # Base64 embeddings contain one float32 per dimension.
-                    dimensions = len(base64.b64decode(embedding_vector)) // 4
+                    decoded = base64.b64decode(embedding_vector, validate=True)
+                    dimensions = (
+                        len(decoded) // 4
+                        if len(decoded) % 4 == 0
+                        else len(embedding_vector)
+                    )
                 except (binascii.Error, ValueError):
                     dimensions = len(embedding_vector)
             else:
