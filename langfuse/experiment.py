@@ -21,6 +21,11 @@ from typing import (
     overload,
 )
 
+from langfuse._experiment.checkpoint import (
+    CheckpointStore,
+    FileCheckpointStore,
+    InMemoryCheckpointStore,
+)
 from langfuse._experiment.errors import (
     CheckpointCorruptedError,
     CheckpointMismatchError,
@@ -1331,6 +1336,7 @@ __all__ = [
     "AttemptRecord",
     "CheckpointCorruptedError",
     "CheckpointMismatchError",
+    "CheckpointStore",
     "EvaluatorFailure",
     "EvaluatorTimeoutError",
     "ExecutionPolicy",
@@ -1338,6 +1344,8 @@ __all__ = [
     "ExperimentExecutionError",
     "FailureBudgetExceededError",
     "FailurePolicy",
+    "FileCheckpointStore",
+    "InMemoryCheckpointStore",
     "ItemFailure",
     "RetryPolicy",
     "RunTimeoutError",
