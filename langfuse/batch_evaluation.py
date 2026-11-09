@@ -571,6 +571,9 @@ class BatchEvaluationResult:
         total_composite_scores_created: Scores created by the composite evaluator.
         total_evaluations_failed: Number of individual evaluator failures across all items.
         evaluator_stats: List of per-evaluator statistics (success/failure rates, scores created).
+            One entry per evaluator, in the order the evaluators were passed. Names
+            can repeat when two evaluators share a name, so key on position rather
+            than `name` if you build a lookup from this list.
         resume_token: Token for continuing the run. Set when a batch fetch failed
             (`completed=False`) or when `max_items` was reached while more items
             may exist (`has_more_items=True`); None otherwise.
@@ -686,7 +689,8 @@ class BatchEvaluationResult:
             total_scores_created: Scores from item-level evaluators.
             total_composite_scores_created: Scores from composite evaluator.
             total_evaluations_failed: Individual evaluator failures.
-            evaluator_stats: Per-evaluator statistics.
+            evaluator_stats: Per-evaluator statistics, one entry per evaluator in
+                order. Names can repeat.
             resume_token: Token for resuming (None if completed).
             completed: Whether all items were processed.
             duration_seconds: Total execution time.
