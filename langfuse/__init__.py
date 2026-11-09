@@ -15,6 +15,7 @@ Capabilities:
 - **Prompt management**: `Langfuse.get_prompt`, `Langfuse.create_prompt` with
   client-side caching and version/label control.
 - **Full REST API**: `Langfuse.api` (sync) / `Langfuse.async_api` (async) clients.
+  `Langfuse.iter_observation_pages` / `Langfuse.aiter_observation_pages` page through observations.
 
 Quickstart:
 

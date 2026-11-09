@@ -20,7 +20,7 @@ if typing.TYPE_CHECKING:
         TooManyRequestsError,
         UnauthorizedError,
     )
-    from . import dashboard_widgets, dashboards, errors
+    from . import dashboard_widgets, dashboards, errors, topics
     from .dashboard_widgets import (
         CreateDashboardWidgetRequest,
         DashboardWidget,
@@ -58,6 +58,19 @@ if typing.TYPE_CHECKING:
         UpdateDashboardPlacementRequest,
         UpdateDashboardRequest,
         WidgetPlacement,
+    )
+    from .topics import (
+        Topic,
+        TopicFacet,
+        TopicFacetCounts,
+        TopicFacetList,
+        TopicFacetPublishedRun,
+        TopicFacetRef,
+        TopicList,
+        TopicStatusCounts,
+        TopicWindow,
+        TopicWithStatus,
+        TopicsOrderBy,
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "AccessDeniedError": ".errors",
@@ -101,6 +114,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PublicApiErrorDetails": ".errors",
     "PublicApiValidationIssue": ".errors",
     "TooManyRequestsError": ".errors",
+    "Topic": ".topics",
+    "TopicFacet": ".topics",
+    "TopicFacetCounts": ".topics",
+    "TopicFacetList": ".topics",
+    "TopicFacetPublishedRun": ".topics",
+    "TopicFacetRef": ".topics",
+    "TopicList": ".topics",
+    "TopicStatusCounts": ".topics",
+    "TopicWindow": ".topics",
+    "TopicWithStatus": ".topics",
+    "TopicsOrderBy": ".topics",
     "UnauthorizedError": ".errors",
     "UpdateDashboardPlacementRequest": ".dashboards",
     "UpdateDashboardRequest": ".dashboards",
@@ -109,6 +133,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "dashboard_widgets": ".dashboard_widgets",
     "dashboards": ".dashboards",
     "errors": ".errors",
+    "topics": ".topics",
 }
 
 
@@ -181,6 +206,17 @@ __all__ = [
     "PublicApiErrorDetails",
     "PublicApiValidationIssue",
     "TooManyRequestsError",
+    "Topic",
+    "TopicFacet",
+    "TopicFacetCounts",
+    "TopicFacetList",
+    "TopicFacetPublishedRun",
+    "TopicFacetRef",
+    "TopicList",
+    "TopicStatusCounts",
+    "TopicWindow",
+    "TopicWithStatus",
+    "TopicsOrderBy",
     "UnauthorizedError",
     "UpdateDashboardPlacementRequest",
     "UpdateDashboardRequest",
@@ -189,4 +225,5 @@ __all__ = [
     "dashboard_widgets",
     "dashboards",
     "errors",
+    "topics",
 ]

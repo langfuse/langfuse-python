@@ -13,6 +13,7 @@ if typing.TYPE_CHECKING:
         DashboardWidgetsClient,
     )
     from .dashboards.client import AsyncDashboardsClient, DashboardsClient
+    from .topics.client import AsyncTopicsClient, TopicsClient
 
 
 class UnstableClient:
@@ -21,6 +22,7 @@ class UnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[DashboardWidgetsClient] = None
         self._dashboards: typing.Optional[DashboardsClient] = None
+        self._topics: typing.Optional[TopicsClient] = None
 
     @property
     def with_raw_response(self) -> RawUnstableClient:
@@ -51,6 +53,14 @@ class UnstableClient:
             self._dashboards = DashboardsClient(client_wrapper=self._client_wrapper)
         return self._dashboards
 
+    @property
+    def topics(self):
+        if self._topics is None:
+            from .topics.client import TopicsClient  # noqa: E402
+
+            self._topics = TopicsClient(client_wrapper=self._client_wrapper)
+        return self._topics
+
 
 class AsyncUnstableClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -58,6 +68,7 @@ class AsyncUnstableClient:
         self._client_wrapper = client_wrapper
         self._dashboard_widgets: typing.Optional[AsyncDashboardWidgetsClient] = None
         self._dashboards: typing.Optional[AsyncDashboardsClient] = None
+        self._topics: typing.Optional[AsyncTopicsClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawUnstableClient:
@@ -89,3 +100,11 @@ class AsyncUnstableClient:
                 client_wrapper=self._client_wrapper
             )
         return self._dashboards
+
+    @property
+    def topics(self):
+        if self._topics is None:
+            from .topics.client import AsyncTopicsClient  # noqa: E402
+
+            self._topics = AsyncTopicsClient(client_wrapper=self._client_wrapper)
+        return self._topics
