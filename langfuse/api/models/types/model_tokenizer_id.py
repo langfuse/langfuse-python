@@ -9,7 +9,7 @@ T_Result = typing.TypeVar("T_Result")
 
 class ModelTokenizerId(enum.StrEnum):
     """
-    Tokenizer supported by Langfuse for model usage inference.
+    Legacy tokenizer identifier retained for API compatibility. Ingestion no longer uses it to infer observation usage.
     """
 
     OPENAI = "openai"
