@@ -25,6 +25,13 @@ class Topic(UniversalBaseModel):
     name: str
     description: str
     facet: TopicFacetRef
+    rule_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="ruleId")
+    ] = pydantic.Field(default=None)
+    """
+    The rule whose live map has the topic. Null when the project has no rule.
+    """
+
     run_id: typing_extensions.Annotated[str, FieldMetadata(alias="runId")] = (
         pydantic.Field()
     )
