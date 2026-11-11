@@ -140,6 +140,7 @@ async def test_async_nested_openai_chat_stream():
             temperature=0,
             metadata={"someKey": "someResponse"},
             stream=True,
+            stream_options={"include_usage": True},
         )
 
         with propagate_attributes(
