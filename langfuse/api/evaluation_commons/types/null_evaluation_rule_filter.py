@@ -14,9 +14,9 @@ class NullEvaluationRuleFilter(UniversalBaseModel):
     """
 
     operator: EvaluationRuleNullFilterOperator
-    value: typing.Optional[typing.Literal[""]] = pydantic.Field(default=None)
+    value: typing.Literal[""] = pydantic.Field(default="")
     """
-    Optional. Defaults to an empty string.
+    Required empty-string placeholder used by the runtime filter contract.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

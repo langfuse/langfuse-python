@@ -17,7 +17,7 @@ class DashboardWidgetFilter(UniversalBaseModel):
     | `number` | number | `=`, `>`, `<`, `>=`, `<=` |
     | `datetime` | ISO datetime string | `>`, `<`, `>=`, `<=` |
     | `boolean` | boolean | `=`, `<>` |
-    | `null` | omit, or `""` | `is null`, `is not null` |
+    | `null` | `""` | `is null`, `is not null` |
     | `stringOptions` | list of strings | `any of`, `none of` |
     | `arrayOptions` | list of strings | `any of`, `none of`, `all of` |
     | `categoryOptions` | list of strings (requires `key`) | `any of`, `none of` |
