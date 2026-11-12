@@ -523,3 +523,26 @@ async def test_observe_treats_legacy_marked_coroutine_function_as_async(
 
     span = _finished_spans_by_name(memory_exporter, "marked")[0]
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "done"
+
+
+def test_observe_records_class_argument_as_class_reference(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    class Invoice:
+        total: float = 0.0
+
+    @observe(name="extract")
+    def extract(text: str, schema: type) -> str:
+        return text
+
+    assert extract("hi", schema=Invoice) == "hi"
+
+    langfuse_memory_client.flush()
+
+    span = _finished_spans_by_name(memory_exporter, "extract")[0]
+    observed_input = json.loads(
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+    )
+    assert observed_input["kwargs"]["schema"] == (
+        f"<class '{__name__}.{Invoice.__qualname__}'>"
+    )
