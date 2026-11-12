@@ -437,10 +437,8 @@ class LangfuseDecorator:
 
     @staticmethod
     def _is_method(func: Callable) -> bool:
-        return (
-            "self" in inspect.signature(func).parameters
-            or "cls" in inspect.signature(func).parameters
-        )
+        first_parameter = next(iter(inspect.signature(func).parameters), None)
+        return first_parameter in ("self", "cls")
 
     def _get_input_from_func_args(
         self,
