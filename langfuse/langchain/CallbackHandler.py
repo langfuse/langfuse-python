@@ -1,9 +1,11 @@
 from collections import OrderedDict
+from contextlib import contextmanager
 from contextvars import Token
 from dataclasses import dataclass, field
 from typing import (
     Any,
     Dict,
+    Iterator,
     List,
     Literal,
     Optional,
@@ -23,7 +25,11 @@ from langfuse import propagate_attributes
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
 from langfuse._client.client import Langfuse
 from langfuse._client.get_client import get_client
-from langfuse._client.propagation import _detach_context_token_safely
+from langfuse._client.propagation import (
+    _detach_context_token_safely,
+    _get_propagated_context_key,
+    propagated_keys,
+)
 from langfuse._client.span import (
     LangfuseAgent,
     LangfuseChain,
@@ -90,6 +96,7 @@ class _RootRunState:
     run_ids: Set[UUID] = field(default_factory=set)
     resume_key: Optional[str] = None
     propagation_context_manager: Optional[_AgnosticContextManager] = None
+    propagation_context: Optional[context.Context] = None
 
 
 class _PendingResumeTraceContextStore:
@@ -580,6 +587,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
                 propagation_context_manager.__enter__()
 
+                if root_run_state is not None:
+                    root_run_state.propagation_context = context.get_current()
+
             obs = self._get_parent_observation(parent_run_id)
             if isinstance(obs, Langfuse):
                 resume_key, trace_context = self._take_root_trace_context(
@@ -597,16 +607,17 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     ),
                 )
             else:
-                span = obs.start_observation(
-                    name=span_name,
-                    as_type=observation_type,
-                    metadata=span_metadata,
-                    input=inputs,
-                    level=cast(
-                        Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"] | None,
-                        span_level,
-                    ),
-                )
+                with self._use_root_propagated_attributes(run_id):
+                    span = obs.start_observation(
+                        name=span_name,
+                        as_type=observation_type,
+                        metadata=span_metadata,
+                        input=inputs,
+                        level=cast(
+                            Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"] | None,
+                            span_level,
+                        ),
+                    )
 
             self._attach_observation(run_id, span)
 
@@ -852,6 +863,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         except Exception as e:
             langfuse_logger.exception(e)
         finally:
+            self._deregister_langfuse_prompt(run_id)
+
             if parent_run_id is None:
                 self._exit_propagation_context(run_id)
                 self._reset(run_id)
@@ -972,13 +985,16 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
                 )
             else:
-                span = parent_observation.start_observation(
-                    name=self.get_langchain_run_name(serialized, **kwargs),
-                    as_type=observation_type,
-                    input=tool_input,
-                    metadata=meta,
-                    level="DEBUG" if tags and LANGSMITH_TAG_HIDDEN in tags else None,
-                )
+                with self._use_root_propagated_attributes(run_id):
+                    span = parent_observation.start_observation(
+                        name=self.get_langchain_run_name(serialized, **kwargs),
+                        as_type=observation_type,
+                        input=tool_input,
+                        metadata=meta,
+                        level="DEBUG"
+                        if tags and LANGSMITH_TAG_HIDDEN in tags
+                        else None,
+                    )
 
             self._attach_observation(run_id, span)
 
@@ -1027,16 +1043,17 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     ),
                 )
             else:
-                span = parent_observation.start_observation(
-                    name=span_name,
-                    as_type=observation_type,
-                    metadata=span_metadata,
-                    input=query,
-                    level=cast(
-                        Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                        span_level,
-                    ),
-                )
+                with self._use_root_propagated_attributes(run_id):
+                    span = parent_observation.start_observation(
+                        name=span_name,
+                        as_type=observation_type,
+                        metadata=span_metadata,
+                        input=query,
+                        level=cast(
+                            Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
+                            span_level,
+                        ),
+                    )
 
             self._attach_observation(run_id, span)
 
@@ -1217,9 +1234,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                     **content,
                 )  # type: ignore
             else:
-                generation = parent_observation.start_observation(
-                    as_type="generation", **content
-                )  # type: ignore
+                with self._use_root_propagated_attributes(run_id):
+                    generation = parent_observation.start_observation(
+                        as_type="generation", **content
+                    )  # type: ignore
             self._attach_observation(run_id, generation)
 
             self.last_trace_id = self._runs[run_id].trace_id
@@ -1387,6 +1405,59 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         for run_id in root_run_state.run_ids:
             self._run_states.pop(run_id, None)
 
+    @contextmanager
+    def _use_root_propagated_attributes(self, run_id: UUID) -> Iterator[None]:
+        # Async LangChain runs sync handlers in a copied context per callback, so
+        # attributes the root run propagated are missing when children start.
+        root_run_state = self._get_root_run_state(run_id)
+        root_context = (
+            root_run_state.propagation_context if root_run_state is not None else None
+        )
+
+        if root_context is None:
+            yield
+            return
+
+        current_context = context.get_current()
+        merged_context = current_context
+
+        for key in propagated_keys:
+            context_key = _get_propagated_context_key(key)
+            root_value = context.get_value(context_key, root_context)
+
+            if root_value is None:
+                continue
+
+            current_value = context.get_value(context_key, current_context)
+            merged_value: Any
+
+            if isinstance(root_value, dict) and isinstance(current_value, dict):
+                merged_value = root_value | current_value
+            elif isinstance(root_value, list) and isinstance(current_value, list):
+                merged_value = root_value + [
+                    item for item in current_value if item not in root_value
+                ]
+            elif current_value is None:
+                merged_value = root_value
+            else:
+                continue
+
+            if merged_value != current_value:
+                merged_context = context.set_value(
+                    context_key, merged_value, merged_context
+                )
+
+        if merged_context is current_context:
+            yield
+            return
+
+        token = context.attach(merged_context)
+
+        try:
+            yield
+        finally:
+            _detach_context_token_safely(token)
+
     def _exit_propagation_context(self, run_id: UUID) -> None:
         root_run_state = self._get_root_run_state(run_id)
 
@@ -1453,8 +1524,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             message_dict = {"role": message.role, "content": message.content}
         else:
             raise ValueError(f"Got unknown type {message}")
-        if "name" in message.additional_kwargs:
-            message_dict["name"] = message.additional_kwargs["name"]
+        # LangChain stores the name on the message itself; older integrations
+        # put it in additional_kwargs.
+        name = message.name or message.additional_kwargs.get("name")
+        if name:
+            message_dict["name"] = name
 
         if message.additional_kwargs:
             message_dict["additional_kwargs"] = message.additional_kwargs  # type: ignore

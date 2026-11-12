@@ -90,6 +90,7 @@ _RESERVED_SPAN_ATTRIBUTE_KEYS: Tuple[str, ...] = (
     LangfuseOtelSpanAttributes.ENVIRONMENT,
     LangfuseOtelSpanAttributes.OBSERVATION_INPUT,
     LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT,
+    LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE,
 )
 _RESERVED_OBSERVATION_ATTRIBUTE_KEYS: Tuple[str, ...] = (
     *_RESERVED_SPAN_ATTRIBUTE_KEYS,
@@ -1125,9 +1126,10 @@ class LangfuseObservationWrapper:
         """
         if as_type == "event":
             timestamp = time_ns()
-            event_span = self._langfuse_client._otel_tracer.start_span(
-                name=name, start_time=timestamp
-            )
+            with otel_trace_api.use_span(self._otel_span):
+                event_span = self._langfuse_client._otel_tracer.start_span(
+                    name=name, start_time=timestamp
+                )
             return cast(
                 LangfuseEvent,
                 LangfuseEvent(
@@ -1152,7 +1154,9 @@ class LangfuseObservationWrapper:
             observation_class = LangfuseSpan
 
         with otel_trace_api.use_span(self._otel_span):
-            new_otel_span = self._langfuse_client._otel_tracer.start_span(name=name)
+            new_otel_span = self._langfuse_client._otel_tracer.start_span(
+                name=name,
+            )
 
         common_args = {
             "otel_span": new_otel_span,
@@ -1427,7 +1431,8 @@ class LangfuseObservationWrapper:
 
         with otel_trace_api.use_span(self._otel_span):
             new_otel_span = self._langfuse_client._otel_tracer.start_span(
-                name=name, start_time=timestamp
+                name=name,
+                start_time=timestamp,
             )
 
         return cast(

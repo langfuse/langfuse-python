@@ -48,7 +48,7 @@ from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
 from langfuse.api import AsyncLangfuseAPI, LangfuseAPI
 from langfuse.logger import langfuse_logger
-from langfuse.types import MaskFunction, MaskOtelSpansFunction
+from langfuse.types import MaskFunction, MaskOtelSpansFunction, SkillsConfig
 
 from .._version import __version__ as langfuse_version
 
@@ -132,6 +132,7 @@ class LangfuseResourceManager:
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
         otel_compression: Optional[Literal["gzip", "none"]] = None,
+        skills: Optional[SkillsConfig] = None,
     ) -> "LangfuseResourceManager":
         if public_key in cls._instances:
             return cls._instances[public_key]
@@ -170,6 +171,7 @@ class LangfuseResourceManager:
                     id_generator=id_generator,
                     span_exporter=span_exporter,
                     otel_compression=otel_compression,
+                    skills=skills,
                 )
 
                 cls._instances[public_key] = instance
@@ -199,6 +201,7 @@ class LangfuseResourceManager:
         id_generator: Optional[IdGenerator] = None,
         span_exporter: Optional[SpanExporter] = None,
         otel_compression: Optional[Literal["gzip", "none"]] = None,
+        skills: Optional[SkillsConfig] = None,
     ) -> None:
         self.public_key = public_key
         self.secret_key = secret_key
@@ -221,6 +224,7 @@ class LangfuseResourceManager:
         self.id_generator = id_generator
         self.span_exporter = span_exporter
         self.otel_compression = otel_compression
+        self.skills = skills
         self.tracer_provider: Optional[TracerProvider] = None
 
         self._custom_httpx_client = httpx_client
@@ -260,6 +264,7 @@ class LangfuseResourceManager:
                 media_manager=self._media_manager,
                 mask_otel_spans=mask_otel_spans,
                 otel_compression=otel_compression,
+                skills=skills,
             )
             tracer_provider.add_span_processor(langfuse_processor)
 
@@ -487,6 +492,13 @@ class LangfuseResourceManager:
                 (for example ``traceId``).
             force_sample: Enqueue the score even if its trace is sampled out.
         """
+        if self._shutdown:
+            langfuse_logger.warning(
+                "Score dropped: Langfuse client has been shut down."
+            )
+
+            return
+
         try:
             trace_id = score.get("traceId")
             tracer_provider = (
@@ -596,32 +608,12 @@ class LangfuseResourceManager:
         for score_consumer in self._score_consumers:
             if score_consumer.is_alive():
                 score_consumer.wake()
-                
-        self._join_score_queue()
+
+        self._score_queue.join()
         langfuse_logger.debug("Successfully flushed score queue")
 
         self._media_upload_queue.join()
         langfuse_logger.debug("Successfully flushed media upload queue")
-
-    def _join_score_queue(self) -> None:
-        """Wait until the score queue is drained or no consumer is left to drain it.
-
-        Queue.join() would block forever when the consumers stop first, e.g.
-        when shutdown() runs concurrently and a wake signal is never taken.
-        """
-        score_queue = self._score_queue
-
-        with score_queue.all_tasks_done:
-            while score_queue.unfinished_tasks:
-                if not any(c.is_alive() for c in self._score_consumers):
-                    langfuse_logger.debug(
-                        "Score consumers stopped with %s queue item(s) unprocessed",
-                        score_queue.unfinished_tasks,
-                    )
-
-                    return
-
-                score_queue.all_tasks_done.wait(timeout=0.1)
 
     def shutdown(self) -> None:
         self._shutdown = True

@@ -1,11 +1,13 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
 import logging
+import threading
 from queue import Queue
 from types import SimpleNamespace
 from typing import Sequence
 from unittest.mock import Mock
 
+import pytest
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
@@ -57,6 +59,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
         "mask_otel_spans": mask_otel_spans,
         "additional_headers": {"X-Custom": "value"},
         "span_exporter": span_exporter,
+        "skills": {"available": [{"name": "support", "version": 2}]},
     }
 
     original_client = Langfuse(**settings)
@@ -74,6 +77,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
     assert rm.mask_otel_spans is mask_otel_spans
     assert rm.additional_headers == settings["additional_headers"]
     assert rm.span_exporter is span_exporter
+    assert rm.skills is settings["skills"]
 
     original_client.shutdown()
 
@@ -471,3 +475,36 @@ def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_
         ("join", 0),
         ("join", 1),
     ]
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+@pytest.mark.parametrize("concurrent", [False, True], ids=["sequential", "concurrent"])
+def test_flush_returns_after_repeated_shutdown(concurrent):
+    client = Langfuse(
+        public_key="pk-repeated-shutdown",
+        secret_key="sk-repeated-shutdown",
+        span_exporter=NoOpSpanExporter(),
+    )
+    media_queue = client._resources._media_upload_queue
+    shutdowns = [
+        threading.Thread(target=client.shutdown, daemon=True) for _ in range(2)
+    ]
+
+    for shutdown in shutdowns:
+        shutdown.start()
+        if not concurrent:
+            shutdown.join(timeout=5)
+    for shutdown in shutdowns:
+        shutdown.join(timeout=5)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+    hung = [thread for thread in (*shutdowns, flush) if thread.is_alive()]
+    # Acknowledge shutdown signals that no consumer took, so a hung thread and
+    # the reset() in the autouse fixture can finish.
+    while media_queue.unfinished_tasks:
+        media_queue.get_nowait()
+        media_queue.task_done()
+
+    assert not hung

@@ -2,6 +2,8 @@
 
 import json
 import logging
+import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -15,6 +17,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ParentBased, TraceIdRatioBased
 
 from langfuse import Langfuse
+from langfuse._client import resource_manager as resource_manager_module
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager import score_consumer as score_consumer_module
 from langfuse._task_manager.score_consumer import ScoreConsumer
@@ -309,6 +312,68 @@ def test_wake_sends_pending_batch_before_flush_interval():
     consumer.join(timeout=5)
 
 
+def test_wake_on_full_queue_does_not_acknowledge_a_score():
+    queue: Queue = Queue(maxsize=1)
+    consumer = _consumer(Recorder(_responder(ACCEPTED)), queue)
+    queue.put(_score("a"))
+
+    consumer.wake()
+
+    assert queue.unfinished_tasks == 1
+    assert queue.qsize() == 1
+
+
+class CountingQueue(Queue):
+    def __init__(self) -> None:
+        super().__init__()
+        self.task_done_calls = 0
+
+    def task_done(self) -> None:
+        self.task_done_calls += 1
+        super().task_done()
+
+
+def test_consumer_never_acknowledges_wake_signals(monkeypatch):
+    first = _score("a")
+    item_size = len(json.dumps(first).encode())
+    # Room for one score per batch, so "b" is carried over into the next one.
+    monkeypatch.setattr(
+        score_consumer_module, "MAX_BATCH_SIZE_BYTES", item_size + 3 + 50
+    )
+    monkeypatch.setattr(score_consumer_module, "EventSerializer", _FailingSerializer)
+    recorder = Recorder(_responder(ACCEPTED))
+    queue = CountingQueue()
+    consumer = _consumer(recorder, queue)
+    real_scores = [
+        first,
+        _score("b"),
+        _score("too-large", comment="x" * 500),
+        _score("not-serializable"),
+        _score("c"),
+    ]
+    for score in real_scores:
+        queue.put(score)
+        consumer.wake()
+    while queue.qsize() > 1:
+        consumer.upload()
+    # The last wake signal is still queued, and "c" may be carried over: the
+    # shutdown path takes both.
+    consumer.pause()
+    consumer.run()
+
+    assert queue.unfinished_tasks == 0
+    wakes = len(real_scores) + 1
+    assert queue.task_done_calls == len(real_scores) + wakes
+    assert [s["name"] for body in recorder.bodies for s in body] == ["a", "b", "c"]
+
+
+class _FailingSerializer(EventSerializer):
+    def encode(self, o: Any) -> str:
+        if isinstance(o, dict) and o.get("name") == "not-serializable":
+            raise TypeError("cannot serialize")
+        return super().encode(o)
+
+
 def test_pause_sends_carried_over_score(monkeypatch):
     first_request_started = threading.Event()
     release_first_request = threading.Event()
@@ -443,6 +508,34 @@ def test_flush_after_shutdown_returns(client_factory):
     assert not flush.is_alive()
 
 
+def test_score_after_shutdown_is_dropped_and_flush_returns(client_factory, caplog):
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder)
+    client.shutdown()
+    score_queue = client._resources._score_queue
+    enqueued: List[Any] = []
+    put = score_queue.put
+
+    def recording_put(item: Any, *args: Any, **kwargs: Any) -> None:
+        enqueued.append(item)
+        put(item, *args, **kwargs)
+
+    score_queue.put = recording_put  # type: ignore[method-assign]
+
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        client.create_score(name="late", value=1.0, trace_id="a" * 32)
+
+    assert enqueued == []
+    assert any("shut down" in r.getMessage() for r in caplog.records)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+
+    assert not flush.is_alive()
+    assert recorder.requests == []
+
+
 def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
     client = client_factory(Recorder(_responder(ACCEPTED)))
     consumer = client._resources._score_consumers[0]
@@ -462,14 +555,192 @@ def test_flush_returns_when_consumer_stops_after_liveness_check(client_factory):
     flush.start()
     flush.join(timeout=2)
     flush_hung = flush.is_alive()
-    # Acknowledge the orphaned signal so a hung flush() cannot block teardown.
-    score_queue = client._resources._score_queue
-    while not score_queue.empty():
-        score_queue.get_nowait()
-        score_queue.task_done()
 
     assert not consumer.is_alive()
     assert not flush_hung
+    # The orphaned signal stays queued but is not an unfinished task.
+    assert client._resources._score_queue.qsize() == 1
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_flush_racing_shutdown_does_not_hang(client_factory):
+    client = client_factory(Recorder(_responder(ACCEPTED)), flush_interval=5)
+    for name in ("a", "b", "c"):
+        client.create_score(name=name, value=1.0, trace_id="a" * 32)
+
+    threads = [threading.Thread(target=client.flush, daemon=True) for _ in range(4)]
+    threads.append(threading.Thread(target=client.shutdown, daemon=True))
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert not any(thread.is_alive() for thread in threads)
+    assert client._resources._score_queue.empty() or not any(
+        c.is_alive() for c in client._resources._score_consumers
+    )
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize(
+    ("queue_size", "rounds"), [(100_000, 25), (1, 5)], ids=["roomy", "often-full"]
+)
+def test_concurrent_flush_returns_only_after_own_score_is_sent(
+    client_factory, monkeypatch, queue_size, rounds
+):
+    monkeypatch.setattr(resource_manager_module, "Queue", lambda _: Queue(queue_size))
+    posted = set()
+    lock = threading.Lock()
+    accept = _responder(ACCEPTED)
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        time.sleep(0.001)
+        with lock:
+            posted.update(s["name"] for s in json.loads(request.content))
+        return accept(request)
+
+    # A full queue drops the wake signal, so flush() then waits up to
+    # flush_interval; keep it short.
+    client = client_factory(Recorder(respond), flush_at=3, flush_interval=0.05)
+    score_queue = client._resources._score_queue
+    enqueued = set()
+    put = score_queue.put
+
+    def recording_put(item: Any, block: bool = True, timeout: Any = None) -> None:
+        put(item, block, timeout)
+        if isinstance(item, dict):
+            with lock:
+                enqueued.add(item["name"])
+
+    score_queue.put = recording_put  # type: ignore[method-assign]
+    unsent_after_flush = []
+
+    def worker(thread_id: int) -> None:
+        for i in range(rounds):
+            name = f"{thread_id}-{i}"
+            client.create_score(name=name, value=1.0, trace_id="a" * 32)
+            client.flush()
+            with lock:
+                if name in enqueued and name not in posted:
+                    unsent_after_flush.append(name)
+
+    threads = [threading.Thread(target=worker, args=(t,)) for t in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert not any(thread.is_alive() for thread in threads)
+    assert unsent_after_flush == []
+    assert enqueued
+    assert enqueued <= posted
+    assert score_queue.unfinished_tasks == 0
+    assert client._resources._score_consumers[0].is_alive()
+
+
+def test_flush_does_not_wait_for_dropped_scores(client_factory, monkeypatch):
+    monkeypatch.setattr(score_consumer_module, "MAX_BATCH_SIZE_BYTES", 10)
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder, flush_interval=5)
+    client.create_score(name="too-large", value=1.0, trace_id="a" * 32)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=1)
+
+    assert not flush.is_alive()
+    assert recorder.requests == []
+
+
+_GEVENT_FLUSH_SCRIPT = """
+from gevent import monkey
+
+monkey.patch_all()
+
+import queue
+
+import gevent.queue
+import httpx
+
+assert issubclass(queue.Queue, gevent.queue.Queue), queue.Queue
+
+from langfuse import Langfuse
+
+posted = []
+
+def respond(request):
+    posted.extend(item["name"] for item in __import__("json").loads(request.content))
+    return httpx.Response(202, json={"message": "Accepted"})
+
+client = Langfuse(
+    public_key="pk-gevent",
+    secret_key="sk-gevent",
+    base_url="http://langfuse.test",
+    flush_interval=5,
+    httpx_client=httpx.Client(transport=httpx.MockTransport(respond)),
+)
+client.create_score(name="first", value=1, trace_id="a" * 32)
+client.flush()
+assert posted == ["first"], posted
+
+client.create_score(name="second", value=1, trace_id="a" * 32)
+client.shutdown()
+assert posted == ["first", "second"], posted
+client.flush()
+print("ok")
+"""
+
+
+_EXIT_FLUSH_SCRIPT = """
+import json
+import sys
+
+import httpx
+
+from langfuse import Langfuse
+
+def respond(request):
+    for item in json.loads(request.content):
+        print("posted", item["name"], flush=True)
+    return httpx.Response(202, json={"message": "Accepted"})
+
+client = Langfuse(
+    public_key="pk-exit",
+    secret_key="sk-exit",
+    base_url="http://langfuse.test",
+    flush_interval=5,
+    httpx_client=httpx.Client(transport=httpx.MockTransport(respond)),
+)
+client.create_score(name="at-exit", value=1, trace_id="a" * 32)
+"""
+
+
+def test_exit_without_shutdown_sends_pending_scores():
+    result = subprocess.run(
+        [sys.executable, "-c", _EXIT_FLUSH_SCRIPT],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["posted at-exit"]
+    assert "Traceback" not in result.stderr
+
+
+def test_flush_and_shutdown_work_under_gevent_monkey_patching():
+    pytest.importorskip("gevent")
+
+    result = subprocess.run(
+        [sys.executable, "-c", _GEVENT_FLUSH_SCRIPT],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
 
 
 def test_create_score_payload_matches_request_model_serialization(client_factory):

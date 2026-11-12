@@ -6,16 +6,16 @@ import pydantic
 import typing_extensions
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
+from .topic_facet_ref import TopicFacetRef
+from .topic_status_counts import TopicStatusCounts
 
 
-class SkillVersionFileReference(UniversalBaseModel):
-    path: str
-    sha256hash: typing_extensions.Annotated[str, FieldMetadata(alias="sha256Hash")] = (
-        pydantic.Field()
-    )
-    """
-    Canonical base64-encoded SHA-256 from a skill file manifest. The content must already exist in this project.
-    """
+class TopicFacetCounts(UniversalBaseModel):
+    facet: TopicFacetRef
+    published_run_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="publishedRunId")
+    ] = None
+    counts: TopicStatusCounts
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

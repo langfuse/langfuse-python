@@ -41,6 +41,7 @@ class LangfuseOtelSpanAttributes:
     OBSERVATION_STATUS_MESSAGE = "langfuse.observation.status_message"
     OBSERVATION_INPUT = "langfuse.observation.input"
     OBSERVATION_OUTPUT = "langfuse.observation.output"
+    OBSERVATION_SKILLS_AVAILABLE = "langfuse.observation.skills_available"
 
     # Langfuse-observation of type Generation attributes
     OBSERVATION_COMPLETION_START_TIME = "langfuse.observation.completion_start_time"
