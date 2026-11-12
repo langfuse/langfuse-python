@@ -647,7 +647,7 @@ class EvaluationRuleFilter_Null(UniversalBaseModel):
     type: typing.Literal["null"] = "null"
     column: str
     operator: EvaluationRuleNullFilterOperator
-    value: typing.Literal[""] = ""
+    value: typing.Optional[typing.Literal[""]] = None
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
