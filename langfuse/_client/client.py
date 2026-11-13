@@ -21,6 +21,7 @@ from typing import (
     Iterator,
     List,
     Literal,
+    Mapping,
     Optional,
     Sequence,
     Tuple,
@@ -50,6 +51,7 @@ from langfuse._client.attributes import (
 )
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+    PROJECT_ID_HEADER_NAMES,
     ObservationTypeGenerationLike,
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
@@ -60,6 +62,7 @@ from langfuse._client.environment_variables import (
     LANGFUSE_BASE_URL,
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
+    LANGFUSE_PROJECT_ID,
     LANGFUSE_PUBLIC_KEY,
     LANGFUSE_RELEASE,
     LANGFUSE_SAMPLE_RATE,
@@ -179,6 +182,34 @@ def _serialize_evaluations(evaluations: List[Evaluation]) -> List[Dict[str, Any]
     ]
 
 
+def _validate_project_id_headers(
+    project_id: Optional[str],
+    additional_headers: Optional[Dict[str, str]],
+    httpx_client: Optional[httpx.Client],
+) -> None:
+    """Raise if a user-supplied project header names a different project."""
+    if project_id is None:
+        return
+
+    sources: List[Tuple[str, Mapping[str, str]]] = []
+    if additional_headers:
+        sources.append(("additional_headers", additional_headers))
+
+    client_headers = getattr(httpx_client, "headers", None)
+    if isinstance(client_headers, Mapping):
+        sources.append(("httpx_client.headers", client_headers))
+
+    for source, headers in sources:
+        for name, value in headers.items():
+            if name.lower() in PROJECT_ID_HEADER_NAMES and value != project_id:
+                message = (
+                    f"Conflicting project IDs: project_id is '{project_id}' but "
+                    f"{source} sets '{name}: {value}'. Remove the header or make "
+                    "the values match."
+                )
+                raise ValueError(message)
+
+
 class Langfuse:
     """Main client for Langfuse tracing and platform features.
 
@@ -201,6 +232,7 @@ class Langfuse:
     Parameters:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
         secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
+        project_id (Optional[str]): Langfuse project that receives this client's data. Required for organization API keys; omit for project API keys. Can also be set via LANGFUSE_PROJECT_ID environment variable. Use one client per project. Raises `ValueError` if a project header in `additional_headers` or `httpx_client` names a different project.
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
@@ -311,6 +343,7 @@ class Langfuse:
         secret_key: Optional[str] = None,
         base_url: Optional[str] = None,
         host: Optional[str] = None,
+        project_id: Optional[str] = None,
         timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
         debug: bool = False,
@@ -345,7 +378,10 @@ class Langfuse:
             or os.environ.get(LANGFUSE_RELEASE, None)
             or get_common_release_envs()
         )
-        self._project_id: Optional[str] = None
+        project_id = project_id or os.environ.get(LANGFUSE_PROJECT_ID) or None
+        _validate_project_id_headers(project_id, additional_headers, httpx_client)
+        # Cache read by _get_project_id(); a configured project needs no lookup
+        self._project_id: Optional[str] = project_id
         if sample_rate is None:
             sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
@@ -401,6 +437,7 @@ class Langfuse:
             public_key=public_key,
             secret_key=secret_key,
             base_url=self._base_url,
+            project_id=project_id,
             timeout=timeout,
             environment=self._environment,
             release=release,
@@ -2495,7 +2532,7 @@ class Langfuse:
         return self._get_otel_span_id(current_otel_span) if current_otel_span else None
 
     def _get_project_id(self) -> Optional[str]:
-        """Fetch and return the current project id. Persisted across requests. Returns None if no project id is found for api keys."""
+        """Return the configured project id, or fetch and cache it for project-bound api keys. Returns None if no project id is found."""
         if not self._project_id:
             proj = self.api.projects.get()
             if not proj.data or not proj.data[0].id:
