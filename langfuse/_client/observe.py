@@ -2,7 +2,7 @@ import asyncio
 import contextvars
 import inspect
 import os
-from functools import wraps
+from functools import partial, wraps
 from typing import (
     Any,
     AsyncGenerator,
@@ -58,6 +58,12 @@ def _is_coroutine_function(func: Any) -> bool:
         _ASYNCIO_COROUTINE_MARKER is not None
         and getattr(func, "_is_coroutine", None) is _ASYNCIO_COROUTINE_MARKER
     )
+
+
+def _get_function_name(func: Callable[..., Any]) -> str:
+    while isinstance(func, partial) and not hasattr(func, "__name__"):
+        func = func.func
+    return func.__name__
 
 
 class LangfuseDecorator:
@@ -275,7 +281,7 @@ class LangfuseDecorator:
                 if trace_id
                 else None
             )
-            final_name = name or func.__name__
+            final_name = name or _get_function_name(func)
             input = (
                 self._get_input_from_func_args(
                     is_method=self._is_method(func),
@@ -366,7 +372,7 @@ class LangfuseDecorator:
                 if trace_id
                 else None
             )
-            final_name = name or func.__name__
+            final_name = name or _get_function_name(func)
             input = (
                 self._get_input_from_func_args(
                     is_method=self._is_method(func),
