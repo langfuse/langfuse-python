@@ -340,8 +340,8 @@ def test_reserved_keys_already_written_cost_no_extra_slot(small_limit_client, ge
 
 
 def test_reserved_keys_depend_on_observation_type(langfuse_memory_client, get_span):
-    assert len(_RESERVED_SPAN_ATTRIBUTE_KEYS) == 7
-    assert len(_RESERVED_OBSERVATION_ATTRIBUTE_KEYS) == 14
+    assert len(_RESERVED_SPAN_ATTRIBUTE_KEYS) == 8
+    assert len(_RESERVED_OBSERVATION_ATTRIBUTE_KEYS) == 15
     for observation_type in ("generation", "embedding", None):
         assert (
             _reserved_attribute_keys(observation_type)
@@ -375,8 +375,8 @@ def test_reserved_keys_depend_on_observation_type(langfuse_memory_client, get_sp
     generation = get_span("typed-generation")
     span_count = len(_metadata_keys(span))
     generation_count = len(_metadata_keys(generation))
-    # The span reserves 5 open slots (level, status message, version, output,
-    # plus environment when unset) instead of 12 for the generation.
+    # The span reserves 6 open slots (level, status message, version, output,
+    # skills, plus environment when unset) instead of 13 for the generation.
     assert span_count - generation_count == 7
     assert span.dropped_attributes == 0
     assert generation.dropped_attributes == 0
@@ -514,6 +514,44 @@ def test_hard_guard_keeps_overwrites_and_drops_new_tail(caplog):
     assert "Dropped keys include: m, b_1, b_2" in message
 
 
+def _metadata_attributes(count):
+    return {f"{METADATA_PREFIX}m_{i}": i for i in range(count)}
+
+
+@pytest.mark.parametrize(
+    ("existing", "attributes", "dropped"),
+    [
+        # 5 existing keys and 10 open reserved keys leave 5 metadata slots.
+        ({f"a_{i}": i for i in range(5)}, _metadata_attributes(5), []),
+        (
+            {f"a_{i}": i for i in range(5)},
+            _metadata_attributes(6),
+            [f"{METADATA_PREFIX}m_5"],
+        ),
+        # Overwrites and reserved keys already on the span or in the same
+        # write take no extra slot, which leaves 8 metadata slots.
+        (
+            {"a_0": 0, "a_1": 1, "r_0": 0, "r_1": 1, "r_2": 2},
+            {"a_0": "new", "a_1": "new", "r_3": 3, **_metadata_attributes(8)},
+            [],
+        ),
+        (
+            {"a_0": 0, "a_1": 1, "r_0": 0, "r_1": 1, "r_2": 2},
+            {"a_0": "new", "a_1": "new", "r_3": 3, **_metadata_attributes(9)},
+            [f"{METADATA_PREFIX}m_8"],
+        ),
+    ],
+)
+def test_metadata_budget_is_exact_at_the_limit(existing, attributes, dropped, caplog):
+    span = _fake_span(20, existing)
+    reserved_keys = tuple(f"r_{i}" for i in range(10))
+
+    result = _drop_attributes_over_span_limit(span, attributes, reserved_keys)
+
+    assert result == {k: v for k, v in attributes.items() if k not in dropped}
+    assert len(_limit_warnings(caplog)) == (1 if dropped else 0)
+
+
 def test_hard_guard_never_raises():
     class BrokenAttributes:
         def __contains__(self, key):
@@ -636,3 +674,21 @@ def test_experiment_with_large_metadata_keeps_output_and_experiment_attributes(
     warnings = _limit_warnings(caplog)
     assert warnings
     assert all("other attribute(s)" not in w.getMessage() for w in warnings)
+
+
+def test_metadata_reserves_room_for_later_skill_availability(
+    small_limit_client, get_span
+):
+    with small_limit_client.start_as_current_observation(
+        name="late-skills", metadata={f"key_{i}": i for i in range(130)}
+    ) as observation:
+        before = dict(observation._otel_span.attributes)
+        with propagate_attributes(skills_available=[{"name": "support", "version": 2}]):
+            pass
+    small_limit_client.flush()
+
+    attributes = get_span("late-skills").attributes
+    assert all(attributes[key] == value for key, value in before.items())
+    assert json.loads(
+        attributes[LangfuseOtelSpanAttributes.OBSERVATION_SKILLS_AVAILABLE]
+    ) == [{"name": "support", "version": 2}]

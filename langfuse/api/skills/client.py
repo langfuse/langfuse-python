@@ -3,8 +3,8 @@
 import datetime as dt
 import typing
 
-from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.request_options import RequestOptions
+from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawSkillsClient, RawSkillsClient
 from .types.delete_skill_version_response import DeleteSkillVersionResponse
 from .types.skill_file_contents_response import SkillFileContentsResponse
@@ -86,7 +86,7 @@ class SkillsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.unstable.skills.list()
+        client.skills.list()
         """
         _response = self._raw_client.list(
             name=name,
@@ -126,7 +126,7 @@ class SkillsClient:
         Examples
         --------
         from langfuse import LangfuseAPI
-        from langfuse.unstable.skills import SkillVersionFileInput
+        from langfuse.skills import SkillVersionFileInput
 
         client = LangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -136,7 +136,7 @@ class SkillsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.unstable.skills.create_version(
+        client.skills.create_version(
             files=[
                 SkillVersionFileInput(
                     path="path",
@@ -160,10 +160,11 @@ class SkillsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        include_content: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SkillVersion:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Set includeContent to return file contents inline, or use each file's sha256Hash with getFileContents.
 
         Parameters
         ----------
@@ -172,6 +173,9 @@ class SkillsClient:
         version : typing.Optional[int]
 
         label : typing.Optional[str]
+
+        include_content : typing.Optional[bool]
+            Include UTF-8 text content in each file. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -192,12 +196,16 @@ class SkillsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.unstable.skills.get(
+        client.skills.get(
             skill_name="skillName",
         )
         """
         _response = self._raw_client.get(
-            skill_name, version=version, label=label, request_options=request_options
+            skill_name,
+            version=version,
+            label=label,
+            include_content=include_content,
+            request_options=request_options,
         )
         return _response.data
 
@@ -237,7 +245,7 @@ class SkillsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.unstable.skills.update(
+        client.skills.update(
             skill_name="skillName",
             tags=["tags", "tags"],
         )
@@ -280,7 +288,7 @@ class SkillsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.unstable.skills.get_file_contents(
+        client.skills.get_file_contents(
             sha256hashes="sha256Hashes",
         )
         """
@@ -327,7 +335,7 @@ class SkillsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.unstable.skills.set_labels(
+        client.skills.set_labels(
             skill_name="skillName",
             skill_version=1,
             labels=["labels", "labels"],
@@ -373,7 +381,7 @@ class SkillsClient:
             password="YOUR_PASSWORD",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.unstable.skills.delete_version(
+        client.skills.delete_version(
             skill_name="skillName",
             skill_version=1,
         )
@@ -459,7 +467,7 @@ class AsyncSkillsClient:
 
 
         async def main() -> None:
-            await client.unstable.skills.list()
+            await client.skills.list()
 
 
         asyncio.run(main())
@@ -504,7 +512,7 @@ class AsyncSkillsClient:
         import asyncio
 
         from langfuse import AsyncLangfuseAPI
-        from langfuse.unstable.skills import SkillVersionFileInput
+        from langfuse.skills import SkillVersionFileInput
 
         client = AsyncLangfuseAPI(
             x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
@@ -517,7 +525,7 @@ class AsyncSkillsClient:
 
 
         async def main() -> None:
-            await client.unstable.skills.create_version(
+            await client.skills.create_version(
                 files=[
                     SkillVersionFileInput(
                         path="path",
@@ -544,10 +552,11 @@ class AsyncSkillsClient:
         *,
         version: typing.Optional[int] = None,
         label: typing.Optional[str] = None,
+        include_content: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SkillVersion:
         """
-        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Use each file's sha256Hash with getFileContents, individually or in batches across manifests.
+        Resolve a skill's metadata and file manifest by version or label. Defaults to the production label. Set includeContent to return file contents inline, or use each file's sha256Hash with getFileContents.
 
         Parameters
         ----------
@@ -556,6 +565,9 @@ class AsyncSkillsClient:
         version : typing.Optional[int]
 
         label : typing.Optional[str]
+
+        include_content : typing.Optional[bool]
+            Include UTF-8 text content in each file. Defaults to false.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -581,7 +593,7 @@ class AsyncSkillsClient:
 
 
         async def main() -> None:
-            await client.unstable.skills.get(
+            await client.skills.get(
                 skill_name="skillName",
             )
 
@@ -589,7 +601,11 @@ class AsyncSkillsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(
-            skill_name, version=version, label=label, request_options=request_options
+            skill_name,
+            version=version,
+            label=label,
+            include_content=include_content,
+            request_options=request_options,
         )
         return _response.data
 
@@ -634,7 +650,7 @@ class AsyncSkillsClient:
 
 
         async def main() -> None:
-            await client.unstable.skills.update(
+            await client.skills.update(
                 skill_name="skillName",
                 tags=["tags", "tags"],
             )
@@ -685,7 +701,7 @@ class AsyncSkillsClient:
 
 
         async def main() -> None:
-            await client.unstable.skills.get_file_contents(
+            await client.skills.get_file_contents(
                 sha256hashes="sha256Hashes",
             )
 
@@ -740,7 +756,7 @@ class AsyncSkillsClient:
 
 
         async def main() -> None:
-            await client.unstable.skills.set_labels(
+            await client.skills.set_labels(
                 skill_name="skillName",
                 skill_version=1,
                 labels=["labels", "labels"],
@@ -794,7 +810,7 @@ class AsyncSkillsClient:
 
 
         async def main() -> None:
-            await client.unstable.skills.delete_version(
+            await client.skills.delete_version(
                 skill_name="skillName",
                 skill_version=1,
             )

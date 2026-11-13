@@ -1,5 +1,6 @@
 import json
 import logging
+from contextlib import ExitStack
 from datetime import datetime
 from hashlib import sha256
 from typing import List, Sequence
@@ -72,6 +73,76 @@ class PredictableIdGenerator(IdGenerator):
         return self._span_ids.pop(0)
 
 
+@pytest.mark.parametrize("active_context", ["none", "parent", "unrelated"])
+@pytest.mark.parametrize("creation_method", ["event", "create_event", "span"])
+def test_child_observation_uses_explicit_parent(
+    langfuse_memory_client, memory_exporter, active_context, creation_method
+):
+    client = langfuse_memory_client
+    with ExitStack() as stack:
+        active = (
+            stack.enter_context(client.start_as_current_observation(name="active"))
+            if active_context != "none"
+            else None
+        )
+        parent = (
+            active
+            if active_context == "parent"
+            else client.start_observation(name="manual-parent")
+        )
+        current_id = client.get_current_observation_id()
+        attributes = {
+            "name": "child",
+            "input": {"step": "started"},
+            "output": {"step": "finished"},
+            "metadata": {"source": "manual"},
+            "version": "v1",
+            "level": "WARNING",
+            "status_message": "test-status",
+        }
+        if creation_method == "create_event":
+            child = parent.create_event(**attributes)
+        else:
+            child = parent.start_observation(as_type=creation_method, **attributes)
+            if creation_method == "span":
+                child.end()
+
+        assert client.get_current_observation_id() == current_id
+        if parent is not active:
+            parent.end()
+
+    client.flush()
+    spans = memory_exporter.get_finished_spans()
+    child_spans = [span for span in spans if span.name == "child"]
+    assert len(child_spans) == 1
+    exported = child_spans[0]
+    assert exported.parent is not None
+    assert format(exported.parent.span_id, "016x") == parent.id
+    assert format(exported.context.trace_id, "032x") == parent.trace_id
+    assert format(exported.context.span_id, "016x") == child.id
+    expected_type = "span" if creation_method == "span" else "event"
+    assert (
+        exported.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
+        == expected_type
+    )
+    assert json.loads(
+        exported.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+    ) == {"step": "started"}
+    assert json.loads(
+        exported.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT]
+    ) == {"step": "finished"}
+    assert exported.attributes["langfuse.observation.metadata.source"] == '"manual"'
+    assert exported.attributes[LangfuseOtelSpanAttributes.VERSION] == "v1"
+    assert (
+        exported.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "WARNING"
+    )
+    assert exported.attributes[
+        LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE
+    ] == ("test-status")
+    if creation_method != "span":
+        assert exported.start_time == exported.end_time
+
+
 class TestOTelBase:
     """Base class for OTEL tests with common fixtures and helper methods."""
 
@@ -126,6 +197,7 @@ class TestOTelBase:
             )
             self._app_root_lock = threading.Lock()
             self._span_export_expectation_by_id = {}
+            self._available_skills = None
             BatchSpanProcessor.__init__(
                 self,
                 span_exporter=memory_exporter,
@@ -555,7 +627,7 @@ class TestBasicSpans(TestOTelBase):
                 with main_span.start_as_current_observation(
                     as_type="generation",
                     name="llm-call",
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     input={"prompt": "Summarize this text"},
                     metadata={"service": "OpenAI"},
                 ) as generation:
@@ -889,7 +961,7 @@ class TestBasicSpans(TestOTelBase):
             gen1 = main_span.start_observation(
                 as_type="generation",
                 name="generation-1",
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 input={"prompt": "First prompt"},
                 output={"text": "First response"},
                 model_parameters={"temperature": 0.7},
@@ -938,7 +1010,7 @@ class TestBasicSpans(TestOTelBase):
         )
         assert (
             gen1_data["attributes"][LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
-            == "gpt-3.5-turbo"
+            == "gpt-4o-mini"
         )
 
         assert (
@@ -1751,7 +1823,7 @@ class TestMetadataHandling(TestOTelBase):
 
         async def update_config_model():
             # Update just model
-            update = {"config": {"model": "gpt-3.5-turbo"}}
+            update = {"config": {"model": "gpt-4o-mini"}}
             return _flatten_and_serialize_metadata(update, "observation")
 
         async def update_telemetry_platform():
@@ -1835,7 +1907,7 @@ class TestMetadataHandling(TestOTelBase):
         # Verify model update only changed model
         assert config_key in model_result
         model_config = json.loads(model_result[config_key])
-        assert model_config["model"] == "gpt-3.5-turbo"
+        assert model_config["model"] == "gpt-4o-mini"
         assert "parameters" not in model_config  # Shouldn't be present
 
         # Verify platform update only changed platform
@@ -2385,6 +2457,7 @@ class TestMultiProjectSetup(TestOTelBase):
             )
             self._app_root_lock = threading.Lock()
             self._span_export_expectation_by_id = {}
+            self._available_skills = None
             # Use the appropriate exporter based on the project key
             if self.public_key == project1_key:
                 exporter = exporter_project1
@@ -2764,6 +2837,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             )
             self._app_root_lock = threading.Lock()
             self._span_export_expectation_by_id = {}
+            self._available_skills = None
 
             # For testing, use the appropriate exporter based on setup
             exporter = kwargs.get("_test_exporter", blocked_exporter)
@@ -3295,7 +3369,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
                 main_span.update(
                     metadata={
                         "llm_config": {
-                            "model": "gpt-3.5-turbo"  # Update model
+                            "model": "gpt-4o-mini"  # Update model
                         }
                     }
                 )
@@ -3356,7 +3430,7 @@ class TestConcurrencyAndAsync(TestOTelBase):
         # Verify metadata structure (if implementation supports proper nesting)
         if "llm_config" in metadata:
             # These assertions may fail if the implementation doesn't support proper nesting
-            assert metadata["llm_config"]["model"] == "gpt-3.5-turbo"
+            assert metadata["llm_config"]["model"] == "gpt-4o-mini"
 
             if "parameters" in metadata["llm_config"]:
                 assert metadata["llm_config"]["parameters"]["temperature"] == 0.8

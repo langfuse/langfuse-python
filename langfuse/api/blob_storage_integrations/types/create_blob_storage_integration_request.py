@@ -111,7 +111,7 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
         FieldMetadata(alias="exportFieldGroups"),
     ] = pydantic.Field(default=None)
     """
-    Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+    Field groups to include in each exported observation and score row. Applies to all export sources; must include the observation `core` group if provided. Core score columns are always exported; score groups add columns on top. When omitted on create, all observation groups are selected and no score groups. When omitted on update, the existing value is preserved.
     
     `exportFieldGroups` requires `exportSource` to be provided in the same request.
     """

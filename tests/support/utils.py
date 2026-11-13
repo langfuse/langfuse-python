@@ -186,7 +186,8 @@ def get_observations(
         )
         observations.extend(response.data)
         cursor = response.meta.cursor
-        if not cursor or not response.data:
+        # Pages can be short or empty before the end.
+        if not cursor:
             break
 
     # The events table can briefly return several rows for one span until

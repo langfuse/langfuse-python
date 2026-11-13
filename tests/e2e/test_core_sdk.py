@@ -524,7 +524,7 @@ def test_create_generation():
     generation = langfuse.start_observation(
         as_type="generation",
         name="query-generation",
-        model="gpt-3.5-turbo-0125",
+        model="gpt-4o-mini",
         model_parameters={
             "max_tokens": "1000",
             "temperature": "0.9",
@@ -568,7 +568,7 @@ def test_create_generation():
     assert generation_api.name == "query-generation"
     assert generation_api.start_time is not None
     assert generation_api.end_time is not None
-    assert generation_api.model == "gpt-3.5-turbo-0125"
+    assert generation_api.model == "gpt-4o-mini"
     assert generation_api.model_parameters == {
         "max_tokens": "1000",
         "temperature": "0.9",
@@ -1174,7 +1174,7 @@ def test_end_generation():
     generation = langfuse.start_observation(
         as_type="generation",
         name="query-generation",
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         model_parameters={"max_tokens": "1000", "temperature": "0.9"},
         input=[
             {"role": "system", "content": "You are a helpful assistant."},
@@ -1843,7 +1843,12 @@ def test_get_observations():
 
 
 def test_get_observations_for_unknown_trace_is_empty():
-    response = get_api(retry=False).observations.get_many(trace_id=create_uuid())
+    # A lower bound within the server's first 7-day scan window makes one
+    # request cover the whole range, so the cursor is reliably absent.
+    response = get_api(retry=False).observations.get_many(
+        trace_id=create_uuid(),
+        from_start_time=datetime.now(timezone.utc) - timedelta(days=1),
+    )
 
     assert response.data == []
     assert response.meta.cursor is None
@@ -1851,7 +1856,10 @@ def test_get_observations_for_unknown_trace_is_empty():
 
 def test_get_observations_empty():
     # Fetch observations with a filter that should return no results
-    response = get_api(retry=False).observations.get_many(name=create_uuid())
+    response = get_api(retry=False).observations.get_many(
+        name=create_uuid(),
+        from_start_time=datetime.now(timezone.utc) - timedelta(days=1),
+    )
 
     assert response.data == []
     assert response.meta.cursor is None

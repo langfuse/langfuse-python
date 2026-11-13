@@ -124,11 +124,12 @@ def test_user_metadata_drops_server_added_keys():
     assert user_metadata(observation) == {"key": "value"}
 
 
-def test_get_observations_follows_cursor_and_sorts_by_start_time(monkeypatch):
+def test_get_observations_follows_cursor_past_empty_pages_and_sorts(monkeypatch):
     calls = []
     pages = {
-        None: _page([_observation(2), _observation(0)], cursor="next"),
-        "next": _page([_observation(1)]),
+        None: _page([_observation(2), _observation(0)], cursor="empty"),
+        "empty": _page([], cursor="last"),
+        "last": _page([_observation(1)]),
     }
 
     def get_many(**kwargs):
@@ -140,7 +141,7 @@ def test_get_observations_follows_cursor_and_sorts_by_start_time(monkeypatch):
     observations = get_observations(trace_id="trace-123")
 
     assert [o.id for o in observations] == ["obs-0", "obs-1", "obs-2"]
-    assert [call["cursor"] for call in calls] == [None, "next"]
+    assert [call["cursor"] for call in calls] == [None, "empty", "last"]
     assert all(call["trace_id"] == "trace-123" for call in calls)
 
 

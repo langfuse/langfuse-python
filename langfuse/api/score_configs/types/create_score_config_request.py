@@ -13,7 +13,7 @@ from ...core.serialization import FieldMetadata
 class CreateScoreConfigRequest(UniversalBaseModel):
     name: str = pydantic.Field()
     """
-    Name of the score config. Max 35 characters. Only letters, numbers, underscores, spaces, periods, parentheses, and hyphens are allowed.
+    Name of the score config. Max 80 characters. Only letters, numbers, underscores, spaces, periods, parentheses, and hyphens are allowed.
     """
 
     data_type: typing_extensions.Annotated[
