@@ -4,7 +4,12 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    FunctionMessage,
+    HumanMessage,
+    ToolMessage,
+)
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
 from langchain_core.prompts import ChatPromptTemplate
@@ -97,6 +102,42 @@ def test_chat_model_callback_exports_generation_span(
         "completion_tokens": 2,
         "total_tokens": 6,
     }
+
+
+def test_chat_model_input_keeps_message_names(
+    langfuse_memory_client, get_span, json_attr
+):
+    response = ChatResult(
+        generations=[ChatGeneration(message=AIMessage(content="sunny"), text="sunny")]
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test").invoke(
+            [
+                HumanMessage(content="weather?", name="alice"),
+                AIMessage(
+                    content="",
+                    tool_calls=[{"name": "get_weather", "args": {}, "id": "call_1"}],
+                ),
+                ToolMessage(content="sunny", tool_call_id="call_1", name="get_weather"),
+                FunctionMessage(content="sunny", name="get_weather"),
+                HumanMessage(content="legacy", additional_kwargs={"name": "bob"}),
+            ],
+            config={"callbacks": [CallbackHandler()]},
+        )
+
+    langfuse_memory_client.flush()
+    messages = json_attr(
+        get_span("ChatOpenAI"), LangfuseOtelSpanAttributes.OBSERVATION_INPUT
+    )
+
+    assert [(message["role"], message.get("name")) for message in messages] == [
+        ("user", "alice"),
+        ("assistant", None),
+        ("tool", "get_weather"),
+        ("function", "get_weather"),
+        ("user", "bob"),
+    ]
 
 
 def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
@@ -247,6 +288,96 @@ def test_root_chain_metadata_propagates_trace_name(
     assert len(find_spans("ChatOpenAI")) == 1
 
 
+@pytest.mark.asyncio
+async def test_root_chain_metadata_propagates_session_id_to_children_on_ainvoke(
+    langfuse_memory_client, get_span
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(content="knock knock"),
+                text="knock knock",
+            )
+        ],
+        llm_output={"model_name": "gpt-4o-mini"},
+    )
+
+    with patch.object(ChatOpenAI, "_agenerate", return_value=response):
+        handler = CallbackHandler()
+        prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
+        chain = prompt | ChatOpenAI(api_key="test", temperature=0) | StrOutputParser()
+
+        result = await chain.ainvoke(
+            {"topic": "otters"},
+            config={
+                "callbacks": [handler],
+                "metadata": {
+                    "langfuse_session_id": "async-session",
+                    "langfuse_user_id": "async-user",
+                },
+            },
+        )
+
+    assert result == "knock knock"
+
+    langfuse_memory_client.flush()
+
+    for span_name in (
+        "RunnableSequence",
+        "ChatPromptTemplate",
+        "ChatOpenAI",
+        "StrOutputParser",
+    ):
+        span = get_span(span_name)
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID]
+            == "async-session"
+        ), span_name
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.TRACE_USER_ID] == "async-user"
+        ), span_name
+
+
+def test_child_run_keeps_attributes_propagated_in_its_own_context(
+    langfuse_memory_client, get_span
+):
+    handler = CallbackHandler()
+    root_run_id = uuid4()
+    child_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"id": ["RunnableSequence"]},
+        {"topic": "otters"},
+        run_id=root_run_id,
+        metadata={"langfuse_session_id": "root-session"},
+    )
+
+    def start_child_with_own_session():
+        with callback_handler_module.propagate_attributes(session_id="child-session"):
+            handler.on_chain_start(
+                {"id": ["ChildChain"]},
+                {"topic": "otters"},
+                run_id=child_run_id,
+                parent_run_id=root_run_id,
+            )
+
+    copy_context().run(start_child_with_own_session)
+    copy_context().run(
+        handler.on_chain_end,
+        {"output": "done"},
+        run_id=child_run_id,
+        parent_run_id=root_run_id,
+    )
+    handler.on_chain_end({"output": "done"}, run_id=root_run_id)
+
+    langfuse_memory_client.flush()
+
+    assert (
+        get_span("ChildChain").attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID]
+        == "child-session"
+    )
+
+
 def test_root_chain_exports_when_end_runs_in_copied_context(
     langfuse_memory_client, get_span
 ):
@@ -354,6 +485,127 @@ def test_control_flow_errors_use_default_level_and_keep_status_message(
             span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
             == message
         )
+
+
+def test_streamed_llm_error_cleans_only_its_completion_start_time_memo(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+    failed_run_id = uuid4()
+    active_run_id = uuid4()
+    failed_context = copy_context()
+    active_context = copy_context()
+
+    for context, run_id in (
+        (failed_context, failed_run_id),
+        (active_context, active_run_id),
+    ):
+        context.run(
+            handler.on_llm_start,
+            {"name": "TestLLM"},
+            ["prompt"],
+            run_id=run_id,
+            metadata={"ls_model_name": "test-model"},
+            invocation_params={},
+        )
+        context.run(handler.on_llm_new_token, "first token", run_id=run_id)
+
+    response = LLMResult(generations=[[Generation(text="done")]], llm_output={})
+
+    try:
+        assert failed_run_id in handler._updated_completion_start_time_memo
+        assert active_run_id in handler._updated_completion_start_time_memo
+
+        failed_context.run(
+            handler.on_llm_error,
+            RuntimeError("synthetic failure"),
+            run_id=failed_run_id,
+        )
+
+        assert active_run_id in handler._updated_completion_start_time_memo
+        assert failed_run_id not in handler._updated_completion_start_time_memo
+    finally:
+        active_context.run(
+            handler.on_llm_end,
+            response,
+            run_id=active_run_id,
+        )
+
+
+def test_chain_error_deregisters_prompt_registered_for_the_run(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+    prompt_chain_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"name": "RootChain"},
+        {"input": "hi"},
+        run_id=root_run_id,
+    )
+    handler.on_chain_start(
+        {"name": "PromptChain"},
+        {"input": "hi"},
+        run_id=prompt_chain_run_id,
+        parent_run_id=root_run_id,
+        metadata={"langfuse_prompt": "sentinel-prompt"},
+    )
+
+    assert handler._prompt_to_parent_run_map.get(root_run_id) == "sentinel-prompt"
+
+    handler.on_chain_error(
+        RuntimeError("synthetic failure"),
+        run_id=root_run_id,
+    )
+
+    assert root_run_id not in handler._prompt_to_parent_run_map
+
+
+def test_nested_chain_error_deregisters_propagated_prompt(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+    prompt_chain_run_id = uuid4()
+    nested_chain_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"name": "RootChain"},
+        {"input": "hi"},
+        run_id=root_run_id,
+    )
+    handler.on_chain_start(
+        {"name": "PromptChain"},
+        {"input": "hi"},
+        run_id=prompt_chain_run_id,
+        parent_run_id=root_run_id,
+        metadata={"langfuse_prompt": "sentinel-prompt"},
+    )
+    handler.on_chain_start(
+        {"name": "NestedChain"},
+        {"input": "hi"},
+        run_id=nested_chain_run_id,
+        parent_run_id=root_run_id,
+    )
+
+    assert (
+        handler._prompt_to_parent_run_map.get(nested_chain_run_id) == "sentinel-prompt"
+    )
+
+    handler.on_chain_error(
+        RuntimeError("synthetic failure"),
+        run_id=nested_chain_run_id,
+        parent_run_id=root_run_id,
+    )
+
+    assert nested_chain_run_id not in handler._prompt_to_parent_run_map
+
+    # The parent-level registration survives so a following LLM sibling
+    # can still consume it, matching the success-path lifecycle.
+    assert handler._prompt_to_parent_run_map.get(root_run_id) == "sentinel-prompt"
 
 
 def test_control_flow_resume_uses_thread_keyed_explicit_resume_context(

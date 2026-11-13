@@ -1164,6 +1164,7 @@ class RunnerContext:
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
+        experiment_id: Optional[str] = None,
         _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         resolved_data = data if data is not None else self.data
@@ -1193,6 +1194,7 @@ class RunnerContext:
             run_evaluators=run_evaluators,
             max_concurrency=max_concurrency,
             metadata=merged_metadata,
+            experiment_id=experiment_id,
             _dataset_version=resolved_dataset_version,
         )
 

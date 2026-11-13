@@ -62,7 +62,7 @@ class MediaManager:
             upload_job = self._queue.get(block=True, timeout=1)
 
             if upload_job is _SHUTDOWN_SENTINEL:
-                self._queue.task_done()
+                # Already marked done by signal_shutdown().
                 return
 
             logger.debug(
@@ -91,6 +91,10 @@ class MediaManager:
                 # If the queue is full, the consumer will keep draining work and
                 # observe the paused flag on the next loop iteration.
                 break
+
+            # Mark it done now, since no consumer may take it (e.g. after a
+            # repeated shutdown()) and queue.join() would then never return.
+            self._queue.task_done()
 
     def _find_and_process_media(
         self,

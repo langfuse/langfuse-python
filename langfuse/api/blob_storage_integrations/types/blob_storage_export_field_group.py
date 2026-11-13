@@ -9,7 +9,9 @@ T_Result = typing.TypeVar("T_Result")
 
 class BlobStorageExportFieldGroup(enum.StrEnum):
     """
-    Field group selecting which observation columns are included in the export. Applies to all export sources; groups without a counterpart in the legacy data model (e.g. `trace_context`) are omitted from the legacy observations export.
+    Field group selecting which columns are included in the export. Applies to all export sources.
+    - Observation groups (`core` through `trace_context`) select observation columns; groups without a counterpart in the legacy data model (e.g. `trace_context`) are omitted from the legacy observations export.
+    - Score groups (`score_` prefix) add optional columns to the scores export. The core score columns (`id`, `timestamp`, `trace_id`, `name`, `value`, …) are always exported and are not a selectable group; score groups add columns on top of them. `score_metadata` adds the score `metadata` column. `score_provenance` adds the references to where a score came from: `author_user_id`, `config_id`, `queue_id`, `evaluator_id`, `evaluation_rule_id`, `execution_trace_id`. Score groups are never selected by default.
     """
 
     CORE = "core"
@@ -23,6 +25,8 @@ class BlobStorageExportFieldGroup(enum.StrEnum):
     METRICS = "metrics"
     TOOLS = "tools"
     TRACE_CONTEXT = "trace_context"
+    SCORE_METADATA = "score_metadata"
+    SCORE_PROVENANCE = "score_provenance"
 
     def visit(
         self,
@@ -37,6 +41,8 @@ class BlobStorageExportFieldGroup(enum.StrEnum):
         metrics: typing.Callable[[], T_Result],
         tools: typing.Callable[[], T_Result],
         trace_context: typing.Callable[[], T_Result],
+        score_metadata: typing.Callable[[], T_Result],
+        score_provenance: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is BlobStorageExportFieldGroup.CORE:
             return core()
@@ -60,3 +66,7 @@ class BlobStorageExportFieldGroup(enum.StrEnum):
             return tools()
         if self is BlobStorageExportFieldGroup.TRACE_CONTEXT:
             return trace_context()
+        if self is BlobStorageExportFieldGroup.SCORE_METADATA:
+            return score_metadata()
+        if self is BlobStorageExportFieldGroup.SCORE_PROVENANCE:
+            return score_provenance()
