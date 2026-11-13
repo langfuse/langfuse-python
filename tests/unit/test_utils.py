@@ -13,6 +13,37 @@ from langfuse._client.utils import run_async_safely
 class TestRunAsyncSafely:
     """Test suite for the run_async_safely function."""
 
+    @pytest.mark.parametrize(
+        "error_type", [asyncio.CancelledError, SystemExit, KeyboardInterrupt]
+    )
+    def test_control_flow_exception_in_sync_context(self, error_type):
+        """Control-flow exceptions retain their identity without an active loop."""
+        error = error_type("operation interrupted")
+
+        async def interrupted():
+            raise error
+
+        with pytest.raises(error_type) as caught:
+            run_async_safely(interrupted())
+
+        assert caught.value is error
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error_type", [asyncio.CancelledError, SystemExit, KeyboardInterrupt]
+    )
+    async def test_control_flow_exception_from_thread(self, error_type):
+        """A worker's cancellation or exit is propagated to the calling thread."""
+        error = error_type("operation interrupted")
+
+        async def interrupted():
+            raise error
+
+        with pytest.raises(error_type) as caught:
+            run_async_safely(interrupted())
+
+        assert caught.value is error
+
     def test_run_sync_context_simple(self):
         """Test run_async_safely in sync context with simple coroutine."""
 
