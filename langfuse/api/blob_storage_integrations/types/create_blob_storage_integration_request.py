@@ -11,6 +11,7 @@ from .blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .blob_storage_export_frequency import BlobStorageExportFrequency
 from .blob_storage_export_mode import BlobStorageExportMode
 from .blob_storage_export_source import BlobStorageExportSource
+from .blob_storage_integration_auth_type import BlobStorageIntegrationAuthType
 from .blob_storage_integration_file_type import BlobStorageIntegrationFileType
 from .blob_storage_integration_type import BlobStorageIntegrationType
 
@@ -41,11 +42,27 @@ class CreateBlobStorageIntegrationRequest(UniversalBaseModel):
     Storage region used by S3-compatible clients (AWS, GCS, Cloudflare R2, MinIO, Azure location IDs such as eastus, OCI). Leading and trailing whitespace is removed. The remaining value must be 1-63 letters, numbers, or hyphens, and cannot start or end with a hyphen. Examples: us-east-1, europe-west1, eastus, auto. Not used by GOOGLE_CLOUD_STORAGE; pass auto.
     """
 
+    auth_type: typing_extensions.Annotated[
+        typing.Optional[BlobStorageIntegrationAuthType], FieldMetadata(alias="authType")
+    ] = pydantic.Field(default=None)
+    """
+    Authentication method. `ROLE_ARN` requires type `S3`, a concrete AWS region (not `auto`), and `roleArn`; `accessKeyId` and `secretAccessKey` must then be omitted, and `endpoint` and `forcePathStyle` are ignored. When omitted, `ROLE_ARN` applies to type `S3` if the request sends `roleArn` or the integration already uses `ROLE_ARN`, unless the request sends `accessKeyId` or `secretAccessKey`; otherwise `ACCESS_KEYS` applies.
+    
+    The external ID is generated on the first save that uses `ROLE_ARN` and stays the same afterwards. That save stores the integration with `enabled: false`, because the trust policy cannot reference the new ID yet. Add the trust policy for `crossAccountRoleArn` with the returned `externalId` to your role, then update the integration with `enabled: true`.
+    """
+
+    role_arn: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="roleArn")
+    ] = pydantic.Field(default=None)
+    """
+    ARN of the IAM role in your AWS account that Langfuse assumes when `authType` is `ROLE_ARN`, e.g. `arn:aws:iam::123456789012:role/langfuse-export`. When omitted on update, the stored role ARN is kept.
+    """
+
     access_key_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="accessKeyId")
     ] = pydantic.Field(default=None)
     """
-    Access key ID for authentication. Not used for GOOGLE_CLOUD_STORAGE.
+    Access key ID for authentication. Not used for GOOGLE_CLOUD_STORAGE or when `authType` is `ROLE_ARN`.
     """
 
     secret_access_key: typing_extensions.Annotated[
