@@ -462,6 +462,103 @@ def test_streaming_chat_completion_preserves_tool_calls_after_content():
     assert metadata == {"finish_reason": "tool_calls"}
 
 
+def _tool_call_chunk(*, id=None, name=None, arguments=None, finish_reason=None):
+    # Gemini's OpenAI-compatible API leaves tool_calls[].index unset
+    return SimpleNamespace(
+        model="gemini-3.5-flash",
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(
+                    role=None,
+                    content=None,
+                    function_call=None,
+                    tool_calls=[
+                        SimpleNamespace(
+                            index=None,
+                            id=id,
+                            type="function" if id else None,
+                            function=SimpleNamespace(name=name, arguments=arguments),
+                        )
+                    ],
+                ),
+                finish_reason=finish_reason,
+            )
+        ],
+        usage=None,
+    )
+
+
+def test_streaming_chat_completion_keeps_parallel_tool_calls_without_index_apart():
+    _model, completion, _usage, _metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            [
+                _tool_call_chunk(
+                    id="call_paris",
+                    name="get_weather",
+                    arguments='{"city": "Paris"}',
+                ),
+                _tool_call_chunk(
+                    id="call_tokyo",
+                    name="get_weather",
+                    arguments='{"city": "Tokyo"}',
+                    finish_reason="stop",
+                ),
+            ],
+        )
+    )
+
+    assert [
+        (call["id"], call["function"]["arguments"]) for call in completion["tool_calls"]
+    ] == [
+        ("call_paris", '{"city": "Paris"}'),
+        ("call_tokyo", '{"city": "Tokyo"}'),
+    ]
+
+
+def test_streaming_chat_completion_keeps_tool_calls_without_index_or_id_apart():
+    _model, completion, _usage, _metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            [
+                _tool_call_chunk(name="get_weather", arguments='{"city": "Paris"}'),
+                _tool_call_chunk(name="get_weather", arguments='{"city": "Tokyo"}'),
+            ],
+        )
+    )
+
+    assert [
+        (call["function"]["name"], call["function"]["arguments"])
+        for call in completion["tool_calls"]
+    ] == [
+        ("get_weather", '{"city": "Paris"}'),
+        ("get_weather", '{"city": "Tokyo"}'),
+    ]
+
+
+def test_streaming_chat_completion_merges_fragments_of_one_tool_call_without_index():
+    _model, completion, _usage, _metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            [
+                _tool_call_chunk(
+                    id="call_paris", name="get_weather", arguments='{"city"'
+                ),
+                _tool_call_chunk(arguments=': "Paris"}'),
+                _tool_call_chunk(id="call_paris", arguments=""),
+            ],
+        )
+    )
+
+    assert completion["tool_calls"] == [
+        {
+            "id": "call_paris",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        }
+    ]
+
+
 def test_response_api_output_serializes_openai_parsed_response_objects():
     class ParsedOutput(BaseModel):
         name: str

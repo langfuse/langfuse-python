@@ -842,19 +842,34 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
                     for raw_tool_call in delta.get("tool_calls", []):
                         index = _get_attr_or_item(raw_tool_call, "index", None)
-
-                        if not isinstance(index, int):
-                            index = len(curr) - 1 if curr else 0
-
-                        while len(curr) <= index:
-                            curr.append({"function": {"name": "", "arguments": ""}})
-
-                        current_tool_call = curr[index]
                         tool_call_id = _get_attr_or_item(raw_tool_call, "id", None)
                         tool_call_type = _get_attr_or_item(raw_tool_call, "type", None)
                         tool_call_chunk = _get_attr_or_item(
                             raw_tool_call, "function", None
                         )
+
+                        if not isinstance(index, int):
+                            # Some OpenAI-compatible APIs (e.g. Gemini) omit the index
+                            # and send each parallel call whole in its own chunk: a new
+                            # id, or a name without an id, starts a call; anything else
+                            # continues the latest one.
+                            starts_call = not curr or (
+                                (
+                                    tool_call_id is not None
+                                    and tool_call_id != curr[-1].get("id")
+                                )
+                                or (
+                                    tool_call_id is None
+                                    and _get_attr_or_item(tool_call_chunk, "name", None)
+                                    is not None
+                                )
+                            )
+                            index = len(curr) if starts_call else len(curr) - 1
+
+                        while len(curr) <= index:
+                            curr.append({"function": {"name": "", "arguments": ""}})
+
+                        current_tool_call = curr[index]
 
                         if tool_call_id is not None:
                             current_tool_call["id"] = tool_call_id
