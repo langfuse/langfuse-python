@@ -92,10 +92,10 @@ class RawModelsClient:
             which will automatically create a single default tier named "Standard".
 
         tokenizer_id : typing.Optional[ModelTokenizerId]
-            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+            Legacy tokenizer identifier retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         tokenizer_config : typing.Optional[typing.Any]
-            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+            Legacy tokenizer configuration retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -269,10 +269,10 @@ class RawModelsClient:
             which will automatically create a single default tier named "Standard".
 
         tokenizer_id : typing.Optional[ModelTokenizerId]
-            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+            Legacy tokenizer identifier retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         tokenizer_config : typing.Optional[typing.Any]
-            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+            Legacy tokenizer configuration retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -753,10 +753,10 @@ class AsyncRawModelsClient:
             which will automatically create a single default tier named "Standard".
 
         tokenizer_id : typing.Optional[ModelTokenizerId]
-            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+            Legacy tokenizer identifier retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         tokenizer_config : typing.Optional[typing.Any]
-            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+            Legacy tokenizer configuration retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -930,10 +930,10 @@ class AsyncRawModelsClient:
             which will automatically create a single default tier named "Standard".
 
         tokenizer_id : typing.Optional[ModelTokenizerId]
-            Optional. Tokenizer to be applied to observations which match to this model. See docs for more details.
+            Legacy tokenizer identifier retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         tokenizer_config : typing.Optional[typing.Any]
-            Optional. Configuration for the selected tokenizer. Needs to be JSON. See docs for more details.
+            Legacy tokenizer configuration retained for API compatibility. Ingestion no longer uses it to infer observation usage.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
