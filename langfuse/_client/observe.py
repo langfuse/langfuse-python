@@ -5,7 +5,8 @@ import os
 from functools import wraps
 from typing import (
     Any,
-    AsyncGenerator,
+    AsyncIterable,
+    AsyncIterator,
     Callable,
     Dict,
     Generator,
@@ -497,7 +498,7 @@ class LangfuseDecorator:
             LangfuseEmbedding,
             LangfuseGuardrail,
         ],
-        generator: AsyncGenerator,
+        generator: AsyncIterable[Any],
         capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
@@ -670,7 +671,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
 
     def __init__(
         self,
-        generator: AsyncGenerator,
+        generator: AsyncIterable[Any],
         context: contextvars.Context,
         span: Union[
             LangfuseSpan,
@@ -687,6 +688,7 @@ class _ContextPreservedAsyncGeneratorWrapper:
         transform_fn: Optional[Callable[[Iterable], str]],
     ) -> None:
         self.generator = generator
+        self._iterator: Optional[AsyncIterator[Any]] = None
         self.context = context
         self.items: List[Any] = []
         self.span = span
@@ -699,14 +701,16 @@ class _ContextPreservedAsyncGeneratorWrapper:
         return self
 
     def _generator_never_resumed(self) -> bool:
+        """Check if an async generator is still open after cancellation."""
+        generator = self.generator if self._iterator is None else self._iterator
+        if not inspect.isasyncgen(generator):
+            return False
         try:
-            state = inspect.getasyncgenstate(self.generator)
-        except (AttributeError, TypeError):
+            state = inspect.getasyncgenstate(generator)
+        except AttributeError:
             # getasyncgenstate is Python 3.12+; fall back to the attributes it reads.
-            frame = getattr(self.generator, "ag_frame", None)
-            return frame is not None and not getattr(
-                self.generator, "ag_running", False
-            )
+            frame = getattr(generator, "ag_frame", None)
+            return frame is not None and not getattr(generator, "ag_running", False)
 
         return state in ("AGEN_CREATED", "AGEN_SUSPENDED")
 
@@ -755,7 +759,11 @@ class _ContextPreservedAsyncGeneratorWrapper:
                 self._finalize()
 
     async def _close_generator(self) -> None:
-        await asyncio.create_task(self.generator.aclose(), context=self.context)
+        """Close the active iterator if it offers async cleanup."""
+        iterator = self.generator if self._iterator is None else self._iterator
+        close = getattr(iterator, "aclose", None)
+        if close is not None:
+            await asyncio.create_task(close(), context=self.context)
 
     async def close(self) -> None:
         await self.aclose()
@@ -766,11 +774,17 @@ class _ContextPreservedAsyncGeneratorWrapper:
         else:
             self._finalize()
 
+    async def _next_item(self) -> Any:
+        """Start iteration lazily and advance it inside the observation context."""
+        if self._iterator is None:
+            self._iterator = aiter(self.generator)
+        return await anext(self._iterator)
+
     async def __anext__(self) -> Any:
         try:
             # Run the generator's __anext__ in the preserved context
             item = await asyncio.create_task(
-                self.generator.__anext__(),  # type: ignore
+                self._next_item(),
                 context=self.context,
             )
 
