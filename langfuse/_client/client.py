@@ -97,7 +97,7 @@ from langfuse._client.utils import (
 from langfuse._utils import _get_timestamp, json_path
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
-from langfuse._utils.prompt_cache import PromptCache
+from langfuse._utils.prompt_cache import PromptCache, PromptCacheItem
 from langfuse.api import (
     AsyncLangfuseAPI,
     CreateChatPromptRequest,
@@ -4035,6 +4035,7 @@ class Langfuse:
                 )
 
                 def refresh_task() -> None:
+                    """Refresh only the cache entry that scheduled this task."""
                     self._fetch_prompt_and_update_cache(
                         name,
                         version=version,
@@ -4042,6 +4043,7 @@ class Langfuse:
                         ttl_seconds=cache_ttl_seconds,
                         max_retries=bounded_max_retries,
                         fetch_timeout_seconds=fetch_timeout_seconds,
+                        expected_cache_item=cached_prompt,
                     )
 
                 self._resources.prompt_cache.add_refresh_prompt_task_if_current(
@@ -4076,7 +4078,9 @@ class Langfuse:
         ttl_seconds: Optional[int] = None,
         max_retries: int,
         fetch_timeout_seconds: Optional[int],
+        expected_cache_item: Optional[PromptCacheItem] = None,
     ) -> PromptClient:
+        """Fetch a prompt and update the cache if the expected entry is current."""
         cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
         langfuse_logger.debug("Fetching prompt '%s' from server...", cache_key)
 
@@ -4106,16 +4110,21 @@ class Langfuse:
                 prompt = TextPromptClient(prompt_response)
 
             if self._resources is not None:
-                self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
+                self._resources.prompt_cache.set(
+                    cache_key, prompt, ttl_seconds, expected_item=expected_cache_item
+                )
 
             return prompt
 
         except NotFoundError as not_found_error:
             langfuse_logger.warning(
-                "Prompt '%s' not found during refresh, evicting from cache.", cache_key
+                "Prompt '%s' not found during fetch.",
+                cache_key,
             )
             if self._resources is not None:
-                self._resources.prompt_cache.delete(cache_key)
+                self._resources.prompt_cache.delete(
+                    cache_key, expected_item=expected_cache_item
+                )
             raise not_found_error
 
         except Exception as e:
