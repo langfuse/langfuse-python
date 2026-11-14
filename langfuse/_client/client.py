@@ -4105,7 +4105,8 @@ class Langfuse:
             else:
                 prompt = TextPromptClient(prompt_response)
 
-            if self._resources is not None:
+            # A TTL of 0 disables caching for this call, so leave the cache as is.
+            if self._resources is not None and ttl_seconds != 0:
                 self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
 
             return prompt
