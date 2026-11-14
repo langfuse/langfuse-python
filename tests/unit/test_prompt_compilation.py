@@ -1,4 +1,5 @@
 import pytest
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 from langfuse.api import ChatMessage, Prompt_Chat
@@ -733,7 +734,12 @@ Configuration:
         assert formatted_messages[0].content == expected_system
         assert formatted_messages[1].content == expected_user
 
-    def test_chat_prompt_with_placeholders_langchain(self):
+    @pytest.mark.parametrize(
+        "assistant_fields",
+        [{}, {"tool_calls": None}, {"tool_calls": []}],
+        ids=["absent", "none", "empty"],
+    )
+    def test_chat_prompt_with_placeholders_langchain(self, assistant_fields):
         """Test that chat prompts with placeholders work correctly with Langchain."""
         from langfuse.api import Prompt_Chat
 
@@ -768,7 +774,11 @@ Configuration:
             task="addition",
             examples=[
                 {"role": "user", "content": "Example: What is 2+2?"},
-                {"role": "assistant", "content": "2+2 equals 4."},
+                {
+                    "role": "assistant",
+                    "content": "2+2 equals {{answer}}.",
+                    **assistant_fields,
+                },
             ],
         )
 
@@ -778,7 +788,7 @@ Configuration:
             == "You are a helpful assistant with math capabilities."
         )
         assert compiled_messages[1]["content"] == "Example: What is 2+2?"
-        assert compiled_messages[2]["content"] == "2+2 equals 4."
+        assert compiled_messages[2]["content"] == "2+2 equals {{answer}}."
         assert compiled_messages[3]["content"] == "Help me with addition."
 
         langchain_messages = prompt_client.get_langchain_prompt(
@@ -787,11 +797,15 @@ Configuration:
             task="addition",
             examples=[
                 {"role": "user", "content": "Example: What is 2+2?"},
-                {"role": "assistant", "content": "2+2 equals 4."},
+                {
+                    "role": "assistant",
+                    "content": "2+2 equals {{answer}}.",
+                    **assistant_fields,
+                },
             ],
         )
         langchain_prompt = ChatPromptTemplate.from_messages(langchain_messages)
-        formatted_messages = langchain_prompt.format_messages()
+        formatted_messages = langchain_prompt.format_messages(answer="4")
 
         assert len(formatted_messages) == 4
         assert (
@@ -852,7 +866,22 @@ Configuration:
         assert langchain_messages[2] == ("user", "Help me with coding")
 
 
-def test_tool_calls_preservation_in_message_placeholder():
+@pytest.mark.parametrize(
+    "assistant_content,tool_content,expected_assistant_content,expected_tool_content",
+    [
+        ("", "It's sunny, 72°F", "", "It's sunny, 72°F"),
+        (
+            "Checking {{location}}",
+            "It's sunny in {{location}}",
+            "Checking Paris",
+            "It's sunny in Paris",
+        ),
+    ],
+    ids=["literal-content", "templated-content"],
+)
+def test_tool_calls_preservation_in_message_placeholder(
+    assistant_content, tool_content, expected_assistant_content, expected_tool_content
+):
     """Test that tool calls are preserved when compiling message placeholders."""
     from langfuse.api import Prompt_Chat
 
@@ -879,7 +908,7 @@ def test_tool_calls_preservation_in_message_placeholder():
         {"role": "user", "content": "What's the weather like?"},
         {
             "role": "assistant",
-            "content": "",
+            "content": assistant_content,
             "tool_calls": [
                 {
                     "id": "call_123",
@@ -893,7 +922,7 @@ def test_tool_calls_preservation_in_message_placeholder():
         },
         {
             "role": "tool",
-            "content": "It's sunny, 72°F",
+            "content": tool_content,
             "tool_call_id": "call_123",
             "name": "get_weather",
         },
@@ -917,7 +946,7 @@ def test_tool_calls_preservation_in_message_placeholder():
 
     # Assistant message with TOOL CALLS
     assert compiled_messages[2]["role"] == "assistant"
-    assert compiled_messages[2]["content"] == ""
+    assert compiled_messages[2]["content"] == assistant_content
     assert "tool_calls" in compiled_messages[2]
     assert len(compiled_messages[2]["tool_calls"]) == 1
     assert compiled_messages[2]["tool_calls"][0]["id"] == "call_123"
@@ -925,10 +954,32 @@ def test_tool_calls_preservation_in_message_placeholder():
 
     # TOOL CALL results message
     assert compiled_messages[3]["role"] == "tool"
-    assert compiled_messages[3]["content"] == "It's sunny, 72°F"
+    assert compiled_messages[3]["content"] == tool_content
     assert compiled_messages[3]["tool_call_id"] == "call_123"
     assert compiled_messages[3]["name"] == "get_weather"
 
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+    langchain_messages = prompt_client.get_langchain_prompt(
+        task="weather inquiry", message_history=message_history_with_tool_calls
+    )
+    formatted_messages = ChatPromptTemplate.from_messages(
+        langchain_messages
+    ).format_messages(location="Paris")
+
+    assert isinstance(formatted_messages[2], AIMessage)
+    assert formatted_messages[2].content == expected_assistant_content
+    assert formatted_messages[2].tool_calls == [
+        {
+            "id": "call_123",
+            "type": "tool_call",
+            "name": "get_weather",
+            "args": {"location": "San Francisco"},
+        }
+    ]
+    assert isinstance(formatted_messages[3], ToolMessage)
+    assert formatted_messages[3].content == expected_tool_content
+    assert formatted_messages[3].tool_call_id == "call_123"
+    assert formatted_messages[3].name == "get_weather"
