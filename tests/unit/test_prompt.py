@@ -748,3 +748,14 @@ def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
+
+
+def test_prompt_cache_item_expires_at_exact_ttl_without_rounding():
+    """A cached prompt stays fresh only until its full TTL has elapsed."""
+    with patch("langfuse._utils.prompt_cache.datetime") as clock:
+        clock.now.return_value.timestamp.return_value = 100.75
+        item = PromptCacheItem(prompt=Mock(), ttl_seconds=1)
+        clock.now.return_value.timestamp.return_value = 101.70
+        assert not item.is_expired()
+        clock.now.return_value.timestamp.return_value = 101.75
+        assert item.is_expired()
