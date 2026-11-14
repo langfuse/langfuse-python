@@ -222,6 +222,21 @@ def test_throw_when_failing_fetch_and_no_cache(langfuse):
     assert "Prompt not found" in str(exc_info.value)
 
 
+@pytest.mark.parametrize(("prompt_type", "fallback"), [("text", ""), ("chat", [])])
+def test_get_empty_fallback_when_fetch_fails(langfuse, prompt_type, fallback):
+    langfuse.api.prompts.get.side_effect = RuntimeError("Server unavailable")
+
+    result = langfuse.get_prompt(
+        f"empty_fallback_{prompt_type}",
+        type=prompt_type,
+        fallback=fallback,
+        max_retries=0,
+    )
+
+    assert result.is_fallback
+    assert result.prompt == fallback
+
+
 def test_using_custom_prompt_timeouts(langfuse):
     prompt_name = "test_using_custom_prompt_timeouts"
     prompt = Prompt_Text(
