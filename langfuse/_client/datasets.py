@@ -228,7 +228,7 @@ class DatasetClient:
 
             def content_diversity(*, item_results, **kwargs):
                 # Analyze diversity across all generated content
-                all_outputs = [result["output"] for result in item_results]
+                all_outputs = [result.output for result in item_results]
                 unique_words = set()
                 total_words = 0
 
