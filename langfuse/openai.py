@@ -23,6 +23,7 @@ through the raw-response API and would otherwise produce duplicate observations.
 See docs for more details: https://langfuse.com/docs/integrations/openai
 """
 
+import asyncio
 import json
 import os
 import types
@@ -1408,6 +1409,9 @@ async def _wrap_async(
             ).end()
 
         return openai_response
+    except asyncio.CancelledError:
+        generation.end()
+        raise
     except Exception as ex:
         logger.warning(ex)
         model = kwargs.get("model", None) or None
