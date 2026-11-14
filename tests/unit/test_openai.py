@@ -1,11 +1,20 @@
 import asyncio
 import base64
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 import pytest
 from openai.types.chat import ChatCompletion
-from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
+from openai.types.responses import (
+    ParsedResponseOutputMessage,
+    ParsedResponseOutputText,
+    Response,
+    ResponseCompletedEvent,
+    ResponseFailedEvent,
+    ResponseIncompleteEvent,
+)
 from pydantic import BaseModel
 
 import langfuse.openai as lf_openai_module
@@ -1369,6 +1378,161 @@ def test_streamed_response_api_extraction_returns_service_tier():
 
     assert model == "gpt-4.1-mini"
     assert service_tier == "priority"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_client", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize(
+    "status,error",
+    [
+        ("failed", {"code": "server_error", "message": "Provider failed the response"}),
+        ("failed", None),
+        ("completed", None),
+        ("incomplete", None),
+    ],
+    ids=["failed-with-error", "failed-without-error", "completed", "incomplete"],
+)
+async def test_responses_stream_terminal_status_preserves_sdk_result_and_generation(
+    langfuse_memory_client, get_span, json_attr, async_client, status, error
+):
+    response_payload = {
+        "id": "resp-terminal",
+        "object": "response",
+        "created_at": 1700000000,
+        "model": "gpt-4.1-mini",
+        "status": status,
+        "error": error,
+        "incomplete_details": {"reason": "max_output_tokens"}
+        if status == "incomplete"
+        else None,
+        "instructions": None,
+        "metadata": {},
+        "parallel_tool_calls": True,
+        "temperature": 1,
+        "top_p": 1,
+        "tool_choice": "auto",
+        "tools": [],
+        "output": [
+            {
+                "id": "msg-terminal",
+                "type": "message",
+                "role": "assistant",
+                "status": "completed" if status == "completed" else "incomplete",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "Preserved response output",
+                        "annotations": [],
+                        "logprobs": [],
+                    }
+                ],
+            }
+        ],
+        "usage": {
+            "input_tokens": 3,
+            "input_tokens_details": {"cached_tokens": 1},
+            "output_tokens": 2,
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "total_tokens": 5,
+        },
+    }
+    Response.model_validate(response_payload)
+    event_type = f"response.{status}"
+    event_payload = {
+        "type": event_type,
+        "sequence_number": 0,
+        "response": response_payload,
+    }
+
+    def handler(request):
+        assert request.url.path == "/v1/responses"
+        assert json.loads(request.content)["stream"] is True
+        return httpx.Response(
+            200,
+            content=f"event: {event_type}\ndata: {json.dumps(event_payload)}\n\n".encode(),
+            headers={"content-type": "text/event-stream"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    openai_client = (
+        lf_openai.AsyncOpenAI(
+            api_key="test",
+            http_client=httpx.AsyncClient(transport=transport, trust_env=False),
+        )
+        if async_client
+        else lf_openai.OpenAI(
+            api_key="test",
+            http_client=httpx.Client(transport=transport, trust_env=False),
+        )
+    )
+    events = []
+    snapshots = []
+    name = f"unit-responses-stream-{status}-{async_client}-{error is not None}"
+    try:
+        if async_client:
+            stream = await openai_client.responses.create(
+                name=name, model="gpt-4.1-mini", input="Hello", stream=True
+            )
+            assert isinstance(stream, lf_openai.AsyncStream)
+            async for event in stream:
+                events.append(event)
+                snapshots.append(event.model_dump())
+        else:
+            stream = openai_client.responses.create(
+                name=name, model="gpt-4.1-mini", input="Hello", stream=True
+            )
+            assert isinstance(stream, lf_openai.Stream)
+            for event in stream:
+                events.append(event)
+                snapshots.append(event.model_dump())
+    finally:
+        if async_client:
+            await openai_client.close()
+        else:
+            openai_client.close()
+
+    assert len(events) == 1
+    terminal_event = events[0]
+    expected_type = {
+        "failed": ResponseFailedEvent,
+        "completed": ResponseCompletedEvent,
+        "incomplete": ResponseIncompleteEvent,
+    }[status]
+    assert isinstance(terminal_event, expected_type)
+    assert terminal_event.model_dump() == snapshots[0]
+    assert terminal_event.response.status == status
+    assert terminal_event.response.output[0].content[0].text == (
+        "Preserved response output"
+    )
+    assert terminal_event.response.usage.model_dump() == response_payload["usage"]
+    if error is None:
+        assert terminal_event.response.error is None
+    else:
+        assert terminal_event.response.error.model_dump() == error
+
+    langfuse_memory_client.flush()
+    span = get_span(name)
+    output = json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT)
+    assert output["content"][0]["text"] == "Preserved response output"
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS)
+        == (response_payload["usage"])
+    )
+    if status == "failed":
+        assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    else:
+        assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != (
+            "ERROR"
+        )
+    if error is None:
+        assert (
+            LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE not in span.attributes
+        )
+    else:
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == (error["message"])
+        )
 
 
 def _chat_completion_payload():
