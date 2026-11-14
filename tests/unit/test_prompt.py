@@ -1,3 +1,4 @@
+import threading
 from unittest.mock import Mock, patch
 
 import pytest
@@ -143,7 +144,7 @@ def wait_for_prompt_refresh(langfuse: Langfuse) -> None:
     langfuse._resources.prompt_cache._task_manager.wait_for_idle()
 
 
-def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdown():
+def test_prompt_cache_task_manager_broadcasts_shutdown_before_joining_workers():
     manager = PromptCacheTaskManager(threads=0)
     events = []
 
@@ -167,9 +168,6 @@ def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdo
     manager.shutdown()
 
     assert [event[0] for event in events] == [
-        "pause",
-        "pause",
-        "pause",
         "put",
         "put",
         "put",
@@ -177,6 +175,45 @@ def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdo
         "join",
         "join",
     ]
+
+
+@pytest.mark.parametrize("workers", [1, 3])
+@pytest.mark.parametrize("task_fails", [False, True])
+def test_prompt_cache_shutdown_drains_busy_workers(workers, task_fails):
+    manager = PromptCacheTaskManager(threads=workers)
+    started = threading.Barrier(workers + 1)
+    release = threading.Event()
+
+    def refresh():
+        started.wait(timeout=5)
+        release.wait(timeout=5)
+        if task_fails:
+            raise RuntimeError("Prompt refresh failed")
+
+    shutdown = threading.Thread(target=manager.shutdown, daemon=True)
+    try:
+        for index in range(workers):
+            manager.add_task(str(index), refresh)
+        started.wait(timeout=5)
+        shutdown.start()
+        # Keep all real workers busy until shutdown has queued their sentinels.
+        with manager._queue.not_empty:
+            assert manager._queue.not_empty.wait_for(
+                lambda: len(manager._queue.queue) == workers, timeout=5
+            )
+    finally:
+        release.set()
+        if shutdown.ident is not None:
+            shutdown.join(timeout=5)
+        else:
+            manager.shutdown()
+
+    assert not shutdown.is_alive()
+    assert all(not consumer.is_alive() for consumer in manager._consumers)
+    assert manager.active_tasks() == 0
+    assert manager._queue.unfinished_tasks == 0
+    # The queue assertion prevents this behavioral check from hanging on regressions.
+    manager.wait_for_idle()
 
 
 def test_get_fresh_prompt(langfuse):
