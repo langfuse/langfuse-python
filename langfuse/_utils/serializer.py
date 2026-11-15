@@ -6,7 +6,7 @@ import math
 from asyncio import Queue
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from json import JSONEncoder
 from logging import getLogger
 from pathlib import Path
@@ -135,6 +135,12 @@ class EventSerializer(JSONEncoder):
 
             if isinstance(obj, (date)):
                 return obj.isoformat()
+
+            if isinstance(obj, (time)):
+                return obj.isoformat()
+
+            if isinstance(obj, (timedelta)):
+                return obj.total_seconds()
 
             if isinstance(obj, Path):
                 return str(obj)
