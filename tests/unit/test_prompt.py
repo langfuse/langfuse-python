@@ -880,3 +880,41 @@ def test_get_prompt_with_zero_retries_sends_one_request(langfuse, sleeps, failur
 
     assert len(requests) == 1
     assert sleeps == []
+
+
+def test_invalidate_only_evicts_entries_of_the_given_prompt_name():
+    cache = PromptCache()
+
+    def cache_prompt(name: str, *, version=None, label=None) -> str:
+        key = PromptCache.generate_cache_key(name, version=version, label=label)
+        prompt = Prompt_Text(
+            name=name,
+            version=version or 1,
+            prompt="prompt",
+            labels=[],
+            type="text",
+            config={},
+            tags=[],
+        )
+        cache.set(key, TextPromptClient(prompt), None)
+        return key
+
+    try:
+        invalidated_keys = [
+            cache_prompt("summary"),
+            cache_prompt("summary", label="staging"),
+            cache_prompt("summary", version=3),
+        ]
+        kept_keys = [
+            cache_prompt("summary_detailed"),
+            cache_prompt("summary-detailed"),
+            cache_prompt("summary-v2", version=1),
+            cache_prompt("summary/nested"),
+        ]
+
+        cache.invalidate("summary")
+
+        assert [key for key in invalidated_keys if cache.get(key)] == []
+        assert [key for key in kept_keys if cache.get(key) is None] == []
+    finally:
+        cache._task_manager.shutdown()
