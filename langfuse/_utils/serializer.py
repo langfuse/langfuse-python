@@ -6,7 +6,7 @@ import math
 from asyncio import Queue
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from json import JSONEncoder
 from logging import getLogger
 from pathlib import Path
@@ -14,6 +14,11 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, SecretBytes, SecretStr
+
+try:
+    from pydantic_core import to_jsonable_python
+except ImportError:
+    to_jsonable_python = None
 
 from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
@@ -36,6 +41,38 @@ logger = getLogger(__name__)
 
 _MAX_SAFE_INT = 2**53 - 1
 _MIN_SAFE_INT = -(2**53) + 1
+
+
+def _timedelta_to_iso8601(td: timedelta) -> str:
+    """Format a datetime.timedelta as an ISO 8601 duration string (e.g. PT5M, PT1M30S)."""
+    total_seconds = td.total_seconds()
+    if total_seconds == 0:
+        return "PT0S"
+
+    sign = "-" if total_seconds < 0 else ""
+    total_seconds = abs(total_seconds)
+
+    days = int(total_seconds // 86400)
+    rem = total_seconds % 86400
+    hours = int(rem // 3600)
+    rem = rem % 3600
+    minutes = int(rem // 60)
+    seconds = rem % 60
+
+    sec_str = f"{seconds:.6f}".rstrip("0").rstrip(".") if seconds % 1 != 0 else str(int(seconds))
+
+    time_parts = []
+    if hours > 0:
+        time_parts.append(f"{hours}H")
+    if minutes > 0:
+        time_parts.append(f"{minutes}M")
+    if seconds > 0 or (days == 0 and hours == 0 and minutes == 0):
+        time_parts.append(f"{sec_str}S")
+
+    date_part = f"{days}D" if days > 0 else ""
+    t_part = f"T{''.join(time_parts)}" if time_parts else ""
+
+    return f"{sign}P{date_part}{t_part}"
 
 
 class EventSerializer(JSONEncoder):
@@ -135,6 +172,14 @@ class EventSerializer(JSONEncoder):
 
             if isinstance(obj, (date)):
                 return obj.isoformat()
+
+            if isinstance(obj, (time)):
+                return obj.isoformat()
+
+            if isinstance(obj, (timedelta)):
+                if to_jsonable_python is not None:
+                    return to_jsonable_python(obj)
+                return _timedelta_to_iso8601(obj)
 
             if isinstance(obj, Path):
                 return str(obj)

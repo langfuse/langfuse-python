@@ -1,7 +1,7 @@
 import json
 import threading
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from uuid import UUID
@@ -570,3 +570,66 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     result = json.loads(EventSerializer().encode(input_obj))
 
     assert result == expected
+
+
+def test_time():
+    """Resolves Issue #20158: datetime.time serializes to ISO format instead of '<time>'."""
+    t = time(9, 30, 0)
+    serializer = EventSerializer()
+    assert serializer.encode(t) == '"09:30:00"'
+
+
+def test_time_with_microseconds_and_timezone():
+    """datetime.time with fractional seconds and timezone info serializes accurately."""
+    t = time(9, 30, 15, 500000, tzinfo=timezone.utc)
+    serializer = EventSerializer()
+    assert serializer.encode(t) == '"09:30:15.500000+00:00"'
+
+
+def test_timedelta():
+    """Resolves Issue #20158: datetime.timedelta serializes to ISO 8601 duration instead of '<timedelta>'."""
+    td = timedelta(seconds=90)
+    serializer = EventSerializer()
+    assert serializer.encode(td) == '"PT1M30S"'
+
+
+def test_timedelta_fractional_and_negative():
+    """Fractional and negative timedeltas serialize to ISO 8601 duration cleanly."""
+    td_frac = timedelta(milliseconds=250)
+    serializer = EventSerializer()
+    assert serializer.encode(td_frac) == '"PT0.25S"'
+
+    td_neg = timedelta(seconds=-45)
+    assert serializer.encode(td_neg) == '"-PT45S"'
+
+
+def test_pydantic_model_with_time_and_timedelta():
+    """Pydantic models with time and timedelta fields serialize properly."""
+    class ModelWithTimeAndDuration(BaseModel):
+        scheduled_at: time
+        timeout: timedelta
+
+    model = ModelWithTimeAndDuration(
+        scheduled_at=time(14, 15),
+        timeout=timedelta(minutes=5)
+    )
+    serializer = EventSerializer()
+    res = json.loads(serializer.encode(model))
+    assert res == {
+        "scheduled_at": "14:15:00",
+        "timeout": "PT5M"
+    }
+
+
+def test_dict_with_time_and_timedelta():
+    """Dictionaries containing time and timedelta values preserve their real values."""
+    payload = {
+        "start": time(8, 0),
+        "duration": timedelta(hours=1, minutes=30)
+    }
+    serializer = EventSerializer()
+    res = json.loads(serializer.encode(payload))
+    assert res == {
+        "start": "08:00:00",
+        "duration": "PT1H30M"
+    }
