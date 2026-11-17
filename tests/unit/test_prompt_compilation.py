@@ -932,3 +932,157 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+@pytest.mark.parametrize(
+    "context",
+    [
+        "Use {name}",
+        "Use {{name}}",
+        "Compare {question}",
+        "An unmatched { brace",
+        "Private \ue000 and NUL \0 with {name}",
+        'JSON: {"name": "Ada"}',
+        "",
+        None,
+        42,
+    ],
+)
+def test_precompiled_values_remain_literal_in_langchain(prompt_type, context):
+    source = "Context: {{context}}\nQuestion: {{question}}"
+    fields = dict(name="literal_context", version=1, config={}, tags=[], labels=[])
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(
+            client.get_langchain_prompt(context=context)
+        )
+        rendered = template.format(question="Hello")
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(
+            client.get_langchain_prompt(context=context)
+        )
+        rendered = template.format_messages(question="Hello")[0].content
+    assert template.input_variables == ["question"]
+    literal_context = "" if context is None else str(context)
+    assert rendered == f"Context: {literal_context}\nQuestion: Hello"
+
+
+def test_precompiled_history_values_remain_literal_in_langchain():
+    client = ChatPromptClient(
+        Prompt_Chat(
+            type="chat",
+            name="history_literals",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=[
+                {"type": "placeholder", "name": "history"},
+                ChatMessage(role="user", content="{{question}}"),
+            ],
+        )
+    )
+    history = [{"role": "system", "content": "Context: {{context}}"}]
+    messages = client.get_langchain_prompt(history=history, context="Keep {{question}}")
+    template = ChatPromptTemplate.from_messages(messages)
+    rendered = template.format_messages(question="Hello")
+    assert rendered[0].content == "Context: Keep {{question}}"
+    assert rendered[1].content == "Hello"
+    assert history == [{"role": "system", "content": "Context: {{context}}"}]
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+def test_precompiled_non_word_names_keep_working(prompt_type):
+    fields = dict(name="known_names", version=1, config={}, tags=[], labels=[])
+    source = "Context: {{context-data}} / {{user name}} / {{question}}"
+    values = {"context-data": "Keep {name}", "user name": "Ada"}
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(client.get_langchain_prompt(**values))
+        rendered = template.format(question="Hello")
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(
+            client.get_langchain_prompt(**values)
+        )
+        rendered = template.format_messages(question="Hello")[0].content
+    assert rendered == "Context: Keep {name} / Ada / Hello"
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+def test_precompiled_values_can_complete_json_example(prompt_type):
+    fields = dict(name="json_context", version=1, config={}, tags=[], labels=[])
+    source = "{ {{context}} }"
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(
+            client.get_langchain_prompt(context='"name": "Ada"')
+        )
+        rendered = template.format()
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(
+            client.get_langchain_prompt(context='"name": "Ada"')
+        )
+        rendered = template.format_messages()[0].content
+    assert rendered == '{ "name": "Ada" }'
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+def test_unfilled_variable_next_to_json_close_keeps_working(prompt_type):
+    fields = dict(name="json_variable", version=1, config={}, tags=[], labels=[])
+    source = '{"answer": {{question}}}'
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(client.get_langchain_prompt())
+        rendered = template.format(question=42)
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(client.get_langchain_prompt())
+        rendered = template.format_messages(question=42)[0].content
+    assert rendered == '{"answer": 42}'
+
+
+@pytest.mark.parametrize("prompt_type", ["text", "chat"])
+def test_unused_precompiled_values_are_not_stringified(prompt_type):
+    class Unused:
+        def __str__(self):
+            raise AssertionError("an unused value must not be evaluated")
+
+    fields = dict(name="unused_context", version=1, config={}, tags=[], labels=[])
+    source = "Question: {{question}}"
+    if prompt_type == "text":
+        client = TextPromptClient(Prompt_Text(type="text", prompt=source, **fields))
+        template = PromptTemplate.from_template(
+            client.get_langchain_prompt(unused=Unused())
+        )
+        rendered = template.format(question="Hello")
+    else:
+        client = ChatPromptClient(
+            Prompt_Chat(
+                type="chat", prompt=[ChatMessage(role="user", content=source)], **fields
+            )
+        )
+        template = ChatPromptTemplate.from_messages(
+            client.get_langchain_prompt(unused=Unused())
+        )
+        rendered = template.format_messages(question="Hello")[0].content
+    assert rendered == "Question: Hello"
