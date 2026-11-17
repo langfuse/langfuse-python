@@ -1,13 +1,18 @@
 """Unit tests for batch evaluation on the v2 observations API."""
 
+import asyncio
 import inspect
 import json
+import threading
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from langfuse import Langfuse
 from langfuse.api import ObservationsV2Response, ObservationV2
@@ -144,6 +149,60 @@ async def test_paginates_with_cursor_and_scores_observations():
         config_id=None,
     )
     client.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_flush_keeps_event_loop_responsive_until_scores_are_delivered():
+    loop = asyncio.get_running_loop()
+    loop_progressed = threading.Event()
+    progress_during_upload = []
+    delivered_scores = []
+    observations = [make_observation(i) for i in range(2)]
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/public/v2/observations":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        item.model_dump(mode="json", by_alias=True)
+                        for item in observations
+                    ],
+                    "meta": {},
+                },
+            )
+        assert request.url.path == "/api/public/scores"
+        # The upload starts when flush() wakes the score consumer. Its caller's
+        # event loop must remain available while flush waits for delivery.
+        loop.call_soon_threadsafe(loop_progressed.set)
+        progress_during_upload.append(loop_progressed.wait(timeout=2))
+        delivered_scores.extend(json.loads(request.content))
+        return httpx.Response(202, json={"message": "Accepted"})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as httpx_client:
+        client = Langfuse(
+            public_key="pk-batch-async-flush",
+            secret_key="sk-batch-async-flush",
+            base_url="http://langfuse.test",
+            httpx_client=httpx_client,
+            tracer_provider=TracerProvider(),
+            span_exporter=InMemorySpanExporter(),
+            flush_at=1000,
+            flush_interval=60,
+        )
+        try:
+            result = await run(BatchEvaluationRunner(client))
+
+            assert result.total_items_processed == 2
+            assert result.total_scores_created == 2
+            assert progress_during_upload == [True]
+            assert {score["observationId"] for score in delivered_scores} == {
+                "obs-0",
+                "obs-1",
+            }
+            assert client._resources._score_queue.unfinished_tasks == 0
+        finally:
+            client.shutdown()
 
 
 @pytest.mark.asyncio
