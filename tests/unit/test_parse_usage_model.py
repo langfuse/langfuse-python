@@ -92,28 +92,28 @@ def test_anthropic_cache_creation_nested_dict():
     result = _parse_usage_model(usage)
     assert result["input"] == 9454
     assert result["output"] == 380
-    assert result["cache_creation_ephemeral_1h_input_tokens"] == 0
-    assert result["cache_creation_ephemeral_5m_input_tokens"] == 2048
-    assert result["cache_creation_input_tokens"] == 2048
+    assert result["input_cache_creation_1h"] == 0
+    assert result["input_cache_creation_5m"] == 2048
+    assert "cache_creation_input_tokens" not in result
     # No nested dict may survive into the final usage model
     assert all(isinstance(v, int) for v in result.values())
 
 
-def test_anthropic_cache_creation_keeps_existing_aggregate():
-    """API-provided cache_creation_input_tokens is not overwritten by the computed sum."""
+def test_anthropic_cache_creation_keeps_unattributed_remainder():
+    """Unattributed cache creation tokens remain on cache_creation_input_tokens."""
     usage = {
         "input_tokens": 100,
         "output_tokens": 10,
         "cache_creation_input_tokens": 3000,
         "cache_creation": {
             "ephemeral_1h_input_tokens": 1000,
-            "ephemeral_5m_input_tokens": 2000,
+            "ephemeral_5m_input_tokens": 1500,
         },
     }
     result = _parse_usage_model(usage)
-    assert result["cache_creation_input_tokens"] == 3000
-    assert result["cache_creation_ephemeral_1h_input_tokens"] == 1000
-    assert result["cache_creation_ephemeral_5m_input_tokens"] == 2000
+    assert result["cache_creation_input_tokens"] == 500
+    assert result["input_cache_creation_1h"] == 1000
+    assert result["input_cache_creation_5m"] == 1500
 
 
 def test_anthropic_cache_creation_all_zero():
@@ -127,8 +127,29 @@ def test_anthropic_cache_creation_all_zero():
         },
     }
     result = _parse_usage_model(usage)
-    assert result["cache_creation_ephemeral_1h_input_tokens"] == 0
-    assert result["cache_creation_ephemeral_5m_input_tokens"] == 0
+    assert result["input_cache_creation_1h"] == 0
+    assert result["input_cache_creation_5m"] == 0
+    assert "cache_creation_input_tokens" not in result
+
+
+def test_anthropic_cache_creation_deduplicates_aggregate():
+    """Anthropic Messages API usage de-duplicates aggregate cache_creation_input_tokens."""
+    raw = {
+        "input_tokens": 4,
+        "output_tokens": 153,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5544,
+        "cache_creation": {
+            "ephemeral_5m_input_tokens": 5544,
+            "ephemeral_1h_input_tokens": 0,
+        },
+    }
+    result = _parse_usage_model(raw)
+    assert result["input"] == 4
+    assert result["output"] == 153
+    assert result["cache_read_input_tokens"] == 0
+    assert result["input_cache_creation_5m"] == 5544
+    assert result["input_cache_creation_1h"] == 0
     assert "cache_creation_input_tokens" not in result
 
 
