@@ -748,3 +748,67 @@ def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
+
+
+def test_create_chat_prompt_from_fetched_chat_prompt(langfuse: Langfuse):
+    fetched = ChatPromptClient(
+        Prompt_Chat(
+            name="source",
+            version=1,
+            prompt=[
+                {"type": "chatmessage", "role": "system", "content": "Hi {{name}}"},
+                {"type": "placeholder", "name": "history"},
+            ],
+            labels=[],
+            type="chat",
+            config={},
+            tags=[],
+        )
+    )
+    assert fetched.prompt[0]["type"] == "message"
+
+    mock_server_call = langfuse.api.prompts.create
+    mock_server_call.return_value = Prompt_Chat(
+        name="copy",
+        version=1,
+        prompt=[
+            {"type": "chatmessage", "role": "system", "content": "Hi {{name}}"},
+            {"type": "placeholder", "name": "history"},
+        ],
+        labels=[],
+        type="chat",
+        config={},
+        tags=[],
+    )
+
+    result = langfuse.create_prompt(name="copy", prompt=fetched.prompt, type="chat")
+
+    request = mock_server_call.call_args.kwargs["request"]
+    assert request.dict()["prompt"] == [
+        {"type": "chatmessage", "role": "system", "content": "Hi {{name}}"},
+        {"type": "placeholder", "name": "history"},
+    ]
+    assert fetched.prompt[0]["type"] == "message"
+    assert result.prompt == fetched.prompt
+
+
+def test_get_chat_prompt_fallback_with_message_type(langfuse: Langfuse):
+    langfuse.api.prompts.get.side_effect = Exception("Prompt not found")
+    fallback = [
+        {"type": "message", "role": "system", "content": "Hi {{name}}"},
+        {"type": "placeholder", "name": "history"},
+    ]
+
+    result = langfuse.get_prompt(
+        "chat_fallback_with_message_type",
+        type="chat",
+        fallback=fallback,
+        max_retries=0,
+    )
+
+    assert result.is_fallback
+    assert result.prompt == fallback
+    assert result.compile(name="Bob", history=[{"role": "user", "content": "yo"}]) == [
+        {"role": "system", "content": "Hi Bob"},
+        {"role": "user", "content": "yo"},
+    ]
