@@ -1,8 +1,11 @@
 import asyncio
 import base64
+import json
+from contextlib import suppress
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 import pytest
 from openai.types.chat import ChatCompletion
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
@@ -600,6 +603,96 @@ def test_chat_completion_error_marks_generation_error(langfuse_memory_client, ge
         "boom" in span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
     )
     assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT not in span.attributes
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "resource,stream",
+    [
+        pytest.param("chat", False, id="chat"),
+        pytest.param("chat", True, id="chat-stream"),
+        pytest.param("responses", False, id="responses"),
+        pytest.param("responses", True, id="responses-stream"),
+        pytest.param("embeddings", None, id="embeddings"),
+    ],
+)
+async def test_async_request_cancelled_before_response_ends_observation(
+    resource, stream, langfuse_memory_client, find_spans
+):
+    request_started = asyncio.Event()
+    release_response = asyncio.Event()
+    cancellations = []
+    name = f"unit-openai-cancel-before-response-{resource}-{stream}"
+    model = "text-embedding-3-small" if resource == "embeddings" else "gpt-4o-mini"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        expected_path = {
+            "chat": "/v1/chat/completions",
+            "responses": "/v1/responses",
+            "embeddings": "/v1/embeddings",
+        }[resource]
+        assert request.url.path == expected_path
+        body = json.loads(request.content)
+        if resource == "embeddings":
+            assert "stream" not in body
+        else:
+            assert body["stream"] is stream
+        request_started.set()
+        try:
+            await release_response.wait()
+        except asyncio.CancelledError as exc:
+            cancellations.append(exc)
+            raise
+        raise AssertionError("Request resumed without cancellation")
+
+    async with lf_openai.AsyncOpenAI(
+        api_key="test",
+        max_retries=0,
+        http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(handler), trust_env=False
+        ),
+    ) as client:
+        if resource == "chat":
+            call = client.chat.completions.create(
+                name=name,
+                model=model,
+                messages=[{"role": "user", "content": "hello"}],
+                stream=stream,
+            )
+        elif resource == "responses":
+            call = client.responses.create(
+                name=name, model=model, input="hello", stream=stream
+            )
+        else:
+            call = client.embeddings.create(name=name, model=model, input="hello")
+
+        task = asyncio.create_task(call)
+        try:
+            await asyncio.wait_for(request_started.wait(), timeout=5)
+            task.cancel("caller cancelled")
+            with pytest.raises(asyncio.CancelledError, match="caller cancelled") as exc:
+                await task
+            assert task.cancelled()
+            assert len(cancellations) == 1
+            assert exc.value is cancellations[0]
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+    langfuse_memory_client.flush()
+    spans = find_spans(name)
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.end_time is not None
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == model
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == (
+        "embedding" if resource == "embeddings" else "generation"
+    )
+    assert span.attributes.get(LangfuseOtelSpanAttributes.OBSERVATION_LEVEL) != "ERROR"
+    assert LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT not in span.attributes
+    assert LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS not in span.attributes
+    assert LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS not in span.attributes
 
 
 def test_openai_stream_preserves_original_stream_contract(
