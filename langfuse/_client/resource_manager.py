@@ -366,6 +366,7 @@ class LangfuseResourceManager:
             x_langfuse_sdk_name="python",
             x_langfuse_sdk_version=langfuse_version,
             x_langfuse_public_key=self.public_key,
+            headers=self.additional_headers,
             timeout=self.timeout,
         )
 
