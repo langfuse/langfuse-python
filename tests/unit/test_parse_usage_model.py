@@ -79,45 +79,58 @@ def test_prompt_tokens_details_dict_empty():
 
 
 def test_anthropic_cache_creation_nested_dict():
-    """Anthropic extended prompt caching: cache_creation nested dict is flattened."""
+    """Tiered cache writes contribute to usage exactly once."""
     usage = {
-        "input_tokens": 9454,
-        "output_tokens": 380,
+        "input_tokens": 4,
+        "output_tokens": 153,
         "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5544,
         "cache_creation": {
             "ephemeral_1h_input_tokens": 0,
-            "ephemeral_5m_input_tokens": 2048,
+            "ephemeral_5m_input_tokens": 5544,
         },
     }
     result = _parse_usage_model(usage)
-    assert result["input"] == 9454
-    assert result["output"] == 380
-    assert result["cache_creation_ephemeral_1h_input_tokens"] == 0
-    assert result["cache_creation_ephemeral_5m_input_tokens"] == 2048
-    assert result["cache_creation_input_tokens"] == 2048
+    assert result["input"] == 4
+    assert result["output"] == 153
+    assert result["input_cache_creation_1h"] == 0
+    assert result["input_cache_creation_5m"] == 5544
+    assert "cache_creation_input_tokens" not in result
+    assert sum(result.values()) == 5701
     # No nested dict may survive into the final usage model
     assert all(isinstance(v, int) for v in result.values())
 
 
 def test_anthropic_cache_creation_keeps_existing_aggregate():
-    """API-provided cache_creation_input_tokens is not overwritten by the computed sum."""
+    """Only the unattributed cache writes remain in the aggregate bucket."""
     usage = {
         "input_tokens": 100,
         "output_tokens": 10,
-        "cache_creation_input_tokens": 3000,
+        "cache_creation_input_tokens": 3500,
         "cache_creation": {
             "ephemeral_1h_input_tokens": 1000,
             "ephemeral_5m_input_tokens": 2000,
         },
     }
     result = _parse_usage_model(usage)
-    assert result["cache_creation_input_tokens"] == 3000
-    assert result["cache_creation_ephemeral_1h_input_tokens"] == 1000
-    assert result["cache_creation_ephemeral_5m_input_tokens"] == 2000
+    assert result["cache_creation_input_tokens"] == 500
+    assert result["input_cache_creation_1h"] == 1000
+    assert result["input_cache_creation_5m"] == 2000
+    assert sum(result.values()) == 3610
+
+
+def test_anthropic_cache_creation_without_aggregate():
+    usage = {
+        "input_tokens": 7,
+        "output_tokens": 3,
+        "cache_creation": {"ephemeral_5m_input_tokens": 20},
+    }
+    result = _parse_usage_model(usage)
+    assert result == {"input": 7, "output": 3, "input_cache_creation_5m": 20}
 
 
 def test_anthropic_cache_creation_all_zero():
-    """All-zero cache_creation tiers: flattened keys kept, no aggregate invented."""
+    """All-zero cache_creation tiers do not invent an aggregate."""
     usage = {
         "input_tokens": 50,
         "output_tokens": 5,
@@ -127,8 +140,8 @@ def test_anthropic_cache_creation_all_zero():
         },
     }
     result = _parse_usage_model(usage)
-    assert result["cache_creation_ephemeral_1h_input_tokens"] == 0
-    assert result["cache_creation_ephemeral_5m_input_tokens"] == 0
+    assert result["input_cache_creation_1h"] == 0
+    assert result["input_cache_creation_5m"] == 0
     assert "cache_creation_input_tokens" not in result
 
 
