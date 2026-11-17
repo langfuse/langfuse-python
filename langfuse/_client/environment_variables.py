@@ -35,6 +35,14 @@ LANGFUSE_SECRET_KEY = "LANGFUSE_SECRET_KEY"
 Secret API key of Langfuse project
 """
 
+LANGFUSE_PROJECT_ID = "LANGFUSE_PROJECT_ID"
+"""
+.. envvar:: LANGFUSE_PROJECT_ID
+
+Langfuse project that receives the client's data. Required for organization API keys;
+leave unset for project API keys.
+"""
+
 LANGFUSE_BASE_URL = "LANGFUSE_BASE_URL"
 """
 .. envvar:: LANGFUSE_BASE_URL

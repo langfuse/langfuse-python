@@ -126,6 +126,7 @@ def langfuse_memory_client(
         from langfuse._client.span_filter import is_default_export_span
 
         self.public_key = kwargs.get("public_key", "test-public-key")
+        self.project_id = kwargs.get("project_id")
         self._should_export_span = (
             kwargs.get("should_export_span") or is_default_export_span
         )

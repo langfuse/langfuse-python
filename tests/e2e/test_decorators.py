@@ -27,9 +27,10 @@ mock_kwargs = {"a": 1, "b": 2, "c": 3}
 
 def removeMockResourceManagerInstances():
     with LangfuseResourceManager._lock:
-        for public_key in list(LangfuseResourceManager._instances.keys()):
+        for instance_key in list(LangfuseResourceManager._instances.keys()):
+            public_key, _project_id = instance_key
             if public_key != os.getenv(LANGFUSE_PUBLIC_KEY):
-                LangfuseResourceManager._instances.pop(public_key)
+                LangfuseResourceManager._instances.pop(instance_key)
 
 
 def _get_observation_by_name(trace_data, name):
