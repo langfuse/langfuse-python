@@ -7,6 +7,8 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
+from fractions import Fraction
 from queue import Queue
 from typing import Any, Callable, Dict, List, Sequence
 
@@ -758,6 +760,8 @@ def test_create_score_payload_matches_request_model_serialization(client_factory
         ),
         dict(name="int-value", value=1, trace_id="a" * 32),
         dict(name="boolean", value=True, trace_id="a" * 32, data_type="BOOLEAN"),
+        dict(name="decimal-value", value=Decimal("0.75"), trace_id="a" * 32),
+        dict(name="fraction-value", value=Fraction(3, 4), trace_id="a" * 32),
         dict(
             name="categorical",
             value="good",
@@ -807,6 +811,21 @@ def test_create_score_payload_matches_request_model_serialization(client_factory
     # Compare JSON text, because 1 == 1.0 == True as Python values.
     sent = [json.dumps(score) for body in recorder.bodies for score in body]
     assert sent == expected
+
+
+def test_create_score_sends_numpy_values_as_numbers(client_factory):
+    np = pytest.importorskip("numpy")
+    recorder = Recorder(_responder(ACCEPTED))
+    client = client_factory(recorder)
+
+    # e.g. an evaluator returning np.mean(hits) > 0.5 or np.float32(score)
+    for value in (np.bool_(True), np.float32(0.5), np.int64(3)):
+        client.create_score(name="numpy", value=value, trace_id="a" * 32)
+    client.flush()
+
+    sent = [score["value"] for body in recorder.bodies for score in body]
+    assert sent == [1.0, 0.5, 3.0]
+    assert all(type(value) is float for value in sent)
 
 
 @pytest.fixture
