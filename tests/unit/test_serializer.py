@@ -587,20 +587,20 @@ def test_time_with_microseconds_and_timezone():
 
 
 def test_timedelta():
-    """Resolves Issue #20158: datetime.timedelta serializes to total seconds instead of '<timedelta>'."""
+    """Resolves Issue #20158: datetime.timedelta serializes to ISO 8601 duration instead of '<timedelta>'."""
     td = timedelta(seconds=90)
     serializer = EventSerializer()
-    assert serializer.encode(td) == "90.0"
+    assert serializer.encode(td) == '"PT1M30S"'
 
 
 def test_timedelta_fractional_and_negative():
-    """Fractional and negative timedeltas serialize to total seconds cleanly."""
+    """Fractional and negative timedeltas serialize to ISO 8601 duration cleanly."""
     td_frac = timedelta(milliseconds=250)
     serializer = EventSerializer()
-    assert serializer.encode(td_frac) == "0.25"
+    assert serializer.encode(td_frac) == '"PT0.25S"'
 
     td_neg = timedelta(seconds=-45)
-    assert serializer.encode(td_neg) == "-45.0"
+    assert serializer.encode(td_neg) == '"-PT45S"'
 
 
 def test_pydantic_model_with_time_and_timedelta():
@@ -617,7 +617,7 @@ def test_pydantic_model_with_time_and_timedelta():
     res = json.loads(serializer.encode(model))
     assert res == {
         "scheduled_at": "14:15:00",
-        "timeout": 300.0
+        "timeout": "PT5M"
     }
 
 
@@ -631,5 +631,5 @@ def test_dict_with_time_and_timedelta():
     res = json.loads(serializer.encode(payload))
     assert res == {
         "start": "08:00:00",
-        "duration": 5400.0
+        "duration": "PT1H30M"
     }
