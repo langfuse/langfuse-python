@@ -131,7 +131,8 @@ class LangfuseDecorator:
                     Same default and override mechanism as capture_input.
             transform_to_string (Optional[Callable[[Iterable], str]]): For functions returning generators, joins the
                     yielded chunks into the string stored as output. Without it, chunks are concatenated if all are
-                    strings, otherwise stored as a list.
+                    strings, otherwise stored as a list. If the transform raises, the observation ends with an error
+                    and the original exception propagates to the caller.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -604,16 +605,20 @@ class _ContextPreservedSyncGeneratorWrapper:
         if self._span_ended:
             return
 
-        if self.capture_output:
-            output: Any = self.items
+        try:
+            if self.capture_output:
+                output: Any = self.items
 
-            if self.transform_fn is not None:
-                output = self.transform_fn(self.items)
+                if self.transform_fn is not None:
+                    output = self.transform_fn(self.items)
 
-            elif all(isinstance(item, str) for item in self.items):
-                output = "".join(self.items)
+                elif all(isinstance(item, str) for item in self.items):
+                    output = "".join(self.items)
 
-            self.span.update(output=output)
+                self.span.update(output=output)
+        except BaseException as error:
+            self._finalize_with_error(error)
+            raise
 
         self.span.end()
         self._span_ended = True
@@ -714,16 +719,20 @@ class _ContextPreservedAsyncGeneratorWrapper:
         if self._span_ended:
             return
 
-        if self.capture_output:
-            output: Any = self.items
+        try:
+            if self.capture_output:
+                output: Any = self.items
 
-            if self.transform_fn is not None:
-                output = self.transform_fn(self.items)
+                if self.transform_fn is not None:
+                    output = self.transform_fn(self.items)
 
-            elif all(isinstance(item, str) for item in self.items):
-                output = "".join(self.items)
+                elif all(isinstance(item, str) for item in self.items):
+                    output = "".join(self.items)
 
-            self.span.update(output=output)
+                self.span.update(output=output)
+        except BaseException as error:
+            self._finalize_with_error(error)
+            raise
 
         self.span.end()
         self._span_ended = True
