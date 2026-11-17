@@ -804,6 +804,8 @@ Configuration:
 
     def test_get_langchain_prompt_with_unresolved_placeholders(self):
         """Test that unresolved placeholders become MessagesPlaceholder objects."""
+        from unittest.mock import patch
+
         from langfuse.api import Prompt_Chat
         from langfuse.model import ChatPromptClient
 
@@ -826,10 +828,13 @@ Configuration:
         )
 
         # Call get_langchain_prompt without resolving placeholder
-        langchain_messages = prompt_client.get_langchain_prompt(
-            role="helpful",
-            task="coding",
-        )
+        with patch("langfuse.logger.langfuse_logger.warning") as mock_warning:
+            langchain_messages = prompt_client.get_langchain_prompt(
+                role="helpful",
+                task="coding",
+            )
+
+        mock_warning.assert_not_called()
 
         # Should have 3 items: system message, MessagesPlaceholder, user message
         assert len(langchain_messages) == 3
