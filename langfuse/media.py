@@ -319,6 +319,8 @@ class LangfuseMedia:
         If fetching media content fails for a reference string, a warning is logged and the reference
         string is left unchanged.
 
+        Successful downloads are reused for repeated references within this call.
+
         Args:
             obj: The object to process. Can be a primitive value, array, or nested object.
                 If the object has a __dict__ attribute, a dict will be returned instead of the original object type.
@@ -350,6 +352,8 @@ class LangfuseMedia:
             # }
         """
 
+        resolved_media: dict[str, str] = {}
+
         def traverse(obj: Any, depth: int) -> Any:
             if depth > max_depth:
                 return obj
@@ -357,12 +361,11 @@ class LangfuseMedia:
             # Handle string
             if isinstance(obj, str):
                 regex = r"@@@langfuseMedia:.+?@@@"
-                reference_string_matches = re.findall(regex, obj)
+                reference_string_matches = list(dict.fromkeys(re.findall(regex, obj)))
                 if len(reference_string_matches) == 0:
                     return obj
 
                 result = obj
-                reference_string_to_media_content = {}
                 httpx_client = (
                     langfuse_client._resources.httpx_client
                     if langfuse_client._resources is not None
@@ -370,6 +373,8 @@ class LangfuseMedia:
                 )
 
                 for reference_string in reference_string_matches:
+                    if reference_string in resolved_media:
+                        continue
                     try:
                         parsed_media_reference = LangfuseMedia.parse_reference_string(
                             reference_string
@@ -394,9 +399,7 @@ class LangfuseMedia:
                         ).decode()
                         base64_data_uri = f"data:{media_data.content_type};base64,{base64_media_content}"
 
-                        reference_string_to_media_content[reference_string] = (
-                            base64_data_uri
-                        )
+                        resolved_media[reference_string] = base64_data_uri
                     except Exception as e:
                         logger.warning(
                             "Error fetching media content for reference string %s: %s",
@@ -406,11 +409,9 @@ class LangfuseMedia:
                         # Do not replace the reference string if there's an error
                         continue
 
-                for (
-                    ref_str,
-                    media_content_str,
-                ) in reference_string_to_media_content.items():
-                    result = result.replace(ref_str, media_content_str)
+                for ref_str in reference_string_matches:
+                    if ref_str in resolved_media:
+                        result = result.replace(ref_str, resolved_media[ref_str])
 
                 return result
 
