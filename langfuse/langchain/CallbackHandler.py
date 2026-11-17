@@ -343,7 +343,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         if any(isinstance(error, t) for t in CONTROL_FLOW_EXCEPTION_TYPES):
             return "DEFAULT", str(error) or type(error).__name__
 
-        return "ERROR", str(error)
+        return "ERROR", str(error) or type(error).__name__
 
     def _get_observation_type_from_serialized(
         self, serialized: Optional[Dict[str, Any]], callback_type: str, **kwargs: Any
