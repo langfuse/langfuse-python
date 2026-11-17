@@ -9,6 +9,7 @@ from langfuse._utils.retry import (
     call_with_retries,
     retry_delay_seconds,
 )
+from langfuse.api.core import http_client
 from langfuse.api.core.api_error import ApiError
 
 
@@ -24,11 +25,24 @@ def test_retry_delay_caps_retry_after():
     assert retry_delay_seconds(error, 0, 10) == MAX_SERVER_RETRY_DELAY_SECONDS
 
 
-def test_retry_delay_uses_x_ratelimit_reset_without_retry_after(monkeypatch):
+@pytest.mark.parametrize("draw, expected", [(0.0, 5.0), (1.0, 6.0)])
+def test_retry_delay_jitters_x_ratelimit_reset_without_retry_after(
+    monkeypatch, draw, expected
+):
+    # Clients sharing a rate-limited key must not all retry at the reset instant,
+    # so the reset delay gets the generated client's 0-20% positive jitter.
     monkeypatch.setattr(time, "time", lambda: 1000.0)
+    monkeypatch.setattr(http_client, "random", lambda: draw)
     error = ApiError(status_code=429, headers={"x-ratelimit-reset": "1005"})
 
-    assert retry_delay_seconds(error, 0, 10) == 5
+    assert retry_delay_seconds(error, 0, 10) == pytest.approx(expected)
+
+
+def test_retry_delay_does_not_jitter_retry_after(monkeypatch):
+    monkeypatch.setattr(http_client, "random", lambda: 1.0)
+    error = ApiError(status_code=429, headers={"retry-after": "3"})
+
+    assert retry_delay_seconds(error, 0, 10) == 3
 
 
 def test_retry_delay_reads_headers_from_http_status_errors():

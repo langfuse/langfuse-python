@@ -13,6 +13,7 @@ import httpx
 
 from langfuse.api.core.api_error import ApiError
 from langfuse.api.core.http_client import (
+    _add_positive_jitter,
     _parse_retry_after,
     _parse_x_ratelimit_reset,
 )
@@ -54,11 +55,17 @@ def retry_delay_seconds(
     """Honor Retry-After / X-RateLimit-Reset, else exponential backoff with full jitter."""
     headers = _response_headers(error)
     if headers is not None:
-        server_delay = _parse_retry_after(headers)
-        if server_delay is None or server_delay <= 0:
-            server_delay = _parse_x_ratelimit_reset(headers)
-        if server_delay is not None and server_delay > 0:
-            return min(server_delay, MAX_SERVER_RETRY_DELAY_SECONDS)
+        retry_after = _parse_retry_after(headers)
+        if retry_after is not None and retry_after > 0:
+            return min(retry_after, MAX_SERVER_RETRY_DELAY_SECONDS)
+
+        # Like the generated client, jitter the reset delay so clients sharing a
+        # rate-limited key don't all retry at the same instant.
+        ratelimit_reset = _parse_x_ratelimit_reset(headers)
+        if ratelimit_reset is not None and ratelimit_reset > 0:
+            return _add_positive_jitter(
+                min(ratelimit_reset, MAX_SERVER_RETRY_DELAY_SECONDS)
+            )
 
     return random.uniform(0, min(2.0**retries, max_backoff_seconds))
 
