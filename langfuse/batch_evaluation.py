@@ -947,7 +947,7 @@ class BatchEvaluationRunner:
             )
 
         while True:
-            if max_items is not None and total_items_fetched >= max_items:
+            if max_items is not None and total_items_processed >= max_items:
                 if verbose:
                     logger.info("Reached max_items limit (%s)", max_items)
                 break
@@ -956,7 +956,7 @@ class BatchEvaluationRunner:
             # processed item, so resuming after max_items skips nothing.
             limit = fetch_batch_size
             if max_items is not None:
-                limit = min(limit, max_items - total_items_fetched)
+                limit = min(limit, max_items - total_items_processed)
 
             try:
                 items, next_cursor = await self._fetch_batch_with_retry(
@@ -1013,6 +1013,9 @@ class BatchEvaluationRunner:
             items_to_process = self._deduplicate_page(
                 items, skip_ids=previous_page_ids | {resumed_item_id}
             )
+            if max_items is not None:
+                remaining = max(0, max_items - total_items_processed)
+                items_to_process = items_to_process[:remaining]
 
             results = await asyncio.gather(
                 *[process_item(item) for item in items_to_process]
@@ -1184,7 +1187,8 @@ class BatchEvaluationRunner:
                 )
 
                 stats.successful_runs += 1
-                stats.total_scores_created += len(eval_results)
+                scores_multiplier = 2 if _add_observation_scores_to_trace else 1
+                stats.total_scores_created += len(eval_results) * scores_multiplier
                 evaluations.extend(eval_results)
 
             except Exception as e:
