@@ -16,7 +16,8 @@ from typing import Any, List, Union
 def parse_path(json_path: str) -> List[Union[str, int]]:
     """Parse a jsonpath-plus normalized path into ordered segments.
 
-    Object keys become ``str`` segments, array indices become ``int`` segments.
+    Quoted keys become ``str`` segments and canonical numeric segments become
+    ``int``. Numeric segments with leading zeroes remain strings.
     Returns an empty list for the root ``$``.
     """
     if not json_path.startswith("$"):
@@ -43,7 +44,10 @@ def parse_path(json_path: str) -> List[Union[str, int]]:
                 i += 1
             if i == start or i >= n or json_path[i] != "]":
                 raise ValueError(json_path)
-            segments.append(int(json_path[start:i]))
+            digits = json_path[start:i]
+            segments.append(
+                digits if len(digits) > 1 and digits[0] == "0" else int(digits)
+            )
             i += 1
 
     return segments
@@ -61,14 +65,17 @@ def set_value_at_path(value: Any, json_path: str, replacement: Any) -> Any:
 
     target = value
     for segment in segments[:-1]:
+        if isinstance(target, dict) and isinstance(segment, int):
+            segment = str(segment)
         target = target[segment]
 
     leaf = segments[-1]
-    # JSON object keys are always strings, so an int leaf on a dict is an
-    # all-digit key that jsonpath-plus rendered ambiguously as "[0]". We can't
-    # tell it from a list index, so raise rather than add a bogus int key.
-    if isinstance(leaf, int) and isinstance(target, dict):
-        raise KeyError(json_path)
+    # jsonpath-plus uses unquoted numeric segments for both dict keys and indices.
+    if isinstance(target, dict):
+        if isinstance(leaf, int):
+            leaf = str(leaf)
+        if leaf not in target:
+            raise KeyError(json_path)
     target[leaf] = replacement
 
     return value
