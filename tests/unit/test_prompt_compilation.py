@@ -932,3 +932,34 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+
+def test_compile_non_dict_placeholder_items_use_each_item():
+    """Non-dict placeholder items should each be appended as their own string.
+
+    Regression test for langfuse/langfuse-python#1971: previously every
+    non-dict item produced the same message containing the whole list.
+    """
+    prompt_client = ChatPromptClient(
+        Prompt_Chat(
+            type="chat",
+            name="non_dict_placeholder_test",
+            version=1,
+            config={},
+            tags=[],
+            labels=[],
+            prompt=[
+                {"type": "chatmessage", "role": "system", "content": "hi {{x}}"},
+                {"type": "placeholder", "name": "history"},
+            ],
+        )
+    )
+
+    compiled_messages = prompt_client.compile(x="1", history=["a", "b"])
+
+    assert len(compiled_messages) == 3
+    assert compiled_messages[0] == {"role": "system", "content": "hi 1"}
+    assert compiled_messages[1]["role"] == "NOT_GIVEN"
+    assert compiled_messages[1]["content"] == "a"
+    assert compiled_messages[2]["role"] == "NOT_GIVEN"
+    assert compiled_messages[2]["content"] == "b"
