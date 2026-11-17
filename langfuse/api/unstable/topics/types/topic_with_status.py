@@ -14,7 +14,7 @@ class TopicWithStatus(Topic):
         bool, FieldMetadata(alias="inCurrentMap")
     ] = pydantic.Field()
     """
-    False for retired topics that still have assigned traces in the window.
+    Always true; retired topics are not returned.
     """
 
     window: TopicWindow
