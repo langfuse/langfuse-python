@@ -31,9 +31,11 @@ def is_retryable_status(status_code: int) -> bool:
 
 
 def is_retryable_api_call_error(error: Exception) -> bool:
-    """Return True for network errors and 408/409/429/5xx API errors."""
+    """Return True for network errors and 408/409/429/5xx responses."""
     if isinstance(error, httpx.TransportError):
         return True
+    if isinstance(error, httpx.HTTPStatusError):
+        return is_retryable_status(error.response.status_code)
     if isinstance(error, ApiError) and error.status_code is not None:
         return is_retryable_status(error.status_code)
 
