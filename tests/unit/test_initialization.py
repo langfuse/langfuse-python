@@ -297,6 +297,21 @@ class TestClientInitialization:
         # The SDK should accept the URL as-is (API client will handle normalization)
         assert client1._base_url == "http://test.com/"
 
+    def test_trailing_slash_is_not_doubled_in_trace_url(self, cleanup_env_vars):
+        """Test that a trailing slash in base_url does not produce '//' in UI links."""
+        client = Langfuse(
+            base_url="http://test.com/",
+            public_key="test_pk",
+            secret_key="test_sk",
+        )
+        client._project_id = "project-id"
+        trace_id = "a" * 32
+
+        assert (
+            client.get_trace_url(trace_id=trace_id)
+            == f"http://test.com/project/project-id/traces/{trace_id}"
+        )
+
     def test_urls_with_paths(self, cleanup_env_vars):
         """Test that URLs with paths work correctly."""
         client = Langfuse(

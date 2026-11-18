@@ -785,6 +785,24 @@ class TestCallerSuppliedExperimentId:
             "http://test-host/project/p/experiments/results?baseline=team%20a%2Frun%231"
         )
 
+    def test_trailing_slash_in_base_url_is_not_doubled_in_the_experiment_url(
+        self, langfuse_memory_client, monkeypatch
+    ):
+        monkeypatch.setattr(langfuse_memory_client, "create_score", MagicMock())
+        monkeypatch.setattr(langfuse_memory_client, "_get_project_id", lambda: "p")
+        monkeypatch.setattr(langfuse_memory_client, "_base_url", "http://test-host/")
+
+        result = langfuse_memory_client.run_experiment(
+            name="exp",
+            experiment_id="e",
+            data=[{"input": "a"}],
+            task=lambda *, item, **kwargs: item["input"],
+        )
+
+        assert result.experiment_url == (
+            "http://test-host/project/p/experiments/results?baseline=e"
+        )
+
     def test_supplied_id_is_used_when_called_inside_a_running_event_loop(
         self, langfuse_memory_client, find_spans, monkeypatch
     ):
