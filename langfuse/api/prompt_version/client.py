@@ -31,7 +31,8 @@ class PromptVersionClient:
         name: str,
         version: int,
         *,
-        new_labels: typing.Sequence[str],
+        new_labels: typing.Optional[typing.Sequence[str]] = OMIT,
+        remove_labels: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
         """
@@ -46,8 +47,11 @@ class PromptVersionClient:
         version : int
             Version of the prompt to update
 
-        new_labels : typing.Sequence[str]
+        new_labels : typing.Optional[typing.Sequence[str]]
             New labels for the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse.
+
+        remove_labels : typing.Optional[typing.Sequence[str]]
+            Labels to remove from the prompt version. The "latest" label is reserved and managed by Langfuse.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -71,11 +75,14 @@ class PromptVersionClient:
         client.prompt_version.update(
             name="name",
             version=1,
-            new_labels=["newLabels", "newLabels"],
         )
         """
         _response = self._raw_client.update(
-            name, version, new_labels=new_labels, request_options=request_options
+            name,
+            version,
+            new_labels=new_labels,
+            remove_labels=remove_labels,
+            request_options=request_options,
         )
         return _response.data
 
@@ -100,7 +107,8 @@ class AsyncPromptVersionClient:
         name: str,
         version: int,
         *,
-        new_labels: typing.Sequence[str],
+        new_labels: typing.Optional[typing.Sequence[str]] = OMIT,
+        remove_labels: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Prompt:
         """
@@ -115,8 +123,11 @@ class AsyncPromptVersionClient:
         version : int
             Version of the prompt to update
 
-        new_labels : typing.Sequence[str]
+        new_labels : typing.Optional[typing.Sequence[str]]
             New labels for the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse.
+
+        remove_labels : typing.Optional[typing.Sequence[str]]
+            Labels to remove from the prompt version. The "latest" label is reserved and managed by Langfuse.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -145,13 +156,16 @@ class AsyncPromptVersionClient:
             await client.prompt_version.update(
                 name="name",
                 version=1,
-                new_labels=["newLabels", "newLabels"],
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            name, version, new_labels=new_labels, request_options=request_options
+            name,
+            version,
+            new_labels=new_labels,
+            remove_labels=remove_labels,
+            request_options=request_options,
         )
         return _response.data

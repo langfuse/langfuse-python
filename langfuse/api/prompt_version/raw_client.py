@@ -29,7 +29,8 @@ class RawPromptVersionClient:
         name: str,
         version: int,
         *,
-        new_labels: typing.Sequence[str],
+        new_labels: typing.Optional[typing.Sequence[str]] = OMIT,
+        remove_labels: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Prompt]:
         """
@@ -44,8 +45,11 @@ class RawPromptVersionClient:
         version : int
             Version of the prompt to update
 
-        new_labels : typing.Sequence[str]
+        new_labels : typing.Optional[typing.Sequence[str]]
             New labels for the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse.
+
+        remove_labels : typing.Optional[typing.Sequence[str]]
+            Labels to remove from the prompt version. The "latest" label is reserved and managed by Langfuse.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -59,6 +63,7 @@ class RawPromptVersionClient:
             method="PATCH",
             json={
                 "newLabels": new_labels,
+                "removeLabels": remove_labels,
             },
             request_options=request_options,
             omit=OMIT,
@@ -151,7 +156,8 @@ class AsyncRawPromptVersionClient:
         name: str,
         version: int,
         *,
-        new_labels: typing.Sequence[str],
+        new_labels: typing.Optional[typing.Sequence[str]] = OMIT,
+        remove_labels: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Prompt]:
         """
@@ -166,8 +172,11 @@ class AsyncRawPromptVersionClient:
         version : int
             Version of the prompt to update
 
-        new_labels : typing.Sequence[str]
+        new_labels : typing.Optional[typing.Sequence[str]]
             New labels for the prompt version. Labels are unique across versions. The "latest" label is reserved and managed by Langfuse.
+
+        remove_labels : typing.Optional[typing.Sequence[str]]
+            Labels to remove from the prompt version. The "latest" label is reserved and managed by Langfuse.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -181,6 +190,7 @@ class AsyncRawPromptVersionClient:
             method="PATCH",
             json={
                 "newLabels": new_labels,
+                "removeLabels": remove_labels,
             },
             request_options=request_options,
             omit=OMIT,
