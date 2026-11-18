@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -570,3 +571,33 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     result = json.loads(EventSerializer().encode(input_obj))
 
     assert result == expected
+
+
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="requires POSIX time zones")
+def test_naive_datetimes_use_local_offset_at_their_dates(monkeypatch):
+    try:
+        with monkeypatch.context() as patch:
+            patch.setenv("TZ", "EST5EDT,M3.2.0,M11.1.0")
+            time.tzset()
+            values = [
+                datetime(2024, 1, 15, 12),
+                datetime(2024, 7, 15, 12),
+                datetime(2024, 11, 3, 1, 30),
+                datetime(2024, 11, 3, 1, 30, fold=1),
+            ]
+
+            assert json.loads(json.dumps(values, cls=EventSerializer)) == [
+                "2024-01-15T12:00:00-05:00",
+                "2024-07-15T12:00:00-04:00",
+                "2024-11-03T01:30:00-04:00",
+                "2024-11-03T01:30:00-05:00",
+            ]
+    finally:
+        time.tzset()
+
+
+@pytest.mark.parametrize("value", [datetime.min, datetime.max])
+def test_naive_datetime_limits_still_serialize(value):
+    result = json.loads(json.dumps(value, cls=EventSerializer))
+
+    assert datetime.fromisoformat(result).replace(tzinfo=None) == value
