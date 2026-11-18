@@ -11,6 +11,11 @@ class ObservationsV2Meta(CursorMetaResponse):
     Metadata for cursor-based pagination.
     """
 
+    comment: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Present when an empty page has a cursor; continue requesting pages until the cursor is absent.
+    """
+
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
     )
