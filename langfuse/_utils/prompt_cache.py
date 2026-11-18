@@ -27,11 +27,13 @@ class PromptCacheItem:
         self._expiry = ttl_seconds + self.get_epoch_seconds()
 
     def is_expired(self) -> bool:
-        return self.get_epoch_seconds() > self._expiry
+        """Return whether the full cache lifetime has elapsed."""
+        return self.get_epoch_seconds() >= self._expiry
 
     @staticmethod
-    def get_epoch_seconds() -> int:
-        return int(datetime.now().timestamp())
+    def get_epoch_seconds() -> float:
+        """Keep fractional seconds so expiry reflects the actual insertion time."""
+        return datetime.now().timestamp()
 
 
 class PromptCacheRefreshConsumer(Thread):
