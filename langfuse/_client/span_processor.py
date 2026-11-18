@@ -199,10 +199,12 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
             traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
 
+            # Avoid "//" in the path when base_url has a trailing slash.
+            endpoint_base_url = base_url.rstrip("/")
             endpoint = (
-                f"{base_url}/{traces_export_path}"
+                f"{endpoint_base_url}/{traces_export_path}"
                 if traces_export_path
-                else f"{base_url}/api/public/otel/v1/traces"
+                else f"{endpoint_base_url}/api/public/otel/v1/traces"
             )
 
             span_exporter = OTLPSpanExporter(

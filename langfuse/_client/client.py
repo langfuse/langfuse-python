@@ -2538,7 +2538,7 @@ class Langfuse:
         project_id = self._get_project_id()
 
         return (
-            f"{self._base_url}/project/{project_id}/traces/{final_trace_id}"
+            f"{self._base_url.rstrip('/')}/project/{project_id}/traces/{final_trace_id}"
             if project_id and final_trace_id
             else None
         )
@@ -2935,7 +2935,7 @@ class Langfuse:
                 langfuse_logger.error("Run evaluator failed: %s", e)
 
         experiment_url = (
-            f"{self._base_url}/project/{project_id}/experiments/results?baseline={urllib.parse.quote(experiment_id, safe='')}"
+            f"{self._base_url.rstrip('/')}/project/{project_id}/experiments/results?baseline={urllib.parse.quote(experiment_id, safe='')}"
             if project_id
             else None
         )

@@ -86,6 +86,7 @@ def test_span_processor_uses_env_flush_settings_when_constructor_omits_them(
 class _RecordedRequest(NamedTuple):
     content_encoding: Optional[str]
     body: bytes
+    path: str
 
 
 class _RecordingOTLPHandler(BaseHTTPRequestHandler):
@@ -94,7 +95,12 @@ class _RecordingOTLPHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         self.received_requests.append(
-            _RecordedRequest(self.headers.get("Content-Encoding"), body)
+            _RecordedRequest(
+                self.headers.get("Content-Encoding"),
+                body,
+                # self.path collapses a leading "//", so read the raw request line.
+                self.requestline.split()[1],
+            )
         )
         self.send_response(200)
         self.end_headers()
@@ -180,6 +186,21 @@ def test_default_exporter_enforces_max_batch_size_bytes_at_boundary(
     assert [_uncompressed_size(request) for request in received_requests] == (
         expected_requests
     )
+
+
+def test_default_exporter_ignores_trailing_slash_in_base_url(otlp_http_server):
+    base_url, received_requests = otlp_http_server
+    processor = _default_exporter_processor(base_url + "/")
+
+    try:
+        result = processor._batch_processor._exporter.export(_finished_spans("ok"))
+    finally:
+        processor.shutdown()
+
+    assert result == SpanExportResult.SUCCESS
+    assert [request.path for request in received_requests] == [
+        "/api/public/otel/v1/traces"
+    ]
 
 
 def test_oversized_batch_is_dropped_on_flush_without_blocking_later_batches(
