@@ -437,9 +437,16 @@ class LangfuseDecorator:
 
     @staticmethod
     def _is_method(func: Callable) -> bool:
+        # Only a leading positional "self" or "cls" is passed implicitly
+        params = list(inspect.signature(func).parameters.values())
         return (
-            "self" in inspect.signature(func).parameters
-            or "cls" in inspect.signature(func).parameters
+            bool(params)
+            and params[0].name in ("self", "cls")
+            and params[0].kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
         )
 
     def _get_input_from_func_args(

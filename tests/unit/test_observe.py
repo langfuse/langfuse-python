@@ -523,3 +523,44 @@ async def test_observe_treats_legacy_marked_coroutine_function_as_async(
 
     span = _finished_spans_by_name(memory_exporter, "marked")[0]
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "done"
+
+
+def test_observe_keeps_first_argument_of_free_functions_named_like_methods(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="keyword_only_cls")
+    def keyword_only_cls(value: str, *, cls: str = "news") -> str:
+        return value
+
+    @observe(name="second_positional_self")
+    def second_positional_self(value: str, self: Any = None) -> str:
+        return value
+
+    class Classifier:
+        @observe(name="instance_method")
+        def instance_method(self, value: str) -> str:
+            return value
+
+        @classmethod
+        @observe(name="class_method")
+        def class_method(cls, value: str) -> str:
+            return value
+
+    keyword_only_cls("hello", cls="sports")
+    second_positional_self("hello")
+    Classifier().instance_method("hello")
+    Classifier.class_method("hello")
+
+    langfuse_memory_client.flush()
+
+    expected_kwargs = {
+        "keyword_only_cls": {"cls": "sports"},
+        "second_positional_self": {},
+        "instance_method": {},
+        "class_method": {},
+    }
+    for name, kwargs in expected_kwargs.items():
+        span = _finished_spans_by_name(memory_exporter, name)[0]
+        assert json.loads(
+            span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_INPUT]
+        ) == {"args": ["hello"], "kwargs": kwargs}
