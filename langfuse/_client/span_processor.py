@@ -225,10 +225,19 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
                 mask_otel_spans=mask_otel_spans,
             )
 
+        # OpenTelemetry rejects a batch size larger than the queue size, and
+        # flush_at maps onto the batch size. The queue keeps OpenTelemetry's own
+        # default -- which is configurable through OTEL_BSP_MAX_QUEUE_SIZE -- and
+        # is only widened when a larger batch was asked for.
+        default_queue_size = self._default_max_queue_size()
+
         super().__init__(
             span_exporter=span_exporter,
             export_timeout_millis=timeout * 1_000 if timeout else None,
             max_export_batch_size=flush_at,
+            max_queue_size=max(flush_at, default_queue_size)
+            if flush_at is not None
+            else None,
             schedule_delay_millis=flush_interval * 1_000
             if flush_interval is not None
             else None,
