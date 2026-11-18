@@ -104,6 +104,7 @@ def test_openai_chat_completion_stream(openai):
         temperature=0,
         metadata={"someKey": "someResponse"},
         stream=True,
+        stream_options={"include_usage": True},
     )
 
     assert iter(completion)
@@ -159,6 +160,7 @@ def test_openai_chat_completion_stream_with_next_iteration(openai):
         temperature=0,
         metadata={"someKey": "someResponse"},
         stream=True,
+        stream_options={"include_usage": True},
     )
 
     assert iter(completion)
@@ -664,6 +666,7 @@ async def test_async_chat_stream(openai):
         model="gpt-4o-mini",
         name=generation_name,
         stream=True,
+        stream_options={"include_usage": True},
     )
 
     async for c in completion:
@@ -711,6 +714,7 @@ async def test_async_chat_stream_with_anext(openai):
         model="gpt-4o-mini",
         name=generation_name,
         stream=True,
+        stream_options={"include_usage": True},
     )
 
     result = ""
@@ -1100,6 +1104,7 @@ async def test_close_async_stream(openai):
         model="gpt-4o-mini",
         name=generation_name,
         stream=True,
+        stream_options={"include_usage": True},
     )
 
     async for token in stream:

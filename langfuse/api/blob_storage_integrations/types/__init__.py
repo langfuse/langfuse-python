@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
     from .blob_storage_export_frequency import BlobStorageExportFrequency
     from .blob_storage_export_mode import BlobStorageExportMode
     from .blob_storage_export_source import BlobStorageExportSource
+    from .blob_storage_integration_auth_type import BlobStorageIntegrationAuthType
     from .blob_storage_integration_deletion_response import (
         BlobStorageIntegrationDeletionResponse,
     )
@@ -32,6 +33,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BlobStorageExportFrequency": ".blob_storage_export_frequency",
     "BlobStorageExportMode": ".blob_storage_export_mode",
     "BlobStorageExportSource": ".blob_storage_export_source",
+    "BlobStorageIntegrationAuthType": ".blob_storage_integration_auth_type",
     "BlobStorageIntegrationDeletionResponse": ".blob_storage_integration_deletion_response",
     "BlobStorageIntegrationFileType": ".blob_storage_integration_file_type",
     "BlobStorageIntegrationFileTypeResponse": ".blob_storage_integration_file_type_response",
@@ -76,6 +78,7 @@ __all__ = [
     "BlobStorageExportFrequency",
     "BlobStorageExportMode",
     "BlobStorageExportSource",
+    "BlobStorageIntegrationAuthType",
     "BlobStorageIntegrationDeletionResponse",
     "BlobStorageIntegrationFileType",
     "BlobStorageIntegrationFileTypeResponse",
