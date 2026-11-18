@@ -2,9 +2,9 @@
 
 import atexit
 import os
-from datetime import datetime
 from queue import Queue
 from threading import RLock, Thread
+from time import monotonic
 from typing import Callable, Dict, List, Optional, Set
 
 from langfuse._client.environment_variables import (
@@ -24,14 +24,10 @@ _SHUTDOWN_SENTINEL = object()
 class PromptCacheItem:
     def __init__(self, prompt: PromptClient, ttl_seconds: int):
         self.value = prompt
-        self._expiry = ttl_seconds + self.get_epoch_seconds()
+        self._expiry = monotonic() + ttl_seconds
 
     def is_expired(self) -> bool:
-        return self.get_epoch_seconds() > self._expiry
-
-    @staticmethod
-    def get_epoch_seconds() -> int:
-        return int(datetime.now().timestamp())
+        return monotonic() >= self._expiry
 
 
 class PromptCacheRefreshConsumer(Thread):

@@ -9,7 +9,6 @@ from langfuse._client.client import Langfuse
 from langfuse._utils.prompt_cache import (
     DEFAULT_PROMPT_CACHE_TTL_SECONDS,
     PromptCache,
-    PromptCacheItem,
     PromptCacheTaskManager,
 )
 from langfuse.api import LangfuseAPI, NotFoundError, Prompt_Chat, Prompt_Text
@@ -394,9 +393,10 @@ def test_get_valid_cached_chat_prompt(langfuse):
     assert result_call_2 == prompt_client
 
 
-@patch.object(PromptCacheItem, "get_epoch_seconds")
+@patch("langfuse._utils.prompt_cache.monotonic")
 def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Langfuse):
-    mock_time.return_value = 0
+    started_at = 100.75
+    mock_time.return_value = started_at
     ttl_seconds = 20
 
     prompt_name = "test_get_fresh_prompt_when_expired_cache_custom_ttl"
@@ -418,13 +418,13 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Lan
     assert mock_server_call.call_count == 1
     assert result_call_1 == prompt_client
 
-    mock_time.return_value = ttl_seconds - 1
+    mock_time.return_value = started_at + ttl_seconds - 0.25
 
     result_call_2 = langfuse.get_prompt(prompt_name)
     assert mock_server_call.call_count == 1
     assert result_call_2 == prompt_client
 
-    mock_time.return_value = ttl_seconds + 1
+    mock_time.return_value = started_at + ttl_seconds
 
     result_call_3 = langfuse.get_prompt(prompt_name)
 
@@ -434,7 +434,7 @@ def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Lan
     assert result_call_3 == prompt_client
 
 
-@patch.object(PromptCacheItem, "get_epoch_seconds")
+@patch("langfuse._utils.prompt_cache.monotonic")
 def test_disable_caching_when_ttl_zero(mock_time, langfuse: Langfuse):
     mock_time.return_value = 0
     prompt_name = "test_disable_caching_when_ttl_zero"
@@ -485,7 +485,7 @@ def test_disable_caching_when_ttl_zero(mock_time, langfuse: Langfuse):
     assert result1 != result2 != result3
 
 
-@patch.object(PromptCacheItem, "get_epoch_seconds")
+@patch("langfuse._utils.prompt_cache.monotonic")
 def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
     import logging
 
@@ -541,7 +541,7 @@ def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
     assert updated_result == TextPromptClient(updated_prompt)
 
 
-@patch.object(PromptCacheItem, "get_epoch_seconds")
+@patch("langfuse._utils.prompt_cache.monotonic")
 def test_skip_redundant_refresh_when_cache_already_updated(
     mock_time, langfuse: Langfuse
 ) -> None:
@@ -593,7 +593,7 @@ def test_skip_redundant_refresh_when_cache_already_updated(
     add_task_mock.assert_not_called()
 
 
-@patch.object(PromptCacheItem, "get_epoch_seconds")
+@patch("langfuse._utils.prompt_cache.monotonic")
 def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
     mock_time.return_value = 0
 
@@ -631,7 +631,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
     assert result_call_3 == prompt_client
 
 
-@patch.object(PromptCacheItem, "get_epoch_seconds")
+@patch("langfuse._utils.prompt_cache.monotonic")
 def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse, sleeps):
     mock_time.return_value = 0
 
@@ -664,7 +664,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse, sl
     assert result_call_2 == prompt_client
 
 
-@patch.object(PromptCacheItem, "get_epoch_seconds")
+@patch("langfuse._utils.prompt_cache.monotonic")
 def test_evict_prompt_cache_entry_when_refresh_returns_not_found(
     mock_time, langfuse: Langfuse
 ) -> None:
