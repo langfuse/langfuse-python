@@ -29,7 +29,8 @@ def auto_decorate_methods_with(
         for attr_name, attr_value in cls.__dict__.items():
             if exclude and attr_name in exclude:
                 continue
-            if callable(attr_value):
+            # staticmethod is callable on Python >=3.10; keep its descriptor type.
+            if callable(attr_value) and not isinstance(attr_value, staticmethod):
                 # Wrap callable attributes (methods) with the decorator
                 setattr(cls, attr_name, decorator(attr_value))
             elif isinstance(attr_value, classmethod):
