@@ -419,7 +419,13 @@ class LangfuseMedia:
                 return [traverse(item, depth + 1) for item in obj]
 
             if isinstance(obj, tuple):
-                return tuple(traverse(item, depth + 1) for item in obj)
+                traversed_items = tuple(traverse(item, depth + 1) for item in obj)
+                if hasattr(obj, "_fields"):
+                    try:
+                        return type(obj)(*traversed_items)
+                    except TypeError:
+                        return obj
+                return traversed_items if type(obj) is tuple else obj
 
             # Handle dictionaries
             if isinstance(obj, dict):
