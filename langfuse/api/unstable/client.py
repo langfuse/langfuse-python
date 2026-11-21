@@ -8,6 +8,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .raw_client import AsyncRawUnstableClient, RawUnstableClient
 
 if typing.TYPE_CHECKING:
+    from .billable_units.client import AsyncBillableUnitsClient, BillableUnitsClient
     from .dashboard_widgets.client import (
         AsyncDashboardWidgetsClient,
         DashboardWidgetsClient,
@@ -20,6 +21,7 @@ class UnstableClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawUnstableClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._billable_units: typing.Optional[BillableUnitsClient] = None
         self._dashboard_widgets: typing.Optional[DashboardWidgetsClient] = None
         self._dashboards: typing.Optional[DashboardsClient] = None
         self._topics: typing.Optional[TopicsClient] = None
@@ -34,6 +36,16 @@ class UnstableClient:
         RawUnstableClient
         """
         return self._raw_client
+
+    @property
+    def billable_units(self):
+        if self._billable_units is None:
+            from .billable_units.client import BillableUnitsClient  # noqa: E402
+
+            self._billable_units = BillableUnitsClient(
+                client_wrapper=self._client_wrapper
+            )
+        return self._billable_units
 
     @property
     def dashboard_widgets(self):
@@ -66,6 +78,7 @@ class AsyncUnstableClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawUnstableClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._billable_units: typing.Optional[AsyncBillableUnitsClient] = None
         self._dashboard_widgets: typing.Optional[AsyncDashboardWidgetsClient] = None
         self._dashboards: typing.Optional[AsyncDashboardsClient] = None
         self._topics: typing.Optional[AsyncTopicsClient] = None
@@ -80,6 +93,16 @@ class AsyncUnstableClient:
         AsyncRawUnstableClient
         """
         return self._raw_client
+
+    @property
+    def billable_units(self):
+        if self._billable_units is None:
+            from .billable_units.client import AsyncBillableUnitsClient  # noqa: E402
+
+            self._billable_units = AsyncBillableUnitsClient(
+                client_wrapper=self._client_wrapper
+            )
+        return self._billable_units
 
     @property
     def dashboard_widgets(self):
