@@ -213,6 +213,26 @@ def test_find_and_process_media_sse_in_nested_structure_passes_through():
     assert queue.empty()
 
 
+def test_find_and_process_media_in_tuple_queues_upload():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+    media = LangfuseMedia(content_bytes=b"sample-image", content_type="image/jpeg")
+
+    result = manager._find_and_process_media(
+        data=("response text", media),
+        trace_id="trace-id",
+        observation_id="observation-id",
+        field="output",
+    )
+
+    assert result == ("response text", media)
+    assert queue.qsize() == 1
+
+
 def test_find_and_process_media_gemini_inline_data_is_processed():
     queue = Queue()
     manager = MediaManager(

@@ -414,9 +414,12 @@ class LangfuseMedia:
 
                 return result
 
-            # Handle arrays
+            # Handle arrays and tuples
             if isinstance(obj, list):
                 return [traverse(item, depth + 1) for item in obj]
+
+            if isinstance(obj, tuple):
+                return tuple(traverse(item, depth + 1) for item in obj)
 
             # Handle dictionaries
             if isinstance(obj, dict):

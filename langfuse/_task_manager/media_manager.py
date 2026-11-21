@@ -252,6 +252,19 @@ class MediaManager:
                 finally:
                     seen.discard(id(data))
 
+            if isinstance(data, tuple):
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return tuple(
+                        _process_data_recursively(item, level + 1) for item in data
+                    )
+                finally:
+                    seen.discard(id(data))
+
             if isinstance(data, dict):
                 if id(data) in seen:
                     return data
