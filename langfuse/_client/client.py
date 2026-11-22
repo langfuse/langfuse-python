@@ -1612,7 +1612,18 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            generation = LangfuseGeneration(
+            # Keep a generation-like type such as "embedding"; other types
+            # become "generation" so that model and usage are recorded.
+            observation_type = self._get_observation_type_from_otel_span(
+                current_otel_span
+            )
+            generation_class = (
+                self._get_span_class(observation_type)
+                if observation_type
+                in get_observation_types_list(ObservationTypeGenerationLike)
+                else LangfuseGeneration
+            )
+            generation = generation_class(
                 otel_span=current_otel_span, langfuse_client=self
             )
 

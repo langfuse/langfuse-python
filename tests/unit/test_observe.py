@@ -55,6 +55,30 @@ async def test_capture_output_false_preserves_type_when_current_span_is_updated(
     }
 
 
+def test_capture_output_false_preserves_embedding_type_when_current_generation_is_updated(
+    langfuse_memory_client: Any, memory_exporter: Any
+) -> None:
+    @observe(name="embed_text", as_type="embedding", capture_output=False)
+    def embed_text() -> list[float]:
+        langfuse_memory_client.update_current_generation(
+            model="text-embedding-3-small", usage_details={"input": 5}
+        )
+        return [0.1, 0.2]
+
+    embed_text()
+
+    langfuse_memory_client.flush()
+
+    embedding_span = _finished_spans_by_name(memory_exporter, "embed_text")[0]
+    attributes = embedding_span.attributes
+
+    assert attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE] == "embedding"
+    assert (
+        attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
+        == "text-embedding-3-small"
+    )
+
+
 def test_sync_generator_preserves_context_without_output_capture(
     langfuse_memory_client: Any, memory_exporter: Any
 ) -> None:
