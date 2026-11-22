@@ -172,6 +172,44 @@ def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
     )
 
 
+@pytest.mark.parametrize("model_source", ["generation_info", "response_metadata"])
+def test_chat_model_callback_uses_response_model_name(
+    langfuse_memory_client, get_span, model_source
+):
+    generation_info = (
+        {"model_name": "gpt-4o-2024-08-06"} if model_source == "generation_info" else {}
+    )
+    response_metadata = (
+        {"model_name": "gpt-4o-2024-08-06"}
+        if model_source == "response_metadata"
+        else {}
+    )
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="bonjour", response_metadata=response_metadata
+                ),
+                generation_info=generation_info,
+            )
+        ],
+        llm_output={"model_name": "azure.gpt-4o"},
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test", model="azure.gpt-4o").invoke(
+            "hello", config={"callbacks": [CallbackHandler()]}
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("ChatOpenAI")
+
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
+        == "gpt-4o-2024-08-06"
+    )
+
+
 def test_lcel_chain_exports_intermediate_chain_spans(
     langfuse_memory_client, get_span, find_spans
 ):

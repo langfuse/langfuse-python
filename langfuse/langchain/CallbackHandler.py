@@ -1829,6 +1829,21 @@ def _parse_model(response: LLMResult) -> Any:
                 llm_model = response.llm_output[key]
                 break
 
+    for generation in reversed(response.generations):
+        for generation_chunk in reversed(generation):
+            generation_info = getattr(generation_chunk, "generation_info", None)
+            if isinstance(generation_info, dict):
+                for key in llm_model_keys:
+                    if generation_info.get(key):
+                        return generation_info[key]
+
+            message = getattr(generation_chunk, "message", None)
+            response_metadata = getattr(message, "response_metadata", None)
+            if isinstance(response_metadata, dict):
+                for key in llm_model_keys:
+                    if response_metadata.get(key):
+                        return response_metadata[key]
+
     return llm_model
 
 
