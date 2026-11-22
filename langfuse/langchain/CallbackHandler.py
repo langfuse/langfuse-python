@@ -1328,6 +1328,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             )
 
             llm_usage = _parse_usage(response)
+            cost_details = _parse_cost(response)
 
             # e.g. azure returns the model name in the response
             model = _parse_model(response)
@@ -1338,6 +1339,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 generation.update(
                     output=extracted_response,
                     usage_details=llm_usage,
+                    cost_details=cost_details,
                     input=kwargs.get("inputs"),
                     model=model,
                 ).end()
@@ -1765,9 +1767,48 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                     "cache_creation_input_tokens", total_cache_creation_tokens
                 )
 
+    usage_model.pop("cost", None)
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
     return usage_model if usage_model else None
+
+
+def _parse_cost(response: LLMResult) -> Any:
+    def parse_usage_cost(usage: Any) -> Any:
+        if hasattr(usage, "__dict__"):
+            usage = usage.__dict__
+
+        if not isinstance(usage, dict):
+            return None
+
+        cost = usage.get("cost")
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+            return {"total": cost}
+
+        return None
+
+    if response.llm_output is not None:
+        for key in ["token_usage", "usage"]:
+            if key in response.llm_output and response.llm_output[key]:
+                cost_details = parse_usage_cost(response.llm_output[key])
+                if cost_details is not None:
+                    return cost_details
+
+    for generation in response.generations:
+        for generation_chunk in generation:
+            response_metadata = getattr(
+                getattr(generation_chunk, "message", None), "response_metadata", None
+            )
+            if not isinstance(response_metadata, dict):
+                continue
+
+            for key in ["token_usage", "usage"]:
+                if key in response_metadata:
+                    cost_details = parse_usage_cost(response_metadata[key])
+                    if cost_details is not None:
+                        return cost_details
+
+    return None
 
 
 def _parse_usage(response: LLMResult) -> Any:
@@ -1798,18 +1839,21 @@ def _parse_usage(response: LLMResult) -> Any:
 
                 chunk_usage = (
                     (
-                        response_metadata.get("usage", None)  # for Bedrock-Anthropic
+                        response_metadata.get("token_usage", None)
                         if isinstance(response_metadata, dict)
                         else None
                     )
                     or (
-                        response_metadata.get(
-                            "amazon-bedrock-invocationMetrics", None
-                        )  # for Bedrock-Titan
+                        response_metadata.get("usage", None)
                         if isinstance(response_metadata, dict)
                         else None
                     )
-                    or getattr(message_chunk, "usage_metadata", None)  # for Ollama
+                    or (
+                        response_metadata.get("amazon-bedrock-invocationMetrics", None)
+                        if isinstance(response_metadata, dict)
+                        else None
+                    )
+                    or getattr(message_chunk, "usage_metadata", None)
                 )
 
                 if chunk_usage:

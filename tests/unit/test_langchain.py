@@ -172,6 +172,51 @@ def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
     )
 
 
+@pytest.mark.parametrize("usage_source", ["llm_output", "response_metadata"])
+@pytest.mark.parametrize("reported_cost", [0.000138, 1])
+def test_chat_model_callback_records_provider_reported_cost(
+    langfuse_memory_client, get_span, json_attr, usage_source, reported_cost
+):
+    usage = {
+        "prompt_tokens": 8,
+        "completion_tokens": 93,
+        "total_tokens": 101,
+        "cost": reported_cost,
+    }
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="bonjour",
+                    response_metadata=(
+                        {"token_usage": usage}
+                        if usage_source == "response_metadata"
+                        else {}
+                    ),
+                )
+            )
+        ],
+        llm_output={"token_usage": usage} if usage_source == "llm_output" else None,
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test", model="openai/gpt-5-mini").invoke(
+            "hello", config={"callbacks": [CallbackHandler()]}
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("ChatOpenAI")
+
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS) == {
+        "total": reported_cost
+    }
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "input": 8,
+        "output": 93,
+        "total": 101,
+    }
+
+
 def test_lcel_chain_exports_intermediate_chain_spans(
     langfuse_memory_client, get_span, find_spans
 ):
