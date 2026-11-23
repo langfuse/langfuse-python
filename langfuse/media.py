@@ -425,7 +425,12 @@ class LangfuseMedia:
                         return type(obj)(*traversed_items)
                     except TypeError:
                         return obj
-                return traversed_items if type(obj) is tuple else obj
+                if type(obj) is tuple:
+                    return traversed_items
+                try:
+                    return type(obj)(traversed_items)
+                except TypeError:
+                    return obj
 
             # Handle dictionaries
             if isinstance(obj, dict):

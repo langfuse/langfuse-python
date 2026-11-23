@@ -20,6 +20,10 @@ class MediaResponse(NamedTuple):
     image: str
 
 
+class Payload(tuple):
+    pass
+
+
 def test_init_with_base64_data_uri():
     media = LangfuseMedia(base64_data_uri=SAMPLE_BASE64_DATA_URI)
     assert media._source == "base64_data_uri"
@@ -329,6 +333,38 @@ def test_resolve_media_references_preserves_named_tuple_fields():
     assert isinstance(resolved, MediaResponse)
     assert resolved.text == "response text"
     assert resolved.image == "data:image/jpeg;base64,aW1hZ2UtYnl0ZXM="
+
+
+def test_resolve_media_references_in_tuple_subclass():
+    reference_string = "@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes@@@"
+    media_api = Mock()
+    media_api.get.return_value = SimpleNamespace(
+        url="https://example.com/test.jpg", content_type="image/jpeg"
+    )
+
+    response = Mock()
+    response.content = b"image-bytes"
+    response.raise_for_status.return_value = None
+
+    httpx_client = Mock()
+    httpx_client.get.return_value = response
+
+    mock_langfuse_client = SimpleNamespace(
+        api=SimpleNamespace(media=media_api),
+        _resources=SimpleNamespace(httpx_client=httpx_client),
+    )
+
+    resolved = LangfuseMedia.resolve_media_references(
+        obj=Payload(("response text", reference_string)),
+        langfuse_client=mock_langfuse_client,
+        resolve_with="base64_data_uri",
+    )
+
+    assert isinstance(resolved, Payload)
+    assert resolved == (
+        "response text",
+        "data:image/jpeg;base64,aW1hZ2UtYnl0ZXM=",
+    )
 
 
 def test_init_with_urlsafe_base64_data_uri():
