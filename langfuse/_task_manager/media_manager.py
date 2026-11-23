@@ -259,9 +259,15 @@ class MediaManager:
                 seen.add(id(data))
 
                 try:
-                    return tuple(
+                    processed_items = tuple(
                         _process_data_recursively(item, level + 1) for item in data
                     )
+                    if hasattr(data, "_fields"):
+                        try:
+                            return type(data)(*processed_items)
+                        except TypeError:
+                            return data
+                    return processed_items
                 finally:
                     seen.discard(id(data))
 
