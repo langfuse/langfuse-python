@@ -271,14 +271,18 @@ def test_find_and_process_media_preserves_tuple_subclass_for_mask():
         media_upload_queue=queue,
     )
 
+    payload = Payload(("response text",))
+    payload.label = "response"
     result = manager._find_and_process_media(
-        data=Payload(("response text",)),
+        data=payload,
         trace_id="trace-id",
         observation_id="observation-id",
         field="output",
     )
 
     assert isinstance(result, Payload)
+    assert result is payload
+    assert result.label == "response"
     assert result == ("response text",)
 
 

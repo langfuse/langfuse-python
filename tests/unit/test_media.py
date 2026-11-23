@@ -354,17 +354,38 @@ def test_resolve_media_references_in_tuple_subclass():
         _resources=SimpleNamespace(httpx_client=httpx_client),
     )
 
+    payload = Payload(("response text", reference_string))
+    payload.label = "response"
     resolved = LangfuseMedia.resolve_media_references(
-        obj=Payload(("response text", reference_string)),
+        obj=payload,
         langfuse_client=mock_langfuse_client,
         resolve_with="base64_data_uri",
     )
 
     assert isinstance(resolved, Payload)
+    assert resolved.label == "response"
     assert resolved == (
         "response text",
         "data:image/jpeg;base64,aW1hZ2UtYnl0ZXM=",
     )
+
+
+def test_resolve_media_references_skips_custom_tuple_constructor():
+    class CustomPayload(tuple):
+        def __new__(cls, items, required):
+            return super().__new__(cls, items)
+
+    payload = CustomPayload(
+        ("@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes@@@",), True
+    )
+    client = Mock()
+    assert (
+        LangfuseMedia.resolve_media_references(
+            obj=payload, langfuse_client=client, resolve_with="base64_data_uri"
+        )
+        is payload
+    )
+    client.api.media.get.assert_not_called()
 
 
 def test_init_with_urlsafe_base64_data_uri():

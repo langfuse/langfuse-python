@@ -3505,6 +3505,30 @@ class TestConcurrencyAndAsync(TestOTelBase):
 class TestMediaHandling(TestOTelBase):
     """Tests for media object handling, upload, and references."""
 
+    def test_tuple_subclass_state_reaches_mask(self, configurable_langfuse_client):
+        class Payload(tuple):
+            pass
+
+        payload = Payload(("text",))
+        payload.label = "response"
+        seen = []
+
+        def mask(*, data):
+            seen.append(data)
+            return (
+                "masked"
+                if isinstance(data, Payload) and data.label == "response"
+                else data
+            )
+
+        client = configurable_langfuse_client(mask=mask)
+        span = client.start_observation(name="tuple-mask", output=payload)
+        span.end()
+
+        assert len(seen) == 1
+        assert seen[0] is payload
+        assert seen[0].label == "response"
+
     def test_media_objects(self):
         """Test the basic behavior of LangfuseMedia objects."""
         # Test with base64 data URI

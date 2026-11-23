@@ -419,7 +419,17 @@ class LangfuseMedia:
                 return [traverse(item, depth + 1) for item in obj]
 
             if isinstance(obj, tuple):
+                # Custom constructors may require extra arguments or validate values.
+                if not hasattr(obj, "_fields") and (
+                    type(obj).__new__ is not tuple.__new__
+                    or type(obj).__init__ is not tuple.__init__
+                ):
+                    return obj
                 traversed_items = tuple(traverse(item, depth + 1) for item in obj)
+                if all(
+                    item is original for item, original in zip(traversed_items, obj)
+                ):
+                    return obj
                 if hasattr(obj, "_fields"):
                     try:
                         return type(obj)(*traversed_items)
@@ -428,7 +438,10 @@ class LangfuseMedia:
                 if type(obj) is tuple:
                     return traversed_items
                 try:
-                    return type(obj)(traversed_items)
+                    rebuilt_tuple = type(obj)(traversed_items)
+                    if hasattr(obj, "__dict__"):
+                        rebuilt_tuple.__dict__.update(obj.__dict__)
+                    return rebuilt_tuple
                 except TypeError:
                     return obj
 
