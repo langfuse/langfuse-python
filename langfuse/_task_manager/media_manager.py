@@ -267,7 +267,12 @@ class MediaManager:
                             return type(data)(*processed_items)
                         except TypeError:
                             return data
-                    return processed_items
+                    if type(data) is tuple:
+                        return processed_items
+                    try:
+                        return type(data)(processed_items)
+                    except TypeError:
+                        return data
                 finally:
                     seen.discard(id(data))
 

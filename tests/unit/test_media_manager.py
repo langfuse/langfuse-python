@@ -18,6 +18,10 @@ class Point(NamedTuple):
     y: int
 
 
+class Payload(tuple):
+    pass
+
+
 def _upload_response(status_code: int, text: str = "") -> httpx.Response:
     request = httpx.Request("PUT", "https://example.com/upload")
     return httpx.Response(status_code=status_code, request=request, text=text)
@@ -257,6 +261,25 @@ def test_find_and_process_media_preserves_named_tuple_fields():
     assert isinstance(result, Point)
     assert result.x == 1
     assert result.y == 2
+
+
+def test_find_and_process_media_preserves_tuple_subclass_for_mask():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    result = manager._find_and_process_media(
+        data=Payload(("response text",)),
+        trace_id="trace-id",
+        observation_id="observation-id",
+        field="output",
+    )
+
+    assert isinstance(result, Payload)
+    assert result == ("response text",)
 
 
 def test_find_and_process_media_gemini_inline_data_is_processed():
