@@ -45,6 +45,7 @@ def _create_client_from_instance(
     return Langfuse(
         public_key=public_key or instance.public_key,
         secret_key=instance.secret_key,
+        api_key=instance.api_key,
         base_url=instance.base_url,
         project_id=instance.project_id,
         tracing_enabled=instance.tracing_enabled,
@@ -73,26 +74,23 @@ def get_client(
 ) -> Langfuse:
     """Get or create a Langfuse client instance.
 
-    Returns an existing Langfuse client or creates a new one if none exists. In multi-project setups,
-    providing a public_key is required. Multi-project support is experimental - see Langfuse docs.
+    Returns an existing Langfuse client or creates a new one if none exists. With several
+    clients, name the one you want by public_key or project_id. Multi-project support is
+    experimental - see Langfuse docs.
 
     Behavior:
-    - Single project: Returns existing client or creates new one
-    - Multi-project: Requires public_key to return specific client, plus project_id when one organization key serves several projects
-    - No public_key in multi-project: Returns disabled client to prevent data leakage
-
-    The function uses a singleton pattern per public_key and project_id to conserve resources and maintain state.
+    - Single client: Returns it, or creates one if none exists
+    - Several clients: Returns the one matching public_key or project_id
+    - Several clients and none named: Returns disabled client to prevent data leakage
 
     Args:
-        public_key (Optional[str]): Project identifier
-            - With key: Returns client for that project
-            - Without key: Returns single client or disabled client if multiple exist
-        project_id (Optional[str]): Selects the client for this project when one
-            organization API key serves several projects.
+        public_key (Optional[str]): Selects the client for this public key.
+        project_id (Optional[str]): Selects the client for this project. Use for
+            clients created with api_key.
 
     Returns:
         Langfuse: Client instance in one of three states:
-            1. Client for specified public_key and project_id
+            1. Client matching public_key and project_id
             2. Default client for single-project setup
             3. Disabled client when no client or several clients match
 
@@ -113,12 +111,11 @@ def get_client(
         client = get_client()  # Returns disabled client for safety
 
         # One organization API key writing to two projects:
-        Langfuse(public_key="org_key", secret_key="...", project_id="project_a_id")
-        Langfuse(public_key="org_key", secret_key="...", project_id="project_b_id")
+        Langfuse(api_key="lf_...", project_id="project_a_id")
+        Langfuse(api_key="lf_...", project_id="project_b_id")
 
-        client_a = get_client(public_key="org_key", project_id="project_a_id")
-        client_b = get_client(public_key="org_key", project_id="project_b_id")
-        client = get_client(public_key="org_key")  # Ambiguous: disabled client
+        client_a = get_client(project_id="project_a_id")
+        client_b = get_client(project_id="project_b_id")
         ```
     """
     with LangfuseResourceManager._lock:
@@ -146,7 +143,7 @@ def get_client(
                 # Multiple clients exist but no key specified - disable tracing
                 # to prevent cross-project data leakage
                 langfuse_logger.warning(
-                    "No 'langfuse_public_key' passed to decorated function, but multiple langfuse clients are instantiated in current process. Skipping tracing for this function to avoid cross-project leakage."
+                    "No 'langfuse_public_key' or 'langfuse_project_id' passed to decorated function, but multiple langfuse clients are instantiated in current process. Skipping tracing for this function to avoid cross-project leakage."
                 )
                 return Langfuse(
                     tracing_enabled=False, public_key="fake", secret_key="fake"
@@ -176,13 +173,14 @@ def get_client(
                 )
 
             if len(matching_instances) > 1:
-                # Several projects share this organization key - disable tracing
+                # The given identity matches several clients - disable tracing
                 # to prevent cross-project data leakage
                 langfuse_logger.warning(
-                    "Multiple Langfuse clients with public key %s are instantiated for "
-                    "different projects, but no 'langfuse_project_id' was passed. "
-                    "Skipping tracing to avoid cross-project leakage.",
+                    "Multiple Langfuse clients match public key %s and project id %s. "
+                    "Pass both 'langfuse_public_key' and 'langfuse_project_id' to "
+                    "select one. Skipping tracing to avoid cross-project leakage.",
                     public_key,
+                    project_id,
                 )
                 return Langfuse(
                     tracing_enabled=False, public_key="fake", secret_key="fake"

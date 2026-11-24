@@ -46,6 +46,7 @@ from langfuse._client.attributes import (
     _serialize,
 )
 from langfuse._client.constants import (
+    API_KEY_PREFIX,
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     PROJECT_ID_HEADER_NAMES,
     ObservationTypeGenerationLike,
@@ -55,6 +56,7 @@ from langfuse._client.constants import (
 )
 from langfuse._client.datasets import DatasetClient
 from langfuse._client.environment_variables import (
+    LANGFUSE_API_KEY,
     LANGFUSE_BASE_URL,
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
@@ -204,6 +206,62 @@ def _validate_project_id_headers(
                 raise ValueError(message)
 
 
+_API_KEY_PATTERN = re.compile(rf"{API_KEY_PREFIX}[A-Za-z0-9]+")
+_KEY_PAIR_PREFIXES = ("pk-lf-", "sk-lf-")
+
+
+def _resolve_credentials(
+    *,
+    api_key: Optional[str],
+    public_key: Optional[str],
+    secret_key: Optional[str],
+    project_id: Optional[str],
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Return ``(api_key, public_key, secret_key)``; raise on a misconfigured key."""
+    if not (api_key or public_key or secret_key):
+        api_key = os.environ.get(LANGFUSE_API_KEY) or None
+
+    if not api_key:
+        public_key = public_key or os.environ.get(LANGFUSE_PUBLIC_KEY)
+        secret_key = secret_key or os.environ.get(LANGFUSE_SECRET_KEY)
+        for name, value in (("public_key", public_key), ("secret_key", secret_key)):
+            if value is not None and value.startswith(API_KEY_PREFIX):
+                message = (
+                    f"{name} is a Langfuse API key ({API_KEY_PREFIX}...). Pass it as "
+                    "api_key (or LANGFUSE_API_KEY) together with project_id."
+                )
+                raise ValueError(message)
+
+        return None, public_key, secret_key
+
+    if public_key or secret_key:
+        message = "Pass either api_key or public_key and secret_key, not both."
+        raise ValueError(message)
+
+    if api_key.startswith(_KEY_PAIR_PREFIXES):
+        message = (
+            f"api_key expects a Langfuse API key ({API_KEY_PREFIX}...), not a "
+            "public or secret key. Pass those as public_key and secret_key, or "
+            "create a new API key in Langfuse."
+        )
+        raise ValueError(message)
+
+    if not _API_KEY_PATTERN.fullmatch(api_key):
+        message = (
+            "api_key is not a valid Langfuse API key. Expected "
+            f"'{API_KEY_PREFIX}' followed by letters and digits."
+        )
+        raise ValueError(message)
+
+    if not project_id:
+        message = (
+            "api_key requires project_id. Pass project_id or set LANGFUSE_PROJECT_ID."
+        )
+        raise ValueError(message)
+
+    return api_key, None, None
+
+
 class Langfuse:
     """Main client for Langfuse tracing and platform features.
 
@@ -226,7 +284,8 @@ class Langfuse:
     Parameters:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
         secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
-        project_id (Optional[str]): Langfuse project that receives this client's data. Required for organization API keys; omit for project API keys. Can also be set via LANGFUSE_PROJECT_ID environment variable. Use one client per project. Raises `ValueError` if a project header in `additional_headers` or `httpx_client` names a different project.
+        api_key (Optional[str]): Langfuse API key (`lf_...`) for project, user and organization keys. Replaces `public_key` and `secret_key` and requires `project_id`. Can also be set via LANGFUSE_API_KEY environment variable. Raises `ValueError` if the key is malformed or combined with `public_key` or `secret_key`.
+        project_id (Optional[str]): Langfuse project that receives this client's data. Required with `api_key`. Can also be set via LANGFUSE_PROJECT_ID environment variable. Use one client per project. Raises `ValueError` if a project header in `additional_headers` or `httpx_client` names a different project.
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
@@ -337,6 +396,7 @@ class Langfuse:
         secret_key: Optional[str] = None,
         base_url: Optional[str] = None,
         host: Optional[str] = None,
+        api_key: Optional[str] = None,
         project_id: Optional[str] = None,
         timeout: Optional[int] = None,
         httpx_client: Optional[httpx.Client] = None,
@@ -403,17 +463,22 @@ class Langfuse:
             )
             langfuse_logger.setLevel(logging.DEBUG)
 
-        public_key = public_key or os.environ.get(LANGFUSE_PUBLIC_KEY)
-        if public_key is None:
+        api_key, public_key, secret_key = _resolve_credentials(
+            api_key=api_key,
+            public_key=public_key,
+            secret_key=secret_key,
+            project_id=project_id,
+        )
+        if api_key is None and public_key is None:
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without public_key. Client will be disabled. "
-                "Provide a public_key parameter or set LANGFUSE_PUBLIC_KEY environment variable. "
+                "Provide a public_key parameter or set LANGFUSE_PUBLIC_KEY environment variable, "
+                "or use api_key with project_id. "
             )
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
 
-        secret_key = secret_key or os.environ.get(LANGFUSE_SECRET_KEY)
-        if secret_key is None:
+        if api_key is None and secret_key is None:
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without secret_key. Client will be disabled. "
                 "Provide a secret_key parameter or set LANGFUSE_SECRET_KEY environment variable. "
@@ -430,6 +495,7 @@ class Langfuse:
         self._resources = LangfuseResourceManager(
             public_key=public_key,
             secret_key=secret_key,
+            api_key=api_key,
             base_url=self._base_url,
             project_id=project_id,
             timeout=timeout,

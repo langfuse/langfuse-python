@@ -2575,44 +2575,42 @@ class TestMultiProjectSetup(TestOTelBase):
         assert "trace-project1" not in spans_project2
 
     def test_org_key_spans_routed_to_correct_project(self, monkeypatch):
-        """Two clients on one organization key export only their own project's spans.
+        """API key clients and a key pair client export only their own spans.
 
         Uses the real LangfuseSpanProcessor on a shared TracerProvider, so the
         instrumentation-scope filter is what keeps the projects apart.
         """
         monkeypatch.setattr(LangfuseResourceManager, "_instances", {})
         tracer_provider = TracerProvider()
-        exporter_a = InMemorySpanExporter()
-        exporter_b = InMemorySpanExporter()
+        exporters = {name: InMemorySpanExporter() for name in ("a", "b", "key-pair")}
 
-        client_a = Langfuse(
-            public_key="pk-lf-org",
-            secret_key="sk-lf-org",
+        clients = {
+            name: Langfuse(
+                api_key="lf_cm3x7k2p90000qz8f4a1b2c3d",
+                base_url="http://test-host",
+                project_id=f"project-{name}",
+                tracer_provider=tracer_provider,
+                span_exporter=exporters[name],
+            )
+            for name in ("a", "b")
+        }
+        clients["key-pair"] = Langfuse(
+            public_key="pk-lf-project",
+            secret_key="sk-lf-project",
             base_url="http://test-host",
-            project_id="project-a",
             tracer_provider=tracer_provider,
-            span_exporter=exporter_a,
-        )
-        client_b = Langfuse(
-            public_key="pk-lf-org",
-            secret_key="sk-lf-org",
-            base_url="http://test-host",
-            project_id="project-b",
-            tracer_provider=tracer_provider,
-            span_exporter=exporter_b,
+            span_exporter=exporters["key-pair"],
         )
 
         try:
-            client_a.start_observation(name="span-project-a").end()
-            client_b.start_observation(name="span-project-b").end()
+            for name, client in clients.items():
+                client.start_observation(name=f"span-{name}").end()
             tracer_provider.force_flush()
 
-            assert [s.name for s in exporter_a.get_finished_spans()] == [
-                "span-project-a"
-            ]
-            assert [s.name for s in exporter_b.get_finished_spans()] == [
-                "span-project-b"
-            ]
+            for name, exporter in exporters.items():
+                assert [s.name for s in exporter.get_finished_spans()] == [
+                    f"span-{name}"
+                ]
         finally:
             LangfuseResourceManager.reset()
             tracer_provider.shutdown()

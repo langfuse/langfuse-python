@@ -188,8 +188,8 @@ class LangfuseDecorator:
             - Special keyword arguments can be passed to control tracing:
               - langfuse_trace_id: Explicitly set the trace ID for this function call
               - langfuse_parent_observation_id: Explicitly set the parent span ID
-              - langfuse_public_key: Use a specific Langfuse project (when multiple clients exist)
-              - langfuse_project_id: Use the client for this project (when several clients share an organization API key)
+              - langfuse_public_key: Use the client for this public key (when multiple clients exist)
+              - langfuse_project_id: Use the client for this project (when multiple clients exist)
             - For async functions, the decorator returns an async function wrapper.
             - For sync functions, the decorator returns a synchronous wrapper.
         """
@@ -286,7 +286,7 @@ class LangfuseDecorator:
                 if capture_input
                 else None
             )
-            public_key = cast(str, kwargs.pop("langfuse_public_key", None))
+            public_key = cast(Optional[str], kwargs.pop("langfuse_public_key", None))
             project_id = cast(Optional[str], kwargs.pop("langfuse_project_id", None))
 
             # Set client identity in execution context for nested decorated functions

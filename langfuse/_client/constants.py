@@ -9,11 +9,14 @@ from typing_extensions import TypeAlias
 
 LANGFUSE_TRACER_NAME = "langfuse-sdk"
 
-PROJECT_ID_HEADER = "x-langfuse-project-id"
-"""Header naming the target project. Required with organization API keys."""
+PROJECT_ID_HEADER = "langfuse-project-id"
+"""Header naming the target project. Required with organization and user API keys."""
 
 # Lowercase header names the server reads as the target project
-PROJECT_ID_HEADER_NAMES = (PROJECT_ID_HEADER, "langfuse-project-id")
+PROJECT_ID_HEADER_NAMES = (PROJECT_ID_HEADER, "x-langfuse-project-id")
+
+API_KEY_PREFIX = "lf_"
+"""Prefix of Langfuse API keys, which authenticate as a bearer token."""
 
 LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT = "sdk-experiment"
 

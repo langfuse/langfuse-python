@@ -149,9 +149,9 @@ class _ForbiddenExportHintFilter(logging.Filter):
         ):
             self._hint_logged = True
             langfuse_logger.error(
-                "Span export was rejected with 403 Forbidden. If you are using an "
-                "organization API key, set LANGFUSE_PROJECT_ID or pass project_id to "
-                "Langfuse() to name the project to write to."
+                "Span export was rejected with 403 Forbidden. With an organization "
+                "or user API key, set project_id (or LANGFUSE_PROJECT_ID) to a "
+                "project the key can write to."
             )
 
         return True
@@ -180,9 +180,10 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
     def __init__(
         self,
         *,
-        public_key: str,
-        secret_key: str,
+        public_key: Optional[str],
+        secret_key: Optional[str],
         base_url: str,
+        api_key: Optional[str] = None,
         project_id: Optional[str] = None,
         timeout: Optional[int] = None,
         flush_at: Optional[int] = None,
@@ -216,18 +217,22 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
             flush_interval = float(env_flush_interval)
 
         if span_exporter is None:
-            basic_auth_header = "Basic " + base64.b64encode(
-                f"{public_key}:{secret_key}".encode("utf-8")
-            ).decode("ascii")
+            if api_key is not None:
+                auth_header = f"Bearer {api_key}"
+            else:
+                auth_header = "Basic " + base64.b64encode(
+                    f"{public_key}:{secret_key}".encode("utf-8")
+                ).decode("ascii")
 
             # Prepare default headers
             default_headers = {
-                "Authorization": basic_auth_header,
+                "Authorization": auth_header,
                 "x-langfuse-sdk-name": "python",
                 "x-langfuse-sdk-version": langfuse_version,
-                "x-langfuse-public-key": public_key,
                 "x-langfuse-ingestion-version": "4",
             }
+            if public_key is not None:
+                default_headers["x-langfuse-public-key"] = public_key
             if project_id is not None:
                 default_headers[PROJECT_ID_HEADER] = project_id
 
