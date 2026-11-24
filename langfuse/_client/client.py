@@ -336,7 +336,7 @@ class Langfuse:
             or os.environ.get(LANGFUSE_BASE_URL)
             or host
             or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
-        )
+        ).rstrip("/")
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
         )
