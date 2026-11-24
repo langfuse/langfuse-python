@@ -435,6 +435,46 @@ def test_openai_stream_with_none_choices_chunk_does_not_crash(
     assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
 
 
+def test_streaming_legacy_function_call_with_none_arguments_chunk():
+    # ChoiceDeltaFunctionCall.arguments is Optional[str]; a later chunk that
+    # carries only a name has arguments=None. Concatenating it used to raise
+    # TypeError, which _finalize_stream_response swallowed, losing the whole
+    # generation output/model/usage.
+    def chunk(function_call, *, model="gpt-4o-mini", usage=None):
+        return SimpleNamespace(
+            model=model,
+            choices=[
+                SimpleNamespace(
+                    delta=SimpleNamespace(
+                        role="assistant" if function_call.name else None,
+                        content=None,
+                        function_call=function_call,
+                        tool_calls=None,
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=usage,
+        )
+
+    model, completion, _usage, _metadata, _tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"),
+            [
+                chunk(SimpleNamespace(name="get_weather", arguments='{"city"')),
+                chunk(SimpleNamespace(name=None, arguments=None)),
+                chunk(SimpleNamespace(name=None, arguments=': "Berlin"}')),
+            ],
+        )
+    )
+
+    assert model == "gpt-4o-mini"
+    assert completion["function_call"] == {
+        "name": "get_weather",
+        "arguments": '{"city": "Berlin"}',
+    }
+
+
 def test_streaming_chat_completion_preserves_tool_calls_after_content():
     model, completion, usage, metadata, _service_tier = (
         lf_openai_module._extract_streamed_openai_response(
