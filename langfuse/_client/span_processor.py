@@ -199,6 +199,7 @@ class LangfuseSpanProcessor(BatchSpanProcessor):
 
             traces_export_path = os.environ.get(LANGFUSE_OTEL_TRACES_EXPORT_PATH, None)
 
+            base_url = base_url.rstrip("/")
             endpoint = (
                 f"{base_url}/{traces_export_path}"
                 if traces_export_path

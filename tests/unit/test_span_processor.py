@@ -83,6 +83,26 @@ def test_span_processor_uses_env_flush_settings_when_constructor_omits_them(
         processor.shutdown()
 
 
+def test_span_processor_strips_trailing_slash_from_base_url(monkeypatch):
+    exporter_endpoints = []
+
+    class RecordingExporter(NoOpSpanExporter):
+        def __init__(self, *, endpoint, **kwargs):
+            exporter_endpoints.append(endpoint)
+
+    monkeypatch.setattr(span_processor_module, "OTLPSpanExporter", RecordingExporter)
+    processor = LangfuseSpanProcessor(
+        public_key="pk-test",
+        secret_key="sk-test",
+        base_url="http://localhost:3000/",
+    )
+
+    try:
+        assert exporter_endpoints == ["http://localhost:3000/api/public/otel/v1/traces"]
+    finally:
+        processor.shutdown()
+
+
 class _RecordedRequest(NamedTuple):
     content_encoding: Optional[str]
     body: bytes
