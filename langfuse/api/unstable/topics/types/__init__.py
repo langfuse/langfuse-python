@@ -7,25 +7,47 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .topic import Topic
+    from .topic_assignment import TopicAssignment
+    from .topic_assignment_list import TopicAssignmentList
+    from .topic_assignment_status import TopicAssignmentStatus
+    from .topic_assignment_topic import TopicAssignmentTopic
     from .topic_facet import TopicFacet
     from .topic_facet_counts import TopicFacetCounts
     from .topic_facet_list import TopicFacetList
     from .topic_facet_published_run import TopicFacetPublishedRun
     from .topic_facet_ref import TopicFacetRef
     from .topic_list import TopicList
+    from .topic_result_list_meta import TopicResultListMeta
+    from .topic_results_order_by import TopicResultsOrderBy
+    from .topic_rule import TopicRule
+    from .topic_rule_list import TopicRuleList
     from .topic_status_counts import TopicStatusCounts
+    from .topic_summary import TopicSummary
+    from .topic_summary_list import TopicSummaryList
+    from .topic_summary_state import TopicSummaryState
     from .topic_window import TopicWindow
     from .topic_with_status import TopicWithStatus
     from .topics_order_by import TopicsOrderBy
 _dynamic_imports: typing.Dict[str, str] = {
     "Topic": ".topic",
+    "TopicAssignment": ".topic_assignment",
+    "TopicAssignmentList": ".topic_assignment_list",
+    "TopicAssignmentStatus": ".topic_assignment_status",
+    "TopicAssignmentTopic": ".topic_assignment_topic",
     "TopicFacet": ".topic_facet",
     "TopicFacetCounts": ".topic_facet_counts",
     "TopicFacetList": ".topic_facet_list",
     "TopicFacetPublishedRun": ".topic_facet_published_run",
     "TopicFacetRef": ".topic_facet_ref",
     "TopicList": ".topic_list",
+    "TopicResultListMeta": ".topic_result_list_meta",
+    "TopicResultsOrderBy": ".topic_results_order_by",
+    "TopicRule": ".topic_rule",
+    "TopicRuleList": ".topic_rule_list",
     "TopicStatusCounts": ".topic_status_counts",
+    "TopicSummary": ".topic_summary",
+    "TopicSummaryList": ".topic_summary_list",
+    "TopicSummaryState": ".topic_summary_state",
     "TopicWindow": ".topic_window",
     "TopicWithStatus": ".topic_with_status",
     "TopicsOrderBy": ".topics_order_by",
@@ -61,13 +83,24 @@ def __dir__():
 
 __all__ = [
     "Topic",
+    "TopicAssignment",
+    "TopicAssignmentList",
+    "TopicAssignmentStatus",
+    "TopicAssignmentTopic",
     "TopicFacet",
     "TopicFacetCounts",
     "TopicFacetList",
     "TopicFacetPublishedRun",
     "TopicFacetRef",
     "TopicList",
+    "TopicResultListMeta",
+    "TopicResultsOrderBy",
+    "TopicRule",
+    "TopicRuleList",
     "TopicStatusCounts",
+    "TopicSummary",
+    "TopicSummaryList",
+    "TopicSummaryState",
     "TopicWindow",
     "TopicWithStatus",
     "TopicsOrderBy",

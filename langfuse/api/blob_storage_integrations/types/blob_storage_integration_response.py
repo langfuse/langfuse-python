@@ -11,6 +11,7 @@ from .blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .blob_storage_export_frequency import BlobStorageExportFrequency
 from .blob_storage_export_mode import BlobStorageExportMode
 from .blob_storage_export_source import BlobStorageExportSource
+from .blob_storage_integration_auth_type import BlobStorageIntegrationAuthType
 from .blob_storage_integration_file_type_response import (
     BlobStorageIntegrationFileTypeResponse,
 )
@@ -24,9 +25,33 @@ class BlobStorageIntegrationResponse(UniversalBaseModel):
     bucket_name: typing_extensions.Annotated[str, FieldMetadata(alias="bucketName")]
     endpoint: typing.Optional[str] = None
     region: str
+    auth_type: typing_extensions.Annotated[
+        BlobStorageIntegrationAuthType, FieldMetadata(alias="authType")
+    ]
     access_key_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="accessKeyId")
     ] = None
+    role_arn: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="roleArn")
+    ] = pydantic.Field(default=None)
+    """
+    IAM role Langfuse assumes. May be set while `authType` is `ACCESS_KEYS` if the integration used `ROLE_ARN` before.
+    """
+
+    external_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="externalId")
+    ] = pydantic.Field(default=None)
+    """
+    External ID Langfuse passes when assuming `roleArn`. Require it in the role's trust policy with an `sts:ExternalId` condition. Null until the integration first uses `ROLE_ARN`.
+    """
+
+    cross_account_role_arn: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="crossAccountRoleArn")
+    ] = pydantic.Field(default=None)
+    """
+    Langfuse role that must be trusted by `roleArn`. Null when the deployment does not support IAM role auth or the organization is not on an Enterprise plan.
+    """
+
     prefix: str
     export_frequency: typing_extensions.Annotated[
         BlobStorageExportFrequency, FieldMetadata(alias="exportFrequency")

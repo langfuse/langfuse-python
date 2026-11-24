@@ -1,5 +1,8 @@
+import random
+import time
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
 from langfuse._client.client import Langfuse
@@ -9,7 +12,8 @@ from langfuse._utils.prompt_cache import (
     PromptCacheItem,
     PromptCacheTaskManager,
 )
-from langfuse.api import NotFoundError, Prompt_Chat, Prompt_Text
+from langfuse.api import LangfuseAPI, NotFoundError, Prompt_Chat, Prompt_Text
+from langfuse.api.core.api_error import ApiError
 from langfuse.model import ChatPromptClient, TextPromptClient
 
 
@@ -139,6 +143,14 @@ def langfuse():
     return langfuse_instance
 
 
+@pytest.fixture
+def sleeps(monkeypatch: pytest.MonkeyPatch) -> list:
+    recorded: list = []
+    monkeypatch.setattr(time, "sleep", recorded.append)
+
+    return recorded
+
+
 def wait_for_prompt_refresh(langfuse: Langfuse) -> None:
     langfuse._resources.prompt_cache._task_manager.wait_for_idle()
 
@@ -199,7 +211,7 @@ def test_get_fresh_prompt(langfuse):
         prompt_name,
         version=None,
         label=None,
-        request_options=None,
+        request_options={"max_retries": 0},
     )
 
     assert result == TextPromptClient(prompt)
@@ -244,7 +256,7 @@ def test_using_custom_prompt_timeouts(langfuse):
         prompt_name,
         version=None,
         label=None,
-        request_options={"timeout_in_seconds": 1000},
+        request_options={"max_retries": 0, "timeout_in_seconds": 1000},
     )
 
     assert result == TextPromptClient(prompt)
@@ -620,7 +632,7 @@ def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: La
 
 
 @patch.object(PromptCacheItem, "get_epoch_seconds")
-def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
+def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse, sleeps):
     mock_time.return_value = 0
 
     prompt_name = "test_get_expired_prompt_when_failing_fetch"
@@ -643,7 +655,7 @@ def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse):
     assert result_call_1 == prompt_client
 
     mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
-    mock_server_call.side_effect = Exception("Server error")
+    mock_server_call.side_effect = httpx.ConnectError("Server error")
 
     result_call_2 = langfuse.get_prompt(prompt_name, max_retries=1)
     wait_for_prompt_refresh(langfuse)
@@ -748,3 +760,123 @@ def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
     result_call_2 = langfuse.get_prompt(prompt_name, version=2)
     assert mock_server_call.call_count == 2
     assert result_call_2 == version_changed_prompt_client
+
+
+def _api_over_transport(handler) -> LangfuseAPI:
+    return LangfuseAPI(
+        base_url="http://test-host",
+        username="pk",
+        password="sk",
+        httpx_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+
+def _prompt_json(name: str) -> dict:
+    return {
+        "name": name,
+        "version": 1,
+        "prompt": "Make me laugh",
+        "type": "text",
+        "labels": [],
+        "config": {},
+        "tags": [],
+    }
+
+
+def test_get_prompt_does_not_multiply_retries_on_rate_limit(langfuse, sleeps):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(429, headers={"Retry-After": "3"}, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises(ApiError) as exc_info:
+        langfuse.get_prompt("rate_limited_prompt", max_retries=2)
+
+    assert exc_info.value.status_code == 429
+    assert len(requests) == 3
+    assert sleeps == [3, 3]
+
+
+@pytest.mark.parametrize("status_code", [401, 403, 404])
+def test_get_prompt_does_not_retry_non_retryable_client_errors(
+    langfuse, sleeps, status_code
+):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(status_code, json={"message": "nope"})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises(ApiError):
+        langfuse.get_prompt("client_error_prompt", max_retries=2)
+
+    assert len(requests) == 1
+    assert sleeps == []
+
+
+def test_get_prompt_retries_network_errors_with_exponential_backoff(
+    langfuse, sleeps, monkeypatch: pytest.MonkeyPatch
+):
+    # pin full jitter to its upper bound so the backoff sequence is observable
+    monkeypatch.setattr(random, "uniform", lambda _low, high: high)
+    prompt_name = "flaky_network_prompt"
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) < 3:
+            raise httpx.ConnectError("connection refused", request=request)
+
+        return httpx.Response(200, json=_prompt_json(prompt_name))
+
+    langfuse.api = _api_over_transport(handler)
+
+    result = langfuse.get_prompt(prompt_name, max_retries=2)
+
+    assert result.prompt == "Make me laugh"
+    assert len(requests) == 3
+    assert sleeps == [1, 2]
+
+
+def test_get_prompt_shares_one_retry_budget_across_failure_kinds(langfuse, sleeps):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) % 2 == 0:
+            raise httpx.ConnectError("connection reset", request=request)
+
+        return httpx.Response(503, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises(httpx.ConnectError):
+        langfuse.get_prompt("degraded_server_prompt", max_retries=3)
+
+    assert len(requests) == 4
+    assert len(sleeps) == 3
+
+
+@pytest.mark.parametrize("failure", ["rate_limited", "network_error"])
+def test_get_prompt_with_zero_retries_sends_one_request(langfuse, sleeps, failure):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if failure == "network_error":
+            raise httpx.ConnectError("connection refused", request=request)
+
+        return httpx.Response(429, headers={"Retry-After": "1"}, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises((ApiError, httpx.ConnectError)):
+        langfuse.get_prompt("no_retry_prompt", max_retries=0)
+
+    assert len(requests) == 1
+    assert sleeps == []
