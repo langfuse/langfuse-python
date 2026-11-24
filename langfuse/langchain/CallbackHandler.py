@@ -1264,7 +1264,11 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 "max_completion_tokens": kwargs["invocation_params"].get(
                     "max_completion_tokens"
                 ),
+                "max_output_tokens": kwargs["invocation_params"].get(
+                    "max_output_tokens"
+                ),
                 "top_p": kwargs["invocation_params"].get("top_p"),
+                "top_k": kwargs["invocation_params"].get("top_k"),
                 "frequency_penalty": kwargs["invocation_params"].get(
                     "frequency_penalty"
                 ),

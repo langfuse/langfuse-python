@@ -1309,3 +1309,69 @@ def test_bind_tools_tool_definitions_stay_in_openai_format(
     assert tool_definition["type"] == "function"
     assert tool_definition["function"]["name"] == "example_tool"
     assert "query" in tool_definition["function"]["parameters"]["properties"]
+
+
+@pytest.mark.parametrize(
+    ("invocation_params", "expected_model_parameters"),
+    [
+        # ChatGoogleGenerativeAI._get_invocation_params()
+        (
+            {
+                "model": "gemini-2.5-flash",
+                "temperature": 0.0,
+                "top_p": None,
+                "top_k": 5,
+                "max_output_tokens": 100,
+                "n": 1,
+                "_type": "chat-google-generative-ai",
+                "stop": None,
+            },
+            {"temperature": 0.0, "top_k": 5, "max_output_tokens": 100},
+        ),
+        # ChatAnthropic._get_invocation_params()
+        (
+            {
+                "model": "claude-sonnet-4-5",
+                "max_tokens": 100,
+                "temperature": 0.0,
+                "top_k": 5,
+                "top_p": None,
+                "_type": "anthropic-chat",
+                "stop": None,
+            },
+            {"temperature": 0.0, "top_k": 5, "max_tokens": 100},
+        ),
+    ],
+)
+def test_generation_records_top_k_and_max_output_tokens(
+    langfuse_memory_client,
+    get_span,
+    json_attr,
+    invocation_params,
+    expected_model_parameters,
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    handler.on_chat_model_start(
+        {"id": ["langchain", "chat_models", "ChatModel"], "name": "ChatModel"},
+        [[HumanMessage(content="hello")]],
+        run_id=run_id,
+        invocation_params=invocation_params,
+    )
+    handler.on_llm_end(
+        LLMResult(
+            generations=[[ChatGeneration(message=AIMessage(content="hi"), text="hi")]]
+        ),
+        run_id=run_id,
+    )
+
+    langfuse_memory_client.flush()
+    generation_span = get_span("ChatModel")
+
+    assert (
+        json_attr(
+            generation_span, LangfuseOtelSpanAttributes.OBSERVATION_MODEL_PARAMETERS
+        )
+        == expected_model_parameters
+    )
