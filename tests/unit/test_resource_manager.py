@@ -535,12 +535,11 @@ class TestMultiProjectClients:
         )
 
     @staticmethod
-    def _key_pair_client(public_key, project_id=None):
+    def _key_pair_client(public_key):
         return Langfuse(
             public_key=public_key,
             secret_key="sk-lf-secret",
             base_url="http://localhost:3000",
-            project_id=project_id,
             tracing_enabled=False,
         )
 
@@ -588,20 +587,6 @@ class TestMultiProjectClients:
 
         assert client._resources.public_key == "fake"
         assert client._tracing_enabled is False
-
-    def test_key_pair_for_several_projects_needs_both_identifiers(self, caplog):
-        self._key_pair_client("pk-lf-org", project_id="project-a")
-        self._key_pair_client("pk-lf-org", project_id="project-b")
-
-        with caplog.at_level(logging.WARNING, logger="langfuse"):
-            ambiguous = get_client(public_key="pk-lf-org")
-        selected = get_client(public_key="pk-lf-org", project_id="project-b")
-
-        assert ambiguous._tracing_enabled is False
-        assert any(
-            "Multiple Langfuse clients match" in r.message for r in caplog.records
-        )
-        assert selected._resources.project_id == "project-b"
 
     def test_observe_routes_by_project_id_or_public_key(self):
         from langfuse import observe

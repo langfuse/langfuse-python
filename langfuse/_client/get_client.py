@@ -84,9 +84,9 @@ def get_client(
     - Several clients and none named: Returns disabled client to prevent data leakage
 
     Args:
-        public_key (Optional[str]): Selects the client for this public key.
-        project_id (Optional[str]): Selects the client for this project. Use for
-            clients created with api_key.
+        public_key (Optional[str]): Selects the client created with this public key.
+        project_id (Optional[str]): Selects the client created with api_key for this
+            project.
 
     Returns:
         Langfuse: Client instance in one of three states:
@@ -177,8 +177,7 @@ def get_client(
                 # to prevent cross-project data leakage
                 langfuse_logger.warning(
                     "Multiple Langfuse clients match public key %s and project id %s. "
-                    "Pass both 'langfuse_public_key' and 'langfuse_project_id' to "
-                    "select one. Skipping tracing to avoid cross-project leakage.",
+                    "Skipping tracing to avoid cross-project leakage.",
                     public_key,
                     project_id,
                 )

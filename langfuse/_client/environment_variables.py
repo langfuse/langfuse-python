@@ -48,7 +48,7 @@ LANGFUSE_PROJECT_ID = "LANGFUSE_PROJECT_ID"
 .. envvar:: LANGFUSE_PROJECT_ID
 
 Langfuse project that receives the client's data. Required with
-:envvar:`LANGFUSE_API_KEY`.
+:envvar:`LANGFUSE_API_KEY`; ignored by clients using a public and secret key.
 """
 
 LANGFUSE_BASE_URL = "LANGFUSE_BASE_URL"

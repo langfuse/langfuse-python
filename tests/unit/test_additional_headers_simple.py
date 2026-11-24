@@ -12,6 +12,8 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from langfuse._client.client import Langfuse
 
+API_KEY = "lf_cm3x7k2p90000qz8f4a1b2c3d"
+
 
 class NoOpSpanExporter(SpanExporter):
     """Minimal exporter used to verify custom exporter injection."""
@@ -286,15 +288,15 @@ class TestProjectIdHeader:
     def _clean_state(self, monkeypatch):
         from langfuse._client.resource_manager import LangfuseResourceManager
 
-        monkeypatch.delenv("LANGFUSE_PROJECT_ID", raising=False)
+        for name in ("LANGFUSE_API_KEY", "LANGFUSE_PROJECT_ID"):
+            monkeypatch.delenv(name, raising=False)
         LangfuseResourceManager.reset()
         yield
         LangfuseResourceManager.reset()
 
     def test_header_on_otlp_exporter_and_api_clients(self):
         langfuse = Langfuse(
-            public_key="pk-lf-org",
-            secret_key="sk-lf-org",
+            api_key=API_KEY,
             base_url="https://mock-host.com",
             project_id="project-a",
             tracer_provider=TracerProvider(),
@@ -327,8 +329,7 @@ class TestProjectIdHeader:
         monkeypatch.setenv("LANGFUSE_PROJECT_ID", "project-from-env")
 
         langfuse = Langfuse(
-            public_key="pk-lf-org",
-            secret_key="sk-lf-org",
+            api_key=API_KEY,
             base_url="https://mock-host.com",
             tracing_enabled=False,
         )
@@ -343,8 +344,7 @@ class TestProjectIdHeader:
         monkeypatch.setenv("LANGFUSE_PROJECT_ID", "project-from-env")
 
         langfuse = Langfuse(
-            public_key="pk-lf-org",
-            secret_key="sk-lf-org",
+            api_key=API_KEY,
             base_url="https://mock-host.com",
             project_id="project-from-arg",
             tracer_provider=TracerProvider(),
@@ -371,8 +371,7 @@ class TestProjectIdHeader:
         )
 
         langfuse = Langfuse(
-            public_key="pk-lf-org",
-            secret_key="sk-lf-org",
+            api_key=API_KEY,
             base_url="https://mock-host.com",
             project_id="project-a",
             httpx_client=custom_client,
@@ -391,8 +390,7 @@ class TestProjectIdHeader:
     def test_conflicting_additional_header_raises(self, header_name):
         with pytest.raises(ValueError, match="Conflicting project IDs"):
             Langfuse(
-                public_key="pk-lf-org",
-                secret_key="sk-lf-org",
+                api_key=API_KEY,
                 base_url="https://mock-host.com",
                 project_id="project-a",
                 additional_headers={header_name: "project-b"},
@@ -407,8 +405,7 @@ class TestProjectIdHeader:
 
         with pytest.raises(ValueError, match="httpx_client.headers"):
             Langfuse(
-                public_key="pk-lf-org",
-                secret_key="sk-lf-org",
+                api_key=API_KEY,
                 base_url="https://mock-host.com",
                 project_id="project-a",
                 httpx_client=custom_client,
@@ -420,8 +417,7 @@ class TestProjectIdHeader:
 
         with pytest.raises(ValueError, match="Conflicting project IDs"):
             Langfuse(
-                public_key="pk-lf-org",
-                secret_key="sk-lf-org",
+                api_key=API_KEY,
                 base_url="https://mock-host.com",
                 additional_headers={"x-langfuse-project-id": "project-b"},
                 tracing_enabled=False,
@@ -429,8 +425,7 @@ class TestProjectIdHeader:
 
     def test_matching_headers_are_accepted(self):
         langfuse = Langfuse(
-            public_key="pk-lf-org",
-            secret_key="sk-lf-org",
+            api_key=API_KEY,
             base_url="https://mock-host.com",
             project_id="project-a",
             additional_headers={"X-Langfuse-Project-Id": "project-a"},
@@ -460,8 +455,7 @@ class TestProjectIdHeader:
     def test_custom_span_exporter_warns_about_project_id(self, caplog):
         with caplog.at_level("WARNING", logger="langfuse"):
             Langfuse(
-                public_key="pk-lf-org",
-                secret_key="sk-lf-org",
+                api_key=API_KEY,
                 base_url="https://mock-host.com",
                 project_id="project-a",
                 tracer_provider=TracerProvider(),
@@ -475,9 +469,6 @@ class TestProjectIdHeader:
             )
             == 1
         )
-
-
-API_KEY = "lf_cm3x7k2p90000qz8f4a1b2c3d"
 
 
 class TestApiKeyAuth:
@@ -598,3 +589,24 @@ class TestApiKeyAuth:
 
         with pytest.raises(ValueError, match="secret_key is a Langfuse API key"):
             Langfuse()
+
+    def test_project_id_with_key_pair_raises(self):
+        with pytest.raises(ValueError, match="project_id requires api_key"):
+            Langfuse(
+                public_key="pk-lf-project",
+                secret_key="sk-lf-project",
+                project_id="project-a",
+            )
+
+    def test_key_pair_client_ignores_project_id_env_var(self, monkeypatch):
+        monkeypatch.setenv("LANGFUSE_PROJECT_ID", "project-a")
+
+        langfuse = Langfuse(
+            public_key="pk-lf-project",
+            secret_key="sk-lf-project",
+            base_url="https://mock-host.com",
+            tracing_enabled=False,
+        )
+
+        assert langfuse._resources.project_id is None
+        assert "langfuse-project-id" not in (langfuse.api._client_wrapper.get_headers())

@@ -216,8 +216,8 @@ def _resolve_credentials(
     public_key: Optional[str],
     secret_key: Optional[str],
     project_id: Optional[str],
-) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """Return ``(api_key, public_key, secret_key)``; raise on a misconfigured key."""
+) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """Return ``(api_key, public_key, secret_key, project_id)``; raise on misconfiguration."""
     if not (api_key or public_key or secret_key):
         api_key = os.environ.get(LANGFUSE_API_KEY) or None
 
@@ -232,7 +232,15 @@ def _resolve_credentials(
                 )
                 raise ValueError(message)
 
-        return None, public_key, secret_key
+        if project_id:
+            message = (
+                "project_id requires api_key. Key pairs (pk-lf-/sk-lf-) belong to "
+                "one project; remove project_id or use an API key (lf_...)."
+            )
+            raise ValueError(message)
+
+        # LANGFUSE_PROJECT_ID is ignored: it configures API key clients only
+        return None, public_key, secret_key, None
 
     if public_key or secret_key:
         message = "Pass either api_key or public_key and secret_key, not both."
@@ -253,13 +261,14 @@ def _resolve_credentials(
         )
         raise ValueError(message)
 
+    project_id = project_id or os.environ.get(LANGFUSE_PROJECT_ID) or None
     if not project_id:
         message = (
             "api_key requires project_id. Pass project_id or set LANGFUSE_PROJECT_ID."
         )
         raise ValueError(message)
 
-    return api_key, None, None
+    return api_key, None, None, project_id
 
 
 class Langfuse:
@@ -285,7 +294,7 @@ class Langfuse:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
         secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
         api_key (Optional[str]): Langfuse API key (`lf_...`) for project, user and organization keys. Replaces `public_key` and `secret_key` and requires `project_id`. Can also be set via LANGFUSE_API_KEY environment variable. Raises `ValueError` if the key is malformed or combined with `public_key` or `secret_key`.
-        project_id (Optional[str]): Langfuse project that receives this client's data. Required with `api_key`. Can also be set via LANGFUSE_PROJECT_ID environment variable. Use one client per project. Raises `ValueError` if a project header in `additional_headers` or `httpx_client` names a different project.
+        project_id (Optional[str]): Langfuse project that receives this client's data. Required with `api_key` and only valid with it. Can also be set via LANGFUSE_PROJECT_ID environment variable, which key pair clients ignore. Use one client per project. Raises `ValueError` if a project header in `additional_headers` or `httpx_client` names a different project.
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
@@ -432,7 +441,12 @@ class Langfuse:
             or os.environ.get(LANGFUSE_RELEASE, None)
             or get_common_release_envs()
         )
-        project_id = project_id or os.environ.get(LANGFUSE_PROJECT_ID) or None
+        api_key, public_key, secret_key, project_id = _resolve_credentials(
+            api_key=api_key,
+            public_key=public_key,
+            secret_key=secret_key,
+            project_id=project_id,
+        )
         _validate_project_id_headers(project_id, additional_headers, httpx_client)
         # Cache read by _get_project_id(); a configured project needs no lookup
         self._project_id: Optional[str] = project_id
@@ -463,12 +477,6 @@ class Langfuse:
             )
             langfuse_logger.setLevel(logging.DEBUG)
 
-        api_key, public_key, secret_key = _resolve_credentials(
-            api_key=api_key,
-            public_key=public_key,
-            secret_key=secret_key,
-            project_id=project_id,
-        )
         if api_key is None and public_key is None:
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without public_key. Client will be disabled. "
