@@ -217,6 +217,50 @@ def test_chat_model_callback_records_provider_reported_cost(
     }
 
 
+def test_chat_model_callback_prefers_usage_metadata_over_raw_token_usage(
+    langfuse_memory_client, get_span, json_attr
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="bonjour",
+                    response_metadata={
+                        "token_usage": {
+                            "prompt_tokens": 8,
+                            "completion_tokens": 93,
+                            "total_tokens": 101,
+                        }
+                    },
+                    usage_metadata={
+                        "input_tokens": 8,
+                        "output_tokens": 93,
+                        "total_tokens": 101,
+                        "input_token_details": {"cache_read": 5},
+                        "output_token_details": {"reasoning": 7},
+                    },
+                )
+            )
+        ]
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test", model="openai/gpt-5-mini").invoke(
+            "hello", config={"callbacks": [CallbackHandler()]}
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("ChatOpenAI")
+
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "input": 3,
+        "input_cache_read": 5,
+        "output": 86,
+        "output_reasoning": 7,
+        "total": 101,
+    }
+
+
 def test_lcel_chain_exports_intermediate_chain_spans(
     langfuse_memory_client, get_span, find_spans
 ):

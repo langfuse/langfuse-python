@@ -1838,7 +1838,8 @@ def _parse_usage(response: LLMResult) -> Any:
                 response_metadata = getattr(message_chunk, "response_metadata", {})
 
                 chunk_usage = (
-                    (
+                    getattr(message_chunk, "usage_metadata", None)
+                    or (
                         response_metadata.get("token_usage", None)
                         if isinstance(response_metadata, dict)
                         else None
@@ -1853,7 +1854,6 @@ def _parse_usage(response: LLMResult) -> Any:
                         if isinstance(response_metadata, dict)
                         else None
                     )
-                    or getattr(message_chunk, "usage_metadata", None)
                 )
 
                 if chunk_usage:
