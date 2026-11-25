@@ -79,3 +79,30 @@ def test_call_with_retries_does_not_retry_non_retryable_api_errors(
         call_with_retries(fail, max_retries=3)
 
     assert len(calls) == 1
+
+
+def _fail_on_random_uniform(*_args, **_kwargs):
+    raise AssertionError("random.uniform must not be used when a server delay is given")
+
+
+def test_retry_delay_honors_retry_after_ms(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(status_code=429, headers={"retry-after-ms": "5000"})
+
+    assert retry_delay_seconds(error, 0, 10) == 5.0
+
+
+def test_retry_after_ms_takes_precedence_over_retry_after(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(
+        status_code=429, headers={"retry-after-ms": "5000", "Retry-After": "10"}
+    )
+
+    assert retry_delay_seconds(error, 0, 10) == 5.0
+
+
+def test_retry_delay_plain_retry_after_control(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(status_code=429, headers={"Retry-After": "2"})
+
+    assert retry_delay_seconds(error, 0, 10) == 2.0

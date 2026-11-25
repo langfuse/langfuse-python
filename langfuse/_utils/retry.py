@@ -52,9 +52,20 @@ def _response_headers(error: Exception) -> Optional[httpx.Headers]:
 def retry_delay_seconds(
     error: Exception, retries: int, max_backoff_seconds: float
 ) -> float:
-    """Honor Retry-After / X-RateLimit-Reset, else exponential backoff with full jitter."""
+    """Honor Retry-After-Ms / Retry-After / X-RateLimit-Reset, else exponential backoff with full jitter."""
     headers = _response_headers(error)
     if headers is not None:
+        # The generated _parse_retry_after compares the raw string header to an int
+        # and silently falls through to Retry-After, so parse the ms variant here.
+        retry_after_ms = headers.get("retry-after-ms")
+        if retry_after_ms is not None:
+            try:
+                milliseconds = int(retry_after_ms)
+            except (TypeError, ValueError):
+                milliseconds = 0
+            if milliseconds > 0:
+                return min(milliseconds / 1000, MAX_SERVER_RETRY_DELAY_SECONDS)
+
         retry_after = _parse_retry_after(headers)
         if retry_after is not None and retry_after > 0:
             return min(retry_after, MAX_SERVER_RETRY_DELAY_SECONDS)
