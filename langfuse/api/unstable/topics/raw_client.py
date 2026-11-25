@@ -65,7 +65,7 @@ class RawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TopicFacetList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the project's Topics facets. Only active facets (run by a Topics
         rule, or all facets if the project has no rule) are returned unless
@@ -263,7 +263,7 @@ class RawTopicsClient:
         self, facet_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[TopicFacet]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         Get one Topics facet by id, including inactive facets.
 
@@ -450,7 +450,7 @@ class RawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TopicList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the topics of each active facet's live map, with
         the number of traces currently assigned to each topic in the window.
@@ -463,7 +463,7 @@ class RawTopicsClient:
         `filter` is a JSON array of filter conditions combined with AND.
         String matching is case-insensitive. Columns: `facetId`
         (stringOptions), `facetName` (string, stringOptions), `ruleId`
-        (stringOptions), `id` (stringOptions), `name` (string, stringOptions).
+        (stringOptions), `stableId` (stringOptions), `name` (string, stringOptions).
         Facet and rule conditions also restrict `facets`.
 
         Parameters
@@ -667,21 +667,21 @@ class RawTopicsClient:
 
     def get(
         self,
-        topic_id: str,
+        topic_stable_id: str,
         *,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TopicWithStatus]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         Get one topic of a facet's current map by its stable id. Retired
         topics are not found.
 
         Parameters
         ----------
-        topic_id : str
+        topic_stable_id : str
 
         from_timestamp : typing.Optional[dt.datetime]
             Start of the window used for `traceCount`. Defaults to 7 days before `toTimestamp`.
@@ -697,7 +697,7 @@ class RawTopicsClient:
         HttpResponse[TopicWithStatus]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/topics/{jsonable_encoder(topic_id)}",
+            f"api/public/unstable/topics/{jsonable_encoder(topic_stable_id)}",
             method="GET",
             params={
                 "fromTimestamp": serialize_datetime(from_timestamp)
@@ -873,7 +873,7 @@ class RawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TopicRuleList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the project's Topics rules. A rule selects traces with an
         observation filter and a sampling rate, runs the facets in `facetIds`
@@ -1070,7 +1070,7 @@ class RawTopicsClient:
         self, rule_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[TopicRule]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         Get one Topics rule by id.
 
@@ -1258,7 +1258,7 @@ class RawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TopicSummaryList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the current Topics summary per trace and facet: what the trace
         is about from the facet's perspective. Summaries are shared by all
@@ -1280,19 +1280,21 @@ class RawTopicsClient:
 
         `filter` is a JSON array of filter conditions combined with AND, with
         at most 100 `traceId` values. Columns: `traceId`, `facetId`, `facetName`, `ruleId`, `environment`
-        (stringOptions), `timestamp`, `processedAt` (datetime), `state`,
-        `topicId`, `topicName` (stringOptions), `assignmentStatus`
+        (stringOptions), `timestamp`, `createdAt` (datetime), `state`,
+        `topicStableId`, `topicName` (stringOptions), `assignmentStatus`
         (stringOptions, `any of` only). An unknown `topicName` matches nothing under `any of`
         and is ignored under `none of`.
 
         `state` values: `complete` (summarized), `not_applicable` (the facet
         does not apply to the trace), `insufficient_input` (too little input
-        to summarize). `assignmentStatus` values: `assigned`, `outlier` (no
+        to summarize), `empty_input` (no usable text in the trace),
+        `input_too_large` (trace text exceeded the Topics input limit).
+        `assignmentStatus` values: `assigned`, `outlier` (no
         topic fits), `awaiting_map` (summarized, not yet assigned).
 
         Common questions:
         - Summaries of specific traces: `traceId` `any of` the trace ids.
-        - Summaries of a topic's traces: `topicId` or `topicName`.
+        - Summaries of a topic's traces: `topicStableId` or `topicName`.
         - Traces without a topic yet: `assignmentStatus` `any of` `["awaiting_map", "outlier"]`.
 
         Parameters
@@ -1510,7 +1512,7 @@ class RawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TopicAssignmentList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the current topic per trace, facet and rule on each rule's live
         map: `assigned` with its topic, or `outlier` when no topic fits.
@@ -1533,14 +1535,14 @@ class RawTopicsClient:
 
         `filter` is a JSON array of filter conditions combined with AND, with
         at most 100 `traceId` values. Columns: `traceId`, `facetId`, `facetName`, `ruleId`, `environment`,
-        `topicId`, `topicName` (stringOptions), `status` (stringOptions,
-        `any of` only: `assigned`, `outlier`), `timestamp` (datetime). An
+        `topicStableId`, `topicName` (stringOptions), `status` (stringOptions,
+        `any of` only: `assigned`, `outlier`), `timestamp`, `createdAt` (datetime). An
         unknown `topicName` matches nothing under `any of` and is ignored
         under `none of`.
 
         Common questions:
         - Topics of specific traces: `traceId` `any of` the trace ids.
-        - Traces in a topic: `topicId` or `topicName`.
+        - Traces in a topic: `topicStableId` or `topicName`.
 
         Parameters
         ----------
@@ -1755,7 +1757,7 @@ class AsyncRawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TopicFacetList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the project's Topics facets. Only active facets (run by a Topics
         rule, or all facets if the project has no rule) are returned unless
@@ -1953,7 +1955,7 @@ class AsyncRawTopicsClient:
         self, facet_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[TopicFacet]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         Get one Topics facet by id, including inactive facets.
 
@@ -2140,7 +2142,7 @@ class AsyncRawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TopicList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the topics of each active facet's live map, with
         the number of traces currently assigned to each topic in the window.
@@ -2153,7 +2155,7 @@ class AsyncRawTopicsClient:
         `filter` is a JSON array of filter conditions combined with AND.
         String matching is case-insensitive. Columns: `facetId`
         (stringOptions), `facetName` (string, stringOptions), `ruleId`
-        (stringOptions), `id` (stringOptions), `name` (string, stringOptions).
+        (stringOptions), `stableId` (stringOptions), `name` (string, stringOptions).
         Facet and rule conditions also restrict `facets`.
 
         Parameters
@@ -2357,21 +2359,21 @@ class AsyncRawTopicsClient:
 
     async def get(
         self,
-        topic_id: str,
+        topic_stable_id: str,
         *,
         from_timestamp: typing.Optional[dt.datetime] = None,
         to_timestamp: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TopicWithStatus]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         Get one topic of a facet's current map by its stable id. Retired
         topics are not found.
 
         Parameters
         ----------
-        topic_id : str
+        topic_stable_id : str
 
         from_timestamp : typing.Optional[dt.datetime]
             Start of the window used for `traceCount`. Defaults to 7 days before `toTimestamp`.
@@ -2387,7 +2389,7 @@ class AsyncRawTopicsClient:
         AsyncHttpResponse[TopicWithStatus]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/public/unstable/topics/{jsonable_encoder(topic_id)}",
+            f"api/public/unstable/topics/{jsonable_encoder(topic_stable_id)}",
             method="GET",
             params={
                 "fromTimestamp": serialize_datetime(from_timestamp)
@@ -2563,7 +2565,7 @@ class AsyncRawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TopicRuleList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the project's Topics rules. A rule selects traces with an
         observation filter and a sampling rate, runs the facets in `facetIds`
@@ -2760,7 +2762,7 @@ class AsyncRawTopicsClient:
         self, rule_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[TopicRule]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         Get one Topics rule by id.
 
@@ -2948,7 +2950,7 @@ class AsyncRawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TopicSummaryList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the current Topics summary per trace and facet: what the trace
         is about from the facet's perspective. Summaries are shared by all
@@ -2970,19 +2972,21 @@ class AsyncRawTopicsClient:
 
         `filter` is a JSON array of filter conditions combined with AND, with
         at most 100 `traceId` values. Columns: `traceId`, `facetId`, `facetName`, `ruleId`, `environment`
-        (stringOptions), `timestamp`, `processedAt` (datetime), `state`,
-        `topicId`, `topicName` (stringOptions), `assignmentStatus`
+        (stringOptions), `timestamp`, `createdAt` (datetime), `state`,
+        `topicStableId`, `topicName` (stringOptions), `assignmentStatus`
         (stringOptions, `any of` only). An unknown `topicName` matches nothing under `any of`
         and is ignored under `none of`.
 
         `state` values: `complete` (summarized), `not_applicable` (the facet
         does not apply to the trace), `insufficient_input` (too little input
-        to summarize). `assignmentStatus` values: `assigned`, `outlier` (no
+        to summarize), `empty_input` (no usable text in the trace),
+        `input_too_large` (trace text exceeded the Topics input limit).
+        `assignmentStatus` values: `assigned`, `outlier` (no
         topic fits), `awaiting_map` (summarized, not yet assigned).
 
         Common questions:
         - Summaries of specific traces: `traceId` `any of` the trace ids.
-        - Summaries of a topic's traces: `topicId` or `topicName`.
+        - Summaries of a topic's traces: `topicStableId` or `topicName`.
         - Traces without a topic yet: `assignmentStatus` `any of` `["awaiting_map", "outlier"]`.
 
         Parameters
@@ -3200,7 +3204,7 @@ class AsyncRawTopicsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TopicAssignmentList]:
         """
-        Unstable: Topics is in closed beta. The shape may change without notice.
+        Unstable: Topics is in public beta. The shape may change without notice.
 
         List the current topic per trace, facet and rule on each rule's live
         map: `assigned` with its topic, or `outlier` when no topic fits.
@@ -3223,14 +3227,14 @@ class AsyncRawTopicsClient:
 
         `filter` is a JSON array of filter conditions combined with AND, with
         at most 100 `traceId` values. Columns: `traceId`, `facetId`, `facetName`, `ruleId`, `environment`,
-        `topicId`, `topicName` (stringOptions), `status` (stringOptions,
-        `any of` only: `assigned`, `outlier`), `timestamp` (datetime). An
+        `topicStableId`, `topicName` (stringOptions), `status` (stringOptions,
+        `any of` only: `assigned`, `outlier`), `timestamp`, `createdAt` (datetime). An
         unknown `topicName` matches nothing under `any of` and is ignored
         under `none of`.
 
         Common questions:
         - Topics of specific traces: `traceId` `any of` the trace ids.
-        - Traces in a topic: `topicId` or `topicName`.
+        - Traces in a topic: `topicStableId` or `topicName`.
 
         Parameters
         ----------
