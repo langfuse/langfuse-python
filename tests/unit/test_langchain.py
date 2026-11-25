@@ -217,6 +217,39 @@ def test_chat_model_callback_records_provider_reported_cost(
     }
 
 
+@pytest.mark.parametrize("usage_key", ["usage", "amazon-bedrock-invocationMetrics"])
+def test_usage_preserves_provider_cache_breakdown(usage_key):
+    response = LLMResult(
+        generations=[
+            [
+                ChatGeneration(
+                    message=AIMessage(
+                        content="hello",
+                        response_metadata={
+                            usage_key: {
+                                "input_tokens": 8,
+                                "output_tokens": 2,
+                                "cache_creation": {
+                                    "ephemeral_5m_input_tokens": 3,
+                                    "ephemeral_1h_input_tokens": 5,
+                                },
+                            }
+                        },
+                        usage_metadata={
+                            "input_tokens": 16,
+                            "output_tokens": 2,
+                            "total_tokens": 18,
+                        },
+                    )
+                )
+            ]
+        ]
+    )
+    usage = callback_handler_module._parse_usage(response)
+    assert usage["cache_creation_ephemeral_5m_input_tokens"] == 3
+    assert usage["cache_creation_ephemeral_1h_input_tokens"] == 5
+
+
 def test_chat_model_callback_prefers_usage_metadata_over_raw_token_usage(
     langfuse_memory_client, get_span, json_attr
 ):
