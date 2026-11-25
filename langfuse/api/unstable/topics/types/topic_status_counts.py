@@ -22,6 +22,10 @@ class TopicStatusCounts(UniversalBaseModel):
     insufficient_input: typing_extensions.Annotated[
         int, FieldMetadata(alias="insufficientInput")
     ]
+    empty_input: typing_extensions.Annotated[int, FieldMetadata(alias="emptyInput")]
+    input_too_large: typing_extensions.Annotated[
+        int, FieldMetadata(alias="inputTooLarge")
+    ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True
