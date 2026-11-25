@@ -6,7 +6,7 @@ import pydantic
 import typing_extensions
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
-from .topic_facet_published_run import TopicFacetPublishedRun
+from .topic_facet_published_map import TopicFacetPublishedMap
 
 
 class TopicFacet(UniversalBaseModel):
@@ -36,11 +36,11 @@ class TopicFacet(UniversalBaseModel):
     Prompt of the latest facet version.
     """
 
-    published_run: typing_extensions.Annotated[
-        typing.Optional[TopicFacetPublishedRun], FieldMetadata(alias="publishedRun")
+    published_map: typing_extensions.Annotated[
+        typing.Optional[TopicFacetPublishedMap], FieldMetadata(alias="publishedMap")
     ] = pydantic.Field(default=None)
     """
-    The run that produced the facet's current map. Null before the first map.
+    The facet's current published topic map. Null before the first map.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

@@ -34,15 +34,15 @@ class TopicAssignment(UniversalBaseModel):
     Set when `status` is `assigned`.
     """
 
-    run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="runId")
+    map_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="mapId")
     ] = pydantic.Field(default=None)
     """
-    The run that assigned the trace. Null for assignments made as traces arrive.
+    The map that assigned the trace.
     """
 
-    assigned_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="assignedAt")
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
