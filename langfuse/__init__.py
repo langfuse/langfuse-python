@@ -59,6 +59,19 @@ from langfuse.batch_evaluation import (
     MapperFunction,
 )
 from langfuse.experiment import Evaluation, RegressionError, RunnerContext
+from langfuse.experiment_resume import (
+    ClientError,
+    ItemResult,
+    ItemState,
+    RateLimitError,
+    ResultStore,
+    ResumableExperimentResult,
+    RetryableError,
+    ServerError,
+    arun_experiment,
+    run_experiment_resumable,
+)
+from langfuse.experiment_store import HttpResultStore
 
 from ._client import client as _client_module
 from ._client.attributes import LangfuseOtelSpanAttributes
@@ -132,6 +145,17 @@ __all__ = [
     "BatchEvaluationResult",
     "RunnerContext",
     "RegressionError",
+    "arun_experiment",
+    "run_experiment_resumable",
+    "ItemState",
+    "ItemResult",
+    "ResumableExperimentResult",
+    "ResultStore",
+    "HttpResultStore",
+    "RetryableError",
+    "RateLimitError",
+    "ServerError",
+    "ClientError",
     "__version__",
     "is_default_export_span",
     "is_langfuse_span",

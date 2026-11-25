@@ -3315,6 +3315,40 @@ class Langfuse:
 
         return f"{name} - {iso_timestamp}"
 
+    async def arun_experiment(self, *, store: Any = None, **kwargs: Any) -> Any:
+        """Run a resumable experiment using this client's host and credentials.
+
+        No base URL or API key is needed at the call site — they come from the
+        client's configuration (constructor args or environment). Pass ``store``
+        only to override the backend (e.g. an in-memory store in tests).
+        """
+        from langfuse.experiment_resume import arun_experiment as _arun
+
+        created = store is None
+        if created:
+            from langfuse.experiment_store import HttpResultStore
+
+            if self._resources is None:
+                raise RuntimeError(
+                    "Langfuse client is disabled (missing credentials); cannot run an experiment."
+                )
+            store = HttpResultStore(
+                self._resources.base_url,
+                self._resources.public_key,
+                self._resources.secret_key,
+            )
+        try:
+            return await _arun(store=store, **kwargs)
+        finally:
+            if created:
+                await store.aclose()
+
+    def run_experiment_resumable(self, **kwargs: Any) -> Any:
+        """Synchronous wrapper around :meth:`arun_experiment`."""
+        import asyncio
+
+        return asyncio.run(self.arun_experiment(**kwargs))
+
     def run_batched_evaluation(
         self,
         *,
