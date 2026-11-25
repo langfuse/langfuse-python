@@ -923,11 +923,16 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
     def get_chat_response() -> Any:
         if len(chat_completions) > 1:
-            # Same shape as a non-streamed response with several choices.
-            return [
-                get_response_for_chat(chat_completions[index])
-                for index in sorted(chat_completions)
-            ]
+            # Same shape as a non-streamed response with several choices: one
+            # message dict per choice, even when a choice only has text.
+            responses = []
+            for index in sorted(chat_completions):
+                response = get_response_for_chat(chat_completions[index])
+                if not isinstance(response, dict):
+                    response = {"role": "assistant", "content": response}
+                responses.append(response)
+
+            return responses
 
         return get_response_for_chat(
             next(iter(chat_completions.values()), defaultdict(lambda: None))
