@@ -776,7 +776,10 @@ def _extract_streamed_response_api_response(chunks: Any) -> Any:
 
 
 def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
-    completion: Any = defaultdict(lambda: None) if resource.type == "chat" else ""
+    completion: Any = ""
+    # With n > 1, the deltas of all choices arrive interleaved in one stream, so
+    # each chat choice is accumulated on its own, keyed by its index.
+    chat_completions: Dict[int, Any] = {}
     model, usage, finish_reason, service_tier = None, None, None, None
 
     for chunk in chunks:
@@ -793,6 +796,13 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
         for choice in choices:
             choice = choice.__dict__
             if resource.type == "chat":
+                choice_index = choice.get("index", None)
+                if not isinstance(choice_index, int):
+                    choice_index = 0
+                completion = chat_completions.setdefault(
+                    choice_index, defaultdict(lambda: None)
+                )
+
                 delta = choice.get("delta", None)
                 choice_finish_reason = choice.get("finish_reason", None)
                 if choice_finish_reason is not None:
@@ -884,7 +894,7 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
             if resource.type == "completion":
                 completion += choice.get("text", "")
 
-    def get_response_for_chat() -> Any:
+    def get_response_for_chat(completion: Any) -> Any:
         content = completion["content"]
 
         if completion["tool_calls"]:
@@ -911,9 +921,21 @@ def _extract_streamed_openai_response(resource: Any, chunks: Any) -> Any:
 
         return content or None
 
+    def get_chat_response() -> Any:
+        if len(chat_completions) > 1:
+            # Same shape as a non-streamed response with several choices.
+            return [
+                get_response_for_chat(chat_completions[index])
+                for index in sorted(chat_completions)
+            ]
+
+        return get_response_for_chat(
+            next(iter(chat_completions.values()), defaultdict(lambda: None))
+        )
+
     return (
         model,
-        get_response_for_chat() if resource.type == "chat" else completion,
+        get_chat_response() if resource.type == "chat" else completion,
         usage,
         {"finish_reason": finish_reason} if finish_reason is not None else None,
         service_tier,
