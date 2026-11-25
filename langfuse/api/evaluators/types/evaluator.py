@@ -19,6 +19,7 @@ from ...evaluation_commons.types.public_evaluator_output_definition import (
     PublicEvaluatorOutputDefinition,
 )
 from .creator import Creator
+from .decision_model_question import DecisionModelQuestion
 from .evaluation_rule_assignment import EvaluationRuleAssignment
 from .evaluator_chat_prompt import EvaluatorChatPrompt
 from .evaluator_model_config import EvaluatorModelConfig
@@ -137,7 +138,63 @@ class Evaluator_Code(UniversalBaseModel):
     )
 
 
+class Evaluator_DecisionModel(UniversalBaseModel):
+    """
+    One evaluator that can be used for scoring.
+
+    An evaluator describes **how** to score data. Associated evaluation rules describe **which** live objects should be evaluated.
+    """
+
+    type: typing.Literal["decision_model"] = "decision_model"
+    questions: typing.List[DecisionModelQuestion]
+    variables: typing.List[str]
+    variable_mapping: typing_extensions.Annotated[
+        typing.List[PromptVariableMappingRead], FieldMetadata(alias="variableMapping")
+    ]
+    model_config_: typing_extensions.Annotated[
+        EvaluatorModelConfig, FieldMetadata(alias="modelConfig")
+    ]
+    id: str
+    name: str
+    description: typing.Optional[str] = None
+    created_by: typing_extensions.Annotated[
+        typing.Optional[Creator], FieldMetadata(alias="createdBy")
+    ] = None
+    status: EvaluatorStatus
+    paused_at: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="pausedAt")
+    ] = None
+    paused_reason: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="pausedReason")
+    ] = None
+    paused_message: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="pausedMessage")
+    ] = None
+    evaluation_rule_assignments: typing_extensions.Annotated[
+        typing.List[EvaluationRuleAssignment],
+        FieldMetadata(alias="evaluationRuleAssignments"),
+    ]
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
+    ]
+    updated_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="updatedAt")
+    ]
+    version_id: typing_extensions.Annotated[str, FieldMetadata(alias="versionId")]
+    version: int
+    version_created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="versionCreatedAt")
+    ]
+    version_created_by: typing_extensions.Annotated[
+        typing.Optional[Creator], FieldMetadata(alias="versionCreatedBy")
+    ] = None
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
+
+
 Evaluator = typing_extensions.Annotated[
-    typing.Union[Evaluator_LlmAsJudge, Evaluator_Code],
+    typing.Union[Evaluator_LlmAsJudge, Evaluator_Code, Evaluator_DecisionModel],
     pydantic.Field(discriminator="type"),
 ]

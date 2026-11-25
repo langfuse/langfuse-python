@@ -9,17 +9,42 @@ if typing.TYPE_CHECKING:
     from .code_evaluator import CodeEvaluator
     from .code_evaluator_version import CodeEvaluatorVersion
     from .create_code_evaluator_request import CreateCodeEvaluatorRequest
+    from .create_decision_model_evaluator_request import (
+        CreateDecisionModelEvaluatorRequest,
+    )
     from .create_evaluator_request import (
         CreateEvaluatorRequest,
         CreateEvaluatorRequest_Code,
+        CreateEvaluatorRequest_DecisionModel,
         CreateEvaluatorRequest_LlmAsJudge,
     )
     from .create_llm_as_judge_evaluator_request import CreateLlmAsJudgeEvaluatorRequest
     from .creator import Creator
     from .cursor_meta import CursorMeta
+    from .decision_model_boolean_criteria import DecisionModelBooleanCriteria
+    from .decision_model_boolean_criterion import DecisionModelBooleanCriterion
+    from .decision_model_boolean_question import DecisionModelBooleanQuestion
+    from .decision_model_choice_criterion import DecisionModelChoiceCriterion
+    from .decision_model_choice_question import DecisionModelChoiceQuestion
+    from .decision_model_entry import DecisionModelEntry
+    from .decision_model_evaluator import DecisionModelEvaluator
+    from .decision_model_evaluator_version import DecisionModelEvaluatorVersion
+    from .decision_model_question import (
+        DecisionModelQuestion,
+        DecisionModelQuestion_Boolean,
+        DecisionModelQuestion_Choice,
+        DecisionModelQuestion_Score,
+    )
+    from .decision_model_score_criterion import DecisionModelScoreCriterion
+    from .decision_model_score_question import DecisionModelScoreQuestion
     from .deleted_evaluator import DeletedEvaluator
     from .evaluation_rule_assignment import EvaluationRuleAssignment
-    from .evaluator import Evaluator, Evaluator_Code, Evaluator_LlmAsJudge
+    from .evaluator import (
+        Evaluator,
+        Evaluator_Code,
+        Evaluator_DecisionModel,
+        Evaluator_LlmAsJudge,
+    )
     from .evaluator_base import EvaluatorBase
     from .evaluator_chat_message import EvaluatorChatMessage
     from .evaluator_chat_message_role import EvaluatorChatMessageRole
@@ -30,6 +55,7 @@ if typing.TYPE_CHECKING:
     from .evaluator_version import (
         EvaluatorVersion,
         EvaluatorVersion_Code,
+        EvaluatorVersion_DecisionModel,
         EvaluatorVersion_LlmAsJudge,
     )
     from .evaluator_version_base import EvaluatorVersionBase
@@ -38,6 +64,9 @@ if typing.TYPE_CHECKING:
     from .llm_as_judge_evaluator import LlmAsJudgeEvaluator
     from .llm_as_judge_evaluator_version import LlmAsJudgeEvaluatorVersion
     from .update_code_evaluator_request import UpdateCodeEvaluatorRequest
+    from .update_decision_model_evaluator_request import (
+        UpdateDecisionModelEvaluatorRequest,
+    )
     from .update_evaluator_metadata_request import UpdateEvaluatorMetadataRequest
     from .update_evaluator_request import UpdateEvaluatorRequest
     from .update_llm_as_judge_evaluator_request import UpdateLlmAsJudgeEvaluatorRequest
@@ -45,12 +74,28 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CodeEvaluator": ".code_evaluator",
     "CodeEvaluatorVersion": ".code_evaluator_version",
     "CreateCodeEvaluatorRequest": ".create_code_evaluator_request",
+    "CreateDecisionModelEvaluatorRequest": ".create_decision_model_evaluator_request",
     "CreateEvaluatorRequest": ".create_evaluator_request",
     "CreateEvaluatorRequest_Code": ".create_evaluator_request",
+    "CreateEvaluatorRequest_DecisionModel": ".create_evaluator_request",
     "CreateEvaluatorRequest_LlmAsJudge": ".create_evaluator_request",
     "CreateLlmAsJudgeEvaluatorRequest": ".create_llm_as_judge_evaluator_request",
     "Creator": ".creator",
     "CursorMeta": ".cursor_meta",
+    "DecisionModelBooleanCriteria": ".decision_model_boolean_criteria",
+    "DecisionModelBooleanCriterion": ".decision_model_boolean_criterion",
+    "DecisionModelBooleanQuestion": ".decision_model_boolean_question",
+    "DecisionModelChoiceCriterion": ".decision_model_choice_criterion",
+    "DecisionModelChoiceQuestion": ".decision_model_choice_question",
+    "DecisionModelEntry": ".decision_model_entry",
+    "DecisionModelEvaluator": ".decision_model_evaluator",
+    "DecisionModelEvaluatorVersion": ".decision_model_evaluator_version",
+    "DecisionModelQuestion": ".decision_model_question",
+    "DecisionModelQuestion_Boolean": ".decision_model_question",
+    "DecisionModelQuestion_Choice": ".decision_model_question",
+    "DecisionModelQuestion_Score": ".decision_model_question",
+    "DecisionModelScoreCriterion": ".decision_model_score_criterion",
+    "DecisionModelScoreQuestion": ".decision_model_score_question",
     "DeletedEvaluator": ".deleted_evaluator",
     "EvaluationRuleAssignment": ".evaluation_rule_assignment",
     "Evaluator": ".evaluator",
@@ -64,14 +109,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EvaluatorVersion": ".evaluator_version",
     "EvaluatorVersionBase": ".evaluator_version_base",
     "EvaluatorVersion_Code": ".evaluator_version",
+    "EvaluatorVersion_DecisionModel": ".evaluator_version",
     "EvaluatorVersion_LlmAsJudge": ".evaluator_version",
     "EvaluatorVersionsPage": ".evaluator_versions_page",
     "Evaluator_Code": ".evaluator",
+    "Evaluator_DecisionModel": ".evaluator",
     "Evaluator_LlmAsJudge": ".evaluator",
     "EvaluatorsPage": ".evaluators_page",
     "LlmAsJudgeEvaluator": ".llm_as_judge_evaluator",
     "LlmAsJudgeEvaluatorVersion": ".llm_as_judge_evaluator_version",
     "UpdateCodeEvaluatorRequest": ".update_code_evaluator_request",
+    "UpdateDecisionModelEvaluatorRequest": ".update_decision_model_evaluator_request",
     "UpdateEvaluatorMetadataRequest": ".update_evaluator_metadata_request",
     "UpdateEvaluatorRequest": ".update_evaluator_request",
     "UpdateLlmAsJudgeEvaluatorRequest": ".update_llm_as_judge_evaluator_request",
@@ -109,12 +157,28 @@ __all__ = [
     "CodeEvaluator",
     "CodeEvaluatorVersion",
     "CreateCodeEvaluatorRequest",
+    "CreateDecisionModelEvaluatorRequest",
     "CreateEvaluatorRequest",
     "CreateEvaluatorRequest_Code",
+    "CreateEvaluatorRequest_DecisionModel",
     "CreateEvaluatorRequest_LlmAsJudge",
     "CreateLlmAsJudgeEvaluatorRequest",
     "Creator",
     "CursorMeta",
+    "DecisionModelBooleanCriteria",
+    "DecisionModelBooleanCriterion",
+    "DecisionModelBooleanQuestion",
+    "DecisionModelChoiceCriterion",
+    "DecisionModelChoiceQuestion",
+    "DecisionModelEntry",
+    "DecisionModelEvaluator",
+    "DecisionModelEvaluatorVersion",
+    "DecisionModelQuestion",
+    "DecisionModelQuestion_Boolean",
+    "DecisionModelQuestion_Choice",
+    "DecisionModelQuestion_Score",
+    "DecisionModelScoreCriterion",
+    "DecisionModelScoreQuestion",
     "DeletedEvaluator",
     "EvaluationRuleAssignment",
     "Evaluator",
@@ -128,14 +192,17 @@ __all__ = [
     "EvaluatorVersion",
     "EvaluatorVersionBase",
     "EvaluatorVersion_Code",
+    "EvaluatorVersion_DecisionModel",
     "EvaluatorVersion_LlmAsJudge",
     "EvaluatorVersionsPage",
     "Evaluator_Code",
+    "Evaluator_DecisionModel",
     "Evaluator_LlmAsJudge",
     "EvaluatorsPage",
     "LlmAsJudgeEvaluator",
     "LlmAsJudgeEvaluatorVersion",
     "UpdateCodeEvaluatorRequest",
+    "UpdateDecisionModelEvaluatorRequest",
     "UpdateEvaluatorMetadataRequest",
     "UpdateEvaluatorRequest",
     "UpdateLlmAsJudgeEvaluatorRequest",
