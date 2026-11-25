@@ -1,22 +1,22 @@
 import asyncio
 import os
-import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 from typing import Optional
 
 import pytest
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 from opentelemetry import trace
 
 from langfuse import Langfuse, get_client, observe, propagate_attributes
 from langfuse._client.environment_variables import LANGFUSE_PUBLIC_KEY
 from langfuse._client.resource_manager import LangfuseResourceManager
-from langfuse.langchain import CallbackHandler
 from langfuse.media import LangfuseMedia
-from tests.support.utils import get_api, wait_for_trace
+from tests.support.utils import (
+    get_observations,
+    user_metadata,
+    wait_for_trace_snapshot,
+)
 
 mock_metadata = {"key": "metadata"}
 mock_deep_metadata = {"key": "mock_deep_metadata"}
@@ -69,7 +69,7 @@ def test_nested_observations():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             output="mock_output",
         )
         langfuse.update_current_generation(version="version-1")
@@ -101,7 +101,7 @@ def test_nested_observations():
     assert result == "level_1"  # Wrapped function returns correctly
 
     # ID setting for span or trace
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=3)
     assert len(trace_data.observations) == 3
 
     # trace parameters if set anywhere in the call stack
@@ -134,7 +134,7 @@ def test_nested_observations():
     assert level_3_observation.name == "level_3"
     assert level_3_observation.metadata["key"] == mock_deep_metadata["key"]
     assert level_3_observation.type == "GENERATION"
-    assert level_3_observation.calculated_total_cost > 0
+    assert level_3_observation.total_cost > 0
     assert level_3_observation.output == "mock_output"
     assert level_3_observation.version == "version-1"
 
@@ -150,7 +150,7 @@ def test_nested_observations_with_non_parentheses_decorator():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             output="mock_output",
         )
         langfuse.update_current_generation(version="version-1")
@@ -183,7 +183,7 @@ def test_nested_observations_with_non_parentheses_decorator():
     assert result == "level_1"  # Wrapped function returns correctly
 
     # ID setting for span or trace
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=3)
     assert len(trace_data.observations) == 3
 
     # trace parameters if set anywhere in the call stack
@@ -216,7 +216,7 @@ def test_nested_observations_with_non_parentheses_decorator():
     assert level_3_observation.name == "level_3"
     assert level_3_observation.metadata["key"] == mock_deep_metadata["key"]
     assert level_3_observation.type == "GENERATION"
-    assert level_3_observation.calculated_total_cost > 0
+    assert level_3_observation.total_cost > 0
     assert level_3_observation.output == "mock_output"
     assert level_3_observation.version == "version-1"
 
@@ -233,7 +233,7 @@ def test_exception_in_wrapped_function():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
         )
         with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
             pass
@@ -261,7 +261,7 @@ def test_exception_in_wrapped_function():
 
     langfuse.flush()
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=3)
 
     # trace parameters if set anywhere in the call stack
     assert trace_data.session_id == mock_session_id
@@ -307,7 +307,7 @@ def test_concurrent_decorator_executions():
         langfuse.update_current_generation(
             metadata=mock_deep_metadata,
             usage_details={"input": 150, "output": 50, "total": 300},
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
         )
         with propagate_attributes(trace_name=mock_name, session_id=mock_session_id):
             pass
@@ -350,7 +350,7 @@ def test_concurrent_decorator_executions():
     langfuse.flush()
 
     for mock_id in [mock_trace_id_1, mock_trace_id_2]:
-        trace_data = get_api().trace.get(mock_id)
+        trace_data = wait_for_trace_snapshot(mock_id, min_observations=3)
         assert len(trace_data.observations) == 3
 
         # ID setting for span or trace
@@ -383,89 +383,7 @@ def test_concurrent_decorator_executions():
 
         assert level_3_observation.metadata["key"] == mock_deep_metadata["key"]
         assert level_3_observation.type == "GENERATION"
-        assert level_3_observation.calculated_total_cost > 0
-
-
-def test_decorators_langchain():
-    mock_name = "test_decorators_langchain"
-    langfuse = get_client()
-    mock_trace_id = langfuse.create_trace_id()
-
-    @observe()
-    def langchain_operations(*args, **kwargs):
-        # Get langfuse callback handler for LangChain
-        handler = CallbackHandler()
-        prompt = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
-        model = ChatOpenAI(temperature=0)
-
-        chain = prompt | model
-
-        return chain.invoke(
-            {"topic": kwargs["topic"]},
-            config={
-                "callbacks": [handler],
-            },
-        )
-
-    @observe()
-    def level_3_function(*args, **kwargs):
-        langfuse.update_current_span(metadata=mock_metadata)
-        langfuse.update_current_span(metadata=mock_deep_metadata)
-        return langchain_operations(*args, **kwargs)
-
-    @observe()
-    def level_2_function(*args, **kwargs):
-        langfuse.update_current_span(metadata=mock_metadata)
-
-        return level_3_function(*args, **kwargs)
-
-    @observe()
-    def level_1_function(*args, **kwargs):
-        return level_2_function(*args, **kwargs)
-
-    with propagate_attributes(session_id=mock_session_id, trace_name=mock_name):
-        level_1_function(topic="socks", langfuse_trace_id=mock_trace_id)
-
-    langfuse.flush()
-
-    trace_data = wait_for_trace(
-        mock_trace_id,
-        is_result_ready=lambda trace: (
-            trace.session_id == mock_session_id
-            and trace.name == mock_name
-            and {
-                "level_1_function",
-                "level_2_function",
-                "level_3_function",
-                "langchain_operations",
-                "ChatPromptTemplate",
-            }.issubset({observation.name for observation in trace.observations})
-        ),
-    )
-    assert len(trace_data.observations) > 2
-
-    # trace parameters if set anywhere in the call stack
-    assert trace_data.session_id == mock_session_id
-    assert trace_data.name == mock_name
-
-    level_1_observation = _get_observation_by_name(trace_data, "level_1_function")
-    level_2_observation = _get_observation_by_name(trace_data, "level_2_function")
-    level_3_observation = _get_observation_by_name(trace_data, "level_3_function")
-    langchain_observation = _get_observation_by_name(trace_data, "langchain_operations")
-    prompt_observation = _get_observation_by_name(trace_data, "ChatPromptTemplate")
-
-    assert level_1_observation.name == "level_1_function"
-    assert _is_descendant(trace_data, level_2_observation.id, level_1_observation.id)
-    assert level_2_observation.name == "level_2_function"
-    assert level_2_observation.metadata["key"] == mock_metadata["key"]
-    assert _is_descendant(trace_data, level_3_observation.id, level_2_observation.id)
-    assert level_3_observation.name == "level_3_function"
-    assert level_3_observation.metadata["key"] == mock_deep_metadata["key"]
-    assert _is_descendant(trace_data, langchain_observation.id, level_3_observation.id)
-    assert langchain_observation.name == "langchain_operations"
-
-    # Check that LangChain components are captured
-    assert _is_descendant(trace_data, prompt_observation.id, langchain_observation.id)
+        assert level_3_observation.total_cost > 0
 
 
 def test_get_current_trace_url():
@@ -523,8 +441,10 @@ def test_scoring_observations():
     assert result == "level_3"  # Wrapped function returns correctly
 
     # ID setting for span or trace
-    trace_data = wait_for_trace(
+    trace_data = wait_for_trace_snapshot(
         mock_trace_id,
+        min_observations=3,
+        min_scores=3,
         is_result_ready=lambda trace: {
             "test-observation-score",
             "test-trace-score",
@@ -554,7 +474,7 @@ def test_scoring_observations():
     assert any(
         [
             score.name == "another-test-trace-score"
-            and score.string_value == "my_value"
+            and score.value == "my_value"
             and score.data_type == "CATEGORICAL"
             for score in trace_scores
         ]
@@ -600,7 +520,7 @@ def test_circular_reference_handling():
     # Validate that the function executed as expected
     assert result == "function response"
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=1)
 
     assert (
         trace_data.observations[0].input["args"][0]["reference"] == "CircularRefObject"
@@ -633,7 +553,7 @@ def test_disabled_io_capture():
 
     assert result == "function response"
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
 
     # Check that disabled capture_io doesn't capture manually set input/output
     assert len(trace_data.observations) == 2
@@ -670,7 +590,7 @@ def test_decorated_class_and_instance_methods():
             langfuse.update_current_generation(
                 metadata=mock_deep_metadata,
                 usage_details={"input": 150, "output": 50, "total": 300},
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 output="mock_output",
             )
 
@@ -703,7 +623,7 @@ def test_decorated_class_and_instance_methods():
     assert result == "level_1"  # Wrapped function returns correctly
 
     # ID setting for span or trace
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=4)
     assert len(trace_data.observations) == 4
 
     # trace parameters if set anywhere in the call stack
@@ -744,7 +664,7 @@ def test_decorated_class_and_instance_methods():
     assert level_3_observation.name == "level_3_function"
     assert level_3_observation.metadata["key"] == mock_deep_metadata["key"]
     assert level_3_observation.type == "GENERATION"
-    assert level_3_observation.calculated_total_cost > 0
+    assert level_3_observation.total_cost > 0
     assert level_3_observation.output == "mock_output"
 
 
@@ -780,7 +700,7 @@ def test_generator_as_return_value():
 
     assert result == mock_output
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
 
     # Find the main and nested observations
     adjacencies = defaultdict(list)
@@ -834,7 +754,7 @@ async def test_async_generator_as_return_value():
 
     assert result == mock_output
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
 
     # Check correct nesting
     adjacencies = defaultdict(list)
@@ -853,105 +773,6 @@ async def test_async_generator_as_return_value():
 
     assert nested_observation.name == "async_generator_function"
     assert nested_observation.output == "Hello--, async --World!"
-
-
-@pytest.mark.asyncio
-async def test_async_nested_openai_chat_stream():
-    from langfuse.openai import AsyncOpenAI
-
-    mock_name = "test_async_nested_openai_chat_stream"
-    langfuse = get_client()
-    mock_trace_id = langfuse.create_trace_id()
-    mock_tags = ["tag1", "tag2"]
-    mock_session_id = "session-id-1"
-    mock_user_id = "user-id-1"
-
-    @observe(capture_output=False)
-    async def level_2_function():
-        gen = await AsyncOpenAI().chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "1 + 1 = "}],
-            temperature=0,
-            metadata={"someKey": "someResponse"},
-            stream=True,
-        )
-
-        with propagate_attributes(
-            session_id=mock_session_id,
-            user_id=mock_user_id,
-            tags=mock_tags,
-            trace_name=mock_name,
-        ):
-            async for c in gen:
-                print(c)
-
-            langfuse.update_current_span(metadata=mock_metadata)
-
-        return "level_2"
-
-    @observe()
-    async def level_1_function(*args, **kwargs):
-        await level_2_function()
-
-        return "level_1"
-
-    result = await level_1_function(
-        *mock_args, **mock_kwargs, langfuse_trace_id=mock_trace_id
-    )
-    langfuse.flush()
-
-    assert result == "level_1"  # Wrapped function returns correctly
-
-    # ID setting for span or trace
-    trace_data = wait_for_trace(
-        mock_trace_id,
-        is_result_ready=lambda trace: (
-            trace.session_id == mock_session_id
-            and trace.name == mock_name
-            and {
-                "level_1_function",
-                "level_2_function",
-                "OpenAI-generation",
-            }.issubset({observation.name for observation in trace.observations})
-        ),
-    )
-    assert len(trace_data.observations) >= 3
-
-    # trace parameters if set anywhere in the call stack
-    assert trace_data.session_id == mock_session_id
-    assert trace_data.name == mock_name
-
-    level_1_observation = _get_observation_by_name(trace_data, "level_1_function")
-    level_2_observation = _get_observation_by_name(trace_data, "level_2_function")
-    level_3_observation = _get_observation_by_name(trace_data, "OpenAI-generation")
-    assert _is_descendant(trace_data, level_2_observation.id, level_1_observation.id)
-    assert _is_descendant(trace_data, level_3_observation.id, level_2_observation.id)
-
-    assert level_2_observation.metadata["key"] == mock_metadata["key"]
-
-    generation = level_3_observation
-
-    assert generation.name == "OpenAI-generation"
-    assert generation.metadata["someKey"] == "someResponse"
-    assert generation.input == [{"content": "1 + 1 = ", "role": "user"}]
-    assert generation.type == "GENERATION"
-    assert "gpt-3.5-turbo" in generation.model
-    assert generation.start_time is not None
-    assert generation.end_time is not None
-    assert generation.start_time < generation.end_time
-    assert generation.model_parameters == {
-        "service_tier": "default",
-        "temperature": 0,
-        "top_p": 1,
-        "frequency_penalty": 0,
-        "max_tokens": "Infinity",
-        "presence_penalty": 0,
-    }
-    assert generation.usage.input is not None
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
-    print(generation)
-    assert generation.output == 2
 
 
 def test_generator_as_function_input():
@@ -983,7 +804,7 @@ def test_generator_as_function_input():
 
     assert result == mock_output
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
 
     nested_obs = next(o for o in trace_data.observations if o.name == "nested")
 
@@ -1020,7 +841,7 @@ def test_nest_list_of_generator_as_function_IO():
     main(langfuse_trace_id=mock_trace_id)
     langfuse.flush()
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
 
     # Find the observation with name 'nested'
     nested_observation = next(o for o in trace_data.observations if o.name == "nested")
@@ -1053,7 +874,7 @@ def test_return_dict_for_output():
 
     assert result == mock_output
 
-    trace_data = wait_for_trace(
+    trace_data = wait_for_trace_snapshot(
         mock_trace_id,
         is_result_ready=lambda trace: any(
             observation.name == "function" and observation.output == mock_output
@@ -1072,10 +893,10 @@ def test_media():
 
     media = LangfuseMedia(content_bytes=pdf_bytes, content_type="application/pdf")
 
-    @observe()
+    @observe(capture_input=False, capture_output=False)
     def main():
         sleep(1)
-        langfuse.set_current_trace_io(
+        langfuse.update_current_span(
             input={
                 "context": {
                     "nested": media,
@@ -1100,7 +921,7 @@ def test_media():
 
     langfuse.flush()
 
-    trace_data = wait_for_trace(
+    trace_data = wait_for_trace_snapshot(
         mock_trace_id,
         is_result_ready=lambda trace: (
             "@@@langfuseMedia:type=application/pdf|id="
@@ -1109,7 +930,7 @@ def test_media():
             in (trace.output or {}).get("context", {}).get("nested", "")
             and any(
                 "@@@langfuseMedia:type=application/pdf|id="
-                in observation.metadata.get("context", {}).get("nested", "")
+                in observation.metadata.get("context.nested", "")
                 for observation in trace.observations
                 if observation.metadata
             )
@@ -1128,10 +949,10 @@ def test_media():
     observation = trace_data.observations[0]
     assert (
         "@@@langfuseMedia:type=application/pdf|id="
-        in observation.metadata["context"]["nested"]
+        in observation.metadata["context.nested"]
     )
     parsed_reference_string = LangfuseMedia.parse_reference_string(
-        observation.metadata["context"]["nested"]
+        observation.metadata["context.nested"]
     )
     assert parsed_reference_string["content_type"] == "application/pdf"
     assert parsed_reference_string["media_id"] is not None
@@ -1156,19 +977,20 @@ def test_merge_metadata_and_tags():
 
     langfuse.flush()
 
-    trace_data = wait_for_trace(
+    trace_data = wait_for_trace_snapshot(
         mock_trace_id,
-        is_result_ready=lambda trace: (
-            trace.metadata is not None
-            and trace.metadata.get("key1") == "value1"
-            and trace.metadata.get("key2") == "value2"
-            and trace.tags == ["tag1", "tag2"]
-        ),
+        min_observations=2,
+        is_result_ready=lambda trace: trace.tags == ["tag1", "tag2"],
     )
 
-    assert trace_data.metadata["key1"] == "value1"
-    assert trace_data.metadata["key2"] == "value2"
+    # Trace metadata comes from the root; the nested propagation only reaches
+    # the nested observation.
+    assert trace_data.metadata == {"key1": "value1"}
+    nested_observation = _get_observation_by_name(trace_data, "nested")
+    assert user_metadata(nested_observation) == {"key1": "value1", "key2": "value2"}
+    assert nested_observation.tags == ["tag1", "tag2"]
 
+    assert trace_data.root.tags == ["tag1"]
     assert trace_data.tags == ["tag1", "tag2"]
 
 
@@ -1228,7 +1050,7 @@ def test_multiproject_context_propagation_basic():
         assert result == "level_1"
 
         # Verify trace was created properly
-        trace_data = wait_for_trace(
+        trace_data = wait_for_trace_snapshot(
             mock_trace_id,
             is_result_ready=lambda trace: (
                 trace.name == mock_name and len(trace.observations) == 3
@@ -1288,7 +1110,7 @@ def test_multiproject_context_propagation_deep_nesting():
 
         assert result == "level_4"
 
-        trace_data = wait_for_trace(
+        trace_data = wait_for_trace_snapshot(
             mock_trace_id,
             is_result_ready=lambda trace: (
                 trace.name == mock_name
@@ -1363,7 +1185,7 @@ def test_multiproject_context_propagation_override():
 
         assert result == "level_1"
 
-        trace_data = wait_for_trace(
+        trace_data = wait_for_trace_snapshot(
             mock_trace_id,
             is_result_ready=lambda trace: (
                 trace.name == mock_name and len(trace.observations) == 2
@@ -1418,13 +1240,7 @@ def test_multiproject_context_propagation_no_public_key():
 
     # Should skip tracing entirely in multi-project setup without public key
     # This is expected behavior to prevent cross-project data leakage
-    try:
-        trace_data = get_api().trace.get(mock_trace_id)
-        # If trace is found, it should have no observations (tracing was skipped)
-        assert len(trace_data.observations) == 0
-    except Exception:
-        # Trace not found is also expected - tracing was completely disabled
-        pass
+    assert get_observations(trace_id=mock_trace_id) == []
 
     # Reset instances to not leak to other test suites
     removeMockResourceManagerInstances()
@@ -1487,7 +1303,7 @@ async def test_multiproject_async_context_propagation_basic():
         assert result == "async_level_3"
 
         # Verify trace was created properly
-        trace_data = wait_for_trace(
+        trace_data = wait_for_trace_snapshot(
             mock_trace_id,
             is_result_ready=lambda trace: (
                 trace.name == mock_name
@@ -1569,7 +1385,7 @@ async def test_multiproject_mixed_sync_async_context_propagation():
 
     assert result == "sync_level_4"
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=4)
     assert len(trace_data.observations) == 4
     assert trace_data.name == mock_name
 
@@ -1648,8 +1464,8 @@ async def test_multiproject_concurrent_async_context_isolation():
     assert result2 == "async_level_3_task_2"
 
     # Verify both traces were created correctly and didn't interfere
-    trace_data_1 = get_api().trace.get(trace_id_1)
-    trace_data_2 = get_api().trace.get(trace_id_2)
+    trace_data_1 = wait_for_trace_snapshot(trace_id_1, min_observations=3)
+    trace_data_2 = wait_for_trace_snapshot(trace_id_2, min_observations=3)
 
     assert trace_data_1.name == f"{mock_name}_task_1"
     assert trace_data_2.name == f"{mock_name}_task_2"
@@ -1722,7 +1538,7 @@ async def test_multiproject_async_generator_context_propagation():
 
     assert result == "Hello, Async World!"
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
     assert len(trace_data.observations) == 2
     assert trace_data.name == mock_name
 
@@ -1787,7 +1603,7 @@ async def test_multiproject_async_context_exception_handling():
 
     assert result == "exception_handled"
 
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=3)
     assert len(trace_data.observations) == 3
     assert trace_data.name == mock_name
 
@@ -1852,11 +1668,11 @@ def test_sync_generator_context_preservation():
     )
 
     # Verify trace structure
-    trace_data = wait_for_trace(
+    trace_data = wait_for_trace_snapshot(
         mock_trace_id,
         is_result_ready=lambda trace: (
             len(trace.observations) >= 2
-            and {"parent_root", "child_stream"}.issubset(
+            and {"root", "sync_generator"}.issubset(
                 {
                     observation.name
                     for observation in trace.observations
@@ -1880,7 +1696,6 @@ def test_sync_generator_context_preservation():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_context_preservation():
     """Test that async generators preserve context when consumed later (e.g., by streaming responses)"""
     langfuse = get_client()
@@ -1930,7 +1745,7 @@ async def test_async_generator_context_preservation():
     )
 
     # Verify trace structure
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
     assert len(trace_data.observations) == 2
 
     # Verify both observations are present
@@ -1946,7 +1761,6 @@ async def test_async_generator_context_preservation():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_context_preservation_with_trace_hierarchy():
     """Test that async generators maintain proper parent-child span relationships"""
     langfuse = get_client()
@@ -1999,7 +1813,7 @@ async def test_async_generator_context_preservation_with_trace_hierarchy():
     )
 
     # Verify trace structure
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
     assert len(trace_data.observations) == 2
 
     # Check both observations exist
@@ -2009,7 +1823,6 @@ async def test_async_generator_context_preservation_with_trace_hierarchy():
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires python3.11 or higher")
 async def test_async_generator_exception_handling_with_context():
     """Test that exceptions in async generators are properly handled while preserving context"""
     langfuse = get_client()
@@ -2047,7 +1860,7 @@ async def test_async_generator_exception_handling_with_context():
     assert items == ["first_item"]
 
     # Verify trace structure - should have both observations despite exception
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
     assert len(trace_data.observations) == 2
 
     # Check that the failing generator observation has ERROR level
@@ -2087,7 +1900,7 @@ def test_sync_generator_empty_context_preservation():
     assert items == []
 
     # Verify trace structure
-    trace_data = get_api().trace.get(mock_trace_id)
+    trace_data = wait_for_trace_snapshot(mock_trace_id, min_observations=2)
     assert len(trace_data.observations) == 2
 
     # Verify empty generator observation

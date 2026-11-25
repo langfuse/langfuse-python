@@ -19,6 +19,7 @@ from .types.blob_storage_export_field_group import BlobStorageExportFieldGroup
 from .types.blob_storage_export_frequency import BlobStorageExportFrequency
 from .types.blob_storage_export_mode import BlobStorageExportMode
 from .types.blob_storage_export_source import BlobStorageExportSource
+from .types.blob_storage_integration_auth_type import BlobStorageIntegrationAuthType
 from .types.blob_storage_integration_deletion_response import (
     BlobStorageIntegrationDeletionResponse,
 )
@@ -149,6 +150,8 @@ class RawBlobStorageIntegrationsClient:
         file_type: BlobStorageIntegrationFileType,
         export_mode: BlobStorageExportMode,
         endpoint: typing.Optional[str] = OMIT,
+        auth_type: typing.Optional[BlobStorageIntegrationAuthType] = OMIT,
+        role_arn: typing.Optional[str] = OMIT,
         access_key_id: typing.Optional[str] = OMIT,
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
@@ -171,10 +174,10 @@ class RawBlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens). For GOOGLE_CLOUD_STORAGE with default credentials, the bucket must be listed in `LANGFUSE_BLOB_STORAGE_GCS_ALLOWED_BUCKETS`.
 
         region : str
-            Storage region used by S3-compatible clients (AWS, GCS, Cloudflare R2, MinIO, Azure location IDs such as eastus, OCI). Leading and trailing whitespace is removed. The remaining value must be 1-63 letters, numbers, or hyphens, and cannot start or end with a hyphen. Examples: us-east-1, europe-west1, eastus, auto.
+            Storage region used by S3-compatible clients (AWS, GCS, Cloudflare R2, MinIO, Azure location IDs such as eastus, OCI). Leading and trailing whitespace is removed. The remaining value must be 1-63 letters, numbers, or hyphens, and cannot start or end with a hyphen. Examples: us-east-1, europe-west1, eastus, auto. Not used by GOOGLE_CLOUD_STORAGE; pass auto.
 
         export_frequency : BlobStorageExportFrequency
 
@@ -189,13 +192,23 @@ class RawBlobStorageIntegrationsClient:
         export_mode : BlobStorageExportMode
 
         endpoint : typing.Optional[str]
-            Custom endpoint URL (required for S3_COMPATIBLE type)
+            Custom endpoint URL (required for S3_COMPATIBLE type). Ignored for GOOGLE_CLOUD_STORAGE.
+
+        auth_type : typing.Optional[BlobStorageIntegrationAuthType]
+            Authentication method. `ROLE_ARN` requires type `S3`, a concrete AWS region (not `auto`), and `roleArn`; `accessKeyId` and `secretAccessKey` must then be omitted, and `endpoint` and `forcePathStyle` are ignored. When omitted, `ROLE_ARN` applies to type `S3` if the request sends `roleArn` or the integration already uses `ROLE_ARN`, unless the request sends `accessKeyId` or `secretAccessKey`; otherwise `ACCESS_KEYS` applies.
+
+            The external ID is generated on the first save that uses `ROLE_ARN` and stays the same afterwards. That save stores the integration with `enabled: false`, because the trust policy cannot reference the new ID yet. Add the trust policy for `crossAccountRoleArn` with the returned `externalId` to your role, then update the integration with `enabled: true`.
+
+        role_arn : typing.Optional[str]
+            ARN of the IAM role in your AWS account that Langfuse assumes when `authType` is `ROLE_ARN`, e.g. `arn:aws:iam::123456789012:role/langfuse-export`. When omitted on update, the stored role ARN is kept.
 
         access_key_id : typing.Optional[str]
-            Access key ID for authentication
+            Access key ID for authentication. Not used for GOOGLE_CLOUD_STORAGE or when `authType` is `ROLE_ARN`.
 
         secret_access_key : typing.Optional[str]
-            Secret access key for authentication (will be encrypted when stored)
+            Secret access key for authentication (will be encrypted when stored). When omitted on update, the stored secret is kept, unless the type changes between GOOGLE_CLOUD_STORAGE and another type.
+
+            For GOOGLE_CLOUD_STORAGE, a GCP service account JSON key. On self-hosted deployments, pass `__GCS_DEFAULT_CREDENTIALS__` instead to use the deployment's Application Default Credentials; the bucket must then be listed in `LANGFUSE_BLOB_STORAGE_GCS_ALLOWED_BUCKETS`. Default credentials are not available on Langfuse Cloud.
 
         prefix : typing.Optional[str]
             Path prefix for exported files (must end with forward slash if provided)
@@ -214,7 +227,7 @@ class RawBlobStorageIntegrationsClient:
             **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
 
         export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
-            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+            Field groups to include in each exported observation and score row. Applies to all export sources; must include the observation `core` group if provided. Core score columns are always exported; score groups add columns on top. When omitted on create, all observation groups are selected and no score groups. When omitted on update, the existing value is preserved.
 
             `exportFieldGroups` requires `exportSource` to be provided in the same request.
 
@@ -234,6 +247,8 @@ class RawBlobStorageIntegrationsClient:
                 "bucketName": bucket_name,
                 "endpoint": endpoint,
                 "region": region,
+                "authType": auth_type,
+                "roleArn": role_arn,
                 "accessKeyId": access_key_id,
                 "secretAccessKey": secret_access_key,
                 "prefix": prefix,
@@ -644,6 +659,8 @@ class AsyncRawBlobStorageIntegrationsClient:
         file_type: BlobStorageIntegrationFileType,
         export_mode: BlobStorageExportMode,
         endpoint: typing.Optional[str] = OMIT,
+        auth_type: typing.Optional[BlobStorageIntegrationAuthType] = OMIT,
+        role_arn: typing.Optional[str] = OMIT,
         access_key_id: typing.Optional[str] = OMIT,
         secret_access_key: typing.Optional[str] = OMIT,
         prefix: typing.Optional[str] = OMIT,
@@ -666,10 +683,10 @@ class AsyncRawBlobStorageIntegrationsClient:
         type : BlobStorageIntegrationType
 
         bucket_name : str
-            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens).
+            Name of the storage bucket. For AZURE_BLOB_STORAGE, must be a valid Azure container name (3-63 chars, lowercase letters, numbers, and hyphens only, must start and end with a letter or number, no consecutive hyphens). For GOOGLE_CLOUD_STORAGE with default credentials, the bucket must be listed in `LANGFUSE_BLOB_STORAGE_GCS_ALLOWED_BUCKETS`.
 
         region : str
-            Storage region used by S3-compatible clients (AWS, GCS, Cloudflare R2, MinIO, Azure location IDs such as eastus, OCI). Leading and trailing whitespace is removed. The remaining value must be 1-63 letters, numbers, or hyphens, and cannot start or end with a hyphen. Examples: us-east-1, europe-west1, eastus, auto.
+            Storage region used by S3-compatible clients (AWS, GCS, Cloudflare R2, MinIO, Azure location IDs such as eastus, OCI). Leading and trailing whitespace is removed. The remaining value must be 1-63 letters, numbers, or hyphens, and cannot start or end with a hyphen. Examples: us-east-1, europe-west1, eastus, auto. Not used by GOOGLE_CLOUD_STORAGE; pass auto.
 
         export_frequency : BlobStorageExportFrequency
 
@@ -684,13 +701,23 @@ class AsyncRawBlobStorageIntegrationsClient:
         export_mode : BlobStorageExportMode
 
         endpoint : typing.Optional[str]
-            Custom endpoint URL (required for S3_COMPATIBLE type)
+            Custom endpoint URL (required for S3_COMPATIBLE type). Ignored for GOOGLE_CLOUD_STORAGE.
+
+        auth_type : typing.Optional[BlobStorageIntegrationAuthType]
+            Authentication method. `ROLE_ARN` requires type `S3`, a concrete AWS region (not `auto`), and `roleArn`; `accessKeyId` and `secretAccessKey` must then be omitted, and `endpoint` and `forcePathStyle` are ignored. When omitted, `ROLE_ARN` applies to type `S3` if the request sends `roleArn` or the integration already uses `ROLE_ARN`, unless the request sends `accessKeyId` or `secretAccessKey`; otherwise `ACCESS_KEYS` applies.
+
+            The external ID is generated on the first save that uses `ROLE_ARN` and stays the same afterwards. That save stores the integration with `enabled: false`, because the trust policy cannot reference the new ID yet. Add the trust policy for `crossAccountRoleArn` with the returned `externalId` to your role, then update the integration with `enabled: true`.
+
+        role_arn : typing.Optional[str]
+            ARN of the IAM role in your AWS account that Langfuse assumes when `authType` is `ROLE_ARN`, e.g. `arn:aws:iam::123456789012:role/langfuse-export`. When omitted on update, the stored role ARN is kept.
 
         access_key_id : typing.Optional[str]
-            Access key ID for authentication
+            Access key ID for authentication. Not used for GOOGLE_CLOUD_STORAGE or when `authType` is `ROLE_ARN`.
 
         secret_access_key : typing.Optional[str]
-            Secret access key for authentication (will be encrypted when stored)
+            Secret access key for authentication (will be encrypted when stored). When omitted on update, the stored secret is kept, unless the type changes between GOOGLE_CLOUD_STORAGE and another type.
+
+            For GOOGLE_CLOUD_STORAGE, a GCP service account JSON key. On self-hosted deployments, pass `__GCS_DEFAULT_CREDENTIALS__` instead to use the deployment's Application Default Credentials; the bucket must then be listed in `LANGFUSE_BLOB_STORAGE_GCS_ALLOWED_BUCKETS`. Default credentials are not available on Langfuse Cloud.
 
         prefix : typing.Optional[str]
             Path prefix for exported files (must end with forward slash if provided)
@@ -709,7 +736,7 @@ class AsyncRawBlobStorageIntegrationsClient:
             **Cloud-only integration deprecation gate (effective 2026-06-22):** On Langfuse Cloud, legacy export sources are only accepted for blob storage integrations created before 2026-06-22, regardless of project age. Requests that would create a new integration with `LEGACY_TRACES_OBSERVATIONS` or `LEGACY_TRACES_AND_ENRICHED_OBSERVATIONS` are rejected with HTTP 400. Use `OBSERVATIONS_V2` instead. Self-hosted deployments are unaffected.
 
         export_field_groups : typing.Optional[typing.Sequence[BlobStorageExportFieldGroup]]
-            Field groups to include in each exported observation row. Applies to all export sources; must include `core` if provided. When omitted on create, the column default (all groups) applies. When omitted on update, the existing value is preserved.
+            Field groups to include in each exported observation and score row. Applies to all export sources; must include the observation `core` group if provided. Core score columns are always exported; score groups add columns on top. When omitted on create, all observation groups are selected and no score groups. When omitted on update, the existing value is preserved.
 
             `exportFieldGroups` requires `exportSource` to be provided in the same request.
 
@@ -729,6 +756,8 @@ class AsyncRawBlobStorageIntegrationsClient:
                 "bucketName": bucket_name,
                 "endpoint": endpoint,
                 "region": region,
+                "authType": auth_type,
+                "roleArn": role_arn,
                 "accessKeyId": access_key_id,
                 "secretAccessKey": secret_access_key,
                 "prefix": prefix,

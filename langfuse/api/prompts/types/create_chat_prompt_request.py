@@ -11,7 +11,11 @@ from .create_chat_prompt_type import CreateChatPromptType
 
 
 class CreateChatPromptRequest(UniversalBaseModel):
-    name: str
+    name: str = pydantic.Field()
+    """
+    The full prompt name, including any folder path, with at most 255 characters.
+    """
+
     prompt: typing.List[ChatMessageWithPlaceholders]
     config: typing.Optional[typing.Any] = None
     type: CreateChatPromptType

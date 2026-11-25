@@ -62,6 +62,30 @@ URL path on the configured host to export traces to.
 **Default value:** ``/api/public/otel/v1/traces``
 """
 
+LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES = "LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES"
+"""
+.. envvar:: LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES
+
+Maximum serialized size in bytes (before compression) of a span batch exported by the
+default OTLP exporter. Oversized batches are dropped before sending and logged as a
+failed export. Must be a positive integer. Custom span exporters are not affected.
+
+**Default value:** ``67108864`` (64 MiB)
+"""
+
+LANGFUSE_OTEL_COMPRESSION = "LANGFUSE_OTEL_COMPRESSION"
+"""
+.. envvar:: LANGFUSE_OTEL_COMPRESSION
+
+Compression for span batches sent by the default OTLP exporter: ``gzip`` or ``none``
+(case-insensitive). The ``otel_compression`` client argument takes precedence. If this
+variable is unset or invalid, ``OTEL_EXPORTER_OTLP_TRACES_COMPRESSION`` and then
+``OTEL_EXPORTER_OTLP_COMPRESSION`` apply, and otherwise span exports are gzip-compressed.
+Custom span exporters are not affected.
+
+**Default value:** unset (span exports use gzip)
+"""
+
 LANGFUSE_DEBUG = "LANGFUSE_DEBUG"
 """
 .. envvar:: LANGFUSE_DEBUG

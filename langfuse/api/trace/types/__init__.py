@@ -7,12 +7,8 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .delete_trace_response import DeleteTraceResponse
-    from .sort import Sort
-    from .traces import Traces
 _dynamic_imports: typing.Dict[str, str] = {
-    "DeleteTraceResponse": ".delete_trace_response",
-    "Sort": ".sort",
-    "Traces": ".traces",
+    "DeleteTraceResponse": ".delete_trace_response"
 }
 
 
@@ -43,4 +39,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["DeleteTraceResponse", "Sort", "Traces"]
+__all__ = ["DeleteTraceResponse"]

@@ -26,6 +26,8 @@ class RawMetricsClient:
         """
         Get metrics from the Langfuse project using a query object. V2 endpoint with optimized performance.
 
+        Together with OpenTelemetry ingestion and Observations API v2, this is the only real-time read path. Other public API endpoints can delay data by about 10 minutes.
+
         ## V2 Differences
         - Supports `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical` views only (traces view not supported)
         - Direct access to tags and release fields on observations
@@ -92,6 +94,12 @@ class RawMetricsClient:
         - `observationModelName` - Model name of the associated observation
         - `observationPromptName` - Prompt name of the associated observation
         - `observationPromptVersion` - Prompt version of the associated observation
+
+        **Trace dimensions** (`traceName`, `tags`, `userId`, `traceRelease`, `traceVersion`) describe the score's whole trace, across all of its observations in the query time range:
+        - `tags` is the union of the tags on every observation of the trace. `traceName`, `userId`, `traceRelease` and `traceVersion` take the most recent non-empty value.
+        - A `tags` filter matches if any observation of the trace carries the tag; `none of` matches only when no observation does.
+        - Filters on the other trace dimensions compare the trace-level value; `is null` matches when no observation has a value.
+        - Filters and groupings read the same trace-level values, so they agree within one query.
 
         **Measures:**
         - `count` - Total number of scores
@@ -306,6 +314,8 @@ class AsyncRawMetricsClient:
         """
         Get metrics from the Langfuse project using a query object. V2 endpoint with optimized performance.
 
+        Together with OpenTelemetry ingestion and Observations API v2, this is the only real-time read path. Other public API endpoints can delay data by about 10 minutes.
+
         ## V2 Differences
         - Supports `observations`, `scores-numeric`, `scores-boolean`, and `scores-categorical` views only (traces view not supported)
         - Direct access to tags and release fields on observations
@@ -372,6 +382,12 @@ class AsyncRawMetricsClient:
         - `observationModelName` - Model name of the associated observation
         - `observationPromptName` - Prompt name of the associated observation
         - `observationPromptVersion` - Prompt version of the associated observation
+
+        **Trace dimensions** (`traceName`, `tags`, `userId`, `traceRelease`, `traceVersion`) describe the score's whole trace, across all of its observations in the query time range:
+        - `tags` is the union of the tags on every observation of the trace. `traceName`, `userId`, `traceRelease` and `traceVersion` take the most recent non-empty value.
+        - A `tags` filter matches if any observation of the trace carries the tag; `none of` matches only when no observation does.
+        - Filters on the other trace dimensions compare the trace-level value; `is null` matches when no observation has a value.
+        - Filters and groupings read the same trace-level values, so they agree within one query.
 
         **Measures:**
         - `count` - Total number of scores

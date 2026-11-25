@@ -1,10 +1,13 @@
 """Test the LangfuseResourceManager and get_client() function."""
 
+import logging
+import threading
 from queue import Queue
 from types import SimpleNamespace
 from typing import Sequence
 from unittest.mock import Mock
 
+import pytest
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
@@ -13,7 +16,7 @@ from langfuse._client.get_client import get_client
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
-from langfuse._task_manager.score_ingestion_consumer import ScoreIngestionConsumer
+from langfuse._task_manager.score_consumer import ScoreConsumer
 from langfuse.types import MaskOtelSpansResult
 
 
@@ -56,6 +59,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
         "mask_otel_spans": mask_otel_spans,
         "additional_headers": {"X-Custom": "value"},
         "span_exporter": span_exporter,
+        "skills": {"available": [{"name": "support", "version": 2}]},
     }
 
     original_client = Langfuse(**settings)
@@ -73,6 +77,7 @@ def test_get_client_preserves_all_settings(monkeypatch):
     assert rm.mask_otel_spans is mask_otel_spans
     assert rm.additional_headers == settings["additional_headers"]
     assert rm.span_exporter is span_exporter
+    assert rm.skills is settings["skills"]
 
     original_client.shutdown()
 
@@ -140,12 +145,11 @@ def test_get_client_multiple_clients_preserve_different_settings():
     client_b.shutdown()
 
 
-def test_score_ingestion_consumer_pause_wakes_blocked_thread():
-    consumer = ScoreIngestionConsumer(
-        ingestion_queue=Queue(),
+def test_score_consumer_pause_wakes_blocked_thread():
+    consumer = ScoreConsumer(
+        score_queue=Queue(),
         identifier=0,
-        client=Mock(),
-        public_key="pk-test",
+        api_client=Mock(),
         flush_interval=30,
     )
 
@@ -187,20 +191,20 @@ def test_at_fork_reinit_creates_new_queues_and_consumers(monkeypatch):
     rm = client._resources
     assert rm is not None
 
-    old_score_queue = rm._score_ingestion_queue
+    old_score_queue = rm._score_queue
     old_media_queue = rm._media_upload_queue
-    old_ingestion_consumers = list(rm._ingestion_consumers)
+    old_score_consumers = list(rm._score_consumers)
 
     rm._at_fork_reinit()
 
-    assert rm._score_ingestion_queue is not old_score_queue
+    assert rm._score_queue is not old_score_queue
     assert rm._media_upload_queue is not old_media_queue
-    assert len(rm._ingestion_consumers) == 1
-    assert rm._ingestion_consumers[0].is_alive()
+    assert len(rm._score_consumers) == 1
+    assert rm._score_consumers[0].is_alive()
 
     # In a real fork, old threads don't exist in the child process.
     # In this unit test they do — stop them explicitly to avoid leaking threads.
-    for consumer in old_ingestion_consumers:
+    for consumer in old_score_consumers:
         consumer.pause()
         consumer.join(timeout=1.0)
 
@@ -222,13 +226,13 @@ def test_at_fork_reinit_skips_when_shutdown(monkeypatch):
     rm = client._resources
     assert rm is not None
 
-    old_score_queue = rm._score_ingestion_queue
+    old_score_queue = rm._score_queue
     old_lock = LangfuseResourceManager._lock
 
     rm._shutdown = True
     rm._at_fork_reinit()
 
-    assert rm._score_ingestion_queue is old_score_queue  # queue must not be replaced
+    assert rm._score_queue is old_score_queue  # queue must not be replaced
     # The class-level lock is shared state the child still needs (e.g. to create
     # a new client), so it must be replaced even when this instance is shut down.
     assert LangfuseResourceManager._lock is not old_lock
@@ -330,7 +334,6 @@ def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
     old_httpx_client = rm.httpx_client
     old_api = rm.api
     old_async_api = rm.async_api
-    old_score_ingestion_client = rm._score_ingestion_client
     assert client.api is old_api
     assert client.async_api is old_async_api
 
@@ -343,7 +346,7 @@ def test_at_fork_reinit_recreates_httpx_client_by_default(monkeypatch):
     assert client.api is not old_api
     assert client.async_api is rm.async_api
     assert client.async_api is not old_async_api
-    assert rm._score_ingestion_client is not old_score_ingestion_client
+    assert rm._score_consumers[0]._api_client is rm.api
 
     client.shutdown()
 
@@ -376,7 +379,7 @@ def test_at_fork_reinit_preserves_custom_httpx_client(monkeypatch):
     assert rm.httpx_client is custom_client
     assert rm.api is not None
     assert rm.async_api is not None
-    assert rm._score_ingestion_client is not None
+    assert rm._score_consumers[0]._api_client is rm.api
 
     custom_client.close()
     client.shutdown()
@@ -410,6 +413,36 @@ def test_at_fork_reinit_new_httpx_client_uses_configured_timeout_and_headers(
     client.shutdown()
 
 
+def test_create_score_logs_error_instead_of_raising(monkeypatch, caplog):
+    monkeypatch.setenv("LANGFUSE_MEDIA_UPLOAD_ENABLED", "false")
+
+    with LangfuseResourceManager._lock:
+        LangfuseResourceManager._instances.clear()
+
+    client = Langfuse(
+        public_key="pk-invalid-score",
+        secret_key="sk-invalid-score",
+        span_exporter=NoOpSpanExporter(),
+    )
+    rm = client._resources
+    assert rm is not None
+
+    def fail(event, **_):
+        raise RuntimeError("enqueue failed")
+
+    monkeypatch.setattr(rm, "add_score_task", fail)
+
+    with caplog.at_level(logging.ERROR, logger="langfuse"):
+        client.create_score(name="invalid", value=1.0, trace_id="a" * 32)
+
+    assert rm._score_queue.empty()
+    error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(error_records) == 1
+    assert "Error creating score" in error_records[0].getMessage()
+
+    client.shutdown()
+
+
 def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_all():
     events = []
 
@@ -429,7 +462,7 @@ def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_
 
     fake_resource_manager = SimpleNamespace(
         _media_upload_consumers=[FakeConsumer(0), FakeConsumer(1)],
-        _ingestion_consumers=[],
+        _score_consumers=[],
         _media_manager=FakeMediaManager(),
     )
 
@@ -442,3 +475,36 @@ def test_stop_and_join_consumer_threads_broadcasts_media_shutdown_after_pausing_
         ("join", 0),
         ("join", 1),
     ]
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+@pytest.mark.parametrize("concurrent", [False, True], ids=["sequential", "concurrent"])
+def test_flush_returns_after_repeated_shutdown(concurrent):
+    client = Langfuse(
+        public_key="pk-repeated-shutdown",
+        secret_key="sk-repeated-shutdown",
+        span_exporter=NoOpSpanExporter(),
+    )
+    media_queue = client._resources._media_upload_queue
+    shutdowns = [
+        threading.Thread(target=client.shutdown, daemon=True) for _ in range(2)
+    ]
+
+    for shutdown in shutdowns:
+        shutdown.start()
+        if not concurrent:
+            shutdown.join(timeout=5)
+    for shutdown in shutdowns:
+        shutdown.join(timeout=5)
+
+    flush = threading.Thread(target=client.flush, daemon=True)
+    flush.start()
+    flush.join(timeout=2)
+    hung = [thread for thread in (*shutdowns, flush) if thread.is_alive()]
+    # Acknowledge shutdown signals that no consumer took, so a hung thread and
+    # the reset() in the autouse fixture can finish.
+    while media_queue.unfinished_tasks:
+        media_queue.get_nowait()
+        media_queue.task_done()
+
+    assert not hung

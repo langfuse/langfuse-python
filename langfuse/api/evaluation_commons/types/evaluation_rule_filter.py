@@ -16,6 +16,9 @@ from .evaluation_rule_null_filter_operator import EvaluationRuleNullFilterOperat
 from .evaluation_rule_number_filter_operator import EvaluationRuleNumberFilterOperator
 from .evaluation_rule_options_filter_operator import EvaluationRuleOptionsFilterOperator
 from .evaluation_rule_string_filter_operator import EvaluationRuleStringFilterOperator
+from .evaluation_rule_string_object_filter_operator import (
+    EvaluationRuleStringObjectFilterOperator,
+)
 
 
 class EvaluationRuleFilter_Datetime(UniversalBaseModel):
@@ -34,7 +37,7 @@ class EvaluationRuleFilter_Datetime(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -97,7 +100,7 @@ class EvaluationRuleFilter_String(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -160,7 +163,7 @@ class EvaluationRuleFilter_Number(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -223,7 +226,7 @@ class EvaluationRuleFilter_StringOptions(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -286,7 +289,7 @@ class EvaluationRuleFilter_CategoryOptions(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -350,7 +353,7 @@ class EvaluationRuleFilter_ArrayOptions(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -413,7 +416,7 @@ class EvaluationRuleFilter_StringObject(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -453,7 +456,7 @@ class EvaluationRuleFilter_StringObject(UniversalBaseModel):
     type: typing.Literal["stringObject"] = "stringObject"
     column: str
     key: str
-    operator: EvaluationRuleStringFilterOperator
+    operator: EvaluationRuleStringObjectFilterOperator
     value: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -477,7 +480,7 @@ class EvaluationRuleFilter_NumberObject(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -541,7 +544,7 @@ class EvaluationRuleFilter_Boolean(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 
@@ -604,7 +607,7 @@ class EvaluationRuleFilter_Null(UniversalBaseModel):
     - `datetime`: `"="`, `">"`, `"<"`, `">="`, `"<="`
     - `stringOptions`: `any of`, `none of`
     - `arrayOptions`: `any of`, `none of`, `all of`
-    - `stringObject`: same operators as `string`
+    - `stringObject`: `"="`, `contains`, `does not contain`, `starts with`, `ends with`, `is set`, `is not set` (use `is set` / `is not set` for key presence; an empty value for `contains`, `starts with`, or `ends with` is treated as `is set`)
     - `boolean`: `"="`, `"<>"`
     - `null`: `is null`, `is not null`
 

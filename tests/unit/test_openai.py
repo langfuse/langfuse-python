@@ -1,13 +1,16 @@
 import asyncio
+import base64
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from openai.types.chat import ChatCompletion
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
 from pydantic import BaseModel
 
 import langfuse.openai as lf_openai_module
 from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse.media import LangfuseMedia
 from langfuse.openai import openai as lf_openai
 
 
@@ -251,6 +254,64 @@ def _make_single_chunk_stream():
     )
 
 
+def test_chat_completion_audio_preserves_provider_response(
+    langfuse_memory_client, get_span, json_attr
+):
+    encoded_audio = base64.b64encode(b"audio bytes").decode()
+    response = ChatCompletion.model_validate(
+        {
+            "id": "audio-response",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "test-audio",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {
+                        "role": "assistant",
+                        "audio": {
+                            "id": "audio-test",
+                            "data": encoded_audio,
+                            "expires_at": 1,
+                            "transcript": "hello",
+                        },
+                    },
+                }
+            ],
+        }
+    )
+    original = response.model_dump_json()
+    openai_client = lf_openai.OpenAI(api_key="test")
+    with (
+        patch.object(openai_client.chat.completions, "_post", return_value=response),
+        patch.object(
+            langfuse_memory_client._resources._media_manager,
+            "_process_upload_media_job",
+        ),
+    ):
+        result = openai_client.chat.completions.create(
+            name="unit-openai-audio",
+            model="test-audio",
+            messages=[{"role": "user", "content": "Say hello"}],
+            modalities=["text", "audio"],
+            audio={"voice": "alloy", "format": "wav"},
+        )
+        langfuse_memory_client.flush()
+
+    assert result is response
+    assert result.model_dump_json() == original
+    assert base64.b64decode(result.choices[0].message.audio.data) == b"audio bytes"
+    output = json_attr(
+        get_span("unit-openai-audio"), LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+    )
+    assert output["audio"]["transcript"] == "hello"
+    assert (
+        LangfuseMedia.parse_reference_string(output["audio"]["data"])["content_type"]
+        == "audio/wav"
+    )
+
+
 def test_chat_completion_exports_generation_span(
     langfuse_memory_client, get_span, json_attr
 ):
@@ -289,7 +350,7 @@ def test_chat_completion_exports_generation_span(
     assert (
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL] == "gpt-4o-mini"
     )
-    assert span.attributes["langfuse.observation.metadata.suite"] == "unit"
+    assert span.attributes["langfuse.observation.metadata.suite"] == '"unit"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == [
         {"role": "user", "content": "1 + 1 = ?"}
     ]
@@ -371,7 +432,7 @@ def test_openai_stream_with_none_choices_chunk_does_not_crash(
     span = get_span("unit-openai-stream-none-choices")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
 
 
 def test_streaming_chat_completion_preserves_tool_calls_after_content():
@@ -507,7 +568,7 @@ def test_streaming_chat_completion_exports_ttft(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -575,7 +636,7 @@ def test_openai_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -610,7 +671,7 @@ def test_openai_stream_handles_trailing_azure_content_filter_chunk(
     span = get_span("unit-openai-native-stream-azure-filter")
 
     assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "2"
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -734,7 +795,7 @@ async def test_openai_async_stream_preserves_original_stream_contract(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,
@@ -777,7 +838,7 @@ async def test_openai_async_stream_supports_anext(
         span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_COMPLETION_START_TIME]
         is not None
     )
-    assert span.attributes["langfuse.observation.metadata.finish_reason"] == "stop"
+    assert span.attributes["langfuse.observation.metadata.finish_reason"] == '"stop"'
     assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
         "prompt_tokens": 3,
         "completion_tokens": 1,

@@ -7,8 +7,9 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from . import pagination
-    from .pagination import MetaResponse
+    from .pagination import CursorMetaResponse, MetaResponse
 _dynamic_imports: typing.Dict[str, str] = {
+    "CursorMetaResponse": ".pagination",
     "MetaResponse": ".pagination",
     "pagination": ".pagination",
 }
@@ -41,4 +42,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["MetaResponse", "pagination"]
+__all__ = ["CursorMetaResponse", "MetaResponse", "pagination"]

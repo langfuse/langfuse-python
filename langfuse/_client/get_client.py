@@ -51,12 +51,13 @@ def _create_client_from_instance(
         sample_rate=instance.sample_rate,
         mask=instance.mask,
         mask_otel_spans=instance.mask_otel_spans,
-        blocked_instrumentation_scopes=instance.blocked_instrumentation_scopes,
         should_export_span=instance.should_export_span,
         additional_headers=instance.additional_headers,
         tracer_provider=instance.tracer_provider,
         id_generator=instance.id_generator,
         span_exporter=instance.span_exporter,
+        otel_compression=instance.otel_compression,
+        skills=instance.skills,
         httpx_client=instance.httpx_client,
     )
 

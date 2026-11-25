@@ -7,9 +7,19 @@ environment variables work correctly for initializing the Langfuse client.
 import os
 
 import pytest
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+import langfuse._client.span_processor as span_processor_module
 from langfuse import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
+
+
+class NoOpSpanExporter(SpanExporter):
+    def export(self, spans):
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self):
+        pass
 
 
 class TestClientInitialization:
@@ -99,6 +109,16 @@ class TestClientInitialization:
         )
 
         assert client._base_url == "http://env-host.com"
+
+    def test_env_host_fallback_logs_no_warning(self, cleanup_env_vars, caplog):
+        """Test that LANGFUSE_HOST keeps working without a deprecation warning."""
+        caplog.set_level("WARNING", logger="langfuse")
+        os.environ["LANGFUSE_HOST"] = "http://env-host.com"
+
+        client = Langfuse(public_key="test_pk", secret_key="test_sk")
+
+        assert client._base_url == "http://env-host.com"
+        assert not any("deprecated" in record.message for record in caplog.records)
 
     def test_default_base_url(self, cleanup_env_vars):
         """Test that default base_url is used when nothing is set."""
@@ -276,16 +296,39 @@ class TestClientInitialization:
         )
         assert client3._base_url == "http://localhost:3000"
 
-    def test_trailing_slash_handling(self, cleanup_env_vars):
-        """Test that URLs with trailing slashes are handled correctly."""
-        # URLs with trailing slashes should work
-        client1 = Langfuse(
-            base_url="http://test.com/",
-            public_key="test_pk",
-            secret_key="test_sk",
+    @pytest.mark.parametrize(
+        "source", ["base_url", "LANGFUSE_BASE_URL", "host", "LANGFUSE_HOST"]
+    )
+    def test_trailing_slash_is_stripped(self, cleanup_env_vars, monkeypatch, source):
+        """Test that trailing slashes are stripped from every base_url source."""
+        exporter_endpoints = []
+
+        class RecordingExporter(NoOpSpanExporter):
+            def __init__(self, *, endpoint, **kwargs):
+                exporter_endpoints.append(endpoint)
+
+        monkeypatch.setattr(
+            span_processor_module, "OTLPSpanExporter", RecordingExporter
         )
-        # The SDK should accept the URL as-is (API client will handle normalization)
-        assert client1._base_url == "http://test.com/"
+
+        kwargs = {}
+        if source in ("base_url", "host"):
+            kwargs[source] = "http://localhost:3000//"
+        else:
+            os.environ[source] = "http://localhost:3000//"
+
+        client = Langfuse(
+            public_key=f"test_pk_trailing_slash_{source}",
+            secret_key="test_sk",
+            **kwargs,
+        )
+
+        assert client._base_url == "http://localhost:3000"
+        assert client.api._client_wrapper.get_base_url() == "http://localhost:3000"
+        assert (
+            client.async_api._client_wrapper.get_base_url() == "http://localhost:3000"
+        )
+        assert exporter_endpoints == ["http://localhost:3000/api/public/otel/v1/traces"]
 
     def test_urls_with_paths(self, cleanup_env_vars):
         """Test that URLs with paths work correctly."""

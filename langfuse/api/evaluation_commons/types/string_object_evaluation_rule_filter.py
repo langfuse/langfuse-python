@@ -4,7 +4,9 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import UniversalBaseModel
-from .evaluation_rule_string_filter_operator import EvaluationRuleStringFilterOperator
+from .evaluation_rule_string_object_filter_operator import (
+    EvaluationRuleStringObjectFilterOperator,
+)
 
 
 class StringObjectEvaluationRuleFilter(UniversalBaseModel):
@@ -18,8 +20,15 @@ class StringObjectEvaluationRuleFilter(UniversalBaseModel):
     Top-level key inside the object-valued column to filter on.
     """
 
-    operator: EvaluationRuleStringFilterOperator
-    value: str
+    operator: EvaluationRuleStringObjectFilterOperator = pydantic.Field()
+    """
+    Use `is set` / `is not set` to filter on key presence.
+    """
+
+    value: str = pydantic.Field()
+    """
+    Value to compare against. Ignored for `is set` / `is not set`; send `""`.
+    """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
         extra="allow", frozen=True

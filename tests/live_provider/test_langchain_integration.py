@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI, OpenAI
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
-from tests.support.utils import create_uuid, get_api
+from tests.support.utils import create_uuid, wait_for_trace_snapshot
 
 
 def _is_streaming_response(response):
@@ -20,7 +20,7 @@ def _is_streaming_response(response):
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 def test_stream_chat_models(model_name):
     name = f"test_stream_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -45,8 +45,7 @@ def test_stream_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -61,15 +60,15 @@ def test_stream_chat_models(model_name):
     assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.output["content"] is not None
     assert generation.output["role"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -100,8 +99,7 @@ def test_stream_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -116,14 +114,14 @@ def test_stream_completions_models(model_name):
     assert generation.model_parameters.get("max_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.output is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -131,7 +129,7 @@ def test_stream_completions_models(model_name):
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 def test_invoke_chat_models(model_name):
     name = f"test_invoke_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -150,8 +148,7 @@ def test_invoke_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -165,15 +162,15 @@ def test_invoke_chat_models(model_name):
     assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.output["content"] is not None
     assert generation.output["role"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -201,8 +198,7 @@ def test_invoke_in_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -216,14 +212,14 @@ def test_invoke_in_completions_models(model_name):
     assert generation.model_parameters.get("max_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert test_phrase in generation.output
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -251,8 +247,7 @@ def test_batch_in_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=3)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -266,20 +261,20 @@ def test_batch_in_completions_models(model_name):
     assert generation.model_parameters.get("max_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 def test_batch_in_chat_models(model_name):
     name = f"test_batch_in_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -300,8 +295,7 @@ def test_batch_in_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=3)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -314,13 +308,13 @@ def test_batch_in_chat_models(model_name):
         assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert generation.metadata["tags"] == tags
-        assert generation.usage.output is not None
-        assert generation.usage.total is not None
+        assert generation.usage_details["output"] is not None
+        assert generation.usage_details["total"] is not None
         assert generation.input_price is not None
         assert generation.output_price is not None
-        assert generation.calculated_input_cost is not None
-        assert generation.calculated_output_cost is not None
-        assert generation.calculated_total_cost is not None
+        assert generation.cost_details["input"] is not None
+        assert generation.cost_details["output"] is not None
+        assert generation.total_cost is not None
         assert generation.latency is not None
 
 
@@ -329,7 +323,7 @@ def test_batch_in_chat_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 async def test_astream_chat_models(model_name):
     name = f"test_astream_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -354,8 +348,7 @@ async def test_astream_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -369,15 +362,15 @@ async def test_astream_chat_models(model_name):
     assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.output["content"] is not None
     assert generation.output["role"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -411,8 +404,7 @@ async def test_astream_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -427,14 +419,14 @@ async def test_astream_completions_models(model_name):
     assert generation.model_parameters.get("max_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert test_phrase in generation.output
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -443,7 +435,7 @@ async def test_astream_completions_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 async def test_ainvoke_chat_models(model_name):
     name = f"test_ainvoke_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -463,8 +455,7 @@ async def test_ainvoke_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -478,15 +469,15 @@ async def test_ainvoke_chat_models(model_name):
     assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.output["content"] is not None
     assert generation.output["role"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -514,8 +505,7 @@ async def test_ainvoke_in_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=2)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -529,14 +519,14 @@ async def test_ainvoke_in_completions_models(model_name):
     assert generation.model_parameters.get("max_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert generation.metadata["tags"] == tags
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert test_phrase in generation.output
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -547,7 +537,7 @@ async def test_ainvoke_in_completions_models(model_name):
 @pytest.mark.skip(
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 def test_chains_batch_in_chat_models(model_name):
     name = f"test_chains_batch_in_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -571,8 +561,7 @@ def test_chains_batch_in_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=9)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -585,13 +574,13 @@ def test_chains_batch_in_chat_models(model_name):
         assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
-        assert generation.usage.output is not None
-        assert generation.usage.total is not None
+        assert generation.usage_details["output"] is not None
+        assert generation.usage_details["total"] is not None
         assert generation.input_price is not None
         assert generation.output_price is not None
-        assert generation.calculated_input_cost is not None
-        assert generation.calculated_output_cost is not None
-        assert generation.calculated_total_cost is not None
+        assert generation.cost_details["input"] is not None
+        assert generation.cost_details["output"] is not None
+        assert generation.total_cost is not None
         assert generation.latency is not None
 
 
@@ -622,8 +611,7 @@ def test_chains_batch_in_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=9)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -636,13 +624,13 @@ def test_chains_batch_in_completions_models(model_name):
         assert generation.model_parameters.get("max_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
-        assert generation.usage.output is not None
-        assert generation.usage.total is not None
+        assert generation.usage_details["output"] is not None
+        assert generation.usage_details["total"] is not None
         assert generation.input_price is not None
         assert generation.output_price is not None
-        assert generation.calculated_input_cost is not None
-        assert generation.calculated_output_cost is not None
-        assert generation.calculated_total_cost is not None
+        assert generation.cost_details["input"] is not None
+        assert generation.cost_details["output"] is not None
+        assert generation.total_cost is not None
         assert generation.latency is not None
 
 
@@ -651,7 +639,7 @@ def test_chains_batch_in_completions_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 async def test_chains_abatch_in_chat_models(model_name):
     name = f"test_chains_abatch_in_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -675,8 +663,7 @@ async def test_chains_abatch_in_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=9)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -689,13 +676,13 @@ async def test_chains_abatch_in_chat_models(model_name):
         assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
-        assert generation.usage.output is not None
-        assert generation.usage.total is not None
+        assert generation.usage_details["output"] is not None
+        assert generation.usage_details["total"] is not None
         assert generation.input_price is not None
         assert generation.output_price is not None
-        assert generation.calculated_input_cost is not None
-        assert generation.calculated_output_cost is not None
-        assert generation.calculated_total_cost is not None
+        assert generation.cost_details["input"] is not None
+        assert generation.cost_details["output"] is not None
+        assert generation.total_cost is not None
         assert generation.latency is not None
 
 
@@ -725,8 +712,7 @@ async def test_chains_abatch_in_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=9)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
     assert len(trace.observations) == 9
@@ -738,13 +724,13 @@ async def test_chains_abatch_in_completions_models(model_name):
         assert generation.model_parameters.get("max_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
-        assert generation.usage.output is not None
-        assert generation.usage.total is not None
+        assert generation.usage_details["output"] is not None
+        assert generation.usage_details["total"] is not None
         assert generation.input_price is not None
         assert generation.output_price is not None
-        assert generation.calculated_input_cost is not None
-        assert generation.calculated_output_cost is not None
-        assert generation.calculated_total_cost is not None
+        assert generation.cost_details["input"] is not None
+        assert generation.cost_details["output"] is not None
+        assert generation.total_cost is not None
         assert generation.latency is not None
 
 
@@ -753,7 +739,7 @@ async def test_chains_abatch_in_completions_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini"])
 async def test_chains_ainvoke_chat_models(model_name):
     name = f"test_chains_ainvoke_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -778,8 +764,7 @@ async def test_chains_ainvoke_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=5)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -792,15 +777,15 @@ async def test_chains_ainvoke_chat_models(model_name):
         assert generation.model_parameters.get("max_completion_tokens") is not None
         assert generation.model_parameters.get("temperature") is not None
         assert all(x in generation.metadata["tags"] for x in tags)
-        assert generation.usage.output is not None
-        assert generation.usage.total is not None
+        assert generation.usage_details["output"] is not None
+        assert generation.usage_details["total"] is not None
         assert generation.output["content"] is not None
         assert generation.output["role"] is not None
         assert generation.input_price is not None
         assert generation.output_price is not None
-        assert generation.calculated_input_cost is not None
-        assert generation.calculated_output_cost is not None
-        assert generation.calculated_total_cost is not None
+        assert generation.cost_details["input"] is not None
+        assert generation.cost_details["output"] is not None
+        assert generation.total_cost is not None
         assert generation.latency is not None
 
 
@@ -834,8 +819,7 @@ async def test_chains_ainvoke_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=5)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -848,13 +832,13 @@ async def test_chains_ainvoke_completions_models(model_name):
     assert generation.model_parameters.get("max_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert all(x in generation.metadata["tags"] for x in tags)
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -863,7 +847,7 @@ async def test_chains_ainvoke_completions_models(model_name):
     reason="This test suite is not properly isolated and fails flakily. TODO: Investigate why"
 )
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_name", ["gpt-3.5-turbo", "gpt-4"])
+@pytest.mark.parametrize("model_name", ["gpt-4o-mini", "gpt-4o"])
 async def test_chains_astream_chat_models(model_name):
     name = f"test_chains_astream_chat_models-{create_uuid()}"
     tags = ["Hello", "world"]
@@ -894,8 +878,7 @@ async def test_chains_astream_chat_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=5)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -910,15 +893,15 @@ async def test_chains_astream_chat_models(model_name):
     assert generation.model_parameters.get("max_completion_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert all(x in generation.metadata["tags"] for x in tags)
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.output["content"] is not None
     assert generation.output["role"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None
 
 
@@ -956,8 +939,7 @@ async def test_chains_astream_completions_models(model_name):
 
     langfuse_client.flush()
     assert handler.runs == {}
-    api = get_api()
-    trace = api.trace.get(trace_id)
+    trace = wait_for_trace_snapshot(trace_id, min_observations=5)
     generationList = list(filter(lambda o: o.type == "GENERATION", trace.observations))
     assert len(generationList) != 0
 
@@ -972,11 +954,11 @@ async def test_chains_astream_completions_models(model_name):
     assert generation.model_parameters.get("max_tokens") is not None
     assert generation.model_parameters.get("temperature") is not None
     assert all(x in generation.metadata["tags"] for x in tags)
-    assert generation.usage.output is not None
-    assert generation.usage.total is not None
+    assert generation.usage_details["output"] is not None
+    assert generation.usage_details["total"] is not None
     assert generation.input_price is not None
     assert generation.output_price is not None
-    assert generation.calculated_input_cost is not None
-    assert generation.calculated_output_cost is not None
-    assert generation.calculated_total_cost is not None
+    assert generation.cost_details["input"] is not None
+    assert generation.cost_details["output"] is not None
+    assert generation.total_cost is not None
     assert generation.latency is not None

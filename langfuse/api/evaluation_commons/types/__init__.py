@@ -45,6 +45,9 @@ if typing.TYPE_CHECKING:
     from .evaluation_rule_string_filter_operator import (
         EvaluationRuleStringFilterOperator,
     )
+    from .evaluation_rule_string_object_filter_operator import (
+        EvaluationRuleStringObjectFilterOperator,
+    )
     from .evaluator_output_definition import (
         EvaluatorOutputDefinition,
         EvaluatorOutputDefinition_Boolean,
@@ -101,6 +104,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EvaluationRuleReadFilterBase": ".evaluation_rule_read_filter_base",
     "EvaluationRuleReadFilterWithKey": ".evaluation_rule_read_filter_with_key",
     "EvaluationRuleStringFilterOperator": ".evaluation_rule_string_filter_operator",
+    "EvaluationRuleStringObjectFilterOperator": ".evaluation_rule_string_object_filter_operator",
     "EvaluatorOutputDefinition": ".evaluator_output_definition",
     "EvaluatorOutputDefinitionBase": ".evaluator_output_definition_base",
     "EvaluatorOutputDefinition_Boolean": ".evaluator_output_definition",
@@ -183,6 +187,7 @@ __all__ = [
     "EvaluationRuleReadFilterBase",
     "EvaluationRuleReadFilterWithKey",
     "EvaluationRuleStringFilterOperator",
+    "EvaluationRuleStringObjectFilterOperator",
     "EvaluatorOutputDefinition",
     "EvaluatorOutputDefinitionBase",
     "EvaluatorOutputDefinition_Boolean",

@@ -1,10 +1,6 @@
 """@private"""
 
-from langfuse._utils.parse_error import (
-    generate_error_message,
-    generate_error_message_fern,
-)
-from langfuse._utils.request import APIError, APIErrors
+from langfuse._utils.parse_error import generate_error_message_fern
 from langfuse.api import (
     AccessDeniedError,
     MethodNotAllowedError,
@@ -13,32 +9,6 @@ from langfuse.api import (
     UnauthorizedError,
 )
 from langfuse.api.core import ApiError
-
-
-def test_generate_error_message_api_error():
-    exception = APIError(message="Test API error", status="500")
-    expected_message = "API error occurred: Internal server error occurred. For help, please contact support: https://langfuse.com/support"
-    assert expected_message in generate_error_message(exception)
-
-
-def test_generate_error_message_api_errors():
-    errors = [
-        APIError(status=400, message="Bad request", details="Invalid input"),
-        APIError(status=401, message="Unauthorized", details="Invalid credentials"),
-    ]
-    exception = APIErrors(errors)
-    expected_message = (
-        "API errors occurred: "
-        "Bad request. Please check your request for any missing or incorrect parameters. Refer to our API docs: https://api.reference.langfuse.com for details.\n"
-        "Unauthorized. Please check your public/private host settings. Refer to our installation and setup guide: https://langfuse.com/docs/sdk/typescript/guide for details on SDK configuration."
-    )
-    assert expected_message in generate_error_message(exception)
-
-
-def test_generate_error_message_generic_exception():
-    exception = Exception("Generic error")
-    expected_message = "Unexpected error occurred. Please check your request and contact support: https://langfuse.com/support."
-    assert generate_error_message(exception) == expected_message
 
 
 def test_generate_error_message_access_denied_error():

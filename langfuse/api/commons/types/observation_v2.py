@@ -152,7 +152,9 @@ class ObservationV2(UniversalBaseModel):
     The output data of the observation
     """
 
-    metadata: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(
+        default=None
+    )
     """
     Additional metadata of the observation
     """
