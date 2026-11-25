@@ -9,12 +9,20 @@ from ....core.serialization import FieldMetadata
 
 
 class TopicAssignmentTopic(UniversalBaseModel):
-    id: str = pydantic.Field()
+    stable_id: typing_extensions.Annotated[str, FieldMetadata(alias="stableId")] = (
+        pydantic.Field()
+    )
     """
     Stable topic id.
     """
 
-    version_id: typing_extensions.Annotated[str, FieldMetadata(alias="versionId")]
+    version_id: typing_extensions.Annotated[str, FieldMetadata(alias="versionId")] = (
+        pydantic.Field()
+    )
+    """
+    Id of this topic version.
+    """
+
     name: str
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

@@ -15,8 +15,8 @@ class TopicFacetCounts(UniversalBaseModel):
     rule_id: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="ruleId")
     ] = None
-    published_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="publishedRunId")
+    published_map_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="publishedMapId")
     ] = None
     counts: TopicStatusCounts
 
