@@ -42,3 +42,19 @@ def test_extract_model_name_chat_huggingface(inner_repr: str):
     serialized = _chat_huggingface_serialized(inner_repr)
 
     assert _extract_model_name(serialized) == _MODEL_ID
+
+
+def test_extract_model_name_does_not_match_prefixed_field():
+    serialized = {
+        "lc": 1,
+        "type": "not_implemented",
+        "id": ["langchain_anthropic", "chat_models", "ChatAnthropic"],
+        "repr": "ChatAnthropic(embedding_model='text-embedding-3-small', model='claude-3-5-sonnet')",
+        "name": "ChatAnthropic",
+    }
+    assert _extract_model_name(serialized) == "claude-3-5-sonnet"
+
+    hf_serialized = _chat_huggingface_serialized(
+        f"CustomLLM(embedding_model_id='nomic-embed', model_id='{_MODEL_ID}')"
+    )
+    assert _extract_model_name(hf_serialized) == _MODEL_ID
