@@ -11,12 +11,16 @@ class TopicSummaryState(enum.StrEnum):
     COMPLETE = "complete"
     NOT_APPLICABLE = "not_applicable"
     INSUFFICIENT_INPUT = "insufficient_input"
+    EMPTY_INPUT = "empty_input"
+    INPUT_TOO_LARGE = "input_too_large"
 
     def visit(
         self,
         complete: typing.Callable[[], T_Result],
         not_applicable: typing.Callable[[], T_Result],
         insufficient_input: typing.Callable[[], T_Result],
+        empty_input: typing.Callable[[], T_Result],
+        input_too_large: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is TopicSummaryState.COMPLETE:
             return complete()
@@ -24,3 +28,7 @@ class TopicSummaryState(enum.StrEnum):
             return not_applicable()
         if self is TopicSummaryState.INSUFFICIENT_INPUT:
             return insufficient_input()
+        if self is TopicSummaryState.EMPTY_INPUT:
+            return empty_input()
+        if self is TopicSummaryState.INPUT_TOO_LARGE:
+            return input_too_large()
