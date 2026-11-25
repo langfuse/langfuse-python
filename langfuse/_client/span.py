@@ -56,7 +56,7 @@ from langfuse._client.constants import (
 from langfuse._client.utils import get_string_span_attribute
 from langfuse.api import MapValue, ScoreDataType
 from langfuse.logger import langfuse_logger
-from langfuse.types import SkillReference, SpanLevel
+from langfuse.types import SpanLevel
 
 # Factory mapping for observation classes
 # Note: "event" is handled separately due to special instantiation logic
@@ -277,7 +277,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
@@ -299,7 +298,6 @@ class LangfuseObservationWrapper:
             input: Input data for the span (any JSON-serializable object)
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
-            available_skills: Skills available to this observation.
             environment: Local tracing environment fallback. If the underlying
                 OpenTelemetry span already has `langfuse.environment` from
                 propagated context or baggage, that propagated value takes
@@ -368,7 +366,6 @@ class LangfuseObservationWrapper:
                     input=media_processed_input,
                     output=media_processed_output,
                     metadata=media_processed_metadata,
-                    available_skills=available_skills,
                     version=version,
                     level=level,
                     status_message=status_message,
@@ -390,7 +387,6 @@ class LangfuseObservationWrapper:
                     input=media_processed_input,
                     output=media_processed_output,
                     metadata=media_processed_metadata,
-                    available_skills=available_skills,
                     version=version,
                     level=level,
                     status_message=status_message,
@@ -824,7 +820,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -846,7 +841,6 @@ class LangfuseObservationWrapper:
             input: Updated input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the observation
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the observation (info, warning, error)
             status_message: Optional status message for the observation
@@ -881,7 +875,6 @@ class LangfuseObservationWrapper:
                 input=processed_input,
                 output=processed_output,
                 metadata=processed_metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -902,7 +895,6 @@ class LangfuseObservationWrapper:
                 input=processed_input,
                 output=processed_output,
                 metadata=processed_metadata,
-                available_skills=available_skills,
                 version=version,
                 level=level,
                 status_message=status_message,
@@ -935,7 +927,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -950,7 +941,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -971,7 +961,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -986,7 +975,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1001,7 +989,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1016,7 +1003,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1031,7 +1017,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1046,7 +1031,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1067,7 +1051,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1082,7 +1065,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1096,7 +1078,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1130,7 +1111,6 @@ class LangfuseObservationWrapper:
             input: Input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the observation
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the observation (info, warning, error)
             status_message: Optional status message for the observation
@@ -1158,7 +1138,6 @@ class LangfuseObservationWrapper:
                     input=input,
                     output=output,
                     metadata=metadata,
-                    available_skills=available_skills,
                     environment=self._environment,
                     release=self._release,
                     version=version,
@@ -1187,7 +1166,6 @@ class LangfuseObservationWrapper:
             "input": input,
             "output": output,
             "metadata": metadata,
-            "available_skills": available_skills,
             "version": version,
             "level": level,
             "status_message": status_message,
@@ -1216,7 +1194,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1231,7 +1208,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1252,7 +1228,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1273,7 +1248,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1288,7 +1262,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1303,7 +1276,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1318,7 +1290,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1333,7 +1304,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1348,7 +1318,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1362,7 +1331,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1397,7 +1365,6 @@ class LangfuseObservationWrapper:
             input: Input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the observation
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the observation (info, warning, error)
             status_message: Optional status message for the observation
@@ -1419,7 +1386,6 @@ class LangfuseObservationWrapper:
             input=input,
             output=output,
             metadata=metadata,
-            available_skills=available_skills,
             version=version,
             level=level,
             status_message=status_message,
@@ -1438,7 +1404,6 @@ class LangfuseObservationWrapper:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,
@@ -1450,7 +1415,6 @@ class LangfuseObservationWrapper:
             input: Input data for the operation (can be any JSON-serializable object)
             output: Output data from the operation (can be any JSON-serializable object)
             metadata: Additional metadata to associate with the span
-            available_skills: Skills available to this observation.
             version: Version identifier for the code or component
             level: Importance level of the span (info, warning, error)
             status_message: Optional status message for the span
@@ -1479,7 +1443,6 @@ class LangfuseObservationWrapper:
                 input=input,
                 output=output,
                 metadata=metadata,
-                available_skills=available_skills,
                 environment=self._environment,
                 release=self._release,
                 version=version,
@@ -1507,7 +1470,6 @@ class LangfuseSpan(LangfuseObservationWrapper):
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
@@ -1522,7 +1484,6 @@ class LangfuseSpan(LangfuseObservationWrapper):
             input: Input data for the span (any JSON-serializable object)
             output: Output data from the span (any JSON-serializable object)
             metadata: Additional metadata to associate with the span
-            available_skills: Skills available to this observation.
             environment: The tracing environment
             release: Release identifier for the application
             version: Version identifier for the code or component
@@ -1536,7 +1497,6 @@ class LangfuseSpan(LangfuseObservationWrapper):
             input=input,
             output=output,
             metadata=metadata,
-            available_skills=available_skills,
             environment=environment,
             release=release,
             version=version,
@@ -1561,7 +1521,6 @@ class LangfuseGeneration(LangfuseObservationWrapper):
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
@@ -1582,7 +1541,6 @@ class LangfuseGeneration(LangfuseObservationWrapper):
             input: Input data for the generation (e.g., prompts)
             output: Output from the generation (e.g., completions)
             metadata: Additional metadata to associate with the generation
-            available_skills: Skills available to this observation.
             environment: The tracing environment
             release: Release identifier for the application
             version: Version identifier for the model or component
@@ -1602,7 +1560,6 @@ class LangfuseGeneration(LangfuseObservationWrapper):
             input=input,
             output=output,
             metadata=metadata,
-            available_skills=available_skills,
             environment=environment,
             release=release,
             version=version,
@@ -1628,7 +1585,6 @@ class LangfuseEvent(LangfuseObservationWrapper):
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         version: Optional[str] = None,
@@ -1643,7 +1599,6 @@ class LangfuseEvent(LangfuseObservationWrapper):
             input: Input data for the event
             output: Output from the event
             metadata: Additional metadata to associate with the generation
-            available_skills: Skills available to this observation.
             environment: The tracing environment
             release: Release identifier for the application
             version: Version identifier for the model or component
@@ -1657,7 +1612,6 @@ class LangfuseEvent(LangfuseObservationWrapper):
             input=input,
             output=output,
             metadata=metadata,
-            available_skills=available_skills,
             environment=environment,
             release=release,
             version=version,
@@ -1672,7 +1626,6 @@ class LangfuseEvent(LangfuseObservationWrapper):
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
-        available_skills: Optional[list[SkillReference]] = None,
         version: Optional[str] = None,
         level: Optional[SpanLevel] = None,
         status_message: Optional[str] = None,

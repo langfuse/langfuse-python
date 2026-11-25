@@ -1843,7 +1843,12 @@ def test_get_observations():
 
 
 def test_get_observations_for_unknown_trace_is_empty():
-    response = get_api(retry=False).observations.get_many(trace_id=create_uuid())
+    # A lower bound within the server's first 7-day scan window makes one
+    # request cover the whole range, so the cursor is reliably absent.
+    response = get_api(retry=False).observations.get_many(
+        trace_id=create_uuid(),
+        from_start_time=datetime.now(timezone.utc) - timedelta(days=1),
+    )
 
     assert response.data == []
     assert response.meta.cursor is None
@@ -1851,7 +1856,10 @@ def test_get_observations_for_unknown_trace_is_empty():
 
 def test_get_observations_empty():
     # Fetch observations with a filter that should return no results
-    response = get_api(retry=False).observations.get_many(name=create_uuid())
+    response = get_api(retry=False).observations.get_many(
+        name=create_uuid(),
+        from_start_time=datetime.now(timezone.utc) - timedelta(days=1),
+    )
 
     assert response.data == []
     assert response.meta.cursor is None

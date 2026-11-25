@@ -17,7 +17,11 @@ class ScoreConfig(UniversalBaseModel):
     """
 
     id: str
-    name: str
+    name: str = pydantic.Field()
+    """
+    Score config name. Maximum 80 characters.
+    """
+
     created_at: typing_extensions.Annotated[
         dt.datetime, FieldMetadata(alias="createdAt")
     ]

@@ -190,6 +190,169 @@ class LlmConnectionsClient:
         _response = self._raw_client.delete(id, request_options=request_options)
         return _response.data
 
+    def list_organization(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PaginatedLlmConnections:
+        """
+        Get all organization-level LLM connections. Requires an organization-scoped API key.
+
+        Parameters
+        ----------
+        page : typing.Optional[int]
+            page number, starts at 1
+
+        limit : typing.Optional[int]
+            limit of items per page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PaginatedLlmConnections
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.llm_connections.list_organization()
+        """
+        _response = self._raw_client.list_organization(
+            page=page, limit=limit, request_options=request_options
+        )
+        return _response.data
+
+    def upsert_organization(
+        self,
+        *,
+        provider: str,
+        adapter: LlmAdapter,
+        secret_key: str,
+        base_url: typing.Optional[str] = OMIT,
+        custom_models: typing.Optional[typing.Sequence[str]] = OMIT,
+        with_default_models: typing.Optional[bool] = OMIT,
+        extra_headers: typing.Optional[typing.Dict[str, str]] = OMIT,
+        config: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> LlmConnection:
+        """
+        Create or update an organization-level LLM connection. The connection is upserted on provider and inherited by projects without a provider override. Requires an organization-scoped API key.
+
+        Parameters
+        ----------
+        provider : str
+            Provider name (e.g., 'openai', 'my-gateway'). Must be unique in project, used for upserting.
+
+        adapter : LlmAdapter
+            The adapter used to interface with the LLM
+
+        secret_key : str
+            Secret key for the LLM API.
+
+        base_url : typing.Optional[str]
+            Custom base URL for the LLM API
+
+        custom_models : typing.Optional[typing.Sequence[str]]
+            List of custom model names
+
+        with_default_models : typing.Optional[bool]
+            Whether to include default models. Default is true.
+
+        extra_headers : typing.Optional[typing.Dict[str, str]]
+            Extra headers to send with requests
+
+        config : typing.Optional[typing.Dict[str, typing.Any]]
+            Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **OpenAI**: Optional. If provided, must be `{"useResponsesApi": <boolean>}` to control whether Langfuse routes calls through OpenAI's Responses API. - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        LlmConnection
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+        from langfuse.llm_connections import LlmAdapter
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.llm_connections.upsert_organization(
+            provider="provider",
+            adapter=LlmAdapter.ANTHROPIC,
+            secret_key="secretKey",
+        )
+        """
+        _response = self._raw_client.upsert_organization(
+            provider=provider,
+            adapter=adapter,
+            secret_key=secret_key,
+            base_url=base_url,
+            custom_models=custom_models,
+            with_default_models=with_default_models,
+            extra_headers=extra_headers,
+            config=config,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def delete_organization(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteLlmConnectionResponse:
+        """
+        Delete an organization-level LLM connection by id. Evaluators in projects without an override for the provider are automatically paused. Requires an organization-scoped API key.
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteLlmConnectionResponse
+
+        Examples
+        --------
+        from langfuse import LangfuseAPI
+
+        client = LangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.llm_connections.delete_organization(
+            id="id",
+        )
+        """
+        _response = self._raw_client.delete_organization(
+            id, request_options=request_options
+        )
+        return _response.data
+
 
 class AsyncLlmConnectionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -389,4 +552,191 @@ class AsyncLlmConnectionsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.delete(id, request_options=request_options)
+        return _response.data
+
+    async def list_organization(
+        self,
+        *,
+        page: typing.Optional[int] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PaginatedLlmConnections:
+        """
+        Get all organization-level LLM connections. Requires an organization-scoped API key.
+
+        Parameters
+        ----------
+        page : typing.Optional[int]
+            page number, starts at 1
+
+        limit : typing.Optional[int]
+            limit of items per page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PaginatedLlmConnections
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.llm_connections.list_organization()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_organization(
+            page=page, limit=limit, request_options=request_options
+        )
+        return _response.data
+
+    async def upsert_organization(
+        self,
+        *,
+        provider: str,
+        adapter: LlmAdapter,
+        secret_key: str,
+        base_url: typing.Optional[str] = OMIT,
+        custom_models: typing.Optional[typing.Sequence[str]] = OMIT,
+        with_default_models: typing.Optional[bool] = OMIT,
+        extra_headers: typing.Optional[typing.Dict[str, str]] = OMIT,
+        config: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> LlmConnection:
+        """
+        Create or update an organization-level LLM connection. The connection is upserted on provider and inherited by projects without a provider override. Requires an organization-scoped API key.
+
+        Parameters
+        ----------
+        provider : str
+            Provider name (e.g., 'openai', 'my-gateway'). Must be unique in project, used for upserting.
+
+        adapter : LlmAdapter
+            The adapter used to interface with the LLM
+
+        secret_key : str
+            Secret key for the LLM API.
+
+        base_url : typing.Optional[str]
+            Custom base URL for the LLM API
+
+        custom_models : typing.Optional[typing.Sequence[str]]
+            List of custom model names
+
+        with_default_models : typing.Optional[bool]
+            Whether to include default models. Default is true.
+
+        extra_headers : typing.Optional[typing.Dict[str, str]]
+            Extra headers to send with requests
+
+        config : typing.Optional[typing.Dict[str, typing.Any]]
+            Adapter-specific configuration. Validation rules: - **Bedrock**: Required. Must be `{"region": "<aws-region>"}` (e.g., `{"region":"us-east-1"}`) - **OpenAI**: Optional. If provided, must be `{"useResponsesApi": <boolean>}` to control whether Langfuse routes calls through OpenAI's Responses API. - **VertexAI**: Optional. If provided, must be `{"location": "<gcp-location>"}` (e.g., `{"location":"us-central1"}`) - **Other adapters**: Not supported. Omit this field or set to null.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        LlmConnection
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+        from langfuse.llm_connections import LlmAdapter
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.llm_connections.upsert_organization(
+                provider="provider",
+                adapter=LlmAdapter.ANTHROPIC,
+                secret_key="secretKey",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.upsert_organization(
+            provider=provider,
+            adapter=adapter,
+            secret_key=secret_key,
+            base_url=base_url,
+            custom_models=custom_models,
+            with_default_models=with_default_models,
+            extra_headers=extra_headers,
+            config=config,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def delete_organization(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteLlmConnectionResponse:
+        """
+        Delete an organization-level LLM connection by id. Evaluators in projects without an override for the provider are automatically paused. Requires an organization-scoped API key.
+
+        Parameters
+        ----------
+        id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteLlmConnectionResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from langfuse import AsyncLangfuseAPI
+
+        client = AsyncLangfuseAPI(
+            x_langfuse_sdk_name="YOUR_X_LANGFUSE_SDK_NAME",
+            x_langfuse_sdk_version="YOUR_X_LANGFUSE_SDK_VERSION",
+            x_langfuse_public_key="YOUR_X_LANGFUSE_PUBLIC_KEY",
+            username="YOUR_USERNAME",
+            password="YOUR_PASSWORD",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.llm_connections.delete_organization(
+                id="id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete_organization(
+            id, request_options=request_options
+        )
         return _response.data
