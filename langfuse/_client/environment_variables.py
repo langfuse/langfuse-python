@@ -25,30 +25,28 @@ LANGFUSE_PUBLIC_KEY = "LANGFUSE_PUBLIC_KEY"
 """
 .. envvar:: LANGFUSE_PUBLIC_KEY
 
-Public API key of Langfuse project
+Deprecated: use :envvar:`LANGFUSE_API_KEY`. Public API key of Langfuse project
 """
 
 LANGFUSE_SECRET_KEY = "LANGFUSE_SECRET_KEY"
 """
 .. envvar:: LANGFUSE_SECRET_KEY
 
-Secret API key of Langfuse project
+Deprecated: use :envvar:`LANGFUSE_API_KEY`. Secret API key of Langfuse project
 """
 
 LANGFUSE_API_KEY = "LANGFUSE_API_KEY"
 """
 .. envvar:: LANGFUSE_API_KEY
 
-Langfuse API key (``lf_...``). Use with :envvar:`LANGFUSE_PROJECT_ID` instead of
-:envvar:`LANGFUSE_PUBLIC_KEY` and :envvar:`LANGFUSE_SECRET_KEY`.
+Langfuse API key (``lf_...``). Requires :envvar:`LANGFUSE_PROJECT_ID`.
 """
 
 LANGFUSE_PROJECT_ID = "LANGFUSE_PROJECT_ID"
 """
 .. envvar:: LANGFUSE_PROJECT_ID
 
-Langfuse project that receives the client's data. Required with
-:envvar:`LANGFUSE_API_KEY`; ignored by clients using a public and secret key.
+The Langfuse project to send data to. Required with :envvar:`LANGFUSE_API_KEY`.
 """
 
 LANGFUSE_BASE_URL = "LANGFUSE_BASE_URL"

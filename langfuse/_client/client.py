@@ -210,12 +210,14 @@ _API_KEY_PATTERN = re.compile(rf"{API_KEY_PREFIX}[A-Za-z0-9]+")
 _KEY_PAIR_PREFIXES = ("pk-lf-", "sk-lf-")
 
 
-def _resolve_credentials(
+def _get_credentials(
     *,
     api_key: Optional[str],
     public_key: Optional[str],
     secret_key: Optional[str],
     project_id: Optional[str],
+    additional_headers: Optional[Dict[str, str]],
+    httpx_client: Optional[httpx.Client],
 ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     """Return ``(api_key, public_key, secret_key, project_id)``; raise on misconfiguration."""
     if not (api_key or public_key or secret_key):
@@ -255,10 +257,7 @@ def _resolve_credentials(
         raise ValueError(message)
 
     if not _API_KEY_PATTERN.fullmatch(api_key):
-        message = (
-            "api_key is not a valid Langfuse API key. Expected "
-            f"'{API_KEY_PREFIX}' followed by letters and digits."
-        )
+        message = "api_key is not a valid Langfuse API key."
         raise ValueError(message)
 
     project_id = project_id or os.environ.get(LANGFUSE_PROJECT_ID) or None
@@ -267,6 +266,8 @@ def _resolve_credentials(
             "api_key requires project_id. Pass project_id or set LANGFUSE_PROJECT_ID."
         )
         raise ValueError(message)
+
+    _validate_project_id_headers(project_id, additional_headers, httpx_client)
 
     return api_key, None, None, project_id
 
@@ -291,10 +292,10 @@ class Langfuse:
         _otel_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
 
     Parameters:
-        public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
-        secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
-        api_key (Optional[str]): Langfuse API key (`lf_...`) for project, user and organization keys. Replaces `public_key` and `secret_key` and requires `project_id`. Can also be set via LANGFUSE_API_KEY environment variable. Raises `ValueError` if the key is malformed or combined with `public_key` or `secret_key`.
-        project_id (Optional[str]): Langfuse project that receives this client's data. Required with `api_key` and only valid with it. Can also be set via LANGFUSE_PROJECT_ID environment variable, which key pair clients ignore. Use one client per project. Raises `ValueError` if a project header in `additional_headers` or `httpx_client` names a different project.
+        public_key (Optional[str]): Deprecated: use `api_key`. Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
+        secret_key (Optional[str]): Deprecated: use `api_key`. Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
+        api_key (Optional[str]): Your Langfuse API key (`lf_...`). Requires `project_id`. Can also be set via LANGFUSE_API_KEY environment variable.
+        project_id (Optional[str]): The Langfuse project to send data to. Required with `api_key`. Can also be set via LANGFUSE_PROJECT_ID environment variable.
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
@@ -441,13 +442,14 @@ class Langfuse:
             or os.environ.get(LANGFUSE_RELEASE, None)
             or get_common_release_envs()
         )
-        api_key, public_key, secret_key, project_id = _resolve_credentials(
+        api_key, public_key, secret_key, project_id = _get_credentials(
             api_key=api_key,
             public_key=public_key,
             secret_key=secret_key,
             project_id=project_id,
+            additional_headers=additional_headers,
+            httpx_client=httpx_client,
         )
-        _validate_project_id_headers(project_id, additional_headers, httpx_client)
         # Cache read by _get_project_id(); a configured project needs no lookup
         self._project_id: Optional[str] = project_id
         if sample_rate is None:
