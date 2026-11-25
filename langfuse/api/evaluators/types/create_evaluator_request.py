@@ -17,6 +17,7 @@ from ...evaluation_commons.types.evaluator_output_definition import (
 from ...evaluation_commons.types.prompt_variable_mapping_input import (
     PromptVariableMappingInput,
 )
+from .decision_model_question import DecisionModelQuestion
 from .evaluator_chat_prompt_input import EvaluatorChatPromptInput
 from .evaluator_model_config import EvaluatorModelConfig
 
@@ -64,7 +65,32 @@ class CreateEvaluatorRequest_Code(UniversalBaseModel):
     )
 
 
+class CreateEvaluatorRequest_DecisionModel(UniversalBaseModel):
+    """
+    Initial evaluator definition with metadata and definition fields at the same level. The returned evaluator starts at version `1`.
+    """
+
+    type: typing.Literal["decision_model"] = "decision_model"
+    name: str
+    description: typing.Optional[str] = None
+    questions: typing.List[DecisionModelQuestion]
+    model_config_: typing_extensions.Annotated[
+        EvaluatorModelConfig, FieldMetadata(alias="modelConfig")
+    ]
+    variable_mapping: typing_extensions.Annotated[
+        typing.List[PromptVariableMappingInput], FieldMetadata(alias="variableMapping")
+    ]
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
+
+
 CreateEvaluatorRequest = typing_extensions.Annotated[
-    typing.Union[CreateEvaluatorRequest_LlmAsJudge, CreateEvaluatorRequest_Code],
+    typing.Union[
+        CreateEvaluatorRequest_LlmAsJudge,
+        CreateEvaluatorRequest_Code,
+        CreateEvaluatorRequest_DecisionModel,
+    ],
     pydantic.Field(discriminator="type"),
 ]

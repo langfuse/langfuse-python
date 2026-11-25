@@ -3,6 +3,7 @@
 import typing
 
 from .update_code_evaluator_request import UpdateCodeEvaluatorRequest
+from .update_decision_model_evaluator_request import UpdateDecisionModelEvaluatorRequest
 from .update_evaluator_metadata_request import UpdateEvaluatorMetadataRequest
 from .update_llm_as_judge_evaluator_request import UpdateLlmAsJudgeEvaluatorRequest
 
@@ -10,4 +11,5 @@ UpdateEvaluatorRequest = typing.Union[
     UpdateEvaluatorMetadataRequest,
     UpdateLlmAsJudgeEvaluatorRequest,
     UpdateCodeEvaluatorRequest,
+    UpdateDecisionModelEvaluatorRequest,
 ]
