@@ -1835,16 +1835,31 @@ def _parse_model(response: LLMResult) -> Any:
             if isinstance(generation_info, dict):
                 for key in llm_model_keys:
                     if generation_info.get(key):
-                        return generation_info[key]
+                        return _deduplicate_repeated_model_name(generation_info[key])
 
             message = getattr(generation_chunk, "message", None)
             response_metadata = getattr(message, "response_metadata", None)
             if isinstance(response_metadata, dict):
                 for key in llm_model_keys:
                     if response_metadata.get(key):
-                        return response_metadata[key]
+                        return _deduplicate_repeated_model_name(response_metadata[key])
 
     return llm_model
+
+
+def _deduplicate_repeated_model_name(model_name: Any) -> Any:
+    if not isinstance(model_name, str):
+        return model_name
+
+    for model_length in range(1, len(model_name) // 2 + 1):
+        if len(model_name) % model_length:
+            continue
+
+        candidate = model_name[:model_length]
+        if candidate * (len(model_name) // model_length) == model_name:
+            return candidate
+
+    return model_name
 
 
 def _parse_model_name_from_metadata(metadata: Optional[Dict[str, Any]]) -> Any:
