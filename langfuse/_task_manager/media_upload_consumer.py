@@ -1,11 +1,11 @@
-import logging
 import threading
+
+from langfuse.logger import langfuse_logger as logger
 
 from .media_manager import MediaManager
 
 
 class MediaUploadConsumer(threading.Thread):
-    _log = logging.getLogger("langfuse")
     _identifier: int
     _max_retries: int
     _media_manager: MediaManager
@@ -30,15 +30,17 @@ class MediaUploadConsumer(threading.Thread):
 
     def run(self) -> None:
         """Run the media upload consumer."""
-        self._log.debug(
-            f"Thread: Media upload consumer thread #{self._identifier} started and actively processing queue items"
+        logger.debug(
+            "Thread: Media upload consumer thread #%s started and actively processing "
+            "queue items",
+            self._identifier,
         )
         while self.running:
             self._media_manager.process_next_media_upload()
 
     def pause(self) -> None:
         """Pause the media upload consumer."""
-        self._log.debug(
-            f"Thread: Pausing media upload consumer thread #{self._identifier}"
+        logger.debug(
+            "Thread: Pausing media upload consumer thread #%s", self._identifier
         )
         self.running = False

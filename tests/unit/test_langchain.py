@@ -1,0 +1,1311 @@
+import importlib
+from contextvars import copy_context
+from unittest.mock import patch
+from uuid import uuid4
+
+import pytest
+from langchain_core.messages import (
+    AIMessage,
+    FunctionMessage,
+    HumanMessage,
+    ToolMessage,
+)
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.outputs import ChatGeneration, ChatResult, Generation, LLMResult
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import StructuredTool
+from langchain_openai import ChatOpenAI, OpenAI
+from opentelemetry import context as otel_context
+from pydantic import BaseModel, Field
+
+from langfuse._client.attributes import LangfuseOtelSpanAttributes
+from langfuse.langchain import CallbackHandler
+from langfuse.langchain.utils import _normalize_tool_definition
+
+callback_handler_module = importlib.import_module("langfuse.langchain.CallbackHandler")
+
+
+def _assert_parent_child(parent_span, child_span) -> None:
+    assert child_span.parent is not None
+    assert child_span.parent.span_id == parent_span.context.span_id
+
+
+def _has_pending_resume_context(handler, resume_key: str) -> bool:
+    return resume_key in handler._pending_resume_trace_contexts
+
+
+def _pending_resume_context_keys(handler) -> list[str]:
+    return handler._pending_resume_trace_contexts.keys()
+
+
+def _get_root_resume_key(handler, root_run_id):
+    root_run_state = handler._root_run_states.get(root_run_id)
+    return None if root_run_state is None else root_run_state.resume_key
+
+
+def _has_run_state(handler, run_id) -> bool:
+    return run_id in handler._run_states
+
+
+def test_chat_model_callback_exports_generation_span(
+    langfuse_memory_client, get_span, json_attr
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(message=AIMessage(content="bonjour"), text="bonjour")
+        ],
+        llm_output={
+            "token_usage": {
+                "prompt_tokens": 4,
+                "completion_tokens": 2,
+                "total_tokens": 6,
+            },
+            "model_name": "gpt-4o-mini",
+        },
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            ChatOpenAI(api_key="test", temperature=0).invoke(
+                [HumanMessage(content="hello")],
+                config={"callbacks": [handler]},
+            )
+
+    langfuse_memory_client.flush()
+    parent_span = get_span("parent")
+    generation_span = get_span("ChatOpenAI")
+
+    _assert_parent_child(parent_span, generation_span)
+    assert (
+        generation_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_TYPE]
+        == "generation"
+    )
+    assert json_attr(generation_span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == [
+        {"role": "user", "content": "hello"}
+    ]
+    assert json_attr(
+        generation_span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT
+    ) == {
+        "role": "assistant",
+        "content": "bonjour",
+    }
+    assert (
+        generation_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
+        == "gpt-4o-mini"
+    )
+    assert json_attr(
+        generation_span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS
+    ) == {
+        "prompt_tokens": 4,
+        "completion_tokens": 2,
+        "total_tokens": 6,
+    }
+
+
+def test_chat_model_input_keeps_message_names(
+    langfuse_memory_client, get_span, json_attr
+):
+    response = ChatResult(
+        generations=[ChatGeneration(message=AIMessage(content="sunny"), text="sunny")]
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test").invoke(
+            [
+                HumanMessage(content="weather?", name="alice"),
+                AIMessage(
+                    content="",
+                    tool_calls=[{"name": "get_weather", "args": {}, "id": "call_1"}],
+                ),
+                ToolMessage(content="sunny", tool_call_id="call_1", name="get_weather"),
+                FunctionMessage(content="sunny", name="get_weather"),
+                HumanMessage(content="legacy", additional_kwargs={"name": "bob"}),
+            ],
+            config={"callbacks": [CallbackHandler()]},
+        )
+
+    langfuse_memory_client.flush()
+    messages = json_attr(
+        get_span("ChatOpenAI"), LangfuseOtelSpanAttributes.OBSERVATION_INPUT
+    )
+
+    assert [(message["role"], message.get("name")) for message in messages] == [
+        ("user", "alice"),
+        ("assistant", None),
+        ("tool", "get_weather"),
+        ("function", "get_weather"),
+        ("user", "bob"),
+    ]
+
+
+def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
+    response = LLMResult(
+        generations=[[Generation(text="sockzilla")]],
+        llm_output={
+            "token_usage": {
+                "prompt_tokens": 7,
+                "completion_tokens": 3,
+                "total_tokens": 10,
+            },
+            "model_name": "gpt-4o-mini-instruct",
+        },
+    )
+
+    with patch.object(OpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            OpenAI(api_key="test", temperature=0).invoke(
+                "name a sock company",
+                config={"callbacks": [handler], "run_name": "sock-name"},
+            )
+
+    langfuse_memory_client.flush()
+    span = get_span("sock-name")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT] == "sockzilla"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
+        == "gpt-4o-mini-instruct"
+    )
+
+
+def test_lcel_chain_exports_intermediate_chain_spans(
+    langfuse_memory_client, get_span, find_spans
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(content="knock knock"),
+                text="knock knock",
+            )
+        ],
+        llm_output={
+            "token_usage": {
+                "prompt_tokens": 4,
+                "completion_tokens": 2,
+                "total_tokens": 6,
+            },
+            "model_name": "gpt-4o-mini",
+        },
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+        prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
+        chain = prompt | ChatOpenAI(api_key="test", temperature=0) | StrOutputParser()
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            result = chain.invoke({"topic": "otters"}, config={"callbacks": [handler]})
+
+    assert result == "knock knock"
+
+    langfuse_memory_client.flush()
+    sequence_span = get_span("RunnableSequence")
+    prompt_span = get_span("ChatPromptTemplate")
+    generation_span = get_span("ChatOpenAI")
+    parser_span = get_span("StrOutputParser")
+
+    _assert_parent_child(sequence_span, prompt_span)
+    _assert_parent_child(sequence_span, generation_span)
+    _assert_parent_child(sequence_span, parser_span)
+    assert len(find_spans("ChatOpenAI")) == 1
+
+
+def test_chat_model_error_marks_generation_error(langfuse_memory_client, get_span):
+    with patch.object(ChatOpenAI, "_generate", side_effect=RuntimeError("boom")):
+        handler = CallbackHandler()
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            with pytest.raises(RuntimeError, match="boom"):
+                ChatOpenAI(api_key="test", temperature=0).invoke(
+                    [HumanMessage(content="hello")],
+                    config={"callbacks": [handler]},
+                )
+
+    langfuse_memory_client.flush()
+    span = get_span("ChatOpenAI")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    assert (
+        "boom" in span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+    )
+
+
+def test_root_chain_metadata_propagates_trace_name(
+    langfuse_memory_client, get_span, find_spans
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(content="knock knock"),
+                text="knock knock",
+            )
+        ],
+        llm_output={
+            "token_usage": {
+                "prompt_tokens": 4,
+                "completion_tokens": 2,
+                "total_tokens": 6,
+            },
+            "model_name": "gpt-4o-mini",
+        },
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+        prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
+        chain = prompt | ChatOpenAI(api_key="test", temperature=0) | StrOutputParser()
+
+        result = chain.invoke(
+            {"topic": "otters"},
+            config={
+                "callbacks": [handler],
+                "metadata": {"langfuse_trace_name": "langchain-trace-name"},
+            },
+        )
+
+    assert result == "knock knock"
+
+    langfuse_memory_client.flush()
+    root_span = get_span("RunnableSequence")
+    generation_span = get_span("ChatOpenAI")
+
+    assert (
+        root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME]
+        == "langchain-trace-name"
+    )
+    assert (
+        generation_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME]
+        == "langchain-trace-name"
+    )
+    assert (
+        f"{LangfuseOtelSpanAttributes.OBSERVATION_METADATA}.langfuse_trace_name"
+        not in root_span.attributes
+    )
+    assert len(find_spans("ChatOpenAI")) == 1
+
+
+@pytest.mark.asyncio
+async def test_root_chain_metadata_propagates_session_id_to_children_on_ainvoke(
+    langfuse_memory_client, get_span
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(content="knock knock"),
+                text="knock knock",
+            )
+        ],
+        llm_output={"model_name": "gpt-4o-mini"},
+    )
+
+    with patch.object(ChatOpenAI, "_agenerate", return_value=response):
+        handler = CallbackHandler()
+        prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
+        chain = prompt | ChatOpenAI(api_key="test", temperature=0) | StrOutputParser()
+
+        result = await chain.ainvoke(
+            {"topic": "otters"},
+            config={
+                "callbacks": [handler],
+                "metadata": {
+                    "langfuse_session_id": "async-session",
+                    "langfuse_user_id": "async-user",
+                },
+            },
+        )
+
+    assert result == "knock knock"
+
+    langfuse_memory_client.flush()
+
+    for span_name in (
+        "RunnableSequence",
+        "ChatPromptTemplate",
+        "ChatOpenAI",
+        "StrOutputParser",
+    ):
+        span = get_span(span_name)
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID]
+            == "async-session"
+        ), span_name
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.TRACE_USER_ID] == "async-user"
+        ), span_name
+
+
+def test_child_run_keeps_attributes_propagated_in_its_own_context(
+    langfuse_memory_client, get_span
+):
+    handler = CallbackHandler()
+    root_run_id = uuid4()
+    child_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"id": ["RunnableSequence"]},
+        {"topic": "otters"},
+        run_id=root_run_id,
+        metadata={"langfuse_session_id": "root-session"},
+    )
+
+    def start_child_with_own_session():
+        with callback_handler_module.propagate_attributes(session_id="child-session"):
+            handler.on_chain_start(
+                {"id": ["ChildChain"]},
+                {"topic": "otters"},
+                run_id=child_run_id,
+                parent_run_id=root_run_id,
+            )
+
+    copy_context().run(start_child_with_own_session)
+    copy_context().run(
+        handler.on_chain_end,
+        {"output": "done"},
+        run_id=child_run_id,
+        parent_run_id=root_run_id,
+    )
+    handler.on_chain_end({"output": "done"}, run_id=root_run_id)
+
+    langfuse_memory_client.flush()
+
+    assert (
+        get_span("ChildChain").attributes[LangfuseOtelSpanAttributes.TRACE_SESSION_ID]
+        == "child-session"
+    )
+
+
+def test_root_chain_exports_when_end_runs_in_copied_context(
+    langfuse_memory_client, get_span
+):
+    context_token = otel_context.attach(otel_context.Context())
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    try:
+        handler.on_chain_start(
+            {"id": ["RunnableSequence"]},
+            {"topic": "otters"},
+            run_id=run_id,
+            metadata={"langfuse_trace_name": "async-root-trace"},
+        )
+
+        copy_context().run(
+            handler.on_chain_end,
+            {"output": "knock knock"},
+            run_id=run_id,
+        )
+
+        langfuse_memory_client.flush()
+        root_span = get_span("RunnableSequence")
+
+        assert root_span.attributes[LangfuseOtelSpanAttributes.TRACE_NAME] == (
+            "async-root-trace"
+        )
+    finally:
+        otel_context.detach(context_token)
+
+
+def test_control_flow_errors_use_default_level_and_keep_status_message(
+    langfuse_memory_client, get_span, monkeypatch
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+
+    handler = CallbackHandler()
+
+    tool_run_id = uuid4()
+    retriever_run_id = uuid4()
+    llm_run_id = uuid4()
+    chain_run_id = uuid4()
+
+    handler.on_tool_start(
+        {"name": "human_approval"},
+        "{}",
+        run_id=tool_run_id,
+    )
+    handler.on_tool_error(
+        DummyControlFlowError("tool interrupt"),
+        run_id=tool_run_id,
+    )
+
+    handler.on_retriever_start(
+        {"name": "knowledge_base"},
+        "approval policy",
+        run_id=retriever_run_id,
+    )
+    handler.on_retriever_error(
+        DummyControlFlowError("retriever bubble-up"),
+        run_id=retriever_run_id,
+    )
+
+    handler.on_llm_start(
+        {"name": "TestLLM"},
+        ["need approval"],
+        run_id=llm_run_id,
+        invocation_params={},
+    )
+    handler.on_llm_error(
+        DummyControlFlowError("llm bubble-up"),
+        run_id=llm_run_id,
+    )
+
+    handler.on_chain_start(
+        {"name": "LangGraph"},
+        {"messages": ["need approval"]},
+        run_id=chain_run_id,
+    )
+    handler.on_chain_error(
+        DummyControlFlowError("graph interrupt"),
+        run_id=chain_run_id,
+    )
+
+    handler._langfuse_client.flush()
+
+    for span_name, message in [
+        ("human_approval", "tool interrupt"),
+        ("knowledge_base", "retriever bubble-up"),
+        ("TestLLM", "llm bubble-up"),
+        ("LangGraph", "graph interrupt"),
+    ]:
+        span = get_span(span_name)
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "DEFAULT"
+        )
+        assert (
+            span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+            == message
+        )
+
+
+def test_streamed_llm_error_cleans_only_its_completion_start_time_memo(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+    failed_run_id = uuid4()
+    active_run_id = uuid4()
+    failed_context = copy_context()
+    active_context = copy_context()
+
+    for context, run_id in (
+        (failed_context, failed_run_id),
+        (active_context, active_run_id),
+    ):
+        context.run(
+            handler.on_llm_start,
+            {"name": "TestLLM"},
+            ["prompt"],
+            run_id=run_id,
+            metadata={"ls_model_name": "test-model"},
+            invocation_params={},
+        )
+        context.run(handler.on_llm_new_token, "first token", run_id=run_id)
+
+    response = LLMResult(generations=[[Generation(text="done")]], llm_output={})
+
+    try:
+        assert failed_run_id in handler._updated_completion_start_time_memo
+        assert active_run_id in handler._updated_completion_start_time_memo
+
+        failed_context.run(
+            handler.on_llm_error,
+            RuntimeError("synthetic failure"),
+            run_id=failed_run_id,
+        )
+
+        assert active_run_id in handler._updated_completion_start_time_memo
+        assert failed_run_id not in handler._updated_completion_start_time_memo
+    finally:
+        active_context.run(
+            handler.on_llm_end,
+            response,
+            run_id=active_run_id,
+        )
+
+
+def test_chain_error_deregisters_prompt_registered_for_the_run(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+    prompt_chain_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"name": "RootChain"},
+        {"input": "hi"},
+        run_id=root_run_id,
+    )
+    handler.on_chain_start(
+        {"name": "PromptChain"},
+        {"input": "hi"},
+        run_id=prompt_chain_run_id,
+        parent_run_id=root_run_id,
+        metadata={"langfuse_prompt": "sentinel-prompt"},
+    )
+
+    assert handler._prompt_to_parent_run_map.get(root_run_id) == "sentinel-prompt"
+
+    handler.on_chain_error(
+        RuntimeError("synthetic failure"),
+        run_id=root_run_id,
+    )
+
+    assert root_run_id not in handler._prompt_to_parent_run_map
+
+
+def test_nested_chain_error_deregisters_propagated_prompt(
+    langfuse_memory_client,
+):
+    handler = CallbackHandler()
+
+    root_run_id = uuid4()
+    prompt_chain_run_id = uuid4()
+    nested_chain_run_id = uuid4()
+
+    handler.on_chain_start(
+        {"name": "RootChain"},
+        {"input": "hi"},
+        run_id=root_run_id,
+    )
+    handler.on_chain_start(
+        {"name": "PromptChain"},
+        {"input": "hi"},
+        run_id=prompt_chain_run_id,
+        parent_run_id=root_run_id,
+        metadata={"langfuse_prompt": "sentinel-prompt"},
+    )
+    handler.on_chain_start(
+        {"name": "NestedChain"},
+        {"input": "hi"},
+        run_id=nested_chain_run_id,
+        parent_run_id=root_run_id,
+    )
+
+    assert (
+        handler._prompt_to_parent_run_map.get(nested_chain_run_id) == "sentinel-prompt"
+    )
+
+    handler.on_chain_error(
+        RuntimeError("synthetic failure"),
+        run_id=nested_chain_run_id,
+        parent_run_id=root_run_id,
+    )
+
+    assert nested_chain_run_id not in handler._prompt_to_parent_run_map
+
+    # The parent-level registration survives so a following LLM sibling
+    # can still consume it, matching the success-path lifecycle.
+    assert handler._prompt_to_parent_run_map.get(root_run_id) == "sentinel-prompt"
+
+
+def test_control_flow_resume_uses_thread_keyed_explicit_resume_context(
+    memory_exporter, langfuse_memory_client, monkeypatch
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    Command = pytest.importorskip("langgraph.types").Command
+
+    context_token = otel_context.attach(otel_context.Context())
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+
+    try:
+        handler = CallbackHandler()
+
+        thread_one_interrupt_run_id = uuid4()
+        thread_two_interrupt_run_id = uuid4()
+        thread_one_fresh_run_id = uuid4()
+        thread_two_resume_run_id = uuid4()
+        thread_one_resume_run_id = uuid4()
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=thread_one_interrupt_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt 1"),
+            run_id=thread_one_interrupt_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=thread_two_interrupt_run_id,
+            metadata={"thread_id": "thread-2"},
+        )
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt 2"),
+            run_id=thread_two_interrupt_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["fresh invocation"]},
+            run_id=thread_one_fresh_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["completed"]},
+            run_id=thread_one_fresh_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=thread_two_resume_run_id,
+            metadata={"thread_id": "thread-2"},
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=thread_two_resume_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=thread_one_resume_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=thread_one_resume_run_id,
+        )
+
+        handler._langfuse_client.flush()
+
+        root_spans = [
+            span
+            for span in memory_exporter.get_finished_spans()
+            if span.name == "LangGraph"
+        ]
+
+        assert len(root_spans) == 5
+        spans_by_trace_id = {}
+        for span in root_spans:
+            spans_by_trace_id.setdefault(span.context.trace_id, []).append(span)
+
+        assert sorted(len(spans) for spans in spans_by_trace_id.values()) == [1, 2, 2]
+
+        resumed_trace_spans = [
+            spans for spans in spans_by_trace_id.values() if len(spans) == 2
+        ]
+        assert len(resumed_trace_spans) == 2
+
+        for spans in resumed_trace_spans:
+            initial_span = next(span for span in spans if span.parent is None)
+            resumed_span = next(span for span in spans if span.parent is not None)
+            assert resumed_span.parent.span_id == initial_span.context.span_id
+
+        fresh_trace_spans = next(
+            spans for spans in spans_by_trace_id.values() if len(spans) == 1
+        )
+        assert fresh_trace_spans[0].parent is None
+    finally:
+        otel_context.detach(context_token)
+
+
+def test_control_flow_resume_restores_context_after_failed_root_start(
+    memory_exporter, langfuse_memory_client, monkeypatch
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    Command = pytest.importorskip("langgraph.types").Command
+
+    context_token = otel_context.attach(otel_context.Context())
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+
+    try:
+        handler = CallbackHandler()
+
+        interrupt_run_id = uuid4()
+        failed_resume_run_id = uuid4()
+        successful_resume_run_id = uuid4()
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=interrupt_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt"),
+            run_id=interrupt_run_id,
+        )
+
+        assert _has_pending_resume_context(handler, "thread-1")
+
+        with patch.object(
+            handler._langfuse_client,
+            "start_observation",
+            side_effect=RuntimeError("trace create failed"),
+        ):
+            handler.on_chain_start(
+                {"name": "LangGraph"},
+                Command(resume={"approved": True}),
+                run_id=failed_resume_run_id,
+                metadata={"thread_id": "thread-1"},
+            )
+
+        assert _has_pending_resume_context(handler, "thread-1")
+        assert _get_root_resume_key(handler, failed_resume_run_id) is None
+        assert not _has_run_state(handler, failed_resume_run_id)
+        assert failed_resume_run_id not in handler._root_run_states
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=successful_resume_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=successful_resume_run_id,
+        )
+
+        handler._langfuse_client.flush()
+
+        root_spans = [
+            span
+            for span in memory_exporter.get_finished_spans()
+            if span.name == "LangGraph"
+        ]
+
+        assert len(root_spans) == 2
+
+        initial_span = next(span for span in root_spans if span.parent is None)
+        resumed_span = next(span for span in root_spans if span.parent is not None)
+
+        assert resumed_span.parent.span_id == initial_span.context.span_id
+    finally:
+        otel_context.detach(context_token)
+
+
+def test_control_flow_resume_ignores_non_resume_commands(
+    memory_exporter, langfuse_memory_client, monkeypatch
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    Command = pytest.importorskip("langgraph.types").Command
+
+    context_token = otel_context.attach(otel_context.Context())
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+
+    try:
+        handler = CallbackHandler()
+
+        interrupt_run_id = uuid4()
+        goto_run_id = uuid4()
+        resume_run_id = uuid4()
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=interrupt_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_error(
+            DummyControlFlowError("graph interrupt"),
+            run_id=interrupt_run_id,
+        )
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(goto="approval_node"),
+            run_id=goto_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["routed"]},
+            run_id=goto_run_id,
+        )
+
+        assert _has_pending_resume_context(handler, "thread-1")
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=resume_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        handler.on_chain_end(
+            {"messages": ["approved"]},
+            run_id=resume_run_id,
+        )
+
+        handler._langfuse_client.flush()
+
+        root_spans = [
+            span
+            for span in memory_exporter.get_finished_spans()
+            if span.name == "LangGraph"
+        ]
+
+        assert len(root_spans) == 3
+
+        spans_by_trace_id = {}
+        for span in root_spans:
+            spans_by_trace_id.setdefault(span.context.trace_id, []).append(span)
+
+        assert sorted(len(spans) for spans in spans_by_trace_id.values()) == [1, 2]
+
+        resumed_trace_spans = next(
+            spans for spans in spans_by_trace_id.values() if len(spans) == 2
+        )
+        initial_span = next(span for span in resumed_trace_spans if span.parent is None)
+        resumed_span = next(
+            span for span in resumed_trace_spans if span.parent is not None
+        )
+
+        assert resumed_span.parent.span_id == initial_span.context.span_id
+    finally:
+        otel_context.detach(context_token)
+
+
+def test_root_reset_preserves_other_inflight_resume_keys(
+    memory_exporter, langfuse_memory_client, monkeypatch
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    Command = pytest.importorskip("langgraph.types").Command
+
+    context_token = otel_context.attach(otel_context.Context())
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+
+    try:
+        handler = CallbackHandler()
+        root_one_context = copy_context()
+        root_two_context = copy_context()
+
+        root_one_run_id = uuid4()
+        root_two_run_id = uuid4()
+        root_two_resume_run_id = uuid4()
+
+        root_one_context.run(
+            handler.on_chain_start,
+            {"name": "LangGraph"},
+            {"messages": ["completed"]},
+            run_id=root_one_run_id,
+            metadata={"thread_id": "thread-1"},
+        )
+        root_two_context.run(
+            handler.on_chain_start,
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=root_two_run_id,
+            metadata={"thread_id": "thread-2"},
+        )
+
+        assert _get_root_resume_key(handler, root_two_run_id) == "thread-2"
+
+        root_one_context.run(
+            handler.on_chain_end,
+            {"messages": ["completed"]},
+            run_id=root_one_run_id,
+        )
+
+        assert _get_root_resume_key(handler, root_two_run_id) == "thread-2"
+
+        root_two_context.run(
+            handler.on_chain_error,
+            DummyControlFlowError("graph interrupt"),
+            run_id=root_two_run_id,
+        )
+
+        assert _has_pending_resume_context(handler, "thread-2")
+
+        root_two_context.run(
+            handler.on_chain_start,
+            {"name": "LangGraph"},
+            Command(resume={"approved": True}),
+            run_id=root_two_resume_run_id,
+            metadata={"thread_id": "thread-2"},
+        )
+        root_two_context.run(
+            handler.on_chain_end,
+            {"messages": ["approved"]},
+            run_id=root_two_resume_run_id,
+        )
+
+        handler._langfuse_client.flush()
+
+        root_spans = [
+            span
+            for span in memory_exporter.get_finished_spans()
+            if span.name == "LangGraph"
+        ]
+
+        assert len(root_spans) == 3
+
+        spans_by_trace_id = {}
+        for span in root_spans:
+            spans_by_trace_id.setdefault(span.context.trace_id, []).append(span)
+
+        assert sorted(len(spans) for spans in spans_by_trace_id.values()) == [1, 2]
+    finally:
+        otel_context.detach(context_token)
+
+
+def test_root_tool_and_retriever_runs_seed_resume_keys_and_cleanup(
+    langfuse_memory_client, monkeypatch
+):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+
+    handler = CallbackHandler()
+
+    tool_error_run_id = uuid4()
+    tool_end_run_id = uuid4()
+    retriever_run_id = uuid4()
+
+    handler.on_tool_start(
+        {"name": "human_approval"},
+        "{}",
+        run_id=tool_error_run_id,
+        metadata={"thread_id": "tool-error-thread"},
+    )
+    assert _get_root_resume_key(handler, tool_error_run_id) == "tool-error-thread"
+
+    handler.on_tool_error(
+        DummyControlFlowError("tool interrupt"),
+        run_id=tool_error_run_id,
+    )
+
+    assert _has_pending_resume_context(handler, "tool-error-thread")
+    assert _get_root_resume_key(handler, tool_error_run_id) is None
+    assert not _has_run_state(handler, tool_error_run_id)
+
+    handler.on_tool_start(
+        {"name": "human_approval"},
+        "{}",
+        run_id=tool_end_run_id,
+        metadata={"thread_id": "tool-end-thread"},
+    )
+    assert _get_root_resume_key(handler, tool_end_run_id) == "tool-end-thread"
+
+    handler.on_tool_end(
+        '{"approved": true}',
+        run_id=tool_end_run_id,
+    )
+
+    assert _get_root_resume_key(handler, tool_end_run_id) is None
+    assert not _has_run_state(handler, tool_end_run_id)
+
+    handler.on_retriever_start(
+        {"name": "knowledge_base"},
+        "approval policy",
+        run_id=retriever_run_id,
+        metadata={"thread_id": "retriever-thread"},
+    )
+    assert _get_root_resume_key(handler, retriever_run_id) == "retriever-thread"
+
+    handler.on_retriever_error(
+        DummyControlFlowError("retriever interrupt"),
+        run_id=retriever_run_id,
+    )
+
+    assert _has_pending_resume_context(handler, "retriever-thread")
+    assert _get_root_resume_key(handler, retriever_run_id) is None
+    assert not _has_run_state(handler, retriever_run_id)
+
+
+def test_tool_start_prefers_structured_inputs_when_available(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    structured_inputs = {
+        "path": "/tmp/example.md",
+        "content": '# Title\n\nThis has "quotes" and JSON-like text: {"a": 1}',
+    }
+
+    handler.on_tool_start(
+        {"name": "write_document"},
+        str(structured_inputs),
+        run_id=run_id,
+        inputs=structured_inputs,
+    )
+    handler.on_tool_end("ok", run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("write_document")
+
+    assert (
+        json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT)
+        == structured_inputs
+    )
+
+
+def test_tool_when_structured_inputs_only_store_in_inputs_attribute_not_metadata(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+    structured_inputs = {
+        "path": "/tmp/example.md",
+        "content": "this should be in inputs, not metadata",
+    }
+
+    handler.on_tool_start(
+        {"name": "write_document"},
+        str(structured_inputs),
+        run_id=run_id,
+        metadata={"custom_key": "custom_value"},
+        inputs=structured_inputs,
+    )
+    handler.on_tool_end("ok", run_id=run_id)
+
+    langfuse_memory_client.flush()
+    span = get_span("write_document")
+
+    metadata_prefix = LangfuseOtelSpanAttributes.OBSERVATION_METADATA
+
+    assert span.attributes[f"{metadata_prefix}.custom_key"] == '"custom_value"'
+    assert f"{metadata_prefix}.inputs" not in span.attributes
+
+
+def test_handled_tool_error_marks_observation_error(
+    langfuse_memory_client, get_span, json_attr
+):
+    handler = CallbackHandler()
+    run_id = uuid4()
+
+    handler.on_tool_start(
+        {"name": "failing_tool"},
+        '{"query": "x"}',
+        run_id=run_id,
+    )
+    handler.on_tool_end(
+        ToolMessage(
+            content="handled failure",
+            tool_call_id="call_1",
+            status="error",
+        ),
+        run_id=run_id,
+    )
+
+    langfuse_memory_client.flush()
+    span = get_span("failing_tool")
+
+    assert span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_LEVEL] == "ERROR"
+    assert (
+        span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]
+        == "handled failure"
+    )
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_OUTPUT)["status"] == (
+        "error"
+    )
+
+
+def test_pending_resume_contexts_are_capped(langfuse_memory_client, monkeypatch):
+    class DummyControlFlowError(RuntimeError):
+        pass
+
+    monkeypatch.setattr(
+        callback_handler_module,
+        "CONTROL_FLOW_EXCEPTION_TYPES",
+        {DummyControlFlowError},
+    )
+    monkeypatch.setattr(
+        callback_handler_module,
+        "MAX_PENDING_RESUME_TRACE_CONTEXTS",
+        4,
+    )
+
+    handler = CallbackHandler()
+
+    for index in range(5):
+        run_id = uuid4()
+        thread_id = f"thread-{index}"
+
+        handler.on_chain_start(
+            {"name": "LangGraph"},
+            {"messages": ["need approval"]},
+            run_id=run_id,
+            metadata={"thread_id": thread_id},
+        )
+        handler.on_chain_error(
+            DummyControlFlowError(f"graph interrupt {index}"),
+            run_id=run_id,
+        )
+
+    assert len(handler._pending_resume_trace_contexts) == 4
+    assert _pending_resume_context_keys(handler) == [
+        "thread-1",
+        "thread-2",
+        "thread-3",
+        "thread-4",
+    ]
+
+
+def test_graphbubbleup_import_is_independent_from_command_import():
+    pytest.importorskip("langgraph.errors")
+    real_import = __import__
+
+    def import_without_langgraph_command(
+        name, globals=None, locals=None, fromlist=(), level=0
+    ):
+        if name == "langgraph.types":
+            raise ImportError("Command unavailable")
+
+        return real_import(name, globals, locals, fromlist, level)
+
+    with patch("builtins.__import__", side_effect=import_without_langgraph_command):
+        reloaded_module = importlib.reload(callback_handler_module)
+        assert reloaded_module.LANGGRAPH_COMMAND_TYPE is None
+        assert any(
+            exception_type.__name__ == "GraphBubbleUp"
+            for exception_type in reloaded_module.CONTROL_FLOW_EXCEPTION_TYPES
+        )
+
+    importlib.reload(callback_handler_module)
+
+
+class _ExampleToolArgs(BaseModel):
+    query: str = Field(description="What to search for")
+
+
+def _make_example_tool() -> StructuredTool:
+    return StructuredTool.from_function(
+        func=lambda query: query,
+        name="example_tool",
+        description="Example tool description",
+        args_schema=_ExampleToolArgs,
+    )
+
+
+def _invoke_chat_model_with_tools(langfuse_memory_client, bind):
+    response = ChatResult(
+        generations=[ChatGeneration(message=AIMessage(content="ok"), text="ok")],
+        llm_output={"token_usage": {}, "model_name": "gpt-4o-mini"},
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+
+        with langfuse_memory_client.start_as_current_observation(name="parent"):
+            bind(ChatOpenAI(api_key="test", temperature=0)).invoke(
+                [HumanMessage(content="hello")],
+                config={"callbacks": [handler]},
+            )
+
+    langfuse_memory_client.flush()
+
+
+def _tool_definition_messages(generation_span, json_attr):
+    input_messages = json_attr(
+        generation_span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT
+    )
+    return [message for message in input_messages if message.get("role") == "tool"]
+
+
+def test_normalize_tool_definition_passes_openai_format_through():
+    openai_tool = {
+        "type": "function",
+        "function": {"name": "example_tool", "parameters": {"type": "object"}},
+    }
+
+    assert _normalize_tool_definition(openai_tool) is openai_tool
+
+
+def test_normalize_tool_definition_converts_base_tool_instances():
+    normalized = _normalize_tool_definition(_make_example_tool())
+
+    assert normalized["type"] == "function"
+    assert normalized["function"]["name"] == "example_tool"
+    assert normalized["function"]["description"] == "Example tool description"
+    assert "query" in normalized["function"]["parameters"]["properties"]
+
+
+def test_normalize_tool_definition_wraps_bare_function_schemas():
+    bare_function = {
+        "name": "example_tool",
+        "description": "Example tool description",
+        "parameters": {"type": "object", "properties": {}},
+    }
+
+    normalized = _normalize_tool_definition(bare_function)
+
+    assert normalized["type"] == "function"
+    assert normalized["function"]["name"] == "example_tool"
+
+
+def test_normalize_tool_definition_returns_unconvertible_values_unchanged():
+    unconvertible = object()
+
+    assert _normalize_tool_definition(unconvertible) is unconvertible
+
+
+def test_raw_bound_tools_are_normalized_in_generation_input(
+    langfuse_memory_client, get_span, json_attr
+):
+    # .bind() (unlike .bind_tools()) forwards raw tool objects into
+    # invocation_params -- the path that produced unrenderable tool
+    # definitions in the Langfuse UI.
+    _invoke_chat_model_with_tools(
+        langfuse_memory_client, lambda model: model.bind(tools=[_make_example_tool()])
+    )
+
+    tool_messages = _tool_definition_messages(get_span("ChatOpenAI"), json_attr)
+
+    assert len(tool_messages) == 1
+    tool_definition = tool_messages[0]["content"]
+    assert tool_definition["type"] == "function"
+    assert tool_definition["function"]["name"] == "example_tool"
+    assert "query" in tool_definition["function"]["parameters"]["properties"], (
+        "args schema should be exposed as OpenAI-style parameters"
+    )
+
+
+def test_bind_tools_tool_definitions_stay_in_openai_format(
+    langfuse_memory_client, get_span, json_attr
+):
+    # Regression guard for the standard path: bind_tools() already provides
+    # OpenAI-format definitions, which must pass through unchanged.
+    _invoke_chat_model_with_tools(
+        langfuse_memory_client, lambda model: model.bind_tools([_make_example_tool()])
+    )
+
+    tool_messages = _tool_definition_messages(get_span("ChatOpenAI"), json_attr)
+
+    assert len(tool_messages) == 1
+    tool_definition = tool_messages[0]["content"]
+    assert tool_definition["type"] == "function"
+    assert tool_definition["function"]["name"] == "example_tool"
+    assert "query" in tool_definition["function"]["parameters"]["properties"]

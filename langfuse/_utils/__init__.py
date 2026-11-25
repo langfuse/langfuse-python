@@ -1,12 +1,9 @@
 """@private"""
 
-import logging
 import typing
 from datetime import datetime, timezone
 
 from langfuse.model import PromptClient
-
-log = logging.getLogger("langfuse")
 
 
 def _get_timestamp() -> datetime:

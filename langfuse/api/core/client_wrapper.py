@@ -3,7 +3,6 @@
 import typing
 
 import httpx
-
 from .http_client import AsyncHttpClient, HttpClient
 
 
@@ -16,6 +15,7 @@ class BaseClientWrapper:
         x_langfuse_public_key: typing.Optional[str] = None,
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
     ):
@@ -24,11 +24,15 @@ class BaseClientWrapper:
         self._x_langfuse_public_key = x_langfuse_public_key
         self._username = username
         self._password = password
+        self._headers = headers
         self._base_url = base_url
         self._timeout = timeout
 
     def get_headers(self) -> typing.Dict[str, str]:
-        headers: typing.Dict[str, str] = {"X-Fern-Language": "Python"}
+        headers: typing.Dict[str, str] = {
+            "X-Fern-Language": "Python",
+            **(self.get_custom_headers() or {}),
+        }
         username = self._get_username()
         password = self._get_password()
         if username is not None and password is not None:
@@ -53,6 +57,9 @@ class BaseClientWrapper:
         else:
             return self._password()
 
+    def get_custom_headers(self) -> typing.Optional[typing.Dict[str, str]]:
+        return self._headers
+
     def get_base_url(self) -> str:
         return self._base_url
 
@@ -69,6 +76,7 @@ class SyncClientWrapper(BaseClientWrapper):
         x_langfuse_public_key: typing.Optional[str] = None,
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
         httpx_client: httpx.Client,
@@ -79,14 +87,15 @@ class SyncClientWrapper(BaseClientWrapper):
             x_langfuse_public_key=x_langfuse_public_key,
             username=username,
             password=password,
+            headers=headers,
             base_url=base_url,
             timeout=timeout,
         )
         self.httpx_client = HttpClient(
             httpx_client=httpx_client,
-            base_headers=self.get_headers(),
-            base_timeout=self.get_timeout(),
-            base_url=self.get_base_url(),
+            base_headers=self.get_headers,
+            base_timeout=self.get_timeout,
+            base_url=self.get_base_url,
         )
 
 
@@ -99,8 +108,10 @@ class AsyncClientWrapper(BaseClientWrapper):
         x_langfuse_public_key: typing.Optional[str] = None,
         username: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         password: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
+        async_token: typing.Optional[typing.Callable[[], typing.Awaitable[str]]] = None,
         httpx_client: httpx.AsyncClient,
     ):
         super().__init__(
@@ -109,12 +120,22 @@ class AsyncClientWrapper(BaseClientWrapper):
             x_langfuse_public_key=x_langfuse_public_key,
             username=username,
             password=password,
+            headers=headers,
             base_url=base_url,
             timeout=timeout,
         )
+        self._async_token = async_token
         self.httpx_client = AsyncHttpClient(
             httpx_client=httpx_client,
-            base_headers=self.get_headers(),
-            base_timeout=self.get_timeout(),
-            base_url=self.get_base_url(),
+            base_headers=self.get_headers,
+            base_timeout=self.get_timeout,
+            base_url=self.get_base_url,
+            async_base_headers=self.async_get_headers,
         )
+
+    async def async_get_headers(self) -> typing.Dict[str, str]:
+        headers = self.get_headers()
+        if self._async_token is not None:
+            token = await self._async_token()
+            headers["Authorization"] = f"Bearer {token}"
+        return headers

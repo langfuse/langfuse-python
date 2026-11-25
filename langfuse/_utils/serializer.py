@@ -1,5 +1,6 @@
 """@private"""
 
+import datetime as dt
 import enum
 import math
 from asyncio import Queue
@@ -12,10 +13,9 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretBytes, SecretStr
 
-from langfuse.api.core import pydantic_utilities, serialize_datetime
-from langfuse.media import LangfuseMedia
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
 # Attempt to import Serializable
 try:
@@ -34,14 +34,50 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+_MAX_SAFE_INT = 2**53 - 1
+_MIN_SAFE_INT = -(2**53) + 1
+
 
 class EventSerializer(JSONEncoder):
+    _MAX_DEPTH = 20
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.seen: set[int] = set()  # Track seen objects to detect circular references
+        self._depth = 0
 
     def default(self, obj: Any) -> Any:
+        # Exact built-in scalars come back unchanged from _default_inner, so skip
+        # its isinstance chain. Exact types only: a subclass may match another branch.
+        obj_type = type(obj)
+        if obj_type is str or obj is None or obj_type is bool:
+            return obj
+        if obj_type is int and _MIN_SAFE_INT <= obj <= _MAX_SAFE_INT:
+            return obj
+        if obj_type is float and math.isfinite(obj):
+            return obj
+
+        self._depth += 1
         try:
+            return self._default_inner(obj)
+        finally:
+            self._depth -= 1
+
+    def _default_inner(self, obj: Any) -> Any:
+        try:
+            # Mirrors the depth check and container branches below. No branch
+            # before them matches an exact dict, list or tuple.
+            obj_type = type(obj)
+            if obj_type is dict or obj_type is list or obj_type is tuple:
+                if self._depth >= self._MAX_DEPTH:
+                    return f"<{obj_type.__name__}>"
+                if obj_type is dict:
+                    return {self.default(k): self.default(v) for k, v in obj.items()}
+                return [self.default(item) for item in obj]
+
+            if isinstance(obj, (SecretStr, SecretBytes)):
+                return "<secret>"
+
             if isinstance(obj, (datetime)):
                 # Timezone-awareness check
                 return serialize_datetime(obj)
@@ -52,21 +88,27 @@ class EventSerializer(JSONEncoder):
                     or f"<Upload handling failed for LangfuseMedia of type {obj._content_type}>"
                 )
 
+            if (
+                isinstance(obj, LangfuseMediaReference)
+                and obj.reference_string is not None
+            ):
+                return obj.reference_string
+
             # Check if numpy is available and if the object is a numpy scalar
             # If so, convert it to a Python scalar using the item() method
             if np is not None and isinstance(obj, np.generic):
-                return obj.item()
+                return self.default(obj.item())
 
             # Check if numpy is available and if the object is a numpy array
             # If so, convert it to a Python list using the tolist() method
             if np is not None and isinstance(obj, np.ndarray):
-                return obj.tolist()
+                return self.default(obj.tolist())
 
             if isinstance(obj, float) and math.isnan(obj):
                 return "NaN"
 
             if isinstance(obj, float) and math.isinf(obj):
-                return "Infinity"
+                return "-Infinity" if obj < 0 else "Infinity"
 
             if isinstance(obj, (Exception, KeyboardInterrupt)):
                 return f"{type(obj).__name__}: {str(obj)}"
@@ -77,13 +119,10 @@ class EventSerializer(JSONEncoder):
                 return str(obj)
 
             if isinstance(obj, enum.Enum):
-                return obj.value
+                return self.default(obj.value)
 
             if isinstance(obj, Queue):
                 return type(obj).__name__
-
-            if is_dataclass(obj):
-                return asdict(obj)  # type: ignore
 
             if isinstance(obj, UUID):
                 return str(obj)
@@ -97,25 +136,8 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (date)):
                 return obj.isoformat()
 
-            if isinstance(obj, BaseModel):
-                obj.model_rebuild() if pydantic_utilities.IS_PYDANTIC_V2 else obj.update_forward_refs()  # This method forces the OpenAI model to instantiate its serializer to avoid errors when serializing
-
-                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
-                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
-                    raw.model_rebuild() if pydantic_utilities.IS_PYDANTIC_V2 else raw.update_forward_refs()
-
-                return (
-                    obj.model_dump()
-                    if pydantic_utilities.IS_PYDANTIC_V2
-                    else obj.dict()
-                )
-
             if isinstance(obj, Path):
                 return str(obj)
-
-            # if langchain is not available, the Serializable type is NoneType
-            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
-                return obj.to_json()
 
             # 64-bit integers might overflow the JavaScript safe integer range.
             # Since Node.js is run on the server that handles the serialized value,
@@ -127,8 +149,31 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (str, float, type(None))):
                 return obj
 
+            if self._depth >= self._MAX_DEPTH:
+                return f"<{type(obj).__name__}>"
+
+            if is_dataclass(obj):
+                return self.default(asdict(obj))  # type: ignore
+
+            if isinstance(obj, BaseModel):
+                obj.model_rebuild()
+
+                # For LlamaIndex models, we need to rebuild the raw model as well if they include OpenAI models
+                if isinstance(raw := getattr(obj, "raw", None), BaseModel):
+                    raw.model_rebuild()
+
+                # Recurse the dumped model back through default() so nested
+                # non-finite floats (NaN/Inf) are converted to safe strings.
+                # Returning model_dump() directly lets the json C-encoder emit
+                # bare NaN/Infinity tokens, which are invalid JSON.
+                return self.default(obj.model_dump())
+
+            # if langchain is not available, the Serializable type is NoneType
+            if Serializable is not type(None) and isinstance(obj, Serializable):  # type: ignore
+                return self.default(obj.to_json())
+
             if isinstance(obj, (tuple, set, frozenset)):
-                return list(obj)
+                return [self.default(item) for item in obj]
 
             if isinstance(obj, dict):
                 return {self.default(k): self.default(v) for k, v in obj.items()}
@@ -142,9 +187,10 @@ class EventSerializer(JSONEncoder):
                 return [self.default(item) for item in obj]
 
             if hasattr(obj, "__slots__"):
-                return self.default(
-                    {slot: getattr(obj, slot, None) for slot in obj.__slots__}
-                )
+                return {
+                    slot: self.default(getattr(obj, slot, None))
+                    for slot in obj.__slots__
+                }
             elif hasattr(obj, "__dict__"):
                 obj_id = id(obj)
 
@@ -164,13 +210,15 @@ class EventSerializer(JSONEncoder):
 
         except Exception as e:
             logger.debug(
-                f"Serialization failed for object of type {type(obj).__name__}",
+                "Serialization failed for object of type %s",
+                type(obj).__name__,
                 exc_info=e,
             )
             return f'"<not serializable object of type: {type(obj).__name__}>"'
 
     def encode(self, obj: Any) -> str:
         self.seen.clear()  # Clear seen objects before each encode call
+        self._depth = 0
 
         try:
             return super().encode(self.default(obj))
@@ -184,7 +232,23 @@ class EventSerializer(JSONEncoder):
         Python's 64-bit integers can exceed this range, necessitating this check.
         https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
         """
-        max_safe_int = 2**53 - 1
-        min_safe_int = -(2**53) + 1
+        return _MIN_SAFE_INT <= value <= _MAX_SAFE_INT
 
-        return min_safe_int <= value <= max_safe_int
+
+def serialize_datetime(v: dt.datetime) -> str:
+    def _serialize_zoned_datetime(v: dt.datetime) -> str:
+        if v.tzinfo is not None and v.tzinfo.tzname(None) == dt.timezone.utc.tzname(
+            None
+        ):
+            # UTC is a special case where we use "Z" at the end instead of "+00:00"
+            return v.isoformat().replace("+00:00", "Z")
+        else:
+            # Delegate to the typical +/- offset format
+            return v.isoformat()
+
+    if v.tzinfo is not None:
+        return _serialize_zoned_datetime(v)
+    else:
+        local_tz = dt.datetime.now().astimezone().tzinfo
+        localized_dt = v.replace(tzinfo=local_tz)
+        return _serialize_zoned_datetime(localized_dt)

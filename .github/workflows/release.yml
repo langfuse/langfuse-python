@@ -11,9 +11,11 @@ on:
           - patch
           - minor
           - major
-          - prerelease
+          - prepatch
+          - preminor
+          - premajor
       prerelease_type:
-        description: 'Pre-release type (only used if version is "prerelease")'
+        description: 'Pre-release type (used when version is prepatch/preminor/premajor)'
         type: choice
         default: ""
         options:
@@ -22,12 +24,16 @@ on:
           - beta
           - rc
       prerelease_increment:
-        description: 'Pre-release number (e.g., 1 for alpha1). Leave empty to auto-increment or start at 1.'
+        description: "Pre-release number (e.g., 1 for alpha1). Leave empty to auto-increment or start at 1."
         type: string
+        default: ""
+      confirm_major:
+        description: "Type RELEASE MAJOR to confirm a major or premajor release"
+        required: false
         default: ""
 
 permissions:
-  contents: write
+  contents: read
   id-token: write # Required for PyPI Trusted Publishing via OIDC
 
 concurrency:
@@ -39,56 +45,82 @@ jobs:
     runs-on: ubuntu-latest
     environment: protected branches
     steps:
-      - name: Verify branch
+      - name: Verify release ref
         run: |
-          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
-            echo "❌ Error: Releases can only be triggered from main branch"
-            echo "Current ref: ${{ github.ref }}"
+          if [ "${GITHUB_REF_TYPE}" != "branch" ]; then
+            echo "❌ Error: Releases can only be triggered from branches"
+            echo "Current ref: ${GITHUB_REF}"
             exit 1
           fi
 
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "✅ Official and pre-release releases are allowed from main"
+            exit 0
+          fi
+
+          case "${INPUTS_VERSION}" in
+            prepatch|preminor|premajor)
+              ;;
+            *)
+              echo "❌ Error: Official releases can only be triggered from main branch"
+              echo "Current branch: ${GITHUB_REF_NAME}"
+              echo "Requested version bump: ${INPUTS_VERSION}"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "${INPUTS_PRERELEASE_TYPE}" ]; then
+            echo "❌ Error: Branch releases must specify prerelease_type as alpha, beta, or rc"
+            exit 1
+          fi
+
+          echo "✅ Pre-release branch release allowed from ${GITHUB_REF_NAME}"
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_PRERELEASE_TYPE: ${{ inputs.prerelease_type }}
+
+      - name: Confirm major release
+        if: ${{ inputs.version == 'major' || inputs.version == 'premajor' }}
+        run: |
+          if [ "${INPUTS_CONFIRM_MAJOR}" != "RELEASE MAJOR" ]; then
+            echo "❌ For major/premajor releases, set confirm_major to RELEASE MAJOR"
+            exit 1
+          fi
+        env:
+          INPUTS_CONFIRM_MAJOR: ${{ inputs.confirm_major }}
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          persist-credentials: false
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv and set Python version
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.11.2"
           python-version: "3.12"
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: "1.8.4"
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+          enable-cache: false
 
       - name: Configure Git
-        env:
-          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
         run: |
           git config user.name "langfuse-bot"
           git config user.email "langfuse-bot@langfuse.com"
 
-          echo "$GH_ACCESS_TOKEN" | gh auth login --with-token
-          gh auth setup-git
-
       - name: Get current version
         id: current-version
         run: |
-          current_version=$(poetry version -s)
+          current_version=$(uv version --short)
           echo "version=$current_version" >> $GITHUB_OUTPUT
           echo "Current version: $current_version"
 
       - name: Calculate new version
         id: new-version
         run: |
-          current_version="${{ steps.current-version.outputs.version }}"
-          version_type="${{ inputs.version }}"
-          prerelease_type="${{ inputs.prerelease_type }}"
-          prerelease_increment="${{ inputs.prerelease_increment }}"
+          current_version="${STEPS_CURRENT_VERSION_OUTPUTS_VERSION}"
+          version_type="${INPUTS_VERSION}"
+          prerelease_type="${INPUTS_PRERELEASE_TYPE}"
+          prerelease_increment="${INPUTS_PRERELEASE_INCREMENT}"
 
           # Extract base version (strip any pre-release suffix like a1, b2, rc1)
           base_version=$(echo "$current_version" | sed -E 's/(a|b|rc)[0-9]+$//')
@@ -96,11 +128,49 @@ jobs:
           # Parse version components
           IFS='.' read -r major minor patch <<< "$base_version"
 
-          if [ "$version_type" = "prerelease" ]; then
+          if echo "$current_version" | grep -qE '(a|b|rc)[0-9]+$'; then
+            current_is_prerelease="true"
+          else
+            current_is_prerelease="false"
+          fi
+
+          if [ "$version_type" = "premajor" ] || [ "$version_type" = "preminor" ] || [ "$version_type" = "prepatch" ]; then
             if [ -z "$prerelease_type" ]; then
-              echo "❌ Error: prerelease_type must be specified when version is 'prerelease'"
+              echo "❌ Error: prerelease_type must be specified when version is a prerelease variant"
               exit 1
             fi
+
+            # Determine the prerelease base version target
+            case "$version_type" in
+              premajor)
+                if [ "$current_is_prerelease" = "true" ] && [ "$minor" -eq 0 ] && [ "$patch" -eq 0 ]; then
+                  target_major=$major
+                else
+                  target_major=$((major + 1))
+                fi
+                target_minor=0
+                target_patch=0
+                ;;
+              preminor)
+                target_major=$major
+                if [ "$current_is_prerelease" = "true" ] && [ "$patch" -eq 0 ] && [ "$minor" -gt 0 ]; then
+                  target_minor=$minor
+                else
+                  target_minor=$((minor + 1))
+                fi
+                target_patch=0
+                ;;
+              prepatch)
+                target_major=$major
+                target_minor=$minor
+                if [ "$current_is_prerelease" = "true" ] && [ "$patch" -gt 0 ]; then
+                  target_patch=$patch
+                else
+                  target_patch=$((patch + 1))
+                fi
+                ;;
+            esac
+            target_base_version="${target_major}.${target_minor}.${target_patch}"
 
             # Map prerelease type to Python suffix
             case "$prerelease_type" in
@@ -114,15 +184,16 @@ jobs:
               pre_num="$prerelease_increment"
             else
               # Check if current version is same type of prerelease, if so increment
-              if echo "$current_version" | grep -qE "${suffix}[0-9]+$"; then
-                current_pre_num=$(echo "$current_version" | sed -E "s/.*${suffix}([0-9]+)$/\1/")
+              escaped_target_base_version=$(echo "$target_base_version" | sed 's/\./\\./g')
+              if echo "$current_version" | grep -qE "^${escaped_target_base_version}${suffix}[0-9]+$"; then
+                current_pre_num=$(echo "$current_version" | sed -E "s/^${escaped_target_base_version}${suffix}([0-9]+)$/\1/")
                 pre_num=$((current_pre_num + 1))
               else
                 pre_num=1
               fi
             fi
 
-            new_version="${base_version}${suffix}${pre_num}"
+            new_version="${target_base_version}${suffix}${pre_num}"
             is_prerelease="true"
           else
             # Standard version bump
@@ -147,48 +218,45 @@ jobs:
           echo "version=$new_version" >> $GITHUB_OUTPUT
           echo "is_prerelease=$is_prerelease" >> $GITHUB_OUTPUT
           echo "New version: $new_version (prerelease: $is_prerelease)"
+        env:
+          STEPS_CURRENT_VERSION_OUTPUTS_VERSION: ${{ steps.current-version.outputs.version }}
+          INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_PRERELEASE_TYPE: ${{ inputs.prerelease_type }}
+          INPUTS_PRERELEASE_INCREMENT: ${{ inputs.prerelease_increment }}
 
       - name: Check if tag already exists
         run: |
-          if git rev-parse "v${{ steps.new-version.outputs.version }}" >/dev/null 2>&1; then
-            echo "❌ Error: Tag v${{ steps.new-version.outputs.version }} already exists"
+          if git rev-parse "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}" >/dev/null 2>&1; then
+            echo "❌ Error: Tag v${STEPS_NEW_VERSION_OUTPUTS_VERSION} already exists"
             exit 1
           fi
-          echo "✅ Tag v${{ steps.new-version.outputs.version }} does not exist"
+          echo "✅ Tag v${STEPS_NEW_VERSION_OUTPUTS_VERSION} does not exist"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Update version in pyproject.toml
         run: |
-          poetry version ${{ steps.new-version.outputs.version }}
-
-      - name: Update version in langfuse/version.py
-        run: |
-          new_version="${{ steps.new-version.outputs.version }}"
-          sed -i "s/__version__ = \".*\"/__version__ = \"$new_version\"/" langfuse/version.py
-          echo "Updated langfuse/version.py:"
-          cat langfuse/version.py
+          uv version ${STEPS_NEW_VERSION_OUTPUTS_VERSION}
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Verify version consistency
         run: |
-          pyproject_version=$(poetry version -s)
-          file_version=$(grep -oP '__version__ = "\K[^"]+' langfuse/version.py)
+          pyproject_version=$(uv version --short)
 
           echo "pyproject.toml version: $pyproject_version"
-          echo "langfuse/version.py version: $file_version"
 
-          if [ "$pyproject_version" != "$file_version" ]; then
-            echo "❌ Error: Version mismatch between pyproject.toml and langfuse/version.py"
-            exit 1
-          fi
-
-          if [ "$pyproject_version" != "${{ steps.new-version.outputs.version }}" ]; then
+          if [ "$pyproject_version" != "${STEPS_NEW_VERSION_OUTPUTS_VERSION}" ]; then
             echo "❌ Error: Version in files doesn't match expected version"
             exit 1
           fi
 
           echo "✅ Versions are consistent: $pyproject_version"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Build package
-        run: poetry build
+        run: uv build --no-sources
 
       - name: Verify build artifacts
         run: |
@@ -216,7 +284,7 @@ jobs:
           ls -lh dist/
 
           # Verify the version in the built artifacts matches
-          expected_version="${{ steps.new-version.outputs.version }}"
+          expected_version="${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
           wheel_file=$(ls dist/*.whl | head -1)
           if ! echo "$wheel_file" | grep -q "$expected_version"; then
             echo "❌ Error: Wheel filename doesn't contain expected version $expected_version"
@@ -224,43 +292,69 @@ jobs:
             exit 1
           fi
           echo "✅ Artifact version verified"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
+
+      - name: Smoke test wheel
+        run: |
+          uv run --isolated --no-project --with dist/*.whl python -c "from importlib.metadata import version; import langfuse; assert langfuse.__version__ == version('langfuse')"
+
+      - name: Smoke test source distribution
+        run: |
+          uv run --isolated --no-project --with dist/*.tar.gz python -c "from importlib.metadata import version; import langfuse; assert langfuse.__version__ == version('langfuse')"
 
       - name: Commit version changes
         run: |
-          git add pyproject.toml langfuse/version.py
-          git commit -m "chore: release v${{ steps.new-version.outputs.version }}"
+          git add pyproject.toml uv.lock
+          git commit -m "chore: release v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
+        env:
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
+
+      - name: Create release GitHub App token
+        id: release-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
 
       - name: Create and push tag
         id: push-tag
         run: |
-          git tag "v${{ steps.new-version.outputs.version }}"
-          git push origin main
-          git push origin "v${{ steps.new-version.outputs.version }}"
+          gh auth setup-git
+          git tag "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "v${STEPS_NEW_VERSION_OUTPUTS_VERSION}"
+        env:
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
+          STEPS_NEW_VERSION_OUTPUTS_VERSION: ${{ steps.new-version.outputs.version }}
 
       - name: Publish to PyPI
         id: publish-pypi
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          print-hash: true
+        run: uv publish --trusted-publishing always
 
       - name: Create GitHub Release
-        id: create-release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.new-version.outputs.version }}
-          name: v${{ steps.new-version.outputs.version }}
-          generate_release_notes: true
-          prerelease: ${{ steps.new-version.outputs.is_prerelease == 'true' }}
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
+        run: |
+          prerelease_flag=""
+          if [ "${IS_PRERELEASE}" = "true" ]; then
+            prerelease_flag="--prerelease"
+          fi
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --generate-notes \
+            $prerelease_flag \
+            dist/*.whl dist/*.tar.gz
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
+          VERSION: ${{ steps.new-version.outputs.version }}
+          IS_PRERELEASE: ${{ steps.new-version.outputs.is_prerelease }}
 
       - name: Notify Slack on success
         if: success()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "✅ Langfuse Python SDK v${{ steps.new-version.outputs.version }} published to PyPI",
@@ -338,14 +432,13 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGINEERING }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "❌ Langfuse Python SDK release workflow failed",
@@ -431,6 +524,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_ENGINEERING }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

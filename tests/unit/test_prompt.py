@@ -1,0 +1,1105 @@
+import asyncio
+import random
+import time
+from unittest.mock import Mock, patch
+
+import httpx
+import pytest
+
+from langfuse._client.client import Langfuse
+from langfuse._utils.prompt_cache import (
+    DEFAULT_PROMPT_CACHE_TTL_SECONDS,
+    PromptCache,
+    PromptCacheItem,
+    PromptCacheTaskManager,
+)
+from langfuse.api import (
+    AsyncLangfuseAPI,
+    LangfuseAPI,
+    NotFoundError,
+    Prompt_Chat,
+    Prompt_Text,
+)
+from langfuse.api.core.api_error import ApiError
+from langfuse.model import ChatPromptClient, TextPromptClient
+
+
+@pytest.mark.parametrize(
+    ("variables", "placeholders", "expected_len", "expected_contents"),
+    [
+        (
+            {"role": "helpful", "task": "coding"},
+            {},
+            3,
+            ["You are a helpful assistant", None, "Help me with coding"],
+        ),
+        (
+            {},
+            {},
+            3,
+            ["You are a {{role}} assistant", None, "Help me with {{task}}"],
+        ),
+        (
+            {},
+            {
+                "examples": [
+                    {"role": "user", "content": "Example question"},
+                    {"role": "assistant", "content": "Example answer"},
+                ],
+            },
+            4,
+            [
+                "You are a {{role}} assistant",
+                "Example question",
+                "Example answer",
+                "Help me with {{task}}",
+            ],
+        ),
+        (
+            {"role": "helpful", "task": "coding"},
+            {
+                "examples": [
+                    {"role": "user", "content": "Show me {{task}}"},
+                    {"role": "assistant", "content": "Here's {{task}}"},
+                ],
+            },
+            4,
+            [
+                "You are a helpful assistant",
+                "Show me coding",
+                "Here's coding",
+                "Help me with coding",
+            ],
+        ),
+        (
+            {"role": "helpful", "task": "coding"},
+            {"unused": [{"role": "user", "content": "Won't appear"}]},
+            3,
+            ["You are a helpful assistant", None, "Help me with coding"],
+        ),
+        (
+            {"role": "helpful", "task": "coding"},
+            {"examples": "not a list"},
+            3,
+            [
+                "You are a helpful assistant",
+                "not a list",
+                "Help me with coding",
+            ],
+        ),
+        (
+            {"role": "helpful", "task": "coding"},
+            {
+                "examples": [
+                    "invalid message",
+                    {"role": "user", "content": "valid message"},
+                ]
+            },
+            4,
+            [
+                "You are a helpful assistant",
+                "['invalid message', {'role': 'user', 'content': 'valid message'}]",
+                "valid message",
+                "Help me with coding",
+            ],
+        ),
+    ],
+)
+def test_compile_with_placeholders(
+    variables, placeholders, expected_len, expected_contents
+) -> None:
+    mock_prompt = Prompt_Chat(
+        name="test_prompt",
+        version=1,
+        type="chat",
+        config={},
+        tags=[],
+        labels=[],
+        prompt=[
+            {"role": "system", "content": "You are a {{role}} assistant"},
+            {"type": "placeholder", "name": "examples"},
+            {"role": "user", "content": "Help me with {{task}}"},
+        ],
+    )
+
+    compile_kwargs = {**placeholders, **variables}
+    result = ChatPromptClient(mock_prompt).compile(**compile_kwargs)
+
+    assert len(result) == expected_len
+    for i, expected_content in enumerate(expected_contents):
+        if expected_content is None:
+            assert "type" in result[i] and result[i]["type"] == "placeholder"
+        elif isinstance(result[i], str):
+            assert result[i] == expected_content
+        else:
+            assert "content" in result[i]
+            assert result[i]["content"] == expected_content
+
+
+@pytest.fixture
+def langfuse():
+    from langfuse._client.resource_manager import LangfuseResourceManager
+
+    langfuse_instance = Langfuse()
+    langfuse_instance.api = Mock()
+
+    if langfuse_instance._resources is None:
+        langfuse_instance._resources = Mock(spec=LangfuseResourceManager)
+        langfuse_instance._resources.prompt_cache = PromptCache()
+
+    return langfuse_instance
+
+
+@pytest.fixture
+def sleeps(monkeypatch: pytest.MonkeyPatch) -> list:
+    recorded: list = []
+    monkeypatch.setattr(time, "sleep", recorded.append)
+
+    return recorded
+
+
+def wait_for_prompt_refresh(langfuse: Langfuse) -> None:
+    langfuse._resources.prompt_cache._task_manager.wait_for_idle()
+
+
+def test_prompt_cache_task_manager_pauses_all_workers_before_broadcasting_shutdown():
+    manager = PromptCacheTaskManager(threads=0)
+    events = []
+
+    class FakeConsumer:
+        def __init__(self, identifier):
+            self._identifier = identifier
+
+        def pause(self):
+            events.append(("pause", self._identifier))
+
+        def join(self):
+            events.append(("join", self._identifier))
+
+    class FakeQueue:
+        def put(self, item):
+            events.append(("put", item))
+
+    manager._consumers = [FakeConsumer(0), FakeConsumer(1), FakeConsumer(2)]
+    manager._queue = FakeQueue()
+
+    manager.shutdown()
+
+    assert [event[0] for event in events] == [
+        "pause",
+        "pause",
+        "pause",
+        "put",
+        "put",
+        "put",
+        "join",
+        "join",
+        "join",
+    ]
+
+
+def test_get_fresh_prompt(langfuse):
+    prompt_name = "test_get_fresh_prompt"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result = langfuse.get_prompt(prompt_name, fallback="fallback")
+    mock_server_call.assert_called_once_with(
+        prompt_name,
+        version=None,
+        label=None,
+        request_options={"max_retries": 0},
+    )
+
+    assert result == TextPromptClient(prompt)
+
+
+def test_throw_if_name_unspecified(langfuse):
+    with pytest.raises(ValueError) as exc_info:
+        langfuse.get_prompt("")
+
+    assert "Prompt name cannot be empty" in str(exc_info.value)
+
+
+def test_throw_when_failing_fetch_and_no_cache(langfuse):
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.side_effect = Exception("Prompt not found")
+
+    with pytest.raises(Exception) as exc_info:
+        langfuse.get_prompt("failing_fetch_and_no_cache")
+
+    assert "Prompt not found" in str(exc_info.value)
+
+
+def test_using_custom_prompt_timeouts(langfuse):
+    prompt_name = "test_using_custom_prompt_timeouts"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result = langfuse.get_prompt(
+        prompt_name, fallback="fallback", fetch_timeout_seconds=1000
+    )
+    mock_server_call.assert_called_once_with(
+        prompt_name,
+        version=None,
+        label=None,
+        request_options={"max_retries": 0, "timeout_in_seconds": 1000},
+    )
+
+    assert result == TextPromptClient(prompt)
+
+
+def test_throw_if_cache_ttl_seconds_positional_argument(langfuse):
+    with pytest.raises(TypeError) as exc_info:
+        langfuse.get_prompt("test ttl seconds in positional arg", 20)
+
+    assert "positional arguments" in str(exc_info.value)
+
+
+def test_get_valid_cached_prompt(langfuse):
+    prompt_name = "test_get_valid_cached_prompt"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name, fallback="fallback")
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
+def test_get_valid_cached_chat_prompt_by_label(langfuse):
+    prompt_name = "test_get_valid_cached_chat_prompt_by_label"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=["test"],
+        type="chat",
+        config={},
+        tags=[],
+    )
+    prompt_client = ChatPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name, label="test")
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name, label="test")
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
+def test_get_valid_cached_chat_prompt_by_version(langfuse):
+    prompt_name = "test_get_valid_cached_chat_prompt_by_version"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=["test"],
+        type="chat",
+        config={},
+        tags=[],
+    )
+    prompt_client = ChatPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name, version=1)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name, version=1)
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
+def test_get_valid_cached_production_chat_prompt(langfuse):
+    prompt_name = "test_get_valid_cached_production_chat_prompt"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=["test"],
+        type="chat",
+        config={},
+        tags=[],
+    )
+    prompt_client = ChatPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name, label="production")
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
+def test_get_valid_cached_chat_prompt(langfuse):
+    prompt_name = "test_get_valid_cached_chat_prompt"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Make me laugh"}],
+        labels=[],
+        type="chat",
+        config={},
+        tags=[],
+    )
+    prompt_client = ChatPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    result_call_2 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_get_fresh_prompt_when_expired_cache_custom_ttl(mock_time, langfuse: Langfuse):
+    mock_time.return_value = 0
+    ttl_seconds = 20
+
+    prompt_name = "test_get_fresh_prompt_when_expired_cache_custom_ttl"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        config={"temperature": 0.9},
+        labels=[],
+        type="text",
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=ttl_seconds)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    mock_time.return_value = ttl_seconds - 1
+
+    result_call_2 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+    mock_time.return_value = ttl_seconds + 1
+
+    result_call_3 = langfuse.get_prompt(prompt_name)
+
+    wait_for_prompt_refresh(langfuse)
+
+    assert mock_server_call.call_count == 2
+    assert result_call_3 == prompt_client
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_disable_caching_when_ttl_zero(mock_time, langfuse: Langfuse):
+    mock_time.return_value = 0
+    prompt_name = "test_disable_caching_when_ttl_zero"
+
+    prompt1 = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt2 = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Tell me a joke",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt3 = Prompt_Text(
+        name=prompt_name,
+        version=3,
+        prompt="Share a funny story",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.side_effect = [prompt1, prompt2, prompt3]
+
+    result1 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 1
+    assert result1 == TextPromptClient(prompt1)
+
+    result2 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 2
+    assert result2 == TextPromptClient(prompt2)
+
+    result3 = langfuse.get_prompt(prompt_name, cache_ttl_seconds=0)
+    assert mock_server_call.call_count == 3
+    assert result3 == TextPromptClient(prompt3)
+
+    assert result1 != result2 != result3
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_get_stale_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG)
+    mock_time.return_value = 0
+
+    prompt_name = "test_get_stale_prompt_when_expired_cache_default_ttl"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    updated_prompt = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    mock_server_call.return_value = updated_prompt
+
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+
+    stale_result = langfuse.get_prompt(prompt_name)
+    assert stale_result == prompt_client
+
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+    langfuse.get_prompt(prompt_name)
+
+    wait_for_prompt_refresh(langfuse)
+
+    assert mock_server_call.call_count == 2
+
+    updated_result = langfuse.get_prompt(prompt_name)
+    assert updated_result.version == 2
+    assert updated_result == TextPromptClient(updated_prompt)
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_skip_redundant_refresh_when_cache_already_updated(
+    mock_time, langfuse: Langfuse
+) -> None:
+    prompt_name = "test_skip_redundant_refresh_when_cache_already_updated"
+    cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
+
+    mock_time.return_value = 0
+
+    initial_prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    updated_prompt = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+
+    stale_result = TextPromptClient(initial_prompt)
+    fresh_result = TextPromptClient(updated_prompt)
+
+    langfuse._resources.prompt_cache.set(cache_key, stale_result, None)
+    stale_item = langfuse._resources.prompt_cache.get(cache_key)
+    assert stale_item is not None
+
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+    assert stale_item.is_expired()
+
+    langfuse._resources.prompt_cache.set(cache_key, fresh_result, None)
+
+    add_task_mock = Mock()
+    langfuse._resources.prompt_cache._task_manager.add_task = add_task_mock
+
+    langfuse._resources.prompt_cache.add_refresh_prompt_task_if_current(
+        cache_key,
+        stale_item,
+        Mock(),
+    )
+
+    add_task_mock.assert_not_called()
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_get_fresh_prompt_when_expired_cache_default_ttl(mock_time, langfuse: Langfuse):
+    mock_time.return_value = 0
+
+    prompt_name = "test_get_fresh_prompt_when_expired_cache_default_ttl"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS - 1
+
+    result_call_2 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_2 == prompt_client
+
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+
+    result_call_3 = langfuse.get_prompt(prompt_name)
+    wait_for_prompt_refresh(langfuse)
+
+    assert mock_server_call.call_count == 2
+    assert result_call_3 == prompt_client
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_get_expired_prompt_when_failing_fetch(mock_time, langfuse: Langfuse, sleeps):
+    mock_time.return_value = 0
+
+    prompt_name = "test_get_expired_prompt_when_failing_fetch"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+    mock_server_call.side_effect = httpx.ConnectError("Server error")
+
+    result_call_2 = langfuse.get_prompt(prompt_name, max_retries=1)
+    wait_for_prompt_refresh(langfuse)
+
+    assert mock_server_call.call_count == 3
+    assert result_call_2 == prompt_client
+
+
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+def test_evict_prompt_cache_entry_when_refresh_returns_not_found(
+    mock_time, langfuse: Langfuse
+) -> None:
+    mock_time.return_value = 0
+
+    prompt_name = "test_evict_prompt_cache_entry_when_refresh_returns_not_found"
+    ttl_seconds = 5
+    fallback_prompt = "fallback text prompt"
+
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+    cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    initial_result = langfuse.get_prompt(
+        prompt_name,
+        cache_ttl_seconds=ttl_seconds,
+        max_retries=0,
+    )
+    assert initial_result == prompt_client
+    assert langfuse._resources.prompt_cache.get(cache_key) is not None
+
+    mock_time.return_value = ttl_seconds + 1
+
+    def raise_not_found(*_args: object, **_kwargs: object) -> None:
+        raise NotFoundError({"message": "Prompt not found"})
+
+    mock_server_call.side_effect = raise_not_found
+
+    stale_result = langfuse.get_prompt(
+        prompt_name,
+        cache_ttl_seconds=ttl_seconds,
+        max_retries=0,
+    )
+    assert stale_result == prompt_client
+
+    wait_for_prompt_refresh(langfuse)
+
+    assert langfuse._resources.prompt_cache.get(cache_key) is None
+
+    fallback_result = langfuse.get_prompt(
+        prompt_name,
+        cache_ttl_seconds=ttl_seconds,
+        fallback=fallback_prompt,
+        max_retries=0,
+    )
+    assert fallback_result.is_fallback
+    assert fallback_result.prompt == fallback_prompt
+
+
+def test_get_fresh_prompt_when_version_changes(langfuse: Langfuse):
+    prompt_name = "test_get_fresh_prompt_when_version_changes"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        labels=[],
+        type="text",
+        config={},
+        tags=[],
+    )
+    prompt_client = TextPromptClient(prompt)
+
+    mock_server_call = langfuse.api.prompts.get
+    mock_server_call.return_value = prompt
+
+    result_call_1 = langfuse.get_prompt(prompt_name, version=1)
+    assert mock_server_call.call_count == 1
+    assert result_call_1 == prompt_client
+
+    version_changed_prompt = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        labels=[],
+        prompt="Make me laugh",
+        type="text",
+        config={},
+        tags=[],
+    )
+    version_changed_prompt_client = TextPromptClient(version_changed_prompt)
+    mock_server_call.return_value = version_changed_prompt
+
+    result_call_2 = langfuse.get_prompt(prompt_name, version=2)
+    assert mock_server_call.call_count == 2
+    assert result_call_2 == version_changed_prompt_client
+
+
+def _api_over_transport(handler) -> LangfuseAPI:
+    return LangfuseAPI(
+        base_url="http://test-host",
+        username="pk",
+        password="sk",
+        httpx_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+
+def _prompt_json(name: str) -> dict:
+    return {
+        "name": name,
+        "version": 1,
+        "prompt": "Make me laugh",
+        "type": "text",
+        "labels": [],
+        "config": {},
+        "tags": [],
+    }
+
+
+def test_get_prompt_does_not_multiply_retries_on_rate_limit(langfuse, sleeps):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(429, headers={"Retry-After": "3"}, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises(ApiError) as exc_info:
+        langfuse.get_prompt("rate_limited_prompt", max_retries=2)
+
+    assert exc_info.value.status_code == 429
+    assert len(requests) == 3
+    assert sleeps == [3, 3]
+
+
+@pytest.mark.parametrize("status_code", [401, 403, 404])
+def test_get_prompt_does_not_retry_non_retryable_client_errors(
+    langfuse, sleeps, status_code
+):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(status_code, json={"message": "nope"})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises(ApiError):
+        langfuse.get_prompt("client_error_prompt", max_retries=2)
+
+    assert len(requests) == 1
+    assert sleeps == []
+
+
+def test_get_prompt_retries_network_errors_with_exponential_backoff(
+    langfuse, sleeps, monkeypatch: pytest.MonkeyPatch
+):
+    # pin full jitter to its upper bound so the backoff sequence is observable
+    monkeypatch.setattr(random, "uniform", lambda _low, high: high)
+    prompt_name = "flaky_network_prompt"
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) < 3:
+            raise httpx.ConnectError("connection refused", request=request)
+
+        return httpx.Response(200, json=_prompt_json(prompt_name))
+
+    langfuse.api = _api_over_transport(handler)
+
+    result = langfuse.get_prompt(prompt_name, max_retries=2)
+
+    assert result.prompt == "Make me laugh"
+    assert len(requests) == 3
+    assert sleeps == [1, 2]
+
+
+def test_get_prompt_shares_one_retry_budget_across_failure_kinds(langfuse, sleeps):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) % 2 == 0:
+            raise httpx.ConnectError("connection reset", request=request)
+
+        return httpx.Response(503, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises(httpx.ConnectError):
+        langfuse.get_prompt("degraded_server_prompt", max_retries=3)
+
+    assert len(requests) == 4
+    assert len(sleeps) == 3
+
+
+@pytest.mark.parametrize("failure", ["rate_limited", "network_error"])
+def test_get_prompt_with_zero_retries_sends_one_request(langfuse, sleeps, failure):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if failure == "network_error":
+            raise httpx.ConnectError("connection refused", request=request)
+
+        return httpx.Response(429, headers={"Retry-After": "1"}, json={})
+
+    langfuse.api = _api_over_transport(handler)
+
+    with pytest.raises((ApiError, httpx.ConnectError)):
+        langfuse.get_prompt("no_retry_prompt", max_retries=0)
+
+    assert len(requests) == 1
+    assert sleeps == []
+
+
+def _async_api_over_transport(handler) -> AsyncLangfuseAPI:
+    return AsyncLangfuseAPI(
+        base_url="http://test-host",
+        username="pk",
+        password="sk",
+        httpx_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+
+@pytest.fixture
+def async_sleeps(monkeypatch: pytest.MonkeyPatch) -> list:
+    recorded: list = []
+
+    async def fake_sleep(seconds: float) -> None:
+        recorded.append(seconds)
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    return recorded
+
+
+@pytest.mark.asyncio
+async def test_aget_prompt_fetches_with_async_api_and_caches(langfuse):
+    prompt_name = "test_aget_prompt_fetches_with_async_api_and_caches"
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=_prompt_json(prompt_name))
+
+    langfuse.async_api = _async_api_over_transport(handler)
+
+    result = await langfuse.aget_prompt(prompt_name)
+
+    assert isinstance(result, TextPromptClient)
+    assert result.prompt == "Make me laugh"
+    assert len(requests) == 1
+    assert requests[0].url.params.get("version") is None
+    langfuse.api.prompts.get.assert_not_called()
+
+    # cache is shared with get_prompt
+    assert langfuse.get_prompt(prompt_name) == result
+    langfuse.api.prompts.get.assert_not_called()
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_aget_prompt_uses_cache_populated_by_get_prompt(langfuse):
+    prompt_name = "test_aget_prompt_uses_cache_populated_by_get_prompt"
+    prompt = Prompt_Chat(
+        name=prompt_name,
+        version=1,
+        prompt=[{"role": "system", "content": "Be concise"}],
+        type="chat",
+        labels=[],
+        config={},
+        tags=[],
+    )
+    langfuse.api.prompts.get.return_value = prompt
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("async API must not be called on a cache hit")
+
+    langfuse.async_api = _async_api_over_transport(handler)
+
+    sync_result = langfuse.get_prompt(prompt_name, type="chat")
+    async_result = await langfuse.aget_prompt(prompt_name, type="chat")
+
+    assert async_result == sync_result == ChatPromptClient(prompt)
+    assert langfuse.api.prompts.get.call_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prompt_type", "fallback", "client_type", "compiled"),
+    [
+        ("text", "fallback text", TextPromptClient, "fallback text"),
+        (
+            "chat",
+            [{"role": "system", "content": "fallback"}],
+            ChatPromptClient,
+            [{"role": "system", "content": "fallback"}],
+        ),
+    ],
+)
+async def test_aget_prompt_returns_fallback_on_failure(
+    langfuse, async_sleeps, prompt_type, fallback, client_type, compiled
+):
+    prompt_name = f"test_aget_prompt_returns_fallback_on_failure_{prompt_type}"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={})
+
+    langfuse.async_api = _async_api_over_transport(handler)
+
+    result = await langfuse.aget_prompt(
+        prompt_name, type=prompt_type, fallback=fallback, max_retries=0
+    )
+
+    assert isinstance(result, client_type)
+    assert result.is_fallback is True
+    assert result.compile() == compiled
+    cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
+    assert langfuse._resources.prompt_cache.get(cache_key) is None
+
+
+@pytest.mark.asyncio
+async def test_aget_prompt_raises_without_fallback(langfuse, async_sleeps):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={})
+
+    langfuse.async_api = _async_api_over_transport(handler)
+
+    with pytest.raises(ApiError):
+        await langfuse.aget_prompt("failing_prompt", max_retries=0)
+
+
+@pytest.mark.asyncio
+async def test_aget_prompt_validates_arguments(langfuse):
+    with pytest.raises(ValueError):
+        await langfuse.aget_prompt("")
+
+    with pytest.raises(ValueError):
+        await langfuse.aget_prompt("name", version=1, label="production")
+
+
+@pytest.mark.asyncio
+@patch.object(PromptCacheItem, "get_epoch_seconds")
+async def test_aget_prompt_returns_stale_prompt_and_refreshes_in_background(
+    mock_time, langfuse: Langfuse
+):
+    mock_time.return_value = 0
+    prompt_name = "test_aget_prompt_returns_stale_prompt_and_refreshes"
+    prompt = Prompt_Text(
+        name=prompt_name,
+        version=1,
+        prompt="Make me laugh",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+    updated_prompt = Prompt_Text(
+        name=prompt_name,
+        version=2,
+        prompt="Make me laugh more",
+        type="text",
+        labels=[],
+        config={},
+        tags=[],
+    )
+    langfuse.api.prompts.get.side_effect = [prompt, updated_prompt]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("background refresh must use the sync API")
+
+    langfuse.async_api = _async_api_over_transport(handler)
+
+    assert langfuse.get_prompt(prompt_name) == TextPromptClient(prompt)
+
+    mock_time.return_value = DEFAULT_PROMPT_CACHE_TTL_SECONDS + 1
+
+    stale_result = await langfuse.aget_prompt(prompt_name)
+    assert stale_result == TextPromptClient(prompt)
+
+    wait_for_prompt_refresh(langfuse)
+    assert langfuse.api.prompts.get.call_count == 2
+
+    assert await langfuse.aget_prompt(prompt_name) == TextPromptClient(updated_prompt)
+
+
+@pytest.mark.asyncio
+async def test_aget_prompt_does_not_multiply_retries_on_rate_limit(
+    langfuse, async_sleeps
+):
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(429, headers={"Retry-After": "3"}, json={})
+
+    langfuse.async_api = _async_api_over_transport(handler)
+
+    with pytest.raises(ApiError) as exc_info:
+        await langfuse.aget_prompt("rate_limited_prompt", max_retries=2)
+
+    assert exc_info.value.status_code == 429
+    assert len(requests) == 3
+    assert async_sleeps == [3, 3]
+
+
+@pytest.mark.asyncio
+async def test_aget_prompt_does_not_retry_not_found_and_evicts_cache(
+    langfuse, async_sleeps
+):
+    prompt_name = "test_aget_prompt_does_not_retry_not_found"
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(404, json={"message": "not found"})
+
+    langfuse.async_api = _async_api_over_transport(handler)
+    cache_key = PromptCache.generate_cache_key(prompt_name, version=None, label=None)
+    langfuse._resources.prompt_cache.set(
+        cache_key, TextPromptClient(Prompt_Text(**_prompt_json(prompt_name))), 60
+    )
+
+    with pytest.raises(NotFoundError):
+        await langfuse.aget_prompt(prompt_name, cache_ttl_seconds=0, max_retries=2)
+
+    assert len(requests) == 1
+    assert async_sleeps == []
+    assert langfuse._resources.prompt_cache.get(cache_key) is None

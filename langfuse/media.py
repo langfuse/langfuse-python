@@ -2,20 +2,97 @@
 
 import base64
 import hashlib
-import logging
 import os
 import re
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, TypeVar, cast
 
-import requests
+import httpx
+
+from langfuse.api import MediaContentType
+from langfuse.logger import langfuse_logger as logger
+from langfuse.types import ParsedMediaReference
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
 
-from langfuse.api import MediaContentType
-from langfuse.types import ParsedMediaReference
-
 T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class LangfuseMediaReference:
+    """Resolved reference to media stored in Langfuse."""
+
+    media_id: str
+    content_type: str
+    url: str
+    url_expiry: Optional[str] = None
+    content_length: Optional[int] = None
+    reference_string: Optional[str] = None
+
+    def is_url_expired(self) -> bool:
+        """Return whether the signed URL is already expired."""
+        if self.url_expiry is None:
+            return False
+
+        expiry = self.url_expiry.replace("Z", "+00:00")
+
+        try:
+            expiry_datetime = datetime.fromisoformat(expiry)
+        except ValueError:
+            return False
+
+        if expiry_datetime.tzinfo is None:
+            expiry_datetime = expiry_datetime.replace(tzinfo=timezone.utc)
+
+        return expiry_datetime <= datetime.now(timezone.utc)
+
+    def fetch_bytes(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> bytes:
+        """Fetch the media content from the signed URL.
+
+        Args:
+            timeout: Request timeout in seconds.
+            client: Optional httpx client to use for the request. Pass this to
+                honor custom transport settings (proxy, CA bundle, mTLS) — in
+                particular when multiple Langfuse clients are configured, since
+                the SDK cannot otherwise tell which client produced this
+                reference. When omitted, the single configured client is used,
+                falling back to a default httpx client.
+        """
+        from langfuse._client.resource_manager import LangfuseResourceManager
+
+        httpx_client = client or LangfuseResourceManager.get_singleton_httpx_client()
+        response = (
+            httpx_client.get(self.url, timeout=timeout)
+            if httpx_client is not None
+            else httpx.get(self.url, timeout=timeout)
+        )
+        response.raise_for_status()
+
+        return response.content
+
+    def fetch_base64(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> str:
+        """Fetch media and return raw base64 without a data URI prefix.
+
+        See :meth:`fetch_bytes` for the ``client`` argument.
+        """
+        return base64.b64encode(
+            self.fetch_bytes(timeout=timeout, client=client)
+        ).decode()
+
+    def fetch_data_uri(
+        self, *, timeout: float = 30.0, client: Optional[httpx.Client] = None
+    ) -> str:
+        """Fetch media and return it as a data URI.
+
+        See :meth:`fetch_bytes` for the ``client`` argument.
+        """
+        return f"data:{self.content_type};base64,{self.fetch_base64(timeout=timeout, client=client)}"
 
 
 class LangfuseMedia:
@@ -40,7 +117,6 @@ class LangfuseMedia:
 
     obj: object
 
-    _log = logging.getLogger(__name__)
     _content_bytes: Optional[bytes]
     _content_type: Optional[MediaContentType]
     _source: Optional[str]
@@ -87,7 +163,7 @@ class LangfuseMedia:
             self._content_type = content_type if self._content_bytes else None
             self._source = "file" if self._content_bytes else None
         else:
-            self._log.error(
+            logger.error(
                 "base64_data_uri, or content_bytes and content_type, or file_path must be provided to LangfuseMedia"
             )
 
@@ -102,7 +178,7 @@ class LangfuseMedia:
             with open(file_path, "rb") as file:
                 return file.read()
         except Exception as e:
-            self._log.error(f"Error reading file at path {file_path}", exc_info=e)
+            logger.error("Error reading file at path %s", file_path, exc_info=e)
 
             return None
 
@@ -215,10 +291,13 @@ class LangfuseMedia:
             if not content_type:
                 raise ValueError("Content type is empty")
 
-            return base64.b64decode(actual_data), cast(MediaContentType, content_type)
+            translation_table = str.maketrans("-_", "+/")
+            decoded_data = base64.b64decode(actual_data.translate(translation_table))
+
+            return decoded_data, cast(MediaContentType, content_type)
 
         except Exception as e:
-            self._log.error("Error parsing base64 data URI", exc_info=e)
+            logger.error("Error parsing base64 data URI", exc_info=e)
 
             return None, None
 
@@ -284,6 +363,11 @@ class LangfuseMedia:
 
                 result = obj
                 reference_string_to_media_content = {}
+                httpx_client = (
+                    langfuse_client._resources.httpx_client
+                    if langfuse_client._resources is not None
+                    else None
+                )
 
                 for reference_string in reference_string_matches:
                     try:
@@ -293,11 +377,17 @@ class LangfuseMedia:
                         media_data = langfuse_client.api.media.get(
                             parsed_media_reference["media_id"]
                         )
-                        media_content = requests.get(
-                            media_data.url, timeout=content_fetch_timeout_seconds
+                        media_content = (
+                            httpx_client.get(
+                                media_data.url,
+                                timeout=content_fetch_timeout_seconds,
+                            )
+                            if httpx_client is not None
+                            else httpx.get(
+                                media_data.url, timeout=content_fetch_timeout_seconds
+                            )
                         )
-                        if not media_content.ok:
-                            raise Exception("Failed to fetch media content")
+                        media_content.raise_for_status()
 
                         base64_media_content = base64.b64encode(
                             media_content.content
@@ -308,8 +398,10 @@ class LangfuseMedia:
                             base64_data_uri
                         )
                     except Exception as e:
-                        LangfuseMedia._log.warning(
-                            f"Error fetching media content for reference string {reference_string}: {e}"
+                        logger.warning(
+                            "Error fetching media content for reference string %s: %s",
+                            reference_string,
+                            e,
                         )
                         # Do not replace the reference string if there's an error
                         continue

@@ -1,49 +1,102 @@
-[tool.poetry]
+[project]
 name = "langfuse"
-
-version = "3.10.7"
-description = "A client library for accessing langfuse"
-authors = ["langfuse <developers@langfuse.com>"]
-license = "MIT"
+version = "5.2.0"
+description = "Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management"
 readme = "README.md"
+authors = [{ name = "langfuse", email = "developers@langfuse.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<4.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+keywords = [
+    "langfuse",
+    "llm",
+    "observability",
+    "tracing",
+    "opentelemetry",
+    "evaluation",
+    "llm-as-a-judge",
+    "prompt-management",
+    "datasets",
+    "experiments",
+    "openai",
+    "langchain",
+    "ai-agents",
+    "monitoring",
+]
+dependencies = [
+    "httpx>=0.15.4,<1.0",
+    "pydantic>=2,<3",
+    "backoff>=1.10.0",
+    "wrapt>=1.14,<3",
+    "packaging>=23.2,<27.0",
+    "opentelemetry-api>=1.45.0,<2",
+    "opentelemetry-sdk>=1.45.0,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.0,<2",
+    "typing-extensions>=4.12.2,<5",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-httpx = ">=0.15.4,<1.0"
-pydantic = ">=1.10.7, <3.0"
-backoff = ">=1.10.0"
-openai = { version = ">=0.27.8", optional = true }
-wrapt = "^1.14"
-packaging = ">=23.2,<26.0"
-requests = "^2"
-opentelemetry-api = "^1.33.1"
-opentelemetry-sdk = "^1.33.1"
-opentelemetry-exporter-otlp-proto-http = "^1.33.1"
+[project.urls]
+Homepage = "https://langfuse.com"
+Documentation = "https://langfuse.com/docs/observability/sdk/overview"
+Repository = "https://github.com/langfuse/langfuse-python"
+Issues = "https://github.com/langfuse/langfuse/issues"
+Changelog = "https://github.com/langfuse/langfuse-python/releases"
 
-[tool.poetry.group.dev.dependencies]
-pytest = ">=7.4,<9.0"
-pytest-timeout = "^2.1.0"
-pytest-xdist = "^3.3.1"
-pre-commit = "^3.2.2"
-pytest-asyncio = ">=0.21.1,<1.2.0"
-pytest-httpserver = "^1.0.8"
-ruff = ">=0.1.8,<0.13.0"
-mypy = "^1.0.0"
-langchain-openai = ">=0.0.5,<0.4"
-langchain = ">=1"
-langgraph = ">=1"
-autoevals = "^0.0.130"
-opentelemetry-instrumentation-threading = "^0.59b0"
-
-[tool.poetry.group.docs.dependencies]
-pdoc = "^15.0.4"
+[dependency-groups]
+dev = [
+    "pytest>=7.4,<9.0",
+    "pytest-timeout>=2.1.0,<3",
+    "pytest-xdist>=3.3.1,<4",
+    "pre-commit>=3.2.2,<4",
+    "pytest-asyncio>=0.21.1,<1.2.0",
+    "pytest-httpserver>=1.0.8,<2",
+    "ruff>=0.15.2,<0.16",
+    "mypy>=1.0.0,<2",
+    "openai>=1.0.0",
+    "langchain-core>=1,<2",
+    "langchain-openai>=1,<2",
+    # langgraph-checkpoint requires ormsgpack, which cannot be built for Python 3.15 yet
+    "langchain>=1,<2; python_version < '3.15'",
+    "langgraph>=1,<2; python_version < '3.15'",
+    "autoevals>=0.0.130,<0.1",
+    "opentelemetry-instrumentation-threading>=0.59b0,<1",
+    "tenacity>=9.1.4",
+    "gevent>=24.2.1,<27",
+]
+docs = [
+    "pdoc>=15.0.4,<16",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.2,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+# Basic protection against supply chain attacks
+exclude-newer = "7 days"
+# OpenTelemetry 1.45 ships the OTLP request size cap the SDK relies on;
+# pydantic 2.14 is the first release with Python 3.15 wheels
+exclude-newer-package = { "pydantic" = "3 days", "pydantic-core" = "3 days", "opentelemetry-api" = "3 days", "opentelemetry-sdk" = "3 days", "opentelemetry-semantic-conventions" = "3 days", "opentelemetry-proto" = "3 days", "opentelemetry-exporter-otlp-proto-common" = "3 days", "opentelemetry-exporter-otlp-proto-http" = "3 days", "opentelemetry-exporter-otlp-common" = "3 days", "opentelemetry-exporter-http-transport" = "3 days", "opentelemetry-instrumentation" = "3 days", "opentelemetry-instrumentation-threading" = "3 days" }
+
+[tool.uv.build-backend]
+module-root = ""
 
 [tool.pytest.ini_options]
 log_cli = true
+markers = [
+    "unit: deterministic tests that run without a Langfuse server",
+    "e2e: tests that require a real Langfuse server or persisted backend behaviour",
+    "serial_e2e: e2e tests that must not share server concurrency with the rest of the suite",
+    "live_provider: tests that call live model providers and run as a dedicated CI suite",
+]
 
 [tool.mypy]
 python_version = "3.12"
@@ -94,10 +147,26 @@ module = [
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = [
-    "langfuse.api.resources.*",
-    "langfuse.api.core.*",
-    "langfuse.api.client"
-]
-ignore_errors = true
+module = "langfuse.api.*"
+disable_error_code = ["redundant-cast", "no-untyped-def"]
 
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+extend-select = [
+    "I", # Import formatting
+    "G004", # No f-strings in logging calls; pass lazy %-style args instead
+    # These used to be enabled in the "local ruff.toml",
+    # which was never enforced; hence, enabling these will
+    # cause a large number of linting errors.
+
+    # "D", # Docstring lints
+    # "D401", # Enforce imperative mood in docstrings
+]
+exclude = ["langfuse/api/**/*.py"]
+# Let G004 see the shared logger, which is re-exported rather than built per module
+logger-objects = ["langfuse.logger.langfuse_logger"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

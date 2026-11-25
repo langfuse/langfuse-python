@@ -1,9 +1,10 @@
 import datetime as dt
-import logging
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from opentelemetry.util._decorator import _agnosticcontextmanager
-
+from langfuse.api import (
+    Dataset,
+    DatasetItem,
+)
 from langfuse.batch_evaluation import CompositeEvaluatorFunction
 from langfuse.experiment import (
     EvaluatorFunction,
@@ -11,136 +12,9 @@ from langfuse.experiment import (
     RunEvaluatorFunction,
     TaskFunction,
 )
-from langfuse.model import (
-    CreateDatasetRunItemRequest,
-    Dataset,
-    DatasetItem,
-    DatasetStatus,
-)
-
-from .span import LangfuseSpan
 
 if TYPE_CHECKING:
     from langfuse._client.client import Langfuse
-
-
-class DatasetItemClient:
-    """Class for managing dataset items in Langfuse.
-
-    Args:
-        id (str): Unique identifier of the dataset item.
-        status (DatasetStatus): The status of the dataset item. Can be either 'ACTIVE' or 'ARCHIVED'.
-        input (Any): Input data of the dataset item.
-        expected_output (Optional[Any]): Expected output of the dataset item.
-        metadata (Optional[Any]): Additional metadata of the dataset item.
-        source_trace_id (Optional[str]): Identifier of the source trace.
-        source_observation_id (Optional[str]): Identifier of the source observation.
-        dataset_id (str): Identifier of the dataset to which this item belongs.
-        dataset_name (str): Name of the dataset to which this item belongs.
-        created_at (datetime): Timestamp of dataset item creation.
-        updated_at (datetime): Timestamp of the last update to the dataset item.
-        langfuse (Langfuse): Instance of Langfuse client for API interactions.
-
-    Example:
-        ```python
-        from langfuse import Langfuse
-
-        langfuse = Langfuse()
-
-        dataset = langfuse.get_dataset("<dataset_name>")
-
-        for item in dataset.items:
-            # Generate a completion using the input of every item
-            completion, generation = llm_app.run(item.input)
-
-            # Evaluate the completion
-            generation.score(
-                name="example-score",
-                value=1
-            )
-        ```
-    """
-
-    log = logging.getLogger("langfuse")
-
-    id: str
-    status: DatasetStatus
-    input: Any
-    expected_output: Optional[Any]
-    metadata: Optional[Any]
-    source_trace_id: Optional[str]
-    source_observation_id: Optional[str]
-    dataset_id: str
-    dataset_name: str
-    created_at: dt.datetime
-    updated_at: dt.datetime
-
-    langfuse: "Langfuse"
-
-    def __init__(self, dataset_item: DatasetItem, langfuse: "Langfuse"):
-        """Initialize the DatasetItemClient."""
-        self.id = dataset_item.id
-        self.status = dataset_item.status
-        self.input = dataset_item.input
-        self.expected_output = dataset_item.expected_output
-        self.metadata = dataset_item.metadata
-        self.source_trace_id = dataset_item.source_trace_id
-        self.source_observation_id = dataset_item.source_observation_id
-        self.dataset_id = dataset_item.dataset_id
-        self.dataset_name = dataset_item.dataset_name
-        self.created_at = dataset_item.created_at
-        self.updated_at = dataset_item.updated_at
-
-        self.langfuse = langfuse
-
-    @_agnosticcontextmanager
-    def run(
-        self,
-        *,
-        run_name: str,
-        run_metadata: Optional[Any] = None,
-        run_description: Optional[str] = None,
-    ) -> Generator[LangfuseSpan, None, None]:
-        """Create a context manager for the dataset item run that links the execution to a Langfuse trace.
-
-        This method is a context manager that creates a trace for the dataset run and yields a span
-        that can be used to track the execution of the run.
-
-        Args:
-            run_name (str): The name of the dataset run.
-            run_metadata (Optional[Any]): Additional metadata to include in dataset run.
-            run_description (Optional[str]): Description of the dataset run.
-
-        Yields:
-            span: A LangfuseSpan that can be used to trace the execution of the run.
-        """
-        trace_name = f"Dataset run: {run_name}"
-
-        with self.langfuse.start_as_current_span(name=trace_name) as span:
-            span.update_trace(
-                name=trace_name,
-                metadata={
-                    "dataset_item_id": self.id,
-                    "run_name": run_name,
-                    "dataset_id": self.dataset_id,
-                },
-            )
-
-            self.log.debug(
-                f"Creating dataset run item: run_name={run_name} id={self.id} trace_id={span.trace_id}"
-            )
-
-            self.langfuse.api.dataset_run_items.create(
-                request=CreateDatasetRunItemRequest(
-                    runName=run_name,
-                    datasetItemId=self.id,
-                    traceId=span.trace_id,
-                    metadata=run_metadata,
-                    runDescription=run_description,
-                )
-            )
-
-            yield span
 
 
 class DatasetClient:
@@ -154,8 +28,8 @@ class DatasetClient:
         project_id (str): Identifier of the project to which the dataset belongs.
         created_at (datetime): Timestamp of dataset creation.
         updated_at (datetime): Timestamp of the last update to the dataset.
-        items (List[DatasetItemClient]): List of dataset items associated with the dataset.
-
+        items (List[DatasetItem]): List of dataset items associated with the dataset.
+        version (Optional[datetime]): Timestamp of the dataset version.
     Example:
         Print the input of each dataset item in a dataset.
         ```python
@@ -177,9 +51,19 @@ class DatasetClient:
     metadata: Optional[Any]
     created_at: dt.datetime
     updated_at: dt.datetime
-    items: List[DatasetItemClient]
+    input_schema: Optional[Any]
+    expected_output_schema: Optional[Any]
+    items: List[DatasetItem]
+    version: Optional[dt.datetime]
 
-    def __init__(self, dataset: Dataset, items: List[DatasetItemClient]):
+    def __init__(
+        self,
+        *,
+        dataset: Dataset,
+        items: List[DatasetItem],
+        langfuse_client: "Langfuse",
+        version: Optional[dt.datetime] = None,
+    ):
         """Initialize the DatasetClient."""
         self.id = dataset.id
         self.name = dataset.name
@@ -188,14 +72,11 @@ class DatasetClient:
         self.metadata = dataset.metadata
         self.created_at = dataset.created_at
         self.updated_at = dataset.updated_at
+        self.input_schema = dataset.input_schema
+        self.expected_output_schema = dataset.expected_output_schema
         self.items = items
-        self._langfuse: Optional["Langfuse"] = None
-
-    def _get_langfuse_client(self) -> Optional["Langfuse"]:
-        """Get the Langfuse client from the first item."""
-        if self._langfuse is None and self.items:
-            self._langfuse = self.items[0].langfuse
-        return self._langfuse
+        self.version = version
+        self._langfuse_client: "Langfuse" = langfuse_client
 
     def run_experiment(
         self,
@@ -209,15 +90,16 @@ class DatasetClient:
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, Any]] = None,
+        experiment_id: Optional[str] = None,
     ) -> ExperimentResult:
         """Run an experiment on this Langfuse dataset with automatic tracking.
 
         This is a convenience method that runs an experiment using all items in this
-        dataset. It automatically creates a dataset run in Langfuse for tracking and
-        comparison purposes, linking all experiment results to the dataset.
+        dataset. All results are recorded as one experiment in Langfuse that is linked
+        to the dataset for tracking and comparison purposes.
 
         Key benefits of using dataset.run_experiment():
-        - Automatic dataset run creation and linking in Langfuse UI
+        - Automatic experiment tracking and linking to the dataset in Langfuse UI
         - Built-in experiment tracking and versioning
         - Easy comparison between different experiment runs
         - Direct access to dataset items with their metadata and expected outputs
@@ -225,10 +107,11 @@ class DatasetClient:
 
         Args:
             name: Human-readable name for the experiment run. This will be used as
-                the dataset run name in Langfuse for tracking and identification.
-            run_name: Optional exact name for the dataset run. If provided, this will be
-                used as the exact dataset run name in Langfuse. If not provided, this will
-                default to the experiment name appended with an ISO timestamp.
+                the base of the experiment run name in Langfuse for tracking and identification.
+            run_name: Optional exact name for the experiment run. Runs with the same
+                `run_name` on this dataset share one experiment ID and appear as a single
+                experiment in Langfuse. If not provided, this will default to the
+                experiment name appended with an ISO timestamp.
             description: Optional description of the experiment's purpose, methodology,
                 or what you're testing. Appears in the Langfuse UI for context.
             task: Function that processes each dataset item and returns output.
@@ -246,16 +129,26 @@ class DatasetClient:
                 Adjust based on API rate limits and system resources.
             metadata: Optional metadata to attach to the experiment run and all traces.
                 Will be combined with individual item metadata.
+            experiment_id: Optional ID of the experiment run to record the items in.
+                If provided, it is used instead of the ID derived from this dataset and
+                `run_name`, so calls that pass the same `experiment_id` share one
+                experiment, for example items split across workers or a resumed run.
+                Create a reusable ID with `Langfuse.create_trace_id()` (random) or
+                `Langfuse.create_trace_id(seed="...")` (deterministic). See
+                `Langfuse.run_experiment` for details.
 
         Returns:
             ExperimentResult object containing:
             - name: The experiment name.
-            - run_name: The experiment run name (equivalent to the dataset run name).
+            - run_name: The experiment run name, shown as the experiment name in Langfuse.
             - description: Optional experiment description.
             - item_results: Results for each dataset item with outputs and evaluations.
             - run_evaluations: Aggregate evaluation results for the entire run.
-            - dataset_run_id: ID of the created dataset run in Langfuse.
-            - dataset_run_url: Direct URL to view the experiment results in Langfuse UI.
+            - experiment_id: ID of the experiment run in Langfuse (the
+              `experiment_id` argument if provided).
+            - experiment_url: Direct URL to view the experiment results in Langfuse UI.
+            - dataset_run_id / dataset_run_url: Deprecated aliases of experiment_id /
+              experiment_url.
 
             The result object provides a format() method for human-readable output:
             ```python
@@ -279,7 +172,7 @@ class DatasetClient:
 
             def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
                 if not expected_output:
-                    return {"name": "accuracy", "value": None, "comment": "No expected output"}
+                    return {"name": "accuracy", "value": 0, "comment": "No expected output"}
 
                 is_correct = output.strip().lower() == expected_output.strip().lower()
                 return {
@@ -295,8 +188,8 @@ class DatasetClient:
                 evaluators=[accuracy_evaluator]
             )
 
-            print(f"Evaluated {len(result['item_results'])} questions")
-            print(f"View detailed results: {result['dataset_run_url']}")
+            print(f"Evaluated {len(result.item_results)} questions")
+            print(f"View detailed results: {result.experiment_url}")
             ```
 
             Advanced experiment with multiple evaluators and run-level analysis:
@@ -363,11 +256,11 @@ class DatasetClient:
             )
 
             # Results are automatically linked to dataset in Langfuse
-            print(f"Experiment completed! View in Langfuse: {result['dataset_run_url']}")
+            print(f"Experiment completed! View in Langfuse: {result.experiment_url}")
 
             # Access individual results
-            for i, item_result in enumerate(result["item_results"]):
-                print(f"Item {i+1}: {item_result['evaluations']}")
+            for i, item_result in enumerate(result.item_results):
+                print(f"Item {i+1}: {item_result.evaluations}")
             ```
 
             Comparing different model versions:
@@ -393,24 +286,20 @@ class DatasetClient:
 
             # Both experiments are now visible in Langfuse for easy comparison
             print("Compare results in Langfuse:")
-            print(f"GPT-4: {result_gpt4.dataset_run_url}")
-            print(f"Custom: {result_custom.dataset_run_url}")
+            print(f"GPT-4: {result_gpt4.experiment_url}")
+            print(f"Custom: {result_custom.experiment_url}")
             ```
 
         Note:
-            - All experiment results are automatically tracked in Langfuse as dataset runs
+            - All experiment results are automatically tracked in Langfuse as experiments on this dataset
             - Dataset items provide .input, .expected_output, and .metadata attributes
             - Results can be easily compared across different experiment runs in the UI
-            - The dataset_run_url provides direct access to detailed results and analysis
+            - The experiment_url provides direct access to detailed results and analysis
             - Failed items are handled gracefully and logged without stopping the experiment
             - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
             - Async execution is handled automatically with smart event loop detection
         """
-        langfuse_client = self._get_langfuse_client()
-        if not langfuse_client:
-            raise ValueError("No Langfuse client available. Dataset items are empty.")
-
-        return langfuse_client.run_experiment(
+        return self._langfuse_client.run_experiment(
             name=name,
             run_name=run_name,
             description=description,
@@ -421,4 +310,6 @@ class DatasetClient:
             run_evaluators=run_evaluators,
             max_concurrency=max_concurrency,
             metadata=metadata,
+            experiment_id=experiment_id,
+            _dataset_version=self.version,
         )

@@ -1,8 +1,7 @@
 import functools
-import logging
 from typing import Any, Callable, List, Optional
 
-logger = logging.getLogger("langfuse")
+from langfuse.logger import langfuse_logger as logger
 
 
 def catch_and_log_errors(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -13,7 +12,7 @@ def catch_and_log_errors(func: Callable[..., Any]) -> Callable[..., Any]:
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            logger.error(f"An error occurred in {func.__name__}: {e}", exc_info=True)
+            logger.error("An error occurred in %s: %s", func.__name__, e, exc_info=True)
 
     return wrapper
 

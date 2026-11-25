@@ -2,58 +2,104 @@
 
 ## Development
 
-### Add Poetry plugins
-
-```
-poetry self add poetry-dotenv-plugin
-```
-
 ### Install dependencies
 
-```
-poetry install --all-extras
-```
-
-### Add Pre-commit
-
-```
-poetry run pre-commit install
+```bash
+uv sync --locked
 ```
 
-### Type Checking
+### Add pre-commit
 
-To run type checking on the langfuse package, run:
-```sh
-poetry run mypy langfuse --no-error-summary
+```bash
+uv run pre-commit install
+```
+
+### Quality checks
+
+```bash
+uv run --frozen ruff check .
+uv run --frozen ruff format .
+uv run --frozen mypy langfuse --no-error-summary
+```
+
+For a broad local confidence check, run:
+
+```bash
+bash scripts/codex/quick-check.sh
 ```
 
 ### Tests
 
-#### Setup
+Unit tests do not require a running Langfuse server:
 
-- Add .env based on .env.template
+```bash
+uv run --frozen pytest -n auto --dist worksteal tests/unit
+```
 
-#### Run
+E2E tests require a running Langfuse server and environment variables based on `.env.template`:
 
-- Run all
+```bash
+uv run --frozen pytest -n 4 --dist worksteal tests/e2e -m "not serial_e2e"
+uv run --frozen pytest tests/e2e -m "serial_e2e"
+```
 
-  ```
-  poetry run pytest -s -v --log-cli-level=INFO
-  ```
+Live-provider tests make real provider calls and require provider API keys:
 
-- Run a specific test
+```bash
+uv run --frozen pytest -n 4 --dist worksteal tests/live_provider -m "live_provider"
+```
 
-  ```
-  poetry run pytest -s -v --log-cli-level=INFO tests/test_core_sdk.py::test_flush
-  ```
+GitHub does not expose repository secrets to pull requests from forks, so CI skips the live-provider suite on those PRs. It runs on same-repo PRs and again after merge on `main`. Any test that calls a model provider belongs in `tests/live_provider`, not `tests/e2e`.
 
-- E2E tests involving OpenAI and Serp API are usually skipped, remove skip decorators in [tests/test_langchain.py](tests/test_langchain.py) to run them.
+Run a specific test with:
 
-### Update openapi spec
+```bash
+uv run --frozen pytest tests/unit/test_resource_manager.py::test_pause_signals_score_consumer_shutdown
+```
 
-1. Generate Fern Python SDK in [langfuse](https://github.com/langfuse/langfuse) and copy the files generated in `generated/python` into the `langfuse/api` folder in this repo.
-2. Execute the linter by running `poetry run ruff format .`
-3. Rebuild and deploy the package to PyPi.
+## Codex Cloud Setup
+
+This repository includes repo-owned Codex setup so agents can start from a reproducible environment.
+
+Recommended Codex UI configuration:
+
+1. Create a Codex cloud environment for this repository.
+2. Set the setup script to:
+
+   ```bash
+   bash scripts/codex/setup.sh
+   ```
+
+3. Set the maintenance script to:
+
+   ```bash
+   bash scripts/codex/maintenance.sh
+   ```
+
+4. Keep agent internet access disabled by default, or allow only the domains required for the task.
+5. Add secrets and environment variables in the Codex UI instead of committing them.
+
+## Pull Requests
+
+PR titles and commit messages must follow Conventional Commits:
+
+```text
+type(scope): description
+type: description
+```
+
+Common types include `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, and `security`.
+
+Before opening a PR:
+
+- Self-review the diff and use `code_review.md` for the repo-specific checklist.
+- Keep changes focused and avoid unrelated refactors.
+- Add or update tests for behavior changes.
+- List the verification commands you ran in the PR description.
+
+### Update OpenAPI spec
+
+The generated API client in `langfuse/api/` must not be hand-edited. Regenerate it from the upstream Fern/OpenAPI source.
 
 ### Publish release
 
@@ -67,12 +113,12 @@ To create a release:
    - `patch` - Bug fixes (1.0.0 → 1.0.1)
    - `minor` - New features (1.0.0 → 1.1.0)
    - `major` - Breaking changes (1.0.0 → 2.0.0)
-   - `prerelease` - Pre-release versions (1.0.0 → 1.0.0a1)
+   - `prepatch`, `preminor`, or `premajor` - Pre-release versions (for example 1.0.0 → 1.0.1a1)
 4. For pre-releases, select the type: `alpha`, `beta`, or `rc`
 5. Click "Run workflow"
 
 The workflow will automatically:
-- Bump the version in `pyproject.toml` and `langfuse/version.py`
+- Bump the version in `pyproject.toml`
 - Build the package
 - Publish to PyPI
 - Create a git tag and GitHub release with auto-generated release notes
@@ -81,22 +127,18 @@ The workflow will automatically:
 
 Note: The generated SDK reference is currently work in progress.
 
-The SDK reference is generated via pdoc. You need to have all extra dependencies installed to generate the reference.
+The SDK reference is generated via pdoc and published at [python.reference.langfuse.com](https://python.reference.langfuse.com). The docs dependency group is installed on demand when you run the documentation commands.
+
+To build the reference into `docs/`, run:
 
 ```sh
-poetry install --all-extras
+bash scripts/build_reference_docs.sh
 ```
 
-To update the reference, run the following command:
+To browse the reference locally with live reload, run pdoc's dev server:
 
 ```sh
-poetry run pdoc -o docs/ --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
-```
-
-To run the reference locally, you can use the following command:
-
-```sh
-poetry run pdoc --docformat google --logo "https://langfuse.com/langfuse_logo.svg" langfuse
+uv run --group docs pdoc --docformat google --logo "https://langfuse.com/langfuse_logo.svg" --template-directory pdoc-templates langfuse
 ```
 
 ## Credits

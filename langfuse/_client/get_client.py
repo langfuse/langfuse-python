@@ -50,9 +50,15 @@ def _create_client_from_instance(
         media_upload_thread_count=instance.media_upload_thread_count,
         sample_rate=instance.sample_rate,
         mask=instance.mask,
-        blocked_instrumentation_scopes=instance.blocked_instrumentation_scopes,
+        mask_otel_spans=instance.mask_otel_spans,
+        should_export_span=instance.should_export_span,
         additional_headers=instance.additional_headers,
         tracer_provider=instance.tracer_provider,
+        id_generator=instance.id_generator,
+        span_exporter=instance.span_exporter,
+        otel_compression=instance.otel_compression,
+        skills=instance.skills,
+        httpx_client=instance.httpx_client,
     )
 
 
@@ -137,7 +143,9 @@ def get_client(*, public_key: Optional[str] = None) -> Langfuse:
             if target_instance is None:
                 # No instance found with this key - client not initialized properly
                 langfuse_logger.warning(
-                    f"No Langfuse client with public key {public_key} has been initialized. Skipping tracing for decorated function."
+                    "No Langfuse client with public key %s has been initialized. Skipping "
+                    "tracing for decorated function.",
+                    public_key,
                 )
                 return Langfuse(
                     tracing_enabled=False, public_key="fake", secret_key="fake"

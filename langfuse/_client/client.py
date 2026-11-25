@@ -4,53 +4,63 @@ This module implements Langfuse's core observability functionality on top of the
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
 import urllib.parse
-import warnings
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from hashlib import sha256
 from time import time_ns
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
+    Iterator,
     List,
     Literal,
     Optional,
+    Sequence,
+    Tuple,
     Type,
     Union,
     cast,
     overload,
 )
 
-import backoff
 import httpx
+from opentelemetry import context as otel_context_api
 from opentelemetry import trace as otel_trace_api
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace.export import SpanExporter
+from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.util._decorator import (
     _AgnosticContextManager,
     _agnosticcontextmanager,
 )
 from packaging.version import Version
 
-from langfuse._client.attributes import LangfuseOtelSpanAttributes, _serialize
+from langfuse._client import pagination
+from langfuse._client.attributes import (
+    LangfuseOtelSpanAttributes,
+    _serialize,
+)
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     ObservationTypeGenerationLike,
-    ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
     get_observation_types_list,
 )
-from langfuse._client.datasets import DatasetClient, DatasetItemClient
+from langfuse._client.datasets import DatasetClient
 from langfuse._client.environment_variables import (
     LANGFUSE_BASE_URL,
     LANGFUSE_DEBUG,
     LANGFUSE_HOST,
     LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_RELEASE,
     LANGFUSE_SAMPLE_RATE,
     LANGFUSE_SECRET_KEY,
     LANGFUSE_TIMEOUT,
@@ -59,7 +69,10 @@ from langfuse._client.environment_variables import (
 )
 from langfuse._client.propagation import (
     PropagatedExperimentAttributes,
+    _detach_context_token_safely,
+    _get_propagated_attributes_from_context,
     _propagate_attributes,
+    _set_langfuse_trace_id_in_baggage,
 )
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span import (
@@ -73,20 +86,38 @@ from langfuse._client.span import (
     LangfuseRetriever,
     LangfuseSpan,
     LangfuseTool,
+    _set_span_attributes_within_limit,
 )
-from langfuse._client.utils import get_sha256_hash_hex, run_async_safely
-from langfuse._utils import _get_timestamp
+from langfuse._client.utils import (
+    get_sha256_hash_hex,
+    get_string_span_attribute,
+    run_async_safely,
+)
+from langfuse._utils import _get_timestamp, json_path
+from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse.api.resources.commons.errors.error import Error
-from langfuse.api.resources.commons.errors.not_found_error import NotFoundError
-from langfuse.api.resources.ingestion.types.score_body import ScoreBody
-from langfuse.api.resources.prompts.types import (
-    CreatePromptRequest_Chat,
-    CreatePromptRequest_Text,
+from langfuse._utils.retry import acall_with_retries, call_with_retries
+from langfuse.api import (
+    AsyncLangfuseAPI,
+    CreateChatPromptRequest,
+    CreateChatPromptType,
+    CreateTextPromptRequest,
+    Dataset,
+    DatasetItem,
+    DatasetItemMediaReferenceField,
+    DatasetStatus,
+    Error,
+    LangfuseAPI,
+    MapValue,
+    NotFoundError,
+    ObservationLevel,
+    ObservationsV2Response,
     Prompt_Chat,
     Prompt_Text,
 )
+from langfuse.api.core import RequestOptions
+from langfuse.api.core.datetime_utils import serialize_datetime
 from langfuse.batch_evaluation import (
     BatchEvaluationResult,
     BatchEvaluationResumeToken,
@@ -103,26 +134,49 @@ from langfuse.experiment import (
     ExperimentResult,
     RunEvaluatorFunction,
     TaskFunction,
+    _normalize_evaluator_result,
     _run_evaluator,
     _run_task,
 )
 from langfuse.logger import langfuse_logger
-from langfuse.media import LangfuseMedia
+from langfuse.media import LangfuseMedia, LangfuseMediaReference
 from langfuse.model import (
     ChatMessageDict,
     ChatMessageWithPlaceholdersDict,
     ChatPromptClient,
-    CreateDatasetItemRequest,
-    CreateDatasetRequest,
-    CreateDatasetRunItemRequest,
-    Dataset,
-    DatasetItem,
-    DatasetStatus,
-    MapValue,
     PromptClient,
     TextPromptClient,
 )
-from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
+from langfuse.types import (
+    MaskFunction,
+    MaskOtelSpansFunction,
+    ScoreDataType,
+    SkillsConfig,
+    SpanLevel,
+    TraceContext,
+)
+
+
+def _get_evaluator_name(evaluator: Callable[..., Any]) -> str:
+    return getattr(evaluator, "__name__", evaluator.__class__.__name__)
+
+
+def _serialize_evaluations(evaluations: List[Evaluation]) -> List[Dict[str, Any]]:
+    return [
+        {
+            key: value
+            for key, value in {
+                "name": evaluation.name,
+                "value": evaluation.value,
+                "comment": evaluation.comment,
+                "metadata": evaluation.metadata,
+                "data_type": evaluation.data_type,
+                "config_id": evaluation.config_id,
+            }.items()
+            if value is not None
+        }
+        for evaluation in evaluations
+    ]
 
 
 class Langfuse:
@@ -151,6 +205,13 @@ class Langfuse:
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".
         timeout (Optional[int]): Timeout in seconds for API requests. Defaults to 5 seconds.
         httpx_client (Optional[httpx.Client]): Custom httpx client for making non-tracing HTTP requests. If not provided, a default client will be created.
+            **Fork safety**: ``httpx.Client`` is thread-safe but not process-safe. When using
+            ``fork()``-based servers (e.g. Gunicorn with ``--preload``), the SDK automatically
+            recreates its internally-managed HTTP client in child processes after fork. A custom
+            ``httpx_client`` is intentionally left as-is (the fork-inherited copy is reused), so
+            you retain the opportunity to handle process-safety yourself — for example by
+            registering your own ``os.register_at_fork(after_in_child=...)`` handler to close and
+            reopen connections on the custom client.
         debug (bool): Enable debug logging. Defaults to False. Can also be set via LANGFUSE_DEBUG environment variable.
         tracing_enabled (Optional[bool]): Enable or disable tracing. Defaults to True. Can also be set via LANGFUSE_TRACING_ENABLED environment variable.
         flush_at (Optional[int]): Number of spans to batch before sending to the API. Defaults to 512. Can also be set via LANGFUSE_FLUSH_AT environment variable.
@@ -159,24 +220,63 @@ class Langfuse:
         release (Optional[str]): Release version/hash of your application. Used for grouping analytics by release.
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
-        mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
-        blocked_instrumentation_scopes (Optional[List[str]]): List of instrumentation scope names to block from being exported to Langfuse. Spans from these scopes will be filtered out before being sent to the API. Useful for filtering out spans from specific libraries or frameworks. For exported spans, you can see the instrumentation scope name in the span metadata in Langfuse (`metadata.scope.name`)
-        additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
+        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to data set through Langfuse SDK APIs such as `start_observation()` and `update()`.
+        mask_otel_spans (Optional[MaskOtelSpansFunction]): Synchronous export-stage hook for masking raw OpenTelemetry span attributes before this Langfuse client sends them to Langfuse. Use this for spans created by third-party OpenTelemetry instrumentations, or when you need to inspect final span attributes after export filtering and Langfuse media handling. It does not modify spans already exported through other OpenTelemetry exporters.
+
+            The hook receives one OpenTelemetry export batch. A batch is not guaranteed to contain a complete trace, request, or Langfuse observation tree. The hook usually runs on the OpenTelemetry batch span processor worker thread; during `flush()` and shutdown it may run on the caller thread. Keep it synchronous, deterministic, and fast.
+
+            Return `None` to leave the batch unchanged. Return `MaskOtelSpansResult` with `OtelSpanPatch` values to delete or replace attributes on selected spans. If a batch contains duplicate trace and span identifiers, Langfuse keeps only the last matching span. If the hook raises or returns an invalid batch result, Langfuse drops the whole export batch. If one returned span patch is invalid, Langfuse drops only that span from the Langfuse export.
+
+            Values of `langfuse.trace.metadata.*` and `langfuse.observation.metadata.*` attributes written by the SDK are JSON-encoded strings, including on third-party instrumentation spans such as OpenInference (`acme` arrives as `'"acme"'`). Decode them with `json.loads` before applying masking rules and encode replacements with `json.dumps`, for example `OtelSpanPatch(set_attributes={key: json.dumps("[REDACTED]")})`. Values from other sources, such as baggage from an older upstream service, can be raw strings, so catch `json.JSONDecodeError` rather than letting the hook raise. See `MaskOtelSpansFunction` for a full example.
+
+            Example:
+                ```python
+                from typing import Optional
+
+                from langfuse import Langfuse
+                from langfuse.types import (
+                    MaskOtelSpansParams,
+                    MaskOtelSpansResult,
+                    OtelSpanPatch,
+                )
+
+                def mask_otel_spans(
+                    *, params: MaskOtelSpansParams
+                ) -> Optional[MaskOtelSpansResult]:
+                    patches = {}
+
+                    for identifier, span in params.spans.items():
+                        if "gen_ai.prompt.0.content" in span.attributes:
+                            patches[identifier] = OtelSpanPatch(
+                                delete_attributes=("gen_ai.prompt.0.content",),
+                                set_attributes={"masking.applied": True},
+                            )
+
+                    return MaskOtelSpansResult(span_patches=patches)
+
+                langfuse = Langfuse(mask_otel_spans=mask_otel_spans)
+                ```
+        should_export_span (Optional[Callable[[ReadableSpan], bool]]): Callback to decide whether to export a span. If omitted, Langfuse uses the default filter (Langfuse SDK spans, spans with `gen_ai.*` attributes, and known LLM instrumentation scopes).
+        additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and in the default OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well. If `span_exporter` is provided, these headers are not wired into that exporter and must be configured on the exporter instance directly.
         tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
+        id_generator (Optional[IdGenerator]): OpenTelemetry ID generator to use when Langfuse creates its own TracerProvider. If omitted, the OpenTelemetry SDK default is used. If `tracer_provider` is provided, or an OpenTelemetry TracerProvider is already registered globally, configure the ID generator on that provider instead.
+        skills (Optional[SkillsConfig]): Configure available skills; attach them with propagate_attributes(attach_skills=True). Shared clients use the first configuration for their public key.
+        span_exporter (Optional[SpanExporter]): Custom OpenTelemetry span exporter for the Langfuse span processor. If omitted, Langfuse creates an OTLPSpanExporter pointed at the Langfuse OTLP endpoint. If provided, Langfuse does not wire `base_url`, exporter headers, exporter auth, exporter timeout, `otel_compression`, or the `LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES` request size limit into it. Configure endpoint, headers, timeout, and compression on the exporter instance directly. If you are sending spans to Langfuse v4 or using Langfuse Cloud Fast Preview, include `x-langfuse-ingestion-version=4` on the exporter to enable real time processing of exported spans.
+        otel_compression (Optional[Literal["gzip", "none"]]): Compression for span batches sent by the default OTLP span exporter: "gzip" (default) or "none" to send uncompressed. If unset, the LANGFUSE_OTEL_COMPRESSION, OTEL_EXPORTER_OTLP_TRACES_COMPRESSION and OTEL_EXPORTER_OTLP_COMPRESSION environment variables apply, in that order, then gzip. Values are case-insensitive; an invalid value falls through to the next setting.
 
     Example:
         ```python
-        from langfuse.otel import Langfuse
+        from langfuse import Langfuse
 
         # Initialize the client (reads from env vars if not provided)
         langfuse = Langfuse(
             public_key="your-public-key",
             secret_key="your-secret-key",
-            host="https://cloud.langfuse.com",  # Optional, default shown
+            base_url="https://cloud.langfuse.com",  # Optional, default shown
         )
 
         # Create a trace span
-        with langfuse.start_as_current_span(name="process-query") as span:
+        with langfuse.start_as_current_observation(name="process-query") as span:
             # Your application code here
 
             # Create a nested generation span for an LLM call
@@ -222,21 +322,32 @@ class Langfuse:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
+        should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
         tracer_provider: Optional[TracerProvider] = None,
+        id_generator: Optional[IdGenerator] = None,
+        span_exporter: Optional[SpanExporter] = None,
+        otel_compression: Optional[Literal["gzip", "none"]] = None,
+        skills: Optional[SkillsConfig] = None,
     ):
         self._base_url = (
             base_url
             or os.environ.get(LANGFUSE_BASE_URL)
             or host
             or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
-        )
+        ).rstrip("/")
         self._environment = environment or cast(
             str, os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
         )
+        self._release = (
+            release
+            or os.environ.get(LANGFUSE_RELEASE, None)
+            or get_common_release_envs()
+        )
         self._project_id: Optional[str] = None
-        sample_rate = sample_rate or float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
+        if sample_rate is None:
+            sample_rate = float(os.environ.get(LANGFUSE_SAMPLE_RATE, 1.0))
         if not 0.0 <= sample_rate <= 1.0:
             raise ValueError(
                 f"Sample rate must be between 0.0 and 1.0, got {sample_rate}"
@@ -299,10 +410,15 @@ class Langfuse:
             media_upload_thread_count=media_upload_thread_count,
             sample_rate=sample_rate,
             mask=mask,
+            mask_otel_spans=mask_otel_spans,
             tracing_enabled=self._tracing_enabled,
-            blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+            should_export_span=should_export_span,
             additional_headers=additional_headers,
             tracer_provider=tracer_provider,
+            id_generator=id_generator,
+            span_exporter=span_exporter,
+            otel_compression=otel_compression,
+            skills=skills,
         )
         self._mask = self._resources.mask
 
@@ -311,122 +427,226 @@ class Langfuse:
             if self._tracing_enabled and self._resources.tracer is not None
             else otel_trace_api.NoOpTracer()
         )
-        self.api = self._resources.api
-        self.async_api = self._resources.async_api
 
-    def start_span(
+    @property
+    def api(self) -> LangfuseAPI:
+        """Synchronous client for the full Langfuse REST API (traces, observations, scores, datasets, prompts, ...).
+
+        Use this to read or manage data on the Langfuse server; use the tracing methods
+        (`start_observation`, `@observe`) to create traces. Use `async_api` for the
+        asyncio variant.
+
+        Semantics that are easy to miss:
+
+        - **Ingestion is asynchronous.** `langfuse.flush()` only guarantees delivery to
+          the API, not read visibility: reads such as
+          `api.observations.get_many(trace_id=...)` may return no data until
+          processing completes (typically within 15-30 seconds; longer under load).
+          The same applies to scores and experiment reads. Instead of a fixed sleep,
+          poll with a deadline (see the ingestion-lag link below).
+
+        - **Observations are the read model.** Read trace data with
+          `api.observations.get_many(trace_id=...)` (`/api/public/v2/observations`,
+          cursor-paginated; request field groups with `fields`). A trace's name,
+          user, session, tags and input/output are on its root observation. Read
+          scores with `api.scores.get_many` and experiments with `api.experiments`.
+
+        - **Page through observations with `iter_observation_pages`.** Pages can be
+          short or empty before the end, and a request can take up to 45 seconds.
+          `iter_observation_pages` / `aiter_observation_pages` follow `meta.cursor`
+          until it is absent and raise the per-request timeout accordingly.
+
+        - For large-scale aggregation (usage/cost by model, user, etc.), prefer the
+        v2 Metrics API (`api.metrics.metrics(...)`) over paginating row-level data.
+
+        See also: `async_api`, `iter_observation_pages`,
+        https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk
+        (ingestion lag: #ingestion-lag),
+        https://langfuse.com/docs/api-and-data-platform/features/observations-api,
+        https://langfuse.com/docs/metrics/features/metrics-api
+        """
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        return self._resources.api
+
+    @api.setter
+    def api(self, value: LangfuseAPI) -> None:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        self._resources.api = value
+
+    @property
+    def async_api(self) -> AsyncLangfuseAPI:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        return self._resources.async_api
+
+    @async_api.setter
+    def async_api(self, value: AsyncLangfuseAPI) -> None:
+        if self._resources is None:
+            raise AttributeError("Langfuse client is not initialized")
+
+        self._resources.async_api = value
+
+    def iter_observation_pages(
         self,
         *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        max_items: Optional[int] = None,
+        fields: Optional[str] = None,
+        expand_metadata: Optional[str] = None,
+        name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        type: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        level: Optional[ObservationLevel] = None,
+        parent_observation_id: Optional[str] = None,
+        is_root_observation: Optional[bool] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
+        from_start_time: Optional[datetime] = None,
+        to_start_time: Optional[datetime] = None,
         version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-    ) -> LangfuseSpan:
-        """Create a new span for tracing a unit of work.
+        filter: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> Iterator[ObservationsV2Response]:
+        """Yield pages of `GET /api/public/v2/observations` until the server returns no cursor.
 
-        This method creates a new span but does not set it as the current span in the
-        context. To create and use a span within a context, use start_as_current_span().
-
-        The created span will be the child of the current span in the context.
+        A page can be short or empty while more data remains, so only a missing
+        `meta.cursor` ends the iteration. Every page is yielded, including empty
+        ones. To resume later, save `page.meta.cursor` after processing a page and
+        pass it back as `cursor` with the same other arguments.
 
         Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation (can be any JSON-serializable object)
-            output: Output data from the operation (can be any JSON-serializable object)
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
+            limit: Rows per request, at most 1000.
+            cursor: Cursor to resume from.
+            max_items: Stop after this many rows. The last request asks only for the
+                remaining rows, so the last page's cursor resumes right after them.
+            fields: Comma-separated field groups to include, e.g. `"basic,usage,model"`.
+                Defaults to `core` and `basic` on the server.
+            expand_metadata: Comma-separated metadata keys to return non-truncated.
+            name: Filter by observation name.
+            user_id: Filter by user ID.
+            session_id: Filter by session ID.
+            type: Filter by observation type, e.g. `"GENERATION"`.
+            trace_id: Filter by trace ID.
+            level: Filter by level, e.g. `"ERROR"`.
+            parent_observation_id: Filter by the physical parent observation ID.
+            is_root_observation: Filter by whether an observation is a logical root.
+            environment: Filter by one or more environments.
+            from_start_time: Only observations starting at or after this datetime.
+            to_start_time: Only observations starting before this datetime.
+            version: Filter by version.
+            filter: JSON array of filter conditions. Takes precedence over the
+                individual filter arguments; see `api.observations.get_many`.
+            request_options: Passed to every request. `timeout_in_seconds` defaults
+                to 60 because the server may scan for up to 45 s per request.
 
-        Returns:
-            A LangfuseSpan object that must be ended with .end() when the operation completes
+        Errors propagate and end the iteration. A 422 means the server hit a resource
+        limit, usually its time budget; the same request tends to fail again, so
+        narrow the time range or add filters instead of retrying it unchanged.
+
+        Without a lower time bound the server searches back only to 2020-01-01. A
+        `startTime` condition in `filter` makes the server ignore `from_start_time`
+        and `to_start_time`, so put both bounds in `filter`. Rows are not
+        deduplicated; dedupe by `id` if you need unique observations.
 
         Example:
             ```python
-            span = langfuse.start_span(name="process-data")
-            try:
-                # Do work
-                span.update(output="result")
-            finally:
-                span.end()
+            from datetime import datetime, timedelta, timezone
+
+            from langfuse import get_client
+
+            langfuse = get_client()
+            since = datetime.now(timezone.utc) - timedelta(days=7)
+
+            for page in langfuse.iter_observation_pages(
+                trace_id="abc123", from_start_time=since, limit=1000
+            ):
+                for observation in page.data:
+                    print(observation.id, observation.name)
             ```
         """
-        return self.start_observation(
-            trace_context=trace_context,
+        return pagination.iter_observation_pages(
+            self.api,
+            limit=limit,
+            cursor=cursor,
+            max_items=max_items,
+            request_options=request_options,
+            fields=fields,
+            expand_metadata=expand_metadata,
             name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            trace_id=trace_id,
             level=level,
-            status_message=status_message,
+            parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
+            filter=filter,
         )
 
-    def start_as_current_span(
+    def aiter_observation_pages(
         self,
         *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        max_items: Optional[int] = None,
+        fields: Optional[str] = None,
+        expand_metadata: Optional[str] = None,
+        name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        type: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        level: Optional[ObservationLevel] = None,
+        parent_observation_id: Optional[str] = None,
+        is_root_observation: Optional[bool] = None,
+        environment: Optional[Union[str, Sequence[str]]] = None,
+        from_start_time: Optional[datetime] = None,
+        to_start_time: Optional[datetime] = None,
         version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[LangfuseSpan]:
-        """Create a new span and set it as the current span in a context manager.
-
-        This method creates a new span and sets it as the current span within a context
-        manager. Use this method with a 'with' statement to automatically handle span
-        lifecycle within a code block.
-
-        The created span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the span (e.g., function or operation name)
-            input: Input data for the operation (can be any JSON-serializable object)
-            output: Output data from the operation (can be any JSON-serializable object)
-            metadata: Additional metadata to associate with the span
-            version: Version identifier for the code or component
-            level: Importance level of the span (info, warning, error)
-            status_message: Optional status message for the span
-            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
-
-        Returns:
-            A context manager that yields a LangfuseSpan
+        filter: Optional[str] = None,
+        request_options: Optional[RequestOptions] = None,
+    ) -> AsyncIterator[ObservationsV2Response]:
+        """Async version of `iter_observation_pages`, using `async_api`.
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-query") as span:
-                # Do work
-                result = process_data()
-                span.update(output=result)
-
-                # Create a child span automatically
-                with span.start_as_current_span(name="sub-operation") as child_span:
-                    # Do sub-operation work
-                    child_span.update(output="sub-result")
+            async for page in langfuse.aiter_observation_pages(trace_id="abc123"):
+                for observation in page.data:
+                    print(observation.id, observation.name)
             ```
         """
-        return self.start_as_current_observation(
-            trace_context=trace_context,
+        return pagination.aiter_observation_pages(
+            self.async_api,
+            limit=limit,
+            cursor=cursor,
+            max_items=max_items,
+            request_options=request_options,
+            fields=fields,
+            expand_metadata=expand_metadata,
             name=name,
-            as_type="span",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
+            user_id=user_id,
+            session_id=session_id,
+            type=type,
+            trace_id=trace_id,
             level=level,
-            status_message=status_message,
-            end_on_exit=end_on_exit,
+            parent_observation_id=parent_observation_id,
+            is_root_observation=is_root_observation,
+            environment=environment,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
+            version=version,
+            filter=filter,
         )
 
     @overload
@@ -642,8 +862,12 @@ class Langfuse:
                 with otel_trace_api.use_span(
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
-                    otel_span = self._otel_tracer.start_span(name=name)
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    otel_span = self._otel_tracer.start_span(
+                        name=name,
+                    )
+                    _set_span_attributes_within_limit(
+                        otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
+                    )
 
                     return self._create_observation_from_otel_span(
                         otel_span=otel_span,
@@ -718,6 +942,7 @@ class Langfuse:
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -740,6 +965,7 @@ class Langfuse:
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -750,196 +976,6 @@ class Langfuse:
             # span._observation_type = as_type
             # span._otel_span.set_attribute("langfuse.observation.type", as_type)
             # return span
-
-    def start_generation(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-    ) -> LangfuseGeneration:
-        """Create a new generation span for model generations.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_observation(as_type='generation') instead.
-
-        This method creates a specialized span for tracking model generations.
-        It includes additional fields specific to model generations such as model name,
-        token usage, and cost details.
-
-        The created generation span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-
-        Returns:
-            A LangfuseGeneration object that must be ended with .end() when complete
-
-        Example:
-            ```python
-            generation = langfuse.start_generation(
-                name="answer-generation",
-                model="gpt-4",
-                input={"prompt": "Explain quantum computing"},
-                model_parameters={"temperature": 0.7}
-            )
-            try:
-                # Call model API
-                response = llm.generate(...)
-
-                generation.update(
-                    output=response.text,
-                    usage_details={
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens
-                    }
-                )
-            finally:
-                generation.end()
-            ```
-        """
-        warnings.warn(
-            "start_generation is deprecated and will be removed in a future version. "
-            "Use start_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-        )
-
-    def start_as_current_generation(
-        self,
-        *,
-        trace_context: Optional[TraceContext] = None,
-        name: str,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        version: Optional[str] = None,
-        level: Optional[SpanLevel] = None,
-        status_message: Optional[str] = None,
-        completion_start_time: Optional[datetime] = None,
-        model: Optional[str] = None,
-        model_parameters: Optional[Dict[str, MapValue]] = None,
-        usage_details: Optional[Dict[str, int]] = None,
-        cost_details: Optional[Dict[str, float]] = None,
-        prompt: Optional[PromptClient] = None,
-        end_on_exit: Optional[bool] = None,
-    ) -> _AgnosticContextManager[LangfuseGeneration]:
-        """Create a new generation span and set it as the current span in a context manager.
-
-        DEPRECATED: This method is deprecated and will be removed in a future version.
-        Use start_as_current_observation(as_type='generation') instead.
-
-        This method creates a specialized span for model generations and sets it as the
-        current span within a context manager. Use this method with a 'with' statement to
-        automatically handle the generation span lifecycle within a code block.
-
-        The created generation span will be the child of the current span in the context.
-
-        Args:
-            trace_context: Optional context for connecting to an existing trace
-            name: Name of the generation operation
-            input: Input data for the model (e.g., prompts)
-            output: Output from the model (e.g., completions)
-            metadata: Additional metadata to associate with the generation
-            version: Version identifier for the model or component
-            level: Importance level of the generation (info, warning, error)
-            status_message: Optional status message for the generation
-            completion_start_time: When the model started generating the response
-            model: Name/identifier of the AI model used (e.g., "gpt-4")
-            model_parameters: Parameters used for the model (e.g., temperature, max_tokens)
-            usage_details: Token usage information (e.g., prompt_tokens, completion_tokens)
-            cost_details: Cost information for the model call
-            prompt: Associated prompt template from Langfuse prompt management
-            end_on_exit (default: True): Whether to end the span automatically when leaving the context manager. If False, the span must be manually ended to avoid memory leaks.
-
-        Returns:
-            A context manager that yields a LangfuseGeneration
-
-        Example:
-            ```python
-            with langfuse.start_as_current_generation(
-                name="answer-generation",
-                model="gpt-4",
-                input={"prompt": "Explain quantum computing"}
-            ) as generation:
-                # Call model API
-                response = llm.generate(...)
-
-                # Update with results
-                generation.update(
-                    output=response.text,
-                    usage_details={
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens
-                    }
-                )
-            ```
-        """
-        warnings.warn(
-            "start_as_current_generation is deprecated and will be removed in a future version. "
-            "Use start_as_current_observation(as_type='generation') instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.start_as_current_observation(
-            trace_context=trace_context,
-            name=name,
-            as_type="generation",
-            input=input,
-            output=output,
-            metadata=metadata,
-            version=version,
-            level=level,
-            status_message=status_message,
-            completion_start_time=completion_start_time,
-            model=model,
-            model_parameters=model_parameters,
-            usage_details=usage_details,
-            cost_details=cost_details,
-            prompt=prompt,
-            end_on_exit=end_on_exit,
-        )
 
     @overload
     def start_as_current_observation(
@@ -1167,7 +1203,7 @@ class Langfuse:
                 span.update(output=result)
 
                 # Create a child span automatically
-                with span.start_as_current_span(name="sub-operation") as child_span:
+                with span.start_as_current_observation(name="sub-operation") as child_span:
                     # Do sub-operation work
                     child_span.update(output="sub-result")
 
@@ -1308,7 +1344,7 @@ class Langfuse:
 
         # This should never be reached since all valid types are handled above
         langfuse_logger.warning(
-            f"Unknown observation type: {as_type}, falling back to span"
+            "Unknown observation type: %s, falling back to span", as_type
         )
         return self._start_as_current_otel_span_with_processed_media(
             as_type="span",
@@ -1324,7 +1360,7 @@ class Langfuse:
 
     def _get_span_class(
         self,
-        as_type: ObservationTypeLiteral,
+        as_type: str,
     ) -> Union[
         Type[LangfuseAgent],
         Type[LangfuseTool],
@@ -1362,6 +1398,21 @@ class Langfuse:
             return LangfuseSpan
         else:
             return LangfuseSpan
+
+    @staticmethod
+    def _get_observation_type_from_otel_span(otel_span: otel_trace_api.Span) -> str:
+        if not otel_span.is_recording():
+            return "span"
+
+        attributes = getattr(otel_span, "attributes", None)
+        if attributes is None or not hasattr(attributes, "get"):
+            return "span"
+
+        observation_type = attributes.get(
+            LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+        )
+
+        return observation_type if isinstance(observation_type, str) else "span"
 
     @_agnosticcontextmanager
     def _create_span_with_parent_context(
@@ -1406,8 +1457,9 @@ class Langfuse:
                 prompt=prompt,
             ) as langfuse_span:
                 if remote_parent_span is not None:
-                    langfuse_span._otel_span.set_attribute(
-                        LangfuseOtelSpanAttributes.AS_ROOT, True
+                    _set_span_attributes_within_limit(
+                        langfuse_span._otel_span,
+                        {LangfuseOtelSpanAttributes.AS_ROOT: True},
                     )
 
                 yield langfuse_span
@@ -1436,38 +1488,54 @@ class Langfuse:
             name=name,
             end_on_exit=end_on_exit if end_on_exit is not None else True,
         ) as otel_span:
+            baggage_token = None
+
+            if otel_span.is_recording():
+                context_with_app_root_claim = _set_langfuse_trace_id_in_baggage(
+                    trace_id=self._get_otel_trace_id(otel_span),
+                    context=otel_context_api.get_current(),
+                )
+                baggage_token = otel_context_api.attach(context_with_app_root_claim)
+
             span_class = self._get_span_class(
                 as_type or "generation"
             )  # default was "generation"
-            common_args = {
-                "otel_span": otel_span,
-                "langfuse_client": self,
-                "environment": self._environment,
-                "input": input,
-                "output": output,
-                "metadata": metadata,
-                "version": version,
-                "level": level,
-                "status_message": status_message,
-            }
 
-            if span_class in [
-                LangfuseGeneration,
-                LangfuseEmbedding,
-            ]:
-                common_args.update(
-                    {
-                        "completion_start_time": completion_start_time,
-                        "model": model,
-                        "model_parameters": model_parameters,
-                        "usage_details": usage_details,
-                        "cost_details": cost_details,
-                        "prompt": prompt,
-                    }
-                )
-            # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+            try:
+                common_args = {
+                    "otel_span": otel_span,
+                    "langfuse_client": self,
+                    "environment": self._environment,
+                    "release": self._release,
+                    "input": input,
+                    "output": output,
+                    "metadata": metadata,
+                    "version": version,
+                    "level": level,
+                    "status_message": status_message,
+                }
 
-            yield span_class(**common_args)  # type: ignore[arg-type]
+                if span_class in [
+                    LangfuseGeneration,
+                    LangfuseEmbedding,
+                ]:
+                    common_args.update(
+                        {
+                            "completion_start_time": completion_start_time,
+                            "model": model,
+                            "model_parameters": model_parameters,
+                            "usage_details": usage_details,
+                            "cost_details": cost_details,
+                            "prompt": prompt,
+                        }
+                    )
+                # For span-like types (span, agent, tool, chain, retriever, evaluator, guardrail), no generation properties needed
+
+                yield span_class(**common_args)  # type: ignore[arg-type]
+
+            finally:
+                if baggage_token is not None:
+                    _detach_context_token_safely(baggage_token)
 
     def _get_current_otel_span(self) -> Optional[otel_trace_api.Span]:
         current_span = otel_trace_api.get_current_span()
@@ -1475,7 +1543,7 @@ class Langfuse:
         if current_span is otel_trace_api.INVALID_SPAN:
             langfuse_logger.warning(
                 "Context error: No active span in current context. Operations that depend on an active span will be skipped. "
-                "Ensure spans are created with start_as_current_span() or that you're operating within an active span context."
+                "Ensure spans are created with start_as_current_observation() or that you're operating within an active span context."
             )
             return None
 
@@ -1594,7 +1662,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-data") as span:
+            with langfuse.start_as_current_observation(name="process-data") as span:
                 # Initial processing
                 result = process_first_part()
 
@@ -1617,10 +1685,14 @@ class Langfuse:
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None:
-            span = LangfuseSpan(
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
+            )
+            span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
             )
 
             if name:
@@ -1635,66 +1707,36 @@ class Langfuse:
                 status_message=status_message,
             )
 
-    def update_current_trace(
-        self,
-        *,
-        name: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        version: Optional[str] = None,
-        input: Optional[Any] = None,
-        output: Optional[Any] = None,
-        metadata: Optional[Any] = None,
-        tags: Optional[List[str]] = None,
-        public: Optional[bool] = None,
-    ) -> None:
-        """Update the current trace with additional information.
+    def set_current_trace_as_public(self) -> None:
+        """Make the current trace publicly accessible via its URL.
 
-        Args:
-            name: Updated name for the Langfuse trace
-            user_id: ID of the user who initiated the Langfuse trace
-            session_id: Session identifier for grouping related Langfuse traces
-            version: Version identifier for the application or service
-            input: Input data for the overall Langfuse trace
-            output: Output data from the overall Langfuse trace
-            metadata: Additional metadata to associate with the Langfuse trace
-            tags: List of tags to categorize the Langfuse trace
-            public: Whether the Langfuse trace should be publicly accessible
+        When a trace is published, anyone with the trace link can view the full trace
+        without needing to be logged in to Langfuse. This action cannot be undone
+        programmatically - once published, the entire trace becomes public.
 
-        See Also:
-            :func:`langfuse.propagate_attributes`: Recommended replacement
+        This is a convenience method that publishes the trace from the currently
+        active span context. Use this when you want to make a trace public from
+        within a traced function without needing direct access to the span object.
         """
         if not self._tracing_enabled:
             langfuse_logger.debug(
-                "Operation skipped: update_current_trace - Tracing is disabled or client is in no-op mode."
+                "Operation skipped: set_current_trace_as_public - Tracing is disabled or client is in no-op mode."
             )
             return
 
         current_otel_span = self._get_current_otel_span()
 
         if current_otel_span is not None and current_otel_span.is_recording():
-            existing_observation_type = current_otel_span.attributes.get(  # type: ignore[attr-defined]
-                LangfuseOtelSpanAttributes.OBSERVATION_TYPE, "span"
+            span_class = self._get_span_class(
+                self._get_observation_type_from_otel_span(current_otel_span)
             )
-            # We need to preserve the class to keep the correct observation type
-            span_class = self._get_span_class(existing_observation_type)
             span = span_class(
                 otel_span=current_otel_span,
                 langfuse_client=self,
                 environment=self._environment,
             )
 
-            span.update_trace(
-                name=name,
-                user_id=user_id,
-                session_id=session_id,
-                version=version,
-                input=input,
-                output=output,
-                metadata=metadata,
-                tags=tags,
-                public=public,
-            )
+            span.set_trace_as_public()
 
     def create_event(
         self,
@@ -1745,9 +1787,12 @@ class Langfuse:
                     cast(otel_trace_api.Span, remote_parent_span)
                 ):
                     otel_span = self._otel_tracer.start_span(
-                        name=name, start_time=timestamp
+                        name=name,
+                        start_time=timestamp,
                     )
-                    otel_span.set_attribute(LangfuseOtelSpanAttributes.AS_ROOT, True)
+                    _set_span_attributes_within_limit(
+                        otel_span, {LangfuseOtelSpanAttributes.AS_ROOT: True}
+                    )
 
                     return cast(
                         LangfuseEvent,
@@ -1755,6 +1800,7 @@ class Langfuse:
                             otel_span=otel_span,
                             langfuse_client=self,
                             environment=self._environment,
+                            release=self._release,
                             input=input,
                             output=output,
                             metadata=metadata,
@@ -1764,7 +1810,10 @@ class Langfuse:
                         ).end(end_time=timestamp),
                     )
 
-        otel_span = self._otel_tracer.start_span(name=name, start_time=timestamp)
+        otel_span = self._otel_tracer.start_span(
+            name=name,
+            start_time=timestamp,
+        )
 
         return cast(
             LangfuseEvent,
@@ -1772,6 +1821,7 @@ class Langfuse:
                 otel_span=otel_span,
                 langfuse_client=self,
                 environment=self._environment,
+                release=self._release,
                 input=input,
                 output=output,
                 metadata=metadata,
@@ -1786,12 +1836,16 @@ class Langfuse:
     ) -> Any:
         if not self._is_valid_trace_id(trace_id):
             langfuse_logger.warning(
-                f"Passed trace ID '{trace_id}' is not a valid 32 lowercase hex char Langfuse trace id. Ignoring trace ID."
+                "Passed trace ID '%s' is not a valid 32 lowercase hex char Langfuse trace "
+                "id. Ignoring trace ID.",
+                trace_id,
             )
 
         if parent_span_id and not self._is_valid_span_id(parent_span_id):
             langfuse_logger.warning(
-                f"Passed span ID '{parent_span_id}' is not a valid 16 lowercase hex char Langfuse span id. Ignoring parent span ID."
+                "Passed span ID '%s' is not a valid 16 lowercase hex char Langfuse span "
+                "id. Ignoring parent span ID.",
+                parent_span_id,
             )
 
         int_trace_id = int(trace_id, 16)
@@ -1902,7 +1956,7 @@ class Langfuse:
             correlated_trace_id = langfuse.create_trace_id(seed=external_id)
 
             # Use the ID with trace context
-            with langfuse.start_as_current_span(
+            with langfuse.start_as_current_observation(
                 name="process-request",
                 trace_context={"trace_id": trace_id}
             ) as span:
@@ -1973,6 +2027,7 @@ class Langfuse:
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
         timestamp: Optional[datetime] = None,
+        environment: Optional[str] = None,
     ) -> None: ...
 
     @overload
@@ -1986,11 +2041,14 @@ class Langfuse:
         trace_id: Optional[str] = None,
         score_id: Optional[str] = None,
         observation_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal["CATEGORICAL", "TEXT", "CORRECTION"]
+        ] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
         timestamp: Optional[datetime] = None,
+        environment: Optional[str] = None,
     ) -> None: ...
 
     def create_score(
@@ -2008,6 +2066,7 @@ class Langfuse:
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
         timestamp: Optional[datetime] = None,
+        environment: Optional[str] = None,
     ) -> None:
         """Create a score for a specific trace or observation.
 
@@ -2016,17 +2075,25 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT/CORRECTION)
             session_id: ID of the Langfuse session to associate the score with
             dataset_run_id: ID of the Langfuse dataset run to associate the score with
             trace_id: ID of the Langfuse trace to associate the score with
             observation_id: Optional ID of the specific observation to score. Trace ID must be provided too.
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
             timestamp: Optional timestamp for the score (defaults to current UTC time)
+            environment: Optional environment override for this score. If omitted,
+                the score uses the client-level environment from
+                `Langfuse(environment=...)` or `LANGFUSE_TRACING_ENVIRONMENT`.
+                Langfuse observation wrapper methods pass their resolved span
+                environment here so scores created via `span.score()` or
+                `span.score_trace()` stay grouped with the scored observation or
+                trace, including request-scoped environments propagated with
+                `propagate_attributes(environment=...)`.
 
         Example:
             ```python
@@ -2054,28 +2121,31 @@ class Langfuse:
 
         score_id = score_id or self._create_observation_id()
 
-        try:
-            new_body = ScoreBody(
-                id=score_id,
-                sessionId=session_id,
-                datasetRunId=dataset_run_id,
-                traceId=trace_id,
-                observationId=observation_id,
-                name=name,
-                value=value,
-                dataType=data_type,  # type: ignore
-                comment=comment,
-                configId=config_id,
-                environment=self._environment,
-                metadata=metadata,
-            )
+        # The API rejects timestamps without a UTC offset; naive values are UTC.
+        if timestamp is not None and timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
 
-            event = {
-                "id": self.create_trace_id(),
-                "type": "score-create",
+        try:
+            # The model turned bools and ints into floats (True -> 1.0); keep that.
+            if isinstance(value, (bool, int)):
+                value = float(value)
+
+            score = {
+                "id": score_id,
+                "traceId": trace_id,
+                "sessionId": session_id,
+                "observationId": observation_id,
+                "datasetRunId": dataset_run_id,
+                "name": name,
+                "value": value,
+                "comment": comment,
+                "environment": environment or self._environment,
+                "dataType": data_type,
+                "configId": config_id,
                 "timestamp": timestamp or _get_timestamp(),
-                "body": new_body,
+                "metadata": metadata,
             }
+            score = {key: field for key, field in score.items() if field is not None}
 
             if self._resources is not None:
                 # Force the score to be in sample if it was for a legacy trace ID, i.e. non-32 hexchar
@@ -2084,13 +2154,17 @@ class Langfuse:
                 )
 
                 self._resources.add_score_task(
-                    event,
+                    score,
                     force_sample=force_sample,
                 )
 
         except Exception as e:
             langfuse_logger.exception(
-                f"Error creating score: Failed to process score event for trace_id={trace_id}, name={name}. Error: {e}"
+                "Error creating score: Failed to process score event for trace_id=%s, "
+                "name=%s. Error: %s",
+                trace_id,
+                name,
+                e,
             )
 
     @overload
@@ -2103,6 +2177,7 @@ class Langfuse:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -2112,9 +2187,12 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal["CATEGORICAL", "TEXT", "CORRECTION"]
+        ] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score_current_span(
@@ -2126,19 +2204,24 @@ class Langfuse:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for the current active span.
 
         This method scores the currently active span in the context. It's a convenient
         way to score the current operation without needing to know its trace and span IDs.
+        If the active span has a `langfuse.environment` attribute, including one
+        set by `propagate_attributes(environment=...)`, the score uses that
+        environment. Otherwise it uses the client-level environment.
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT/CORRECTION)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -2152,7 +2235,8 @@ class Langfuse:
                     name="relevance",
                     value=0.85,
                     data_type="NUMERIC",
-                    comment="Mostly relevant but contains some tangential information"
+                    comment="Mostly relevant but contains some tangential information",
+                    metadata={"model": "gpt-4", "prompt_version": "v2"}
                 )
             ```
         """
@@ -2163,7 +2247,12 @@ class Langfuse:
             observation_id = self._get_otel_span_id(current_span)
 
             langfuse_logger.info(
-                f"Score: Creating score name='{name}' value={value} for current span ({observation_id}) in trace {trace_id}"
+                "Score: Creating score name='%s' value=%s for current span (%s) in trace "
+                "%s",
+                name,
+                value,
+                observation_id,
+                trace_id,
             )
 
             self.create_score(
@@ -2172,9 +2261,13 @@ class Langfuse:
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL"], data_type),
+                data_type=cast(Literal["CATEGORICAL", "TEXT", "CORRECTION"], data_type),
                 comment=comment,
                 config_id=config_id,
+                metadata=metadata,
+                environment=get_string_span_attribute(
+                    current_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+                ),
             )
 
     @overload
@@ -2187,6 +2280,7 @@ class Langfuse:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -2196,9 +2290,12 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal["CATEGORICAL", "TEXT", "CORRECTION"]
+        ] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score_current_trace(
@@ -2210,24 +2307,29 @@ class Langfuse:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for the current trace.
 
         This method scores the trace of the currently active span. Unlike score_current_span,
         this method associates the score with the entire trace rather than a specific span.
         It's useful for scoring overall performance or quality of the entire operation.
+        If the active span has a `langfuse.environment` attribute, including one
+        set by `propagate_attributes(environment=...)`, the score uses that
+        environment. Otherwise it uses the client-level environment.
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT/CORRECTION)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-user-request") as span:
+            with langfuse.start_as_current_observation(name="process-user-request") as span:
                 # Process request
                 result = process_complete_request()
                 span.update(output=result)
@@ -2237,7 +2339,8 @@ class Langfuse:
                     name="overall_quality",
                     value=0.95,
                     data_type="NUMERIC",
-                    comment="High quality end-to-end response"
+                    comment="High quality end-to-end response",
+                    metadata={"evaluator": "gpt-4", "criteria": "comprehensive"}
                 )
             ```
         """
@@ -2247,7 +2350,10 @@ class Langfuse:
             trace_id = self._get_otel_trace_id(current_span)
 
             langfuse_logger.info(
-                f"Score: Creating score name='{name}' value={value} for entire trace {trace_id}"
+                "Score: Creating score name='%s' value=%s for entire trace %s",
+                name,
+                value,
+                trace_id,
             )
 
             self.create_score(
@@ -2255,9 +2361,13 @@ class Langfuse:
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL"], data_type),
+                data_type=cast(Literal["CATEGORICAL", "TEXT", "CORRECTION"], data_type),
                 comment=comment,
                 config_id=config_id,
+                metadata=metadata,
+                environment=get_string_span_attribute(
+                    current_span, LangfuseOtelSpanAttributes.ENVIRONMENT
+                ),
             )
 
     def flush(self) -> None:
@@ -2270,7 +2380,7 @@ class Langfuse:
         Example:
             ```python
             # Record some spans and scores
-            with langfuse.start_as_current_span(name="operation") as span:
+            with langfuse.start_as_current_observation(name="operation") as span:
                 # Do work...
                 pass
 
@@ -2279,6 +2389,15 @@ class Langfuse:
 
             # Continue with other work
             ```
+
+        Note:
+            `flush()` guarantees data was *delivered* to the API, not that it is
+            *readable* yet: server-side ingestion is asynchronous, so flushed data
+            may not be queryable for 15-30 seconds —
+            `api.observations.get_many(trace_id=...)` may return empty results right
+            after a successful flush. Poll with a deadline instead of a fixed sleep;
+            see
+            https://langfuse.com/docs/api-and-data-platform/features/query-via-sdk#ingestion-lag
         """
         if self._resources is not None:
             self._resources.flush()
@@ -2321,7 +2440,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-request") as span:
+            with langfuse.start_as_current_observation(name="process-request") as span:
                 # Get the current trace ID for reference
                 trace_id = langfuse.get_current_trace_id()
 
@@ -2355,7 +2474,7 @@ class Langfuse:
 
         Example:
             ```python
-            with langfuse.start_as_current_span(name="process-user-query") as span:
+            with langfuse.start_as_current_observation(name="process-user-query") as span:
                 # Get the current observation ID
                 observation_id = langfuse.get_current_observation_id()
 
@@ -2403,7 +2522,7 @@ class Langfuse:
         Example:
             ```python
             # Get URL for the current trace
-            with langfuse.start_as_current_span(name="process-request") as span:
+            with langfuse.start_as_current_observation(name="process-request") as span:
                 trace_url = langfuse.get_trace_url()
                 log.info(f"Processing trace: {trace_url}")
 
@@ -2412,8 +2531,11 @@ class Langfuse:
             send_notification(f"Review needed for trace: {specific_trace_url}")
             ```
         """
-        project_id = self._get_project_id()
         final_trace_id = trace_id or self.get_current_trace_id()
+        if not final_trace_id:
+            return None
+
+        project_id = self._get_project_id()
 
         return (
             f"{self._base_url}/project/{project_id}/traces/{final_trace_id}"
@@ -2422,22 +2544,29 @@ class Langfuse:
         )
 
     def get_dataset(
-        self, name: str, *, fetch_items_page_size: Optional[int] = 50
+        self,
+        name: str,
+        *,
+        fetch_items_page_size: Optional[int] = 50,
+        version: Optional[datetime] = None,
     ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
         Args:
-            name (str): The name of the dataset to fetch.
-            fetch_items_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+            name: The name of the dataset to fetch.
+            fetch_items_page_size: All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+            version: Retrieve dataset items as they existed at this specific point in time (UTC).
+                If provided, returns the state of items at the specified UTC timestamp.
+                If not provided, returns the latest version. Must be a timezone-aware datetime object in UTC.
 
         Returns:
             DatasetClient: The dataset with the given name.
         """
         try:
-            langfuse_logger.debug(f"Getting datasets {name}")
+            langfuse_logger.debug("Getting datasets %s", name)
             dataset = self.api.datasets.get(dataset_name=self._url_encode(name))
 
-            dataset_items = []
+            dataset_items: List[DatasetItem] = []
             page = 1
 
             while True:
@@ -2445,17 +2574,24 @@ class Langfuse:
                     dataset_name=self._url_encode(name, is_url_param=True),
                     page=page,
                     limit=fetch_items_page_size,
+                    version=version,
                 )
-                dataset_items.extend(new_items.data)
+                dataset_items.extend(
+                    self._hydrate_dataset_item_media_references(item)
+                    for item in new_items.data
+                )
 
                 if new_items.meta.total_pages <= page:
                     break
 
                 page += 1
 
-            items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
-
-            return DatasetClient(dataset, items=items)
+            return DatasetClient(
+                dataset=dataset,
+                items=dataset_items,
+                version=version,
+                langfuse_client=self,
+            )
 
         except Error as e:
             handle_fern_exception(e)
@@ -2474,6 +2610,8 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
+        experiment_id: Optional[str] = None,
+        _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         """Run an experiment on a dataset with automatic tracing and evaluation.
 
@@ -2492,8 +2630,9 @@ class Langfuse:
         Args:
             name: Human-readable name for the experiment. Used for identification
                 in the Langfuse UI.
-            run_name: Optional exact name for the experiment run. If provided, this will be
-                used as the exact dataset run name if the `data` contains Langfuse dataset items.
+            run_name: Optional exact name for the experiment run. If the `data` contains
+                Langfuse dataset items, runs with the same `run_name` on the same dataset
+                share one experiment ID and appear as a single experiment in Langfuse.
                 If not provided, this will default to the experiment name appended with an ISO timestamp.
             description: Optional description explaining the experiment's purpose,
                 methodology, or expected outcomes.
@@ -2517,19 +2656,41 @@ class Langfuse:
                 Controls the number of items processed simultaneously. Adjust based on
                 API rate limits and system resources.
             metadata: Optional metadata dictionary to attach to all experiment traces.
-                This metadata will be included in every trace created during the experiment.
-                If `data` are Langfuse dataset items, the metadata will be attached to the dataset run, too.
+                This metadata will be included in every trace created during the experiment
+                and is shown as the experiment's metadata in Langfuse.
+            experiment_id: Optional ID of the experiment run to record the items in.
+                Calls with the same `experiment_id` add their items and scores to one
+                experiment in Langfuse, so separate workers, batches, or a resumed run
+                can share an experiment, also for local data. Pass the same `run_name`
+                too, as it sets the experiment name. If provided, it is used as is,
+                also for Langfuse dataset items, instead of the ID derived from the
+                dataset and `run_name`. If not provided, the ID is derived for dataset
+                items and random for local data. Create a reusable ID with
+                `Langfuse.create_trace_id()` (random; store it and share it with the
+                workers) or `Langfuse.create_trace_id(seed="...")` (deterministic; every
+                worker derives the same ID from the same seed, and the JS SDK's
+                `createTraceId(seed)` returns the same ID). `run_evaluators` see only
+                the items of their own call, so each call adds its own run-level
+                scores to the shared experiment.
 
         Returns:
             ExperimentResult containing:
-            - run_name: The experiment run name. This is equal to the dataset run name if experiment was on Langfuse dataset.
+            - run_name: The experiment run name, shown as the experiment name in Langfuse.
             - item_results: List of results for each processed item with outputs and evaluations
-            - run_evaluations: List of aggregate evaluation results for the entire run
-            - dataset_run_id: ID of the dataset run (if using Langfuse datasets)
-            - dataset_run_url: Direct URL to view results in Langfuse UI (if applicable)
+            - run_evaluations: List of aggregate evaluation results for the entire run.
+              They are stored as scores on the experiment run, also for local data.
+            - experiment_id: Identifier for the experiment run across all items. This
+              is the `experiment_id` argument if provided. Otherwise, for Langfuse
+              dataset items it is derived from the project ID, dataset ID and run name;
+              for local data it is random.
+            - experiment_url: Direct URL to view results in Langfuse UI (None if the
+              project ID could not be resolved)
+            - dataset_run_id / dataset_run_url: Deprecated aliases of experiment_id /
+              experiment_url
 
         Raises:
-            ValueError: If required parameters are missing or invalid
+            ValueError: If required parameters are missing or invalid, or if
+                `experiment_id` is empty or whitespace-only
             Exception: If experiment setup fails (individual item failures are handled gracefully)
 
         Examples:
@@ -2624,14 +2785,32 @@ class Langfuse:
             )
 
             # Results automatically linked to dataset in Langfuse UI
-            print(f"View results: {result['dataset_run_url']}")
+            print(f"View results: {result.experiment_url}")
+            ```
+
+            Recording one experiment from several workers or resumed jobs:
+            ```python
+            # Every worker derives the same ID from the same seed
+            experiment_id = Langfuse.create_trace_id(seed="nightly-eval/2026-10-20")
+
+            # Each worker or resumed job runs its share of the items
+            langfuse.run_experiment(
+                name="Nightly eval",
+                run_name="nightly-eval/2026-10-20",
+                experiment_id=experiment_id,
+                data=items_for_this_worker,
+                task=my_task,
+                evaluators=[accuracy_evaluator],
+            )
             ```
 
         Note:
             - Task and evaluator functions can be either synchronous or asynchronous
             - Individual item failures are logged but don't stop the experiment
             - All executions are automatically traced and visible in Langfuse UI
-            - When using Langfuse datasets, results are automatically linked for easy comparison
+            - Experiment runs are recorded only through the exported traces; no
+              separate dataset run is created via the API
+            - When using Langfuse datasets, results are automatically linked to the dataset for easy comparison
             - This method works in both sync and async contexts (Jupyter notebooks, web apps, etc.)
             - Async execution is handled automatically with smart event loop detection
         """
@@ -2651,6 +2830,8 @@ class Langfuse:
                     run_evaluators=run_evaluators or [],
                     max_concurrency=max_concurrency,
                     metadata=metadata,
+                    experiment_id=experiment_id,
+                    dataset_version=_dataset_version,
                 ),
             ),
         )
@@ -2668,9 +2849,47 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction],
         max_concurrency: int,
         metadata: Optional[Dict[str, Any]] = None,
+        experiment_id: Optional[str] = None,
+        dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
+        if experiment_id is not None and (
+            not isinstance(experiment_id, str) or not experiment_id.strip()
+        ):
+            message = "experiment_id must be a non-empty string if provided."
+            raise ValueError(message)
+
         langfuse_logger.debug(
-            f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
+            "Starting experiment '%s' run '%s' with %s items", name, run_name, len(data)
+        )
+
+        project_id: Optional[str] = None
+        if self._tracing_enabled:
+            try:
+                project_id = await asyncio.to_thread(self._get_project_id)
+            except Exception as e:
+                langfuse_logger.warning(
+                    "Failed to resolve project id for experiment: %s", e
+                )
+
+        # One experiment id per run: mixed-dataset data uses the first dataset item's dataset.
+        experiment_dataset_id = next(
+            (
+                getattr(item, "dataset_id", None)
+                for item in data
+                if not isinstance(item, dict) and getattr(item, "dataset_id", None)
+            ),
+            None,
+        )
+        if experiment_id is None:
+            experiment_id = self._create_experiment_id(
+                project_id=project_id,
+                dataset_id=experiment_dataset_id,
+                run_name=run_name,
+            )
+        experiment_item_version = (
+            self._format_experiment_item_version(dataset_version)
+            if dataset_version is not None
+            else None
         )
 
         # Set up concurrency control
@@ -2684,10 +2903,12 @@ class Langfuse:
                     task,
                     evaluators,
                     composite_evaluator,
+                    experiment_id,
                     name,
                     run_name,
                     description,
                     metadata,
+                    experiment_item_version,
                 )
 
         # Run all items concurrently
@@ -2698,7 +2919,7 @@ class Langfuse:
         valid_results: List[ExperimentItemResult] = []
         for i, result in enumerate(item_results):
             if isinstance(result, Exception):
-                langfuse_logger.error(f"Item {i} failed: {result}")
+                langfuse_logger.error("Item %s failed: %s", i, result)
             elif isinstance(result, ExperimentItemResult):
                 valid_results.append(result)  # type: ignore
 
@@ -2711,48 +2932,32 @@ class Langfuse:
                 )
                 run_evaluations.extend(evaluations)
             except Exception as e:
-                langfuse_logger.error(f"Run evaluator failed: {e}")
+                langfuse_logger.error("Run evaluator failed: %s", e)
 
-        # Generate dataset run URL if applicable
-        dataset_run_id = valid_results[0].dataset_run_id if valid_results else None
-        dataset_run_url = None
-        if dataset_run_id and data:
-            try:
-                # Check if the first item has dataset_id (for DatasetItem objects)
-                first_item = data[0]
-                dataset_id = None
+        experiment_url = (
+            f"{self._base_url}/project/{project_id}/experiments/results?baseline={urllib.parse.quote(experiment_id, safe='')}"
+            if project_id
+            else None
+        )
 
-                if hasattr(first_item, "dataset_id"):
-                    dataset_id = getattr(first_item, "dataset_id", None)
-
-                if dataset_id:
-                    project_id = self._get_project_id()
-
-                    if project_id:
-                        dataset_run_url = f"{self._base_url}/project/{project_id}/datasets/{dataset_id}/runs/{dataset_run_id}"
-
-            except Exception:
-                pass  # URL generation is optional
-
-        # Store run-level evaluations as scores
+        # Run-level scores attach to the experiment via dataset_run_id == experiment_id.
         for evaluation in run_evaluations:
             try:
-                if dataset_run_id:
-                    self.create_score(
-                        dataset_run_id=dataset_run_id,
-                        name=evaluation.name or "<unknown>",
-                        value=evaluation.value,  # type: ignore
-                        comment=evaluation.comment,
-                        metadata=evaluation.metadata,
-                        data_type=evaluation.data_type,  # type: ignore
-                        config_id=evaluation.config_id,
-                    )
+                self.create_score(
+                    dataset_run_id=experiment_id,
+                    name=evaluation.name or "<unknown>",
+                    value=evaluation.value,  # type: ignore
+                    comment=evaluation.comment,
+                    metadata=evaluation.metadata,
+                    data_type=evaluation.data_type,  # type: ignore
+                    config_id=evaluation.config_id,
+                )
 
             except Exception as e:
-                langfuse_logger.error(f"Failed to store run evaluation: {e}")
+                langfuse_logger.error("Failed to store run evaluation: %s", e)
 
-        # Flush scores and traces
-        self.flush()
+        # Flush scores and traces off the event loop; flush() blocks on network I/O.
+        await asyncio.to_thread(self.flush)
 
         return ExperimentResult(
             name=name,
@@ -2760,9 +2965,41 @@ class Langfuse:
             description=description,
             item_results=valid_results,
             run_evaluations=run_evaluations,
-            dataset_run_id=dataset_run_id,
-            dataset_run_url=dataset_run_url,
+            experiment_id=experiment_id,
+            experiment_url=experiment_url,
         )
+
+    def _create_experiment_id(
+        self,
+        *,
+        project_id: Optional[str],
+        dataset_id: Optional[str],
+        run_name: str,
+    ) -> str:
+        if dataset_id is None:
+            return self._create_observation_id()
+
+        if project_id is None:
+            langfuse_logger.warning(
+                "Could not resolve the project id; using a random experiment id for run '%s'. "
+                "Re-runs with the same run name will not be grouped into the same experiment.",
+                run_name,
+            )
+            return self._create_observation_id()
+
+        # Must match the Langfuse server's stable experiment id derivation byte for
+        # byte (JS JSON.stringify of the same array, SHA-256, first 16 hex chars).
+        payload = json.dumps(
+            ["langfuse-experiment-v1", project_id, dataset_id, run_name],
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+
+        return sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+    @staticmethod
+    def _format_experiment_item_version(dataset_version: datetime) -> str:
+        return serialize_datetime(dataset_version)
 
     async def _process_experiment_item(
         self,
@@ -2770,14 +3007,14 @@ class Langfuse:
         task: Callable,
         evaluators: List[Callable],
         composite_evaluator: Optional[CompositeEvaluatorFunction],
+        experiment_id: str,
         experiment_name: str,
         experiment_run_name: str,
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
+        experiment_item_version: Optional[str] = None,
     ) -> ExperimentItemResult:
-        span_name = "experiment-item-run"
-
-        with self.start_as_current_span(name=span_name) as span:
+        with self.start_as_current_observation(name="experiment-item-run") as span:
             try:
                 input_data = (
                     item.get("input")
@@ -2800,38 +3037,14 @@ class Langfuse:
                     else getattr(item, "metadata", None)
                 )
 
-                final_observation_metadata = {
-                    "experiment_name": experiment_name,
-                    "experiment_run_name": experiment_run_name,
-                    **(experiment_metadata or {}),
-                }
-
                 trace_id = span.trace_id
                 dataset_id = None
                 dataset_item_id = None
-                dataset_run_id = None
 
-                # Link to dataset run if this is a dataset item
-                if hasattr(item, "id") and hasattr(item, "dataset_id"):
-                    try:
-                        # Use sync API to avoid event loop issues when run_async_safely
-                        # creates multiple event loops across different threads
-                        dataset_run_item = await asyncio.to_thread(
-                            self.api.dataset_run_items.create,
-                            request=CreateDatasetRunItemRequest(
-                                runName=experiment_run_name,
-                                runDescription=experiment_description,
-                                metadata=experiment_metadata,
-                                datasetItemId=item.id,  # type: ignore
-                                traceId=trace_id,
-                                observationId=span.id,
-                            ),
-                        )
-
-                        dataset_run_id = dataset_run_item.dataset_run_id
-
-                    except Exception as e:
-                        langfuse_logger.error(f"Failed to create dataset run item: {e}")
+                experiment_run_metadata: Dict[str, Any] = {
+                    "experiment_name": experiment_name,
+                    "experiment_run_name": experiment_run_name,
+                }
 
                 if (
                     not isinstance(item, dict)
@@ -2841,43 +3054,88 @@ class Langfuse:
                     dataset_id = item.dataset_id
                     dataset_item_id = item.id
 
-                    final_observation_metadata.update(
+                    experiment_run_metadata.update(
                         {"dataset_id": dataset_id, "dataset_item_id": dataset_item_id}
                     )
 
-                if isinstance(item_metadata, dict):
-                    final_observation_metadata.update(item_metadata)
+                # Experiment run keys go first so the span attribute limit drops
+                # user metadata before them, and last so they still win over
+                # user keys.
+                final_observation_metadata = {
+                    **experiment_run_metadata,
+                    **(item_metadata if isinstance(item_metadata, dict) else {}),
+                    **(experiment_metadata or {}),
+                    **experiment_run_metadata,
+                }
 
-                experiment_id = dataset_run_id or self._create_observation_id()
                 experiment_item_id = (
                     dataset_item_id or get_sha256_hash_hex(_serialize(input_data))[:16]
                 )
-                span._otel_span.set_attributes(
-                    {
-                        k: v
-                        for k, v in {
-                            LangfuseOtelSpanAttributes.ENVIRONMENT: LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
-                            LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION: experiment_description,
-                            LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT: _serialize(
-                                expected_output
-                            ),
-                        }.items()
-                        if v is not None
-                    }
+                experiment_span_attributes = {
+                    k: v
+                    for k, v in {
+                        LangfuseOtelSpanAttributes.ENVIRONMENT: LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+                        LangfuseOtelSpanAttributes.EXPERIMENT_DESCRIPTION: experiment_description,
+                        LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_EXPECTED_OUTPUT: _serialize(
+                            expected_output
+                        ),
+                        LangfuseOtelSpanAttributes.EXPERIMENT_ITEM_VERSION: (
+                            experiment_item_version if dataset_id else None
+                        ),
+                    }.items()
+                    if v is not None
+                }
+                _set_span_attributes_within_limit(
+                    span._otel_span, experiment_span_attributes
                 )
 
-                with _propagate_attributes(
-                    experiment=PropagatedExperimentAttributes(
+                with span.start_as_current_observation(
+                    name="experiment-item-task",
+                    as_type="span",
+                    input=input_data,
+                ) as task_span:
+                    _set_span_attributes_within_limit(
+                        task_span._otel_span, experiment_span_attributes
+                    )
+
+                    propagated_experiment_attributes = PropagatedExperimentAttributes(
                         experiment_id=experiment_id,
                         experiment_name=experiment_run_name,
                         experiment_metadata=_serialize(experiment_metadata),
                         experiment_dataset_id=dataset_id,
                         experiment_item_id=experiment_item_id,
-                        experiment_item_metadata=_serialize(item_metadata),
-                        experiment_item_root_observation_id=span.id,
+                        experiment_item_metadata=_serialize(
+                            item_metadata if isinstance(item_metadata, dict) else None
+                        ),
+                        experiment_item_root_observation_id=task_span.id,
                     )
-                ):
-                    output = await _run_task(task, item)
+
+                    with _propagate_attributes(
+                        experiment=propagated_experiment_attributes
+                    ):
+                        # _propagate_attributes updates the current task span and future children.
+                        # Explicitly backfill the parent item-run span to preserve experiment association.
+                        _set_span_attributes_within_limit(
+                            span._otel_span,
+                            _get_propagated_attributes_from_context(
+                                otel_context_api.get_current()
+                            ),
+                        )
+                        # Write the observation metadata after the experiment
+                        # attributes, so the span attribute limit trims the
+                        # metadata instead of leaving no room for the output.
+                        task_span.update(metadata=final_observation_metadata)
+                        try:
+                            output = await _run_task(task, item)
+                        except Exception as e:
+                            task_span.update(
+                                output=f"Error: {str(e)}",
+                                level="ERROR",
+                                status_message=str(e),
+                            )
+                            raise
+
+                    task_span.update(output=output)
 
                 span.update(
                     input=input_data,
@@ -2891,95 +3149,161 @@ class Langfuse:
                 )
                 raise e
 
-        # Run evaluators
-        evaluations = []
+            evaluations: List[Evaluation] = []
+            failed_evaluator_count = 0
+            eval_metadata = (
+                item.get("metadata")
+                if isinstance(item, dict)
+                else getattr(item, "metadata", None)
+            )
 
-        for evaluator in evaluators:
-            try:
-                eval_metadata: Optional[Dict[str, Any]] = None
+            if len(evaluators) > 0:
+                with _propagate_attributes(experiment=propagated_experiment_attributes):
+                    with span.start_as_current_observation(
+                        name="experiment-item-evaluation", as_type="span"
+                    ) as evaluation_span:
+                        for evaluator_index, evaluator in enumerate(evaluators):
+                            evaluator_name = _get_evaluator_name(evaluator)
+                            evaluator_input = {
+                                "input": input_data,
+                                "output": output,
+                                "expected_output": expected_output,
+                                "metadata": eval_metadata,
+                            }
 
-                if isinstance(item, dict):
-                    eval_metadata = item.get("metadata")
-                elif hasattr(item, "metadata"):
-                    eval_metadata = item.metadata
+                            with evaluation_span.start_as_current_observation(
+                                name=evaluator_name,
+                                as_type="evaluator",
+                                input=evaluator_input,
+                                metadata={
+                                    "evaluator_kind": "item",
+                                    "evaluator_index": evaluator_index,
+                                },
+                            ) as evaluator_span:
+                                try:
+                                    eval_results = await _run_evaluator(
+                                        evaluator,
+                                        _raise_on_error=True,
+                                        **evaluator_input,
+                                    )
+                                    evaluator_span.update(
+                                        output=_serialize_evaluations(eval_results)
+                                    )
+                                except Exception as e:
+                                    failed_evaluator_count += 1
+                                    evaluator_span.update(
+                                        output={"error": str(e)},
+                                        level="ERROR",
+                                        status_message=str(e),
+                                    )
+                                    langfuse_logger.error("Evaluator failed: %s", e)
+                                    continue
 
-                eval_results = await _run_evaluator(
-                    evaluator,
-                    input=input_data,
-                    output=output,
-                    expected_output=expected_output,
-                    metadata=eval_metadata,
-                )
-                evaluations.extend(eval_results)
+                            evaluations.extend(eval_results)
 
-                # Store evaluations as scores
-                for evaluation in eval_results:
-                    self.create_score(
-                        trace_id=trace_id,
-                        observation_id=span.id,
-                        name=evaluation.name,
-                        value=evaluation.value,  # type: ignore
-                        comment=evaluation.comment,
-                        metadata=evaluation.metadata,
-                        config_id=evaluation.config_id,
-                        data_type=evaluation.data_type,  # type: ignore
-                    )
+                            for evaluation in eval_results:
+                                try:
+                                    self.create_score(
+                                        trace_id=trace_id,
+                                        observation_id=task_span.id,
+                                        name=evaluation.name,
+                                        value=evaluation.value,  # type: ignore
+                                        comment=evaluation.comment,
+                                        metadata=evaluation.metadata,
+                                        config_id=evaluation.config_id,
+                                        data_type=evaluation.data_type,  # type: ignore
+                                    )
+                                except Exception as e:
+                                    langfuse_logger.error(
+                                        "Failed to store evaluation: %s", e
+                                    )
 
-            except Exception as e:
-                langfuse_logger.error(f"Evaluator failed: {e}")
+                        if composite_evaluator and evaluations:
+                            composite_evaluator_name = _get_evaluator_name(
+                                composite_evaluator
+                            )
+                            composite_input = {
+                                "input": input_data,
+                                "output": output,
+                                "expected_output": expected_output,
+                                "metadata": eval_metadata,
+                                "evaluations": _serialize_evaluations(evaluations),
+                            }
 
-        # Run composite evaluator if provided and we have evaluations
-        if composite_evaluator and evaluations:
-            try:
-                composite_eval_metadata: Optional[Dict[str, Any]] = None
-                if isinstance(item, dict):
-                    composite_eval_metadata = item.get("metadata")
-                elif hasattr(item, "metadata"):
-                    composite_eval_metadata = item.metadata
+                            with evaluation_span.start_as_current_observation(
+                                name=composite_evaluator_name,
+                                as_type="evaluator",
+                                input=composite_input,
+                                metadata={"evaluator_kind": "composite"},
+                            ) as composite_evaluator_span:
+                                try:
+                                    result = composite_evaluator(
+                                        input=input_data,
+                                        output=output,
+                                        expected_output=expected_output,
+                                        metadata=eval_metadata,
+                                        evaluations=evaluations,
+                                    )
 
-                result = composite_evaluator(
-                    input=input_data,
-                    output=output,
-                    expected_output=expected_output,
-                    metadata=composite_eval_metadata,
-                    evaluations=evaluations,
-                )
+                                    if asyncio.iscoroutine(result):
+                                        result = await result
 
-                # Handle async composite evaluators
-                if asyncio.iscoroutine(result):
-                    result = await result
+                                    composite_evals = _normalize_evaluator_result(
+                                        result
+                                    )
 
-                # Normalize to list
-                composite_evals: List[Evaluation] = []
-                if isinstance(result, (dict, Evaluation)):
-                    composite_evals = [result]  # type: ignore
-                elif isinstance(result, list):
-                    composite_evals = result  # type: ignore
+                                    composite_evaluator_span.update(
+                                        output=_serialize_evaluations(composite_evals)
+                                    )
+                                except Exception as e:
+                                    failed_evaluator_count += 1
+                                    composite_evaluator_span.update(
+                                        output={"error": str(e)},
+                                        level="ERROR",
+                                        status_message=str(e),
+                                    )
+                                    langfuse_logger.error(
+                                        "Composite evaluator failed: %s", e
+                                    )
+                                    composite_evals = []
 
-                # Store composite evaluations as scores and add to evaluations list
-                for composite_evaluation in composite_evals:
-                    self.create_score(
-                        trace_id=trace_id,
-                        observation_id=span.id,
-                        name=composite_evaluation.name,
-                        value=composite_evaluation.value,  # type: ignore
-                        comment=composite_evaluation.comment,
-                        metadata=composite_evaluation.metadata,
-                        config_id=composite_evaluation.config_id,
-                        data_type=composite_evaluation.data_type,  # type: ignore
-                    )
-                    evaluations.append(composite_evaluation)
+                            for composite_evaluation in composite_evals:
+                                evaluations.append(composite_evaluation)
+                                try:
+                                    self.create_score(
+                                        trace_id=trace_id,
+                                        observation_id=task_span.id,
+                                        name=composite_evaluation.name,
+                                        value=composite_evaluation.value,  # type: ignore
+                                        comment=composite_evaluation.comment,
+                                        metadata=composite_evaluation.metadata,
+                                        config_id=composite_evaluation.config_id,
+                                        data_type=composite_evaluation.data_type,  # type: ignore
+                                    )
+                                except Exception as e:
+                                    langfuse_logger.error(
+                                        "Failed to store composite evaluation: %s", e
+                                    )
 
-            except Exception as e:
-                langfuse_logger.error(f"Composite evaluator failed: {e}")
+                        evaluation_span.update(
+                            output={
+                                "evaluator_count": len(evaluators)
+                                + (1 if composite_evaluator else 0),
+                                "evaluation_count": len(evaluations),
+                                "failed_evaluator_count": failed_evaluator_count,
+                                "skipped_evaluator_count": (
+                                    1 if composite_evaluator and not evaluations else 0
+                                ),
+                            }
+                        )
 
-        return ExperimentItemResult(
-            item=item,
-            output=output,
-            evaluations=evaluations,
-            trace_id=trace_id,
-            dataset_run_id=dataset_run_id,
-        )
+            return ExperimentItemResult(
+                item=item,
+                output=output,
+                evaluations=evaluations,
+                trace_id=trace_id,
+                experiment_id=experiment_id,
+            )
 
     def _create_experiment_run_name(
         self, *, name: Optional[str] = None, run_name: Optional[str] = None
@@ -2994,25 +3318,26 @@ class Langfuse:
     def run_batched_evaluation(
         self,
         *,
-        scope: Literal["traces", "observations"],
         mapper: MapperFunction,
         filter: Optional[str] = None,
         fetch_batch_size: int = 50,
+        fields: Optional[str] = "core,basic,io,metadata",
         max_items: Optional[int] = None,
         max_retries: int = 3,
         evaluators: List[EvaluatorFunction],
         composite_evaluator: Optional[CompositeEvaluatorFunction] = None,
-        max_concurrency: int = 50,
+        max_concurrency: int = 5,
         metadata: Optional[Dict[str, Any]] = None,
+        _add_observation_scores_to_trace: bool = False,
         resume_from: Optional[BatchEvaluationResumeToken] = None,
         verbose: bool = False,
     ) -> BatchEvaluationResult:
-        """Fetch traces or observations and run evaluations on each item.
+        """Fetch observations from Langfuse and evaluate each of them.
 
         This method provides a powerful way to evaluate existing data in Langfuse at scale.
-        It fetches items based on filters, transforms them using a mapper function, runs
-        evaluators on each item, and creates scores that are linked back to the original
-        entities. This is ideal for:
+        It fetches observations based on filters, transforms them using a mapper function,
+        runs evaluators on each item, and creates scores that are linked back to the
+        original entities. This is ideal for:
 
         - Running evaluations on production traces after deployment
         - Backtesting new evaluation metrics on historical data
@@ -3023,40 +3348,54 @@ class Langfuse:
         it memory-efficient for large datasets. It includes comprehensive error handling,
         retry logic, and resume capability for long-running evaluations.
 
+        Items are read from `GET /api/public/v2/observations` with cursor pagination,
+        newest first (by start time).
+
         Args:
-            scope: The type of items to evaluate. Must be one of:
-                - "traces": Evaluate complete traces with all their observations
-                - "observations": Evaluate individual observations (spans, generations, events)
-            mapper: Function that transforms API response objects into evaluator inputs.
-                Receives a trace/observation object and returns an EvaluatorInputs
+            mapper: Function that transforms an `ObservationV2` into evaluator inputs.
+                Called as `mapper(item=observation)` and must return an EvaluatorInputs
                 instance with input, output, expected_output, and metadata fields.
-                Can be sync or async.
+                `input`/`output` are raw strings (not JSON-parsed), and only the
+                requested `fields` groups are populated. Can be sync or async.
             evaluators: List of evaluation functions to run on each item. Each evaluator
                 receives the mapped inputs and returns Evaluation object(s). Evaluator
                 failures are logged but don't stop the batch evaluation.
-            filter: Optional JSON filter string for querying items (same format as Langfuse API). Examples:
-                - '{"tags": ["production"]}'
-                - '{"user_id": "user123", "timestamp": {"operator": ">", "value": "2024-01-01"}}'
-                Default: None (fetches all items).
+            filter: Optional JSON array of filter conditions in the v2 observations
+                filter format, for example:
+                - '[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]'
+                - '[{"type": "string", "column": "traceName", "operator": "=", "value": "chat"}]'
+                - '[{"type": "datetime", "column": "startTime", "operator": ">=", "value": "2026-01-01T00:00:00Z"}]'
+                Without a `startTime` lower bound, the server only reads back to
+                2020-01-01, and a selective filter can take many slow requests to get
+                there. Add a `startTime` lower bound when you can. Default: None.
             fetch_batch_size: Number of items to fetch per API call and hold in memory.
-                Larger values may be faster but use more memory. Default: 50.
+                Larger values may be faster but use more memory. Maximum 1000. Default: 50.
+            fields: Comma-separated list of observation field groups to fetch. Available
+                groups: 'core' (always included), 'basic', 'time', 'io', 'metadata',
+                'model', 'usage', 'prompt', 'metrics', 'trace_context'. Fields of groups
+                that are not requested are None on the item passed to the mapper.
+                Metadata values longer than 200 characters are truncated.
+                Default: "core,basic,io,metadata".
             max_items: Maximum total number of items to process. If None, processes all
                 items matching the filter. Useful for testing or limiting evaluation runs.
                 Default: None (process all).
             max_concurrency: Maximum number of items to evaluate concurrently. Controls
-                parallelism and resource usage. Default: 50.
+                parallelism and resource usage. Default: 5.
             composite_evaluator: Optional function that creates a composite score from
-                item-level evaluations. Receives the original item and its evaluations,
-                returns a single Evaluation. Useful for weighted averages or combined metrics.
-                Default: None.
+                item-level evaluations. Receives the mapped inputs and the item's
+                evaluations, returns Evaluation(s). Useful for weighted averages or
+                combined metrics. Default: None.
             metadata: Optional metadata dict to add to all created scores. Useful for
                 tracking evaluation runs, versions, or other context. Default: None.
-            max_retries: Maximum number of retry attempts for failed batch fetches.
-                Uses exponential backoff (1s, 2s, 4s). Default: 3.
+            max_retries: Maximum retries of a batch fetch on HTTP 408, 409, 429 and
+                5xx responses. Other fetch errors, such as timeouts or a 422, stop
+                the run with `completed=False` and a resume token. Default: 3.
             verbose: If True, logs progress information to console. Useful for monitoring
                 long-running evaluations. Default: False.
-            resume_from: Optional resume token from a previous incomplete run. Allows
-                continuing evaluation after interruption or failure. Default: None.
+            resume_from: Optional resume token from a previous run that stopped early
+                (fetch failure or `max_items`). Continues exactly after the last
+                processed page. Pass the same `filter`, or omit it to reuse the
+                token's filter. Default: None.
 
 
         Returns:
@@ -3068,134 +3407,119 @@ class Langfuse:
                 - total_composite_scores_created: Scores created by composite evaluator
                 - total_evaluations_failed: Individual evaluator failures
                 - evaluator_stats: Per-evaluator statistics (success rate, scores created)
-                - resume_token: Token for resuming if incomplete (None if completed)
-                - completed: True if all items processed
+                - resume_token: Token for continuing the run (set after a fetch failure
+                  or when max_items was reached while more items may exist)
+                - completed: False if the run stopped because a fetch failed
                 - duration_seconds: Total execution time
-                - failed_item_ids: IDs of items that failed
+                - failed_item_ids: Observation IDs of items that failed
                 - error_summary: Error types and counts
-                - has_more_items: True if max_items reached but more exist
+                - has_more_items: True if max_items was reached and more items may exist
+                - item_evaluations: Evaluations per observation ID
 
         Raises:
-            ValueError: If invalid scope is provided.
+            ValueError: If a non-array filter is provided, or the resume token was
+                created for a different filter.
 
         Examples:
-            Basic trace evaluation:
+            Evaluate production observations:
             ```python
             from langfuse import Langfuse, EvaluatorInputs, Evaluation
 
             client = Langfuse()
 
-            # Define mapper to extract fields from traces
-            def trace_mapper(trace):
+            def simple_mapper(*, item):
                 return EvaluatorInputs(
-                    input=trace.input,
-                    output=trace.output,
+                    input=item.input,
+                    output=item.output,
                     expected_output=None,
-                    metadata={"trace_id": trace.id}
+                    metadata={"trace_id": item.trace_id},
                 )
 
-            # Define evaluator
             def length_evaluator(*, input, output, expected_output, metadata):
                 return Evaluation(
                     name="output_length",
                     value=len(output) if output else 0
                 )
 
-            # Run batch evaluation
             result = client.run_batched_evaluation(
-                scope="traces",
-                mapper=trace_mapper,
+                mapper=simple_mapper,
                 evaluators=[length_evaluator],
-                filter='{"tags": ["production"]}',
+                filter='[{"type": "arrayOptions", "column": "tags", "operator": "any of", "value": ["production"]}]',
                 max_items=1000,
                 verbose=True
             )
 
-            print(f"Processed {result.total_items_processed} traces")
+            print(f"Processed {result.total_items_processed} observations")
             print(f"Created {result.total_scores_created} scores")
             ```
 
-            Evaluation with composite scorer:
+            Evaluate generations with a composite scorer:
             ```python
+            import json
+
+            def generation_mapper(*, item):
+                return EvaluatorInputs(
+                    input=json.loads(item.input) if item.input else None,
+                    output=item.output,
+                    expected_output=None,
+                    metadata={"model": item.model},
+                )
+
             def accuracy_evaluator(*, input, output, expected_output, metadata):
-                # ... evaluation logic
                 return Evaluation(name="accuracy", value=0.85)
 
             def relevance_evaluator(*, input, output, expected_output, metadata):
-                # ... evaluation logic
                 return Evaluation(name="relevance", value=0.92)
 
-            def composite_evaluator(*, item, evaluations):
-                # Weighted average of evaluations
+            def composite_evaluator(*, input, output, expected_output, metadata, evaluations):
                 weights = {"accuracy": 0.6, "relevance": 0.4}
                 total = sum(
                     e.value * weights.get(e.name, 0)
                     for e in evaluations
                     if isinstance(e.value, (int, float))
                 )
-                return Evaluation(
-                    name="composite_score",
-                    value=total,
-                    comment=f"Weighted average of {len(evaluations)} metrics"
-                )
+                return Evaluation(name="composite_score", value=total)
 
             result = client.run_batched_evaluation(
-                scope="traces",
-                mapper=trace_mapper,
+                mapper=generation_mapper,
                 evaluators=[accuracy_evaluator, relevance_evaluator],
                 composite_evaluator=composite_evaluator,
-                filter='{"user_id": "important_user"}',
-                verbose=True
+                filter='[{"type": "string", "column": "type", "operator": "=", "value": "GENERATION"}]',
+                fields="core,basic,io,model",
             )
             ```
 
-            Handling incomplete runs with resume:
+            Processing in chunks of `max_items`:
             ```python
-            # Initial run that may fail or timeout
             result = client.run_batched_evaluation(
-                scope="observations",
-                mapper=obs_mapper,
-                evaluators=[my_evaluator],
+                mapper=generation_mapper,
+                evaluators=[accuracy_evaluator],
                 max_items=10000,
-                verbose=True
             )
 
-            # Check if incomplete
-            if not result.completed and result.resume_token:
-                print(f"Processed {result.resume_token.items_processed} items before interruption")
-
-                # Resume from where it left off
+            while result.has_more_items:
                 result = client.run_batched_evaluation(
-                    scope="observations",
-                    mapper=obs_mapper,
-                    evaluators=[my_evaluator],
+                    mapper=generation_mapper,
+                    evaluators=[accuracy_evaluator],
+                    max_items=10000,
                     resume_from=result.resume_token,
-                    verbose=True
                 )
 
-            print(f"Total items processed: {result.total_items_processed}")
-            ```
-
-            Monitoring evaluator performance:
-            ```python
-            result = client.run_batched_evaluation(...)
-
-            for stats in result.evaluator_stats:
-                success_rate = stats.successful_runs / stats.total_runs
-                print(f"{stats.name}:")
-                print(f"  Success rate: {success_rate:.1%}")
-                print(f"  Scores created: {stats.total_scores_created}")
-
-                if stats.failed_runs > 0:
-                    print(f"  ⚠️  Failed {stats.failed_runs} times")
+            if not result.completed:
+                # resume_from=result.resume_token retries the failed page. A 422
+                # usually repeats, and a token only resumes its own filter, so
+                # start a new run whose filter adds a narrower startTime range.
+                ...
             ```
 
         Note:
             - Evaluator failures are logged but don't stop the batch evaluation
             - Individual item failures are tracked but don't stop processing
-            - Fetch failures are retried with exponential backoff
+            - Fetches are retried up to `max_retries` times on HTTP 408, 409, 429
+              and 5xx responses; other fetch errors stop the run
             - All scores are automatically flushed to Langfuse at the end
-            - The resume mechanism uses timestamp-based filtering to avoid duplicates
+            - Resuming uses the pagination cursor, so items are neither skipped nor
+              evaluated twice
         """
         runner = BatchEvaluationRunner(self)
 
@@ -3203,15 +3527,16 @@ class Langfuse:
             BatchEvaluationResult,
             run_async_safely(
                 runner.run_async(
-                    scope=scope,
                     mapper=mapper,
                     evaluators=evaluators,
                     filter=filter,
                     fetch_batch_size=fetch_batch_size,
+                    fields=fields,
                     max_items=max_items,
                     max_concurrency=max_concurrency,
                     composite_evaluator=composite_evaluator,
                     metadata=metadata,
+                    _add_observation_scores_to_trace=_add_observation_scores_to_trace,
                     max_retries=max_retries,
                     verbose=verbose,
                     resume_from=resume_from,
@@ -3231,7 +3556,7 @@ class Langfuse:
         try:
             projects = self.api.projects.get()
             langfuse_logger.debug(
-                f"Auth check successful, found {len(projects.data)} projects"
+                "Auth check successful, found %s projects", len(projects.data)
             )
             if len(projects.data) == 0:
                 raise Exception(
@@ -3241,7 +3566,7 @@ class Langfuse:
 
         except AttributeError as e:
             langfuse_logger.warning(
-                f"Auth check failed: Client not properly initialized. Error: {e}"
+                "Auth check failed: Client not properly initialized. Error: %s", e
             )
             return False
 
@@ -3271,16 +3596,17 @@ class Langfuse:
             Dataset: The created dataset as returned by the Langfuse API.
         """
         try:
-            body = CreateDatasetRequest(
+            langfuse_logger.debug("Creating datasets %s", name)
+
+            result = self.api.datasets.create(
                 name=name,
                 description=description,
                 metadata=metadata,
-                inputSchema=input_schema,
-                expectedOutputSchema=expected_output_schema,
+                input_schema=input_schema,
+                expected_output_schema=expected_output_schema,
             )
-            langfuse_logger.debug(f"Creating datasets {body}")
 
-            return self.api.datasets.create(request=body)
+            return cast(Dataset, result)
 
         except Error as e:
             handle_fern_exception(e)
@@ -3331,21 +3657,187 @@ class Langfuse:
             ```
         """
         try:
-            body = CreateDatasetItemRequest(
-                datasetName=dataset_name,
-                input=input,
-                expectedOutput=expected_output,
-                metadata=metadata,
-                sourceTraceId=source_trace_id,
-                sourceObservationId=source_observation_id,
-                status=status,
-                id=id,
+            langfuse_logger.debug("Creating dataset item for dataset %s", dataset_name)
+
+            # Media uploads must reference the (dataset, item) they belong to, and
+            # the item need not exist yet — so settle on the item id up front and
+            # reuse it for the create call below.
+            item_id = id if id is not None else str(uuid.uuid4())
+
+            # Single pass per field: swap each LangfuseMedia for its reference
+            # string (derived from content, not the upload) and collect the media
+            # still to upload, deduped by media id and tagged with its field.
+            pending_media: Dict[str, Tuple[LangfuseMedia, str]] = {}
+            input = self._process_dataset_item_media(
+                data=input,
+                pending_media=pending_media,
+                field=DatasetItemMediaReferenceField.INPUT.value,
             )
-            langfuse_logger.debug(f"Creating dataset item {body}")
-            return self.api.dataset_items.create(request=body)
+            expected_output = self._process_dataset_item_media(
+                data=expected_output,
+                pending_media=pending_media,
+                field=DatasetItemMediaReferenceField.EXPECTED_OUTPUT.value,
+            )
+            metadata = self._process_dataset_item_media(
+                data=metadata,
+                pending_media=pending_media,
+                field=DatasetItemMediaReferenceField.METADATA.value,
+            )
+
+            # The upload needs the dataset id, but the create API only takes the
+            # name. Resolve it once, and only when there is actually media to
+            # upload — a plain item pays no extra datasets.get round-trip.
+            if pending_media:
+                assert self._resources is not None
+                dataset_id = self.api.datasets.get(self._url_encode(dataset_name)).id
+                for media, field in pending_media.values():
+                    self._resources._media_manager._upload_media_sync(
+                        media=media,
+                        dataset_id=dataset_id,
+                        dataset_item_id=item_id,
+                        field=field,
+                    )
+
+            result = self.api.dataset_items.create(
+                dataset_name=dataset_name,
+                input=input,
+                expected_output=expected_output,
+                metadata=metadata,
+                source_trace_id=source_trace_id,
+                source_observation_id=source_observation_id,
+                status=status,
+                id=item_id,
+            )
+
+            return cast(DatasetItem, result)
         except Error as e:
             handle_fern_exception(e)
             raise e
+
+    def _process_dataset_item_media(
+        self,
+        *,
+        data: Any,
+        pending_media: Dict[str, Tuple[LangfuseMedia, str]],
+        field: str,
+    ) -> Any:
+        """Swap each ``LangfuseMedia`` for its reference string in ``data``.
+
+        Each replaced media is recorded in ``pending_media`` (keyed by media id,
+        so the same media across fields uploads once) for the caller to upload
+        after the dataset id has been resolved.
+        """
+        if self._resources is None:
+            return data
+
+        max_levels = 10
+
+        def _process_data_recursively(
+            data: Any, level: int, ancestor_container_ids: set[int]
+        ) -> Any:
+            if isinstance(data, LangfuseMedia):
+                reference_string = data._reference_string
+                media_id = data._media_id
+                if reference_string is None or media_id is None:
+                    raise ValueError(
+                        "Cannot create dataset item with invalid LangfuseMedia."
+                    )
+                # First field a media appears in wins; later duplicates dedupe.
+                pending_media.setdefault(media_id, (data, field))
+                return reference_string
+
+            if isinstance(data, LangfuseMediaReference):
+                return data.reference_string if data.reference_string else data
+
+            # Tuples are intentionally excluded: namedtuple subclasses can't be
+            # rebuilt from an iterable, so media inside them is left untouched.
+            if not isinstance(data, (list, set, frozenset, dict)):
+                return data
+
+            # Container ids only protect against recursive cycles.
+            data_id = id(data)
+            if data_id in ancestor_container_ids or level > max_levels:
+                return data
+
+            next_ancestor_container_ids = ancestor_container_ids | {data_id}
+
+            if isinstance(data, (list, set, frozenset)):
+                processed = (
+                    _process_data_recursively(
+                        item, level + 1, next_ancestor_container_ids
+                    )
+                    for item in data
+                )
+                return type(data)(processed)
+
+            return {
+                key: _process_data_recursively(
+                    value, level + 1, next_ancestor_container_ids
+                )
+                for key, value in data.items()
+            }
+
+        return _process_data_recursively(data, 1, set())
+
+    def _hydrate_dataset_item_media_references(self, item: DatasetItem) -> DatasetItem:
+        media_references = item.media_references or []
+        if not media_references:
+            return item
+
+        # Map the API enum member to the snake_case model attribute so this keeps
+        # working regardless of the enum's wire value (e.g. "expectedOutput").
+        attr_by_field = {
+            DatasetItemMediaReferenceField.INPUT: "input",
+            DatasetItemMediaReferenceField.EXPECTED_OUTPUT: "expected_output",
+            DatasetItemMediaReferenceField.METADATA: "metadata",
+        }
+        hydrated_fields = {
+            "input": item.input,
+            "expected_output": item.expected_output,
+            "metadata": item.metadata,
+        }
+
+        for media_reference in media_references:
+            media = media_reference.media
+            field = attr_by_field.get(media_reference.field)
+            if field is None:
+                continue
+
+            replacement = LangfuseMediaReference(
+                media_id=media.media_id,
+                content_type=media.content_type,
+                url=media.url,
+                url_expiry=media.url_expiry,
+                content_length=media.content_length,
+                reference_string=media_reference.reference_string,
+            )
+            hydrated_fields[field] = self._replace_json_path_value(
+                value=hydrated_fields[field],
+                path=media_reference.json_path,
+                replacement=replacement,
+            )
+
+        return item.model_copy(
+            update={
+                "input": hydrated_fields["input"],
+                "expected_output": hydrated_fields["expected_output"],
+                "metadata": hydrated_fields["metadata"],
+            }
+        )
+
+    def _replace_json_path_value(
+        self, *, value: Any, path: str, replacement: LangfuseMediaReference
+    ) -> Any:
+        try:
+            return json_path.set_value_at_path(value, path, replacement)
+        except Exception as e:
+            langfuse_logger.warning(
+                "Failed to hydrate dataset media reference at JSONPath %s",
+                path,
+                exc_info=e,
+            )
+
+            return value
 
     def resolve_media_references(
         self,
@@ -3459,8 +3951,8 @@ class Langfuse:
             keyword argument. If not set, defaults to 60 seconds. Disables caching if set to 0.
             type: Literal["chat", "text"]: The type of the prompt to retrieve. Defaults to "text".
             fallback: Union[Optional[List[ChatMessageDict]], Optional[str]]: The prompt string to return if fetching the prompt fails. Important on the first call where no cached prompt is available. Follows Langfuse prompt formatting with double curly braces for variables. Defaults to None.
-            max_retries: Optional[int]: The maximum number of retries in case of API/network errors. Defaults to 2. The maximum value is 4. Retries have an exponential backoff with a maximum delay of 10 seconds.
-            fetch_timeout_seconds: Optional[int]: The timeout in milliseconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
+            max_retries: Optional[int]: The maximum number of retries in case of network errors or retryable API responses (408, 409, 429, 5xx). Other 4xx errors such as 401, 403, and 404 are not retried. Defaults to 2. The maximum value is 4. Retries use exponential backoff; rate-limited responses wait for the server's Retry-After header (up to 60 seconds).
+            fetch_timeout_seconds: Optional[int]: The timeout in seconds for fetching the prompt. Defaults to the default timeout set on the SDK, which is 5 seconds per default.
 
         Returns:
             The prompt object retrieved from the cache or directly fetched if not cached or expired of type
@@ -3486,12 +3978,12 @@ class Langfuse:
             max_retries, default_max_retries=2, max_retries_upper_bound=4
         )
 
-        langfuse_logger.debug(f"Getting prompt '{cache_key}'")
+        langfuse_logger.debug("Getting prompt '%s'", cache_key)
         cached_prompt = self._resources.prompt_cache.get(cache_key)
 
         if cached_prompt is None or cache_ttl_seconds == 0:
             langfuse_logger.debug(
-                f"Prompt '{cache_key}' not found in cache or caching disabled."
+                "Prompt '%s' not found in cache or caching disabled.", cache_key
             )
             try:
                 return self._fetch_prompt_and_update_cache(
@@ -3505,24 +3997,27 @@ class Langfuse:
             except Exception as e:
                 if fallback:
                     langfuse_logger.warning(
-                        f"Returning fallback prompt for '{cache_key}' due to fetch error: {e}"
+                        "Returning fallback prompt for '%s' due to fetch error: %s",
+                        cache_key,
+                        e,
                     )
-                    fallback_prompt = self._create_fallback_prompt_client(
+                    return self._create_fallback_prompt_client(
                         name=name,
                         prompt=fallback,
                         type=type,
                         version=version,
                         label=label,
                     )
-                    if fallback_prompt is not None:
-                        return fallback_prompt
+
                 raise e
 
         if cached_prompt.is_expired():
-            langfuse_logger.debug(f"Stale prompt '{cache_key}' found in cache.")
+            langfuse_logger.debug("Stale prompt '%s' found in cache.", cache_key)
             try:
                 # refresh prompt in background thread, refresh_prompt deduplicates tasks
-                langfuse_logger.debug(f"Refreshing prompt '{cache_key}' in background.")
+                langfuse_logger.debug(
+                    "Refreshing prompt '%s' in background.", cache_key
+                )
 
                 def refresh_task() -> None:
                     self._fetch_prompt_and_update_cache(
@@ -3534,24 +4029,56 @@ class Langfuse:
                         fetch_timeout_seconds=fetch_timeout_seconds,
                     )
 
-                self._resources.prompt_cache.add_refresh_prompt_task(
+                self._resources.prompt_cache.add_refresh_prompt_task_if_current(
                     cache_key,
+                    cached_prompt,
                     refresh_task,
                 )
                 langfuse_logger.debug(
-                    f"Returning stale prompt '{cache_key}' from cache."
+                    "Returning stale prompt '%s' from cache.", cache_key
                 )
                 # return stale prompt
                 return cached_prompt.value
 
             except Exception as e:
                 langfuse_logger.warning(
-                    f"Error when refreshing cached prompt '{cache_key}', returning cached version. Error: {e}"
+                    "Error when refreshing cached prompt '%s', returning cached version. "
+                    "Error: %s",
+                    cache_key,
+                    e,
                 )
                 # creation of refresh prompt task failed, return stale prompt
                 return cached_prompt.value
 
         return cached_prompt.value
+
+    @overload
+    async def aget_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["chat"],
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[List[ChatMessageDict]] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> ChatPromptClient: ...
+
+    @overload
+    async def aget_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["text"] = "text",
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> TextPromptClient: ...
 
     async def aget_prompt(
         self,
@@ -3565,13 +4092,25 @@ class Langfuse:
         max_retries: Optional[int] = None,
         fetch_timeout_seconds: Optional[int] = None,
     ) -> PromptClient:
-        """Async variant of get_prompt with identical semantics."""
+        """Async version of `get_prompt`, using `async_api`.
+
+        Takes the same arguments and shares the prompt cache with `get_prompt`.
+        On a cache miss, the prompt is fetched without blocking the event loop.
+        Stale cache entries are returned immediately and refreshed in the
+        background, exactly as in `get_prompt`.
+
+        Example:
+            ```python
+            prompt = await langfuse.aget_prompt("movie-critic")
+            ```
+        """
         if self._resources is None:
             raise Error(
                 "SDK is not correctly initialized. Check the init logs for more details."
             )
         if version is not None and label is not None:
             raise ValueError("Cannot specify both version and label at the same time.")
+
         if not name:
             raise ValueError("Prompt name cannot be empty.")
 
@@ -3580,12 +4119,12 @@ class Langfuse:
             max_retries, default_max_retries=2, max_retries_upper_bound=4
         )
 
-        langfuse_logger.debug(f"Getting prompt '{cache_key}' (async)")
+        langfuse_logger.debug("Getting prompt '%s' (async)", cache_key)
         cached_prompt = self._resources.prompt_cache.get(cache_key)
 
         if cached_prompt is None or cache_ttl_seconds == 0:
             langfuse_logger.debug(
-                f"Prompt '{cache_key}' not found in cache or caching disabled (async)."
+                "Prompt '%s' not found in cache or caching disabled.", cache_key
             )
             try:
                 return await self._fetch_prompt_and_update_cache_async(
@@ -3599,27 +4138,32 @@ class Langfuse:
             except Exception as e:
                 if fallback:
                     langfuse_logger.warning(
-                        f"Returning fallback prompt for '{cache_key}' due to async fetch error: {e}"
+                        "Returning fallback prompt for '%s' due to fetch error: %s",
+                        cache_key,
+                        e,
                     )
-                    fallback_prompt = self._create_fallback_prompt_client(
+                    return self._create_fallback_prompt_client(
                         name=name,
                         prompt=fallback,
                         type=type,
                         version=version,
                         label=label,
                     )
-                    if fallback_prompt is not None:
-                        return fallback_prompt
+
                 raise e
 
         if cached_prompt.is_expired():
-            langfuse_logger.debug(
-                f"Stale prompt '{cache_key}' found in cache (async). Refresh scheduled."
-            )
+            langfuse_logger.debug("Stale prompt '%s' found in cache.", cache_key)
             try:
+                # Refresh on the prompt cache's worker thread with the sync client,
+                # like get_prompt. The async client is bound to the caller's event
+                # loop and must not be reused from another thread.
+                langfuse_logger.debug(
+                    "Refreshing prompt '%s' in background.", cache_key
+                )
 
-                async def refresh_coroutine() -> None:
-                    await self._fetch_prompt_and_update_cache_async(
+                def refresh_task() -> None:
+                    self._fetch_prompt_and_update_cache(
                         name,
                         version=version,
                         label=label,
@@ -3628,21 +4172,22 @@ class Langfuse:
                         fetch_timeout_seconds=fetch_timeout_seconds,
                     )
 
-                def refresh_task() -> None:
-                    run_async_safely(refresh_coroutine())
-
-                self._resources.prompt_cache.add_refresh_prompt_task(
+                self._resources.prompt_cache.add_refresh_prompt_task_if_current(
                     cache_key,
+                    cached_prompt,
                     refresh_task,
                 )
                 langfuse_logger.debug(
-                    f"Returning stale prompt '{cache_key}' from cache (async)."
+                    "Returning stale prompt '%s' from cache.", cache_key
                 )
                 return cached_prompt.value
 
             except Exception as e:
                 langfuse_logger.warning(
-                    f"Error when scheduling async refresh for cached prompt '{cache_key}', returning cached version. Error: {e}"
+                    "Error when refreshing cached prompt '%s', returning cached version. "
+                    "Error: %s",
+                    cache_key,
+                    e,
                 )
                 return cached_prompt.value
 
@@ -3659,26 +4204,24 @@ class Langfuse:
         fetch_timeout_seconds: Optional[int],
     ) -> PromptClient:
         cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
-        langfuse_logger.debug(f"Fetching prompt '{cache_key}' from server...")
+        langfuse_logger.debug("Fetching prompt '%s' from server...", cache_key)
 
         try:
+            # Retries happen only in call_with_retries so network errors and
+            # 408/409/429/5xx responses share one budget.
+            request_options: RequestOptions = {"max_retries": 0}
+            if fetch_timeout_seconds is not None:
+                request_options["timeout_in_seconds"] = fetch_timeout_seconds
 
-            @backoff.on_exception(
-                backoff.constant, Exception, max_tries=max_retries + 1, logger=None
-            )
-            def fetch_prompts() -> Any:
-                return self.api.prompts.get(
+            prompt_response = call_with_retries(
+                lambda: self.api.prompts.get(
                     self._url_encode(name),
                     version=version,
                     label=label,
-                    request_options={
-                        "timeout_in_seconds": fetch_timeout_seconds,
-                    }
-                    if fetch_timeout_seconds is not None
-                    else None,
-                )
-
-            prompt_response = fetch_prompts()
+                    request_options=request_options,
+                ),
+                max_retries=max_retries,
+            )
 
             prompt: PromptClient
             if prompt_response.type == "chat":
@@ -3693,7 +4236,7 @@ class Langfuse:
 
         except NotFoundError as not_found_error:
             langfuse_logger.warning(
-                f"Prompt '{cache_key}' not found during refresh, evicting from cache."
+                "Prompt '%s' not found during refresh, evicting from cache.", cache_key
             )
             if self._resources is not None:
                 self._resources.prompt_cache.delete(cache_key)
@@ -3701,7 +4244,7 @@ class Langfuse:
 
         except Exception as e:
             langfuse_logger.error(
-                f"Error while fetching prompt '{cache_key}': {str(e)}"
+                "Error while fetching prompt '%s': %s", cache_key, str(e)
             )
             raise e
 
@@ -3716,28 +4259,22 @@ class Langfuse:
         fetch_timeout_seconds: Optional[int],
     ) -> PromptClient:
         cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
-        langfuse_logger.debug(
-            f"Fetching prompt '{cache_key}' from server asynchronously..."
-        )
+        langfuse_logger.debug("Fetching prompt '%s' from server (async)...", cache_key)
 
         try:
+            request_options: RequestOptions = {"max_retries": 0}
+            if fetch_timeout_seconds is not None:
+                request_options["timeout_in_seconds"] = fetch_timeout_seconds
 
-            @backoff.on_exception(
-                backoff.constant, Exception, max_tries=max_retries + 1, logger=None
-            )
-            async def fetch_prompts() -> Any:
-                return await self.async_api.prompts.get(
+            prompt_response = await acall_with_retries(
+                lambda: self.async_api.prompts.get(
                     self._url_encode(name),
                     version=version,
                     label=label,
-                    request_options={
-                        "timeout_in_seconds": fetch_timeout_seconds,
-                    }
-                    if fetch_timeout_seconds is not None
-                    else None,
-                )
-
-            prompt_response = await fetch_prompts()
+                    request_options=request_options,
+                ),
+                max_retries=max_retries,
+            )
 
             prompt: PromptClient
             if prompt_response.type == "chat":
@@ -3750,9 +4287,17 @@ class Langfuse:
 
             return prompt
 
+        except NotFoundError as not_found_error:
+            langfuse_logger.warning(
+                "Prompt '%s' not found, evicting from cache.", cache_key
+            )
+            if self._resources is not None:
+                self._resources.prompt_cache.delete(cache_key)
+            raise not_found_error
+
         except Exception as e:
             langfuse_logger.error(
-                f"Error while asynchronously fetching prompt '{cache_key}': {str(e)}"
+                "Error while fetching prompt '%s': %s", cache_key, str(e)
             )
             raise e
 
@@ -3760,14 +4305,11 @@ class Langfuse:
         self,
         *,
         name: str,
-        prompt: Union[Optional[List[ChatMessageDict]], Optional[str]],
+        prompt: Union[List[ChatMessageDict], str],
         type: Literal["chat", "text"],
         version: Optional[int],
         label: Optional[str],
-    ) -> Optional[PromptClient]:
-        if prompt is None:
-            return None
-
+    ) -> PromptClient:
         fallback_client_args: Dict[str, Any] = {
             "name": name,
             "prompt": prompt,
@@ -3778,19 +4320,16 @@ class Langfuse:
             "tags": [],
         }
 
-        if type == "text":
-            return TextPromptClient(
-                prompt=Prompt_Text(**fallback_client_args),
-                is_fallback=True,
-            )
-
         if type == "chat":
             return ChatPromptClient(
                 prompt=Prompt_Chat(**fallback_client_args),
                 is_fallback=True,
             )
 
-        return None
+        return TextPromptClient(
+            prompt=Prompt_Text(**fallback_client_args),
+            is_fallback=True,
+        )
 
     def _get_bounded_max_retries(
         self,
@@ -3853,7 +4392,6 @@ class Langfuse:
         Keyword Args:
             name : The name of the prompt to be created.
             prompt : The content of the prompt to be created.
-            is_active [DEPRECATED] : A flag indicating whether the prompt is active or not. This is deprecated and will be removed in a future release. Please use the 'production' label instead.
             labels: The labels of the prompt. Defaults to None. To create a default-served prompt, add the 'production' label.
             tags: The tags of the prompt. Defaults to None. Will be applied to all versions of the prompt.
             config: Additional structured data to be saved with the prompt. Defaults to None.
@@ -3865,22 +4403,22 @@ class Langfuse:
             ChatPromptClient: The prompt if type argument is 'chat'.
         """
         try:
-            langfuse_logger.debug(f"Creating prompt {name=}, {labels=}")
+            langfuse_logger.debug("Creating prompt name=%r, labels=%r", name, labels)
 
             if type == "chat":
                 if not isinstance(prompt, list):
                     raise ValueError(
                         "For 'chat' type, 'prompt' must be a list of chat messages with role and content attributes."
                     )
-                request: Union[CreatePromptRequest_Chat, CreatePromptRequest_Text] = (
-                    CreatePromptRequest_Chat(
+                request: Union[CreateChatPromptRequest, CreateTextPromptRequest] = (
+                    CreateChatPromptRequest(
                         name=name,
                         prompt=cast(Any, prompt),
                         labels=labels,
                         tags=tags,
                         config=config or {},
-                        commitMessage=commit_message,
-                        type="chat",
+                        commit_message=commit_message,
+                        type=CreateChatPromptType.CHAT,
                     )
                 )
                 server_prompt = self.api.prompts.create(request=request)
@@ -3893,14 +4431,13 @@ class Langfuse:
             if not isinstance(prompt, str):
                 raise ValueError("For 'text' type, 'prompt' must be a string.")
 
-            request = CreatePromptRequest_Text(
+            request = CreateTextPromptRequest(
                 name=name,
                 prompt=prompt,
                 labels=labels,
                 tags=tags,
                 config=config or {},
-                commitMessage=commit_message,
-                type="text",
+                commit_message=commit_message,
             )
 
             server_prompt = self.api.prompts.create(request=request)

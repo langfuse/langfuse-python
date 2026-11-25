@@ -1,19 +1,12 @@
-import logging
-from typing import Union
-
-# our own api errors
-from langfuse._utils.request import APIError, APIErrors
-from langfuse.api.core import ApiError
-
-# fern api errors
-from langfuse.api.resources.commons.errors import (
+from langfuse.api import (
     AccessDeniedError,
-    Error,
     MethodNotAllowedError,
     NotFoundError,
+    ServiceUnavailableError,
     UnauthorizedError,
 )
-from langfuse.api.resources.health.errors import ServiceUnavailableError
+from langfuse.api.core import ApiError
+from langfuse.logger import langfuse_logger as logger
 
 SUPPORT_URL = "https://langfuse.com/support"
 API_DOCS_URL = "https://api.reference.langfuse.com"
@@ -44,7 +37,7 @@ errorResponseByCode = {
 }
 
 
-def generate_error_message_fern(error: Error) -> str:
+def generate_error_message_fern(error: ApiError) -> str:
     if isinstance(error, AccessDeniedError):
         return errorResponseByCode.get(403, defaultErrorResponse)
     elif isinstance(error, MethodNotAllowedError):
@@ -66,36 +59,7 @@ def generate_error_message_fern(error: Error) -> str:
     return defaultErrorResponse  # type: ignore
 
 
-def handle_fern_exception(exception: Error) -> None:
-    log = logging.getLogger("langfuse")
-    log.debug(exception)
+def handle_fern_exception(exception: ApiError) -> None:
+    logger.debug(exception)
     error_message = generate_error_message_fern(exception)
-    log.error(error_message)
-
-
-def generate_error_message(exception: Union[APIError, APIErrors, Exception]) -> str:
-    if isinstance(exception, APIError):
-        status_code = (
-            int(exception.status)
-            if isinstance(exception.status, str)
-            else exception.status
-        )
-        return f"API error occurred: {errorResponseByCode.get(status_code, defaultErrorResponse)}"
-    elif isinstance(exception, APIErrors):
-        error_messages = [
-            errorResponseByCode.get(
-                int(error.status) if isinstance(error.status, str) else error.status,
-                defaultErrorResponse,
-            )
-            for error in exception.errors
-        ]
-        return "API errors occurred: " + "\n".join(error_messages)
-    else:
-        return defaultErrorResponse
-
-
-def handle_exception(exception: Union[APIError, APIErrors, Exception]) -> None:
-    log = logging.getLogger("langfuse")
-    log.debug(exception)
-    error_message = generate_error_message(exception)
-    log.error(error_message)
+    logger.error(error_message)

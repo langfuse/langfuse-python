@@ -6,7 +6,8 @@ and result formatting.
 """
 
 import asyncio
-import logging
+import warnings
+from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -17,12 +18,16 @@ from typing import (
     Protocol,
     TypedDict,
     Union,
+    overload,
 )
 
-from langfuse.api import ScoreDataType
+from langfuse.api import DatasetItem
+from langfuse.logger import langfuse_logger as logger
+from langfuse.types import ExperimentScoreType
 
 if TYPE_CHECKING:
-    from langfuse._client.datasets import DatasetItemClient
+    from langfuse._client.client import Langfuse
+    from langfuse.batch_evaluation import CompositeEvaluatorFunction
 
 
 class LocalExperimentItem(TypedDict, total=False):
@@ -76,20 +81,20 @@ class LocalExperimentItem(TypedDict, total=False):
     metadata: Optional[Dict[str, Any]]
 
 
-ExperimentItem = Union[LocalExperimentItem, "DatasetItemClient"]
+ExperimentItem = Union[LocalExperimentItem, DatasetItem]
 """Type alias for items that can be processed in experiments.
 
 Can be either:
 - LocalExperimentItem: Dict-like items with 'input', 'expected_output', 'metadata' keys
-- DatasetItemClient: Items from Langfuse datasets with .input, .expected_output, .metadata attributes
+- DatasetItem: Items from Langfuse datasets with .input, .expected_output, .metadata attributes
 """
 
-ExperimentData = Union[List[LocalExperimentItem], List["DatasetItemClient"]]
+ExperimentData = Union[List[LocalExperimentItem], List[DatasetItem]]
 """Type alias for experiment datasets.
 
 Represents the collection of items to process in an experiment. Can be either:
 - List[LocalExperimentItem]: Local data items as dictionaries
-- List[DatasetItemClient]: Items from a Langfuse dataset (typically from dataset.items)
+- List[DatasetItem]: Items from a Langfuse dataset (typically from dataset.items)
 """
 
 
@@ -124,7 +129,7 @@ class Evaluation:
 
         def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
             if not expected_output:
-                return Evaluation(name="accuracy", value=None, comment="No expected output")
+                return Evaluation(name="accuracy", value=0, comment="No expected output")
 
             is_correct = output.strip().lower() == expected_output.strip().lower()
             return Evaluation(
@@ -170,7 +175,7 @@ class Evaluation:
             except Exception as e:
                 return Evaluation(
                     name="external_score",
-                    value=None,
+                    value=0,
                     comment=f"API unavailable: {e}",
                     metadata={"error": str(e), "retry_count": 3}
                 )
@@ -188,7 +193,7 @@ class Evaluation:
         value: Union[int, float, str, bool],
         comment: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        data_type: Optional[ScoreDataType] = None,
+        data_type: Optional[ExperimentScoreType] = None,
         config_id: Optional[str] = None,
     ):
         """Initialize an Evaluation with the provided data.
@@ -212,6 +217,14 @@ class Evaluation:
         self.config_id = config_id
 
 
+def _warn_deprecated_alias(old: str, new: str) -> None:
+    warnings.warn(
+        f"{old} is deprecated and will be removed in a future major version. Use {new} instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class ExperimentItemResult:
     """Result structure for individual experiment items.
 
@@ -222,15 +235,15 @@ class ExperimentItemResult:
     Attributes:
         item: The original experiment item that was processed. Can be either
             a dictionary with 'input', 'expected_output', and 'metadata' keys,
-            or a DatasetItemClient from Langfuse datasets.
+            or a DatasetItem from Langfuse datasets.
         output: The actual output produced by the task function for this item.
             Can be any type depending on what your task function returns.
         evaluations: List of evaluation results for this item. Each evaluation
             contains a name, value, optional comment, and optional metadata.
         trace_id: Optional Langfuse trace ID for this item's execution. Used
             to link the experiment result with the detailed trace in Langfuse UI.
-        dataset_run_id: Optional dataset run ID if this item was part of a
-            Langfuse dataset. None for local experiments.
+        experiment_id: ID of the experiment run this item belongs to.
+        dataset_run_id: Deprecated alias of `experiment_id`.
 
     Examples:
         Accessing item result data:
@@ -271,7 +284,8 @@ class ExperimentItemResult:
         output: Any,
         evaluations: List[Evaluation],
         trace_id: Optional[str],
-        dataset_run_id: Optional[str],
+        experiment_id: Optional[str] = None,
+        dataset_run_id: Optional[str] = None,
     ):
         """Initialize an ExperimentItemResult with the provided data.
 
@@ -280,7 +294,9 @@ class ExperimentItemResult:
             output: The actual output produced by the task function for this item.
             evaluations: List of evaluation results for this item.
             trace_id: Optional Langfuse trace ID for this item's execution.
-            dataset_run_id: Optional dataset run ID if this item was part of a Langfuse dataset.
+            experiment_id: ID of the experiment run this item belongs to.
+            dataset_run_id: Deprecated alias of `experiment_id`. Used only when
+                `experiment_id` is not provided.
 
         Note:
             All arguments must be provided as keywords. Positional arguments will raise a TypeError.
@@ -289,7 +305,13 @@ class ExperimentItemResult:
         self.output = output
         self.evaluations = evaluations
         self.trace_id = trace_id
-        self.dataset_run_id = dataset_run_id
+        self.experiment_id = experiment_id or dataset_run_id
+
+    @property
+    def dataset_run_id(self) -> Optional[str]:
+        """Deprecated alias of `experiment_id`."""
+        _warn_deprecated_alias("ExperimentItemResult.dataset_run_id", "experiment_id")
+        return self.experiment_id
 
 
 class ExperimentResult:
@@ -307,8 +329,14 @@ class ExperimentResult:
             containing the original item, task output, evaluations, and trace information.
         run_evaluations: List of aggregate evaluation results computed across all items,
             such as average scores, statistical summaries, or cross-item analyses.
-        dataset_run_id: Optional ID of the dataset run in Langfuse (when using Langfuse datasets).
-        dataset_run_url: Optional direct URL to view the experiment results in Langfuse UI.
+        experiment_id: ID of the experiment run propagated across all items. For
+            Langfuse datasets, it is derived from the project, dataset and run name,
+            so re-running with the same `run_name` adds to the same experiment. For
+            local experiments, it is a random SDK-generated identifier for the run.
+        experiment_url: Optional direct URL to view the experiment results in the
+            Langfuse UI. None if the project ID could not be resolved.
+        dataset_run_id: Deprecated alias of `experiment_id`.
+        dataset_run_url: Deprecated alias of `experiment_url`.
 
     Examples:
         Basic usage with local dataset:
@@ -340,8 +368,8 @@ class ExperimentResult:
         )
 
         # View in Langfuse UI
-        if result.dataset_run_url:
-            print(f"View detailed results: {result.dataset_run_url}")
+        if result.experiment_url:
+            print(f"View detailed results: {result.experiment_url}")
         ```
 
         Formatted output:
@@ -365,6 +393,8 @@ class ExperimentResult:
         description: Optional[str],
         item_results: List[ExperimentItemResult],
         run_evaluations: List[Evaluation],
+        experiment_id: str,
+        experiment_url: Optional[str] = None,
         dataset_run_id: Optional[str] = None,
         dataset_run_url: Optional[str] = None,
     ):
@@ -376,16 +406,32 @@ class ExperimentResult:
             description: Optional description of the experiment.
             item_results: List of results from processing individual dataset items.
             run_evaluations: List of aggregate evaluation results for the entire run.
-            dataset_run_id: Optional ID of the dataset run (for Langfuse datasets).
-            dataset_run_url: Optional URL to view results in Langfuse UI.
+            experiment_id: ID of the experiment run.
+            experiment_url: Optional URL to view results in Langfuse UI.
+            dataset_run_id: Deprecated and ignored; `dataset_run_id` always
+                returns `experiment_id`.
+            dataset_run_url: Deprecated alias of `experiment_url`. Used only when
+                `experiment_url` is not provided.
         """
         self.name = name
         self.run_name = run_name
         self.description = description
         self.item_results = item_results
         self.run_evaluations = run_evaluations
-        self.dataset_run_id = dataset_run_id
-        self.dataset_run_url = dataset_run_url
+        self.experiment_id = experiment_id
+        self.experiment_url = experiment_url or dataset_run_url
+
+    @property
+    def dataset_run_id(self) -> str:
+        """Deprecated alias of `experiment_id`."""
+        _warn_deprecated_alias("ExperimentResult.dataset_run_id", "experiment_id")
+        return self.experiment_id
+
+    @property
+    def dataset_run_url(self) -> Optional[str]:
+        """Deprecated alias of `experiment_url`."""
+        _warn_deprecated_alias("ExperimentResult.dataset_run_url", "experiment_url")
+        return self.experiment_url
 
     def format(self, *, include_item_results: bool = False) -> str:
         r"""Format the experiment result for human-readable display.
@@ -416,7 +462,7 @@ class ExperimentResult:
             - List of all evaluation metrics that were applied
             - Average scores across all items for each numeric metric
             - Run-level evaluation results with comments
-            - Dataset run URL for viewing in Langfuse UI (if applicable)
+            - Experiment URL for viewing in Langfuse UI (if available)
             - Individual item details including inputs, outputs, and scores (if requested)
 
         Examples:
@@ -462,7 +508,7 @@ class ExperimentResult:
 
             # Or create summary report
             summary = result.format()  # Aggregate view only
-            print(f"Experiment Summary:\\n{summary}")
+            print(f"Experiment Summary:\n{summary}")
             ```
 
             Integration with logging systems:
@@ -471,11 +517,11 @@ class ExperimentResult:
             logger = logging.getLogger("experiments")
 
             # Log summary after experiment
-            logger.info(f"Experiment completed:\\n{result.format()}")
+            logger.info(f"Experiment completed:\n{result.format()}")
 
             # Log detailed results for failed experiments
             if any(eval['value'] < threshold for eval in result.run_evaluations):
-                logger.warning(f"Poor performance detected:\\n{result.format(include_item_results=True)}")
+                logger.warning(f"Poor performance detected:\n{result.format(include_item_results=True)}")
             ```
         """
         if not self.item_results:
@@ -486,7 +532,7 @@ class ExperimentResult:
         # Individual results section
         if include_item_results:
             for i, result in enumerate(self.item_results):
-                output += f"\\n{i + 1}. Item {i + 1}:\\n"
+                output += f"\n{i + 1}. Item {i + 1}:\n"
 
                 # Extract and display input
                 item_input = None
@@ -496,7 +542,7 @@ class ExperimentResult:
                     item_input = result.item.input
 
                 if item_input is not None:
-                    output += f"   Input:    {_format_value(item_input)}\\n"
+                    output += f"   Input:    {_format_value(item_input)}\n"
 
                 # Extract and display expected output
                 expected_output = None
@@ -506,36 +552,36 @@ class ExperimentResult:
                     expected_output = result.item.expected_output
 
                 if expected_output is not None:
-                    output += f"   Expected: {_format_value(expected_output)}\\n"
-                output += f"   Actual:   {_format_value(result.output)}\\n"
+                    output += f"   Expected: {_format_value(expected_output)}\n"
+                output += f"   Actual:   {_format_value(result.output)}\n"
 
                 # Display evaluation scores
                 if result.evaluations:
-                    output += "   Scores:\\n"
+                    output += "   Scores:\n"
                     for evaluation in result.evaluations:
                         score = evaluation.value
                         if isinstance(score, (int, float)):
                             score = f"{score:.3f}"
                         output += f"     • {evaluation.name}: {score}"
                         if evaluation.comment:
-                            output += f"\\n       💭 {evaluation.comment}"
-                        output += "\\n"
+                            output += f"\n       💭 {evaluation.comment}"
+                        output += "\n"
 
                 # Display trace link if available
                 if result.trace_id:
-                    output += f"\\n   Trace ID: {result.trace_id}\\n"
+                    output += f"\n   Trace ID: {result.trace_id}\n"
         else:
-            output += f"Individual Results: Hidden ({len(self.item_results)} items)\\n"
-            output += "💡 Set include_item_results=True to view them\\n"
+            output += f"Individual Results: Hidden ({len(self.item_results)} items)\n"
+            output += "💡 Set include_item_results=True to view them\n"
 
         # Experiment overview section
-        output += f"\\n{'─' * 50}\\n"
+        output += f"\n{'─' * 50}\n"
         output += f"🧪 Experiment: {self.name}"
         output += f"\n📋 Run name: {self.run_name}"
         if self.description:
             output += f" - {self.description}"
 
-        output += f"\\n{len(self.item_results)} items"
+        output += f"\n{len(self.item_results)} items"
 
         # Collect unique evaluation names across all items
         evaluation_names = set()
@@ -544,14 +590,14 @@ class ExperimentResult:
                 evaluation_names.add(evaluation.name)
 
         if evaluation_names:
-            output += "\\nEvaluations:"
+            output += "\nEvaluations:"
             for eval_name in evaluation_names:
-                output += f"\\n  • {eval_name}"
-            output += "\\n"
+                output += f"\n  • {eval_name}"
+            output += "\n"
 
         # Calculate and display average scores
         if evaluation_names:
-            output += "\\nAverage Scores:"
+            output += "\nAverage Scores:"
             for eval_name in evaluation_names:
                 scores = []
                 for result in self.item_results:
@@ -563,24 +609,23 @@ class ExperimentResult:
 
                 if scores:
                     avg = sum(scores) / len(scores)
-                    output += f"\\n  • {eval_name}: {avg:.3f}"
-            output += "\\n"
+                    output += f"\n  • {eval_name}: {avg:.3f}"
+            output += "\n"
 
         # Display run-level evaluations
         if self.run_evaluations:
-            output += "\\nRun Evaluations:"
+            output += "\nRun Evaluations:"
             for run_eval in self.run_evaluations:
                 score = run_eval.value
                 if isinstance(score, (int, float)):
                     score = f"{score:.3f}"
-                output += f"\\n  • {run_eval.name}: {score}"
+                output += f"\n  • {run_eval.name}: {score}"
                 if run_eval.comment:
-                    output += f"\\n    💭 {run_eval.comment}"
-            output += "\\n"
+                    output += f"\n    💭 {run_eval.comment}"
+            output += "\n"
 
-        # Add dataset run URL if available
-        if self.dataset_run_url:
-            output += f"\\n🔗 Dataset Run:\\n   {self.dataset_run_url}"
+        if self.experiment_url:
+            output += f"\n🔗 Experiment:\n   {self.experiment_url}"
 
         return output
 
@@ -719,7 +764,7 @@ class EvaluatorFunction(Protocol):
             ```python
             def accuracy_evaluator(*, input, output, expected_output=None, **kwargs):
                 if expected_output is None:
-                    return {"name": "accuracy", "value": None, "comment": "No expected output"}
+                    return {"name": "accuracy", "value": 0, "comment": "No expected output"}
 
                 is_correct = output.strip().lower() == expected_output.strip().lower()
                 return {
@@ -773,7 +818,7 @@ class EvaluatorFunction(Protocol):
                 except ValueError:
                     return {
                         "name": "llm_judge_quality",
-                        "value": None,
+                        "value": 0,
                         "comment": "Could not parse LLM judge score"
                     }
             ```
@@ -835,7 +880,7 @@ class RunEvaluatorFunction(Protocol):
                 - output: The task function's output for this item
                 - evaluations: List of item-level evaluation results
                 - trace_id: Langfuse trace ID for this execution
-                - dataset_run_id: Dataset run ID (if using Langfuse datasets)
+                - experiment_id: ID of the experiment run
 
                 Note: This list only includes items that were successfully processed.
                 Failed items are excluded but logged separately.
@@ -867,7 +912,7 @@ class RunEvaluatorFunction(Protocol):
                             accuracy_values.append(evaluation.value)
 
                 if not accuracy_values:
-                    return {"name": "avg_accuracy", "value": None, "comment": "No accuracy evaluations found"}
+                    return {"name": "avg_accuracy", "value": 0, "comment": "No accuracy evaluations found"}
 
                 avg = sum(accuracy_values) / len(accuracy_values)
                 return {
@@ -975,8 +1020,22 @@ def _format_value(value: Any) -> str:
     return str(value)
 
 
+def _normalize_evaluator_result(result: Any) -> List[Evaluation]:
+    """Normalize documented evaluator return shapes to Evaluation objects."""
+    candidates = result if isinstance(result, list) else [result]
+
+    return [
+        Evaluation(**candidate) if isinstance(candidate, dict) else candidate
+        for candidate in candidates
+        if isinstance(candidate, (dict, Evaluation))
+    ]
+
+
 async def _run_evaluator(
-    evaluator: Union[EvaluatorFunction, RunEvaluatorFunction], **kwargs: Any
+    evaluator: Union[EvaluatorFunction, RunEvaluatorFunction],
+    *,
+    _raise_on_error: bool = False,
+    **kwargs: Any,
 ) -> List[Evaluation]:
     """Run an evaluator function and normalize the result."""
     try:
@@ -986,19 +1045,14 @@ async def _run_evaluator(
         if asyncio.iscoroutine(result):
             result = await result
 
-        # Normalize to list
-        if isinstance(result, (dict, Evaluation)):
-            return [result]  # type: ignore
-
-        elif isinstance(result, list):
-            return result
-
-        else:
-            return []
+        return _normalize_evaluator_result(result)
 
     except Exception as e:
+        if _raise_on_error:
+            raise
+
         evaluator_name = getattr(evaluator, "__name__", "unknown_evaluator")
-        logging.getLogger("langfuse").error(f"Evaluator {evaluator_name} failed: {e}")
+        logger.error("Evaluator %s failed: %s", evaluator_name, e)
         return []
 
 
@@ -1046,3 +1100,154 @@ def create_evaluator_from_autoevals(
         )
 
     return langfuse_evaluator
+
+
+class RunnerContext:
+    """Wraps :meth:`Langfuse.run_experiment` with CI-injected defaults.
+
+    Intended for use with the ``langfuse/experiment-action`` GitHub Action
+    (https://github.com/langfuse/experiment-action). The action builds a
+    ``RunnerContext`` before invoking the user's ``experiment(context)``
+    function. Defaults set here (dataset, metadata tags) are applied when
+    the user omits them on the :meth:`run_experiment` call; users can
+    override any default by passing the corresponding argument explicitly.
+    """
+
+    def __init__(
+        self,
+        *,
+        client: "Langfuse",
+        data: Optional[ExperimentData] = None,
+        dataset_version: Optional[datetime] = None,
+        metadata: Optional[Dict[str, str]] = None,
+    ):
+        """Build a ``RunnerContext`` populated with defaults for ``run_experiment``.
+
+        Typically called by the ``langfuse/experiment-action`` GitHub Action,
+        not by end users directly. Every field except ``client`` is optional:
+        fields left as ``None`` simply mean the corresponding argument must be
+        supplied on the :meth:`run_experiment` call.
+
+        Args:
+            client: Initialized Langfuse SDK client used to execute the
+                experiment. The action creates this from the
+                ``langfuse_public_key`` / ``langfuse_secret_key`` /
+                ``langfuse_base_url`` inputs.
+            data: Default dataset items to run the experiment on. Accepts
+                either ``List[LocalExperimentItem]`` or ``List[DatasetItem]``.
+                Injected by the action when ``dataset_name`` is configured.
+                If ``None``, the user must pass ``data=`` to
+                :meth:`run_experiment`.
+            dataset_version: Optional pinned dataset version. Injected by the
+                action when ``dataset_version`` is configured.
+            metadata: Default metadata attached to every experiment trace and
+                the experiment run. The action injects GitHub-sourced tags (SHA,
+                PR link, workflow run link, branch, GH user, etc.). Merged
+                with any ``metadata`` passed to :meth:`run_experiment`, with
+                user-supplied keys winning on collision.
+        """
+        self.client = client
+        self.data = data
+        self.dataset_version = dataset_version
+        self.metadata = metadata
+
+    def run_experiment(
+        self,
+        *,
+        name: str,
+        run_name: Optional[str] = None,
+        description: Optional[str] = None,
+        data: Optional[ExperimentData] = None,
+        task: TaskFunction,
+        evaluators: List[EvaluatorFunction] = [],
+        composite_evaluator: Optional["CompositeEvaluatorFunction"] = None,
+        run_evaluators: List[RunEvaluatorFunction] = [],
+        max_concurrency: int = 50,
+        metadata: Optional[Dict[str, str]] = None,
+        experiment_id: Optional[str] = None,
+        _dataset_version: Optional[datetime] = None,
+    ) -> ExperimentResult:
+        resolved_data = data if data is not None else self.data
+        if resolved_data is None:
+            raise ValueError(
+                "`data` must be provided either on the RunnerContext or the run_experiment call"
+            )
+
+        resolved_dataset_version = (
+            _dataset_version if _dataset_version is not None else self.dataset_version
+        )
+
+        merged_metadata: Optional[Dict[str, str]]
+        if self.metadata is None and metadata is None:
+            merged_metadata = None
+        else:
+            merged_metadata = {**(self.metadata or {}), **(metadata or {})}
+
+        return self.client.run_experiment(
+            name=name,
+            run_name=run_name,
+            description=description,
+            data=resolved_data,
+            task=task,
+            evaluators=evaluators,
+            composite_evaluator=composite_evaluator,
+            run_evaluators=run_evaluators,
+            max_concurrency=max_concurrency,
+            metadata=merged_metadata,
+            experiment_id=experiment_id,
+            _dataset_version=resolved_dataset_version,
+        )
+
+
+class RegressionError(Exception):
+    """Raised by a user's ``experiment`` function to signal a CI gate failure.
+
+    Intended for use with the ``langfuse/experiment-action`` GitHub Action
+    (https://github.com/langfuse/experiment-action). The action catches this
+    exception and, when ``should_fail_on_error`` is enabled, fails the
+    workflow run and renders a callout in the PR comment using
+    ``metric``/``value``/``threshold`` if supplied, otherwise ``str(exc)``.
+
+    Callers choose one of three forms:
+
+    - ``RegressionError(result=r)`` — minimal, generic message.
+    - ``RegressionError(result=r, message="...")`` — free-form message.
+    - ``RegressionError(result=r, metric="acc", value=0.7, threshold=0.9)`` —
+      structured; ``metric`` and ``value`` must be provided together so the
+      action can render a targeted callout without ``None`` placeholders.
+    """
+
+    @overload
+    def __init__(self, *, result: ExperimentResult) -> None: ...
+    @overload
+    def __init__(self, *, result: ExperimentResult, message: str) -> None: ...
+    @overload
+    def __init__(
+        self,
+        *,
+        result: ExperimentResult,
+        metric: str,
+        value: float,
+        threshold: Optional[float] = None,
+        message: Optional[str] = None,
+    ) -> None: ...
+    def __init__(
+        self,
+        *,
+        result: ExperimentResult,
+        metric: Optional[str] = None,
+        value: Optional[float] = None,
+        threshold: Optional[float] = None,
+        message: Optional[str] = None,
+    ):
+        self.result = result
+        self.metric = metric
+        self.value = value
+        self.threshold = threshold
+        if message is not None:
+            formatted = message
+        elif metric is not None and value is not None:
+            formatted = f"Regression on `{metric}`: {value} (threshold {threshold})"
+        else:
+            formatted = "Experiment regression detected"
+        super().__init__(formatted)

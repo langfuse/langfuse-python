@@ -1,7 +1,6 @@
 import asyncio
 import contextvars
 import inspect
-import logging
 import os
 from functools import wraps
 from typing import (
@@ -42,11 +41,23 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
+from langfuse.logger import langfuse_logger as logger
 from langfuse.types import TraceContext
 
 F = TypeVar("F", bound=Callable[..., Any])
 P = ParamSpec("P")
 R = TypeVar("R")
+
+# Set by asgiref's markcoroutinefunction on Python < 3.12, which
+# inspect.iscoroutinefunction does not recognize.
+_ASYNCIO_COROUTINE_MARKER = getattr(asyncio.coroutines, "_is_coroutine", None)
+
+
+def _is_coroutine_function(func: Any) -> bool:
+    return inspect.iscoroutinefunction(func) or (
+        _ASYNCIO_COROUTINE_MARKER is not None
+        and getattr(func, "_is_coroutine", None) is _ASYNCIO_COROUTINE_MARKER
+    )
 
 
 class LangfuseDecorator:
@@ -68,8 +79,6 @@ class LangfuseDecorator:
     - Support for explicit trace and parent span ID specification
     - Thread-safe client resolution when multiple Langfuse projects are used
     """
-
-    _log = logging.getLogger("langfuse")
 
     @overload
     def observe(self, func: F) -> F: ...
@@ -111,8 +120,18 @@ class LangfuseDecorator:
             as_type (Optional[Literal]): Set the observation type. Supported values:
                     "generation", "span", "agent", "tool", "chain", "retriever", "embedding", "evaluator", "guardrail".
                     Observation types are highlighted in the Langfuse UI for filtering and visualization.
-                    The types "generation" and "embedding" create a span on which additional attributes such as model metrics
-                    can be set.
+                    The types "generation" and "embedding" create a span on which additional attributes such as model,
+                    usage_details, and cost_details can be set — use `as_type="generation"` for LLM calls and update the
+                    observation via `langfuse.update_current_generation(...)` inside the function.
+            capture_input (Optional[bool]): Whether to capture the function's arguments as the observation's input.
+                    Defaults to the LANGFUSE_OBSERVE_DECORATOR_IO_CAPTURE_ENABLED environment variable (True if unset).
+                    Set to False for sensitive or very large inputs, then set input explicitly via
+                    `langfuse.update_current_span(input=...)` if needed.
+            capture_output (Optional[bool]): Whether to capture the function's return value as the observation's output.
+                    Same default and override mechanism as capture_input.
+            transform_to_string (Optional[Callable[[Iterable], str]]): For functions returning generators, joins the
+                    yielded chunks into the string stored as output. Without it, chunks are concatenated if all are
+                    strings, otherwise stored as a list.
 
         Returns:
             Callable: A wrapped version of the original function that automatically creates and manages Langfuse spans.
@@ -128,14 +147,23 @@ class LangfuseDecorator:
 
             For language model generation tracking:
             ```python
+            from langfuse import get_client, observe
+
             @observe(name="answer-generation", as_type="generation")
             async def generate_answer(query):
-                # Creates a generation-type span with extended LLM metrics
+                # Creates a generation-type observation with extended LLM metrics
                 response = await openai.chat.completions.create(
                     model="gpt-4",
                     messages=[{"role": "user", "content": query}]
                 )
                 return response.choices[0].message.content
+            ```
+
+            Disabling input/output capture (e.g. for sensitive or large payloads):
+            ```python
+            @observe(capture_input=False, capture_output=False)
+            def handle_pii(user_record):
+                return process(user_record)
             ```
 
             For trace context propagation between functions:
@@ -166,8 +194,10 @@ class LangfuseDecorator:
         """
         valid_types = set(get_observation_types_list(ObservationTypeLiteralNoEvent))
         if as_type is not None and as_type not in valid_types:
-            self._log.warning(
-                f"Invalid as_type '{as_type}'. Valid types are: {', '.join(sorted(valid_types))}. Defaulting to 'span'."
+            logger.warning(
+                "Invalid as_type '%s'. Valid types are: %s. Defaulting to 'span'.",
+                as_type,
+                ", ".join(sorted(valid_types)),
             )
             as_type = "span"
 
@@ -195,7 +225,7 @@ class LangfuseDecorator:
                     capture_output=should_capture_output,
                     transform_to_string=transform_to_string,
                 )
-                if asyncio.iscoroutinefunction(func)
+                if _is_coroutine_function(func)
                 else self._sync_observe(
                     func,
                     name=name,
@@ -292,44 +322,17 @@ class LangfuseDecorator:
 
                     try:
                         result = await func(*args, **kwargs)
-
-                        if capture_output is True:
-                            if inspect.isgenerator(result):
-                                is_return_type_generator = True
-
-                                return self._wrap_sync_generator_result(
-                                    langfuse_span_or_generation,
-                                    result,
-                                    transform_to_string,
-                                )
-
-                            if inspect.isasyncgen(result):
-                                is_return_type_generator = True
-
-                                return self._wrap_async_generator_result(
-                                    langfuse_span_or_generation,
-                                    result,
-                                    transform_to_string,
-                                )
-
-                            # handle starlette.StreamingResponse
-                            if type(result).__name__ == "StreamingResponse" and hasattr(
-                                result, "body_iterator"
-                            ):
-                                is_return_type_generator = True
-
-                                result.body_iterator = (
-                                    self._wrap_async_generator_result(
-                                        langfuse_span_or_generation,
-                                        result.body_iterator,
-                                        transform_to_string,
-                                    )
-                                )
-
-                            langfuse_span_or_generation.update(output=result)
-
+                        (
+                            is_return_type_generator,
+                            result,
+                        ) = self._handle_observe_result(
+                            langfuse_span_or_generation,
+                            result,
+                            capture_output=capture_output,
+                            transform_to_string=transform_to_string,
+                        )
                         return result
-                    except Exception as e:
+                    except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
                             level="ERROR", status_message=str(e) or type(e).__name__
                         )
@@ -410,44 +413,17 @@ class LangfuseDecorator:
 
                     try:
                         result = func(*args, **kwargs)
-
-                        if capture_output is True:
-                            if inspect.isgenerator(result):
-                                is_return_type_generator = True
-
-                                return self._wrap_sync_generator_result(
-                                    langfuse_span_or_generation,
-                                    result,
-                                    transform_to_string,
-                                )
-
-                            if inspect.isasyncgen(result):
-                                is_return_type_generator = True
-
-                                return self._wrap_async_generator_result(
-                                    langfuse_span_or_generation,
-                                    result,
-                                    transform_to_string,
-                                )
-
-                            # handle starlette.StreamingResponse
-                            if type(result).__name__ == "StreamingResponse" and hasattr(
-                                result, "body_iterator"
-                            ):
-                                is_return_type_generator = True
-
-                                result.body_iterator = (
-                                    self._wrap_async_generator_result(
-                                        langfuse_span_or_generation,
-                                        result.body_iterator,
-                                        transform_to_string,
-                                    )
-                                )
-
-                            langfuse_span_or_generation.update(output=result)
-
+                        (
+                            is_return_type_generator,
+                            result,
+                        ) = self._handle_observe_result(
+                            langfuse_span_or_generation,
+                            result,
+                            capture_output=capture_output,
+                            transform_to_string=transform_to_string,
+                        )
                         return result
-                    except Exception as e:
+                    except (Exception, asyncio.CancelledError) as e:
                         langfuse_span_or_generation.update(
                             level="ERROR", status_message=str(e) or type(e).__name__
                         )
@@ -495,6 +471,7 @@ class LangfuseDecorator:
             LangfuseGuardrail,
         ],
         generator: Generator,
+        capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
         preserved_context = contextvars.copy_context()
@@ -503,6 +480,7 @@ class LangfuseDecorator:
             generator,
             preserved_context,
             langfuse_span_or_generation,
+            capture_output,
             transform_to_string,
         )
 
@@ -520,6 +498,7 @@ class LangfuseDecorator:
             LangfuseGuardrail,
         ],
         generator: AsyncGenerator,
+        capture_output: bool,
         transform_to_string: Optional[Callable[[Iterable], str]] = None,
     ) -> Any:
         preserved_context = contextvars.copy_context()
@@ -528,8 +507,60 @@ class LangfuseDecorator:
             generator,
             preserved_context,
             langfuse_span_or_generation,
+            capture_output,
             transform_to_string,
         )
+
+    def _handle_observe_result(
+        self,
+        langfuse_span_or_generation: Union[
+            LangfuseSpan,
+            LangfuseGeneration,
+            LangfuseAgent,
+            LangfuseTool,
+            LangfuseChain,
+            LangfuseRetriever,
+            LangfuseEvaluator,
+            LangfuseEmbedding,
+            LangfuseGuardrail,
+        ],
+        result: Any,
+        *,
+        capture_output: bool,
+        transform_to_string: Optional[Callable[[Iterable], str]] = None,
+    ) -> Tuple[bool, Any]:
+        if inspect.isgenerator(result):
+            return True, self._wrap_sync_generator_result(
+                langfuse_span_or_generation,
+                result,
+                capture_output,
+                transform_to_string,
+            )
+
+        if inspect.isasyncgen(result):
+            return True, self._wrap_async_generator_result(
+                langfuse_span_or_generation,
+                result,
+                capture_output,
+                transform_to_string,
+            )
+
+        # handle starlette.StreamingResponse
+        if type(result).__name__ == "StreamingResponse" and hasattr(
+            result, "body_iterator"
+        ):
+            result.body_iterator = self._wrap_async_generator_result(
+                langfuse_span_or_generation,
+                result.body_iterator,
+                capture_output,
+                transform_to_string,
+            )
+            return True, result
+
+        if capture_output is True:
+            langfuse_span_or_generation.update(output=result)
+
+        return False, result
 
 
 _decorator = LangfuseDecorator()
@@ -555,27 +586,25 @@ class _ContextPreservedSyncGeneratorWrapper:
             LangfuseEmbedding,
             LangfuseGuardrail,
         ],
+        capture_output: bool,
         transform_fn: Optional[Callable[[Iterable], str]],
     ) -> None:
         self.generator = generator
         self.context = context
         self.items: List[Any] = []
         self.span = span
+        self.capture_output = capture_output
         self.transform_fn = transform_fn
+        self._span_ended = False
 
     def __iter__(self) -> "_ContextPreservedSyncGeneratorWrapper":
         return self
 
-    def __next__(self) -> Any:
-        try:
-            # Run the generator's __next__ in the preserved context
-            item = self.context.run(next, self.generator)
-            self.items.append(item)
+    def _finalize(self) -> None:
+        if self._span_ended:
+            return
 
-            return item
-
-        except StopIteration:
-            # Handle output and span cleanup when generator is exhausted
+        if self.capture_output:
             output: Any = self.items
 
             if self.transform_fn is not None:
@@ -584,15 +613,55 @@ class _ContextPreservedSyncGeneratorWrapper:
             elif all(isinstance(item, str) for item in self.items):
                 output = "".join(self.items)
 
-            self.span.update(output=output).end()
+            self.span.update(output=output)
 
+        self.span.end()
+        self._span_ended = True
+
+    def _finalize_with_error(self, error: BaseException) -> None:
+        if self._span_ended:
+            return
+
+        self.span.update(
+            level="ERROR", status_message=str(error) or type(error).__name__
+        ).end()
+        self._span_ended = True
+
+    def close(self) -> None:
+        if self._span_ended:
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
+            self.context.run(self.generator.close)
+            return
+
+        try:
+            self.context.run(self.generator.close)
+        except (Exception, asyncio.CancelledError) as error:
+            self._finalize_with_error(error)
+            raise
+        else:
+            self._finalize()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except BaseException:
+            pass
+
+    def __next__(self) -> Any:
+        try:
+            # Run the generator's __next__ in the preserved context
+            item = self.context.run(next, self.generator)
+            if self.capture_output:
+                self.items.append(item)
+
+            return item
+
+        except StopIteration:
+            self._finalize()
             raise  # Re-raise StopIteration
 
-        except Exception as e:
-            self.span.update(
-                level="ERROR", status_message=str(e) or type(e).__name__
-            ).end()
-
+        except (Exception, asyncio.CancelledError) as e:
+            self._finalize_with_error(e)
             raise
 
 
@@ -614,36 +683,38 @@ class _ContextPreservedAsyncGeneratorWrapper:
             LangfuseEmbedding,
             LangfuseGuardrail,
         ],
+        capture_output: bool,
         transform_fn: Optional[Callable[[Iterable], str]],
     ) -> None:
         self.generator = generator
         self.context = context
         self.items: List[Any] = []
         self.span = span
+        self.capture_output = capture_output
         self.transform_fn = transform_fn
+        self._span_ended = False
+        self._pending_error: Optional[BaseException] = None
 
     def __aiter__(self) -> "_ContextPreservedAsyncGeneratorWrapper":
         return self
 
-    async def __anext__(self) -> Any:
+    def _generator_never_resumed(self) -> bool:
         try:
-            # Run the generator's __anext__ in the preserved context
-            try:
-                # Python 3.10+ approach with context parameter
-                item = await asyncio.create_task(
-                    self.generator.__anext__(),  # type: ignore
-                    context=self.context,
-                )  # type: ignore
-            except TypeError:
-                # Python < 3.10 fallback - context parameter not supported
-                item = await self.generator.__anext__()
+            state = inspect.getasyncgenstate(self.generator)
+        except (AttributeError, TypeError):
+            # getasyncgenstate is Python 3.12+; fall back to the attributes it reads.
+            frame = getattr(self.generator, "ag_frame", None)
+            return frame is not None and not getattr(
+                self.generator, "ag_running", False
+            )
 
-            self.items.append(item)
+        return state in ("AGEN_CREATED", "AGEN_SUSPENDED")
 
-            return item
+    def _finalize(self) -> None:
+        if self._span_ended:
+            return
 
-        except StopAsyncIteration:
-            # Handle output and span cleanup when generator is exhausted
+        if self.capture_output:
             output: Any = self.items
 
             if self.transform_fn is not None:
@@ -652,12 +723,72 @@ class _ContextPreservedAsyncGeneratorWrapper:
             elif all(isinstance(item, str) for item in self.items):
                 output = "".join(self.items)
 
-            self.span.update(output=output).end()
+            self.span.update(output=output)
 
+        self.span.end()
+        self._span_ended = True
+
+    def _finalize_with_error(self, error: BaseException) -> None:
+        if self._span_ended:
+            return
+
+        self.span.update(
+            level="ERROR", status_message=str(error) or type(error).__name__
+        ).end()
+        self._span_ended = True
+
+    async def aclose(self) -> None:
+        if self._span_ended:
+            # Still close the generator so cleanup runs in the preserved context, not at GC time.
+            await self._close_generator()
+            return
+
+        try:
+            await self._close_generator()
+        except (Exception, asyncio.CancelledError) as error:
+            self._finalize_with_error(error)
+            raise
+        else:
+            if self._pending_error is not None:
+                self._finalize_with_error(self._pending_error)
+            else:
+                self._finalize()
+
+    async def _close_generator(self) -> None:
+        await asyncio.create_task(self.generator.aclose(), context=self.context)
+
+    async def close(self) -> None:
+        await self.aclose()
+
+    def __del__(self) -> None:
+        if self._pending_error is not None:
+            self._finalize_with_error(self._pending_error)
+        else:
+            self._finalize()
+
+    async def __anext__(self) -> Any:
+        try:
+            # Run the generator's __anext__ in the preserved context
+            item = await asyncio.create_task(
+                self.generator.__anext__(),  # type: ignore
+                context=self.context,
+            )
+
+            if self.capture_output:
+                self.items.append(item)
+
+            return item
+
+        except StopAsyncIteration:
+            self._finalize()
             raise  # Re-raise StopAsyncIteration
+        except asyncio.CancelledError as e:
+            if self._generator_never_resumed():
+                # Defer span end so aclose() can run the generator's cleanup first.
+                self._pending_error = e
+                raise
+            self._finalize_with_error(e)
+            raise
         except Exception as e:
-            self.span.update(
-                level="ERROR", status_message=str(e) or type(e).__name__
-            ).end()
-
+            self._finalize_with_error(e)
             raise

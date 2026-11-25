@@ -11,6 +11,8 @@ LANGFUSE_TRACER_NAME = "langfuse-sdk"
 
 LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT = "sdk-experiment"
 
+MASK_FALLBACK_VALUE = "<fully masked due to failed mask function>"
+
 """Note: this type is used with .__args__ / get_args in some cases and therefore must remain flat"""
 ObservationTypeGenerationLike: TypeAlias = Literal[
     "generation",

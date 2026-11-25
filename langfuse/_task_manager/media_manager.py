@@ -1,19 +1,17 @@
-import logging
 import os
 import time
 from queue import Empty, Full, Queue
 from typing import Any, Callable, Optional, TypeVar, cast
 
-import backoff
-import requests
+import httpx
 from typing_extensions import ParamSpec
 
 from langfuse._client.environment_variables import LANGFUSE_MEDIA_UPLOAD_ENABLED
 from langfuse._utils import _get_timestamp
-from langfuse.api import GetMediaUploadUrlRequest, PatchMediaBody
-from langfuse.api.client import FernLangfuse
-from langfuse.api.core import ApiError
-from langfuse.api.resources.media.types.media_content_type import MediaContentType
+from langfuse._utils.retry import call_with_retries, is_retryable_status
+from langfuse.api import LangfuseAPI, MediaContentType
+from langfuse.api.core import ApiError, RequestOptions
+from langfuse.logger import langfuse_logger as logger
 from langfuse.media import LangfuseMedia
 
 from .media_upload_queue import UploadMediaJob
@@ -21,29 +19,59 @@ from .media_upload_queue import UploadMediaJob
 T = TypeVar("T")
 P = ParamSpec("P")
 
+# Retries happen in _request_with_backoff, so the API client must not retry too.
+_NO_CLIENT_RETRIES: RequestOptions = {"max_retries": 0}
+_SHUTDOWN_SENTINEL = object()
+
+
+def _is_langfuse_media_reference(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith("@@@langfuseMedia:")
+        and value.endswith("@@@")
+    )
+
 
 class MediaManager:
-    _log = logging.getLogger("langfuse")
-
     def __init__(
         self,
         *,
-        api_client: FernLangfuse,
+        api_client: LangfuseAPI,
+        httpx_client: httpx.Client,
         media_upload_queue: Queue,
         max_retries: Optional[int] = 3,
     ):
         self._api_client = api_client
+        self._httpx_client = httpx_client
         self._queue = media_upload_queue
-        self._max_retries = max_retries
+        self._max_retries = max_retries if max_retries is not None else 3
         self._enabled = os.environ.get(
             LANGFUSE_MEDIA_UPLOAD_ENABLED, "True"
         ).lower() not in ("false", "0")
 
+    def reinitialize(
+        self,
+        *,
+        api_client: LangfuseAPI,
+        httpx_client: httpx.Client,
+        media_upload_queue: Queue,
+    ) -> None:
+        self._api_client = api_client
+        self._httpx_client = httpx_client
+        self._queue = media_upload_queue
+
     def process_next_media_upload(self) -> None:
         try:
             upload_job = self._queue.get(block=True, timeout=1)
-            self._log.debug(
-                f"Media: Processing upload for media_id={upload_job['media_id']} in trace_id={upload_job['trace_id']}"
+
+            if upload_job is _SHUTDOWN_SENTINEL:
+                # Already marked done by signal_shutdown().
+                return
+
+            logger.debug(
+                "Media: Processing upload for media_id=%s in trace_id=%s",
+                upload_job["media_id"],
+                upload_job["trace_id"],
             )
             self._process_upload_media_job(data=upload_job)
 
@@ -51,9 +79,24 @@ class MediaManager:
         except Empty:
             pass
         except Exception as e:
-            self._log.error(
-                f"Media upload error: Failed to upload media due to unexpected error. Queue item marked as done. Error: {e}"
+            logger.error(
+                "Media upload error: Failed to upload media due to unexpected error. "
+                "Queue item marked as done. Error: %s",
+                e,
             )
+            self._queue.task_done()
+
+    def signal_shutdown(self, *, count: int = 1) -> None:
+        for _ in range(count):
+            try:
+                self._queue.put(_SHUTDOWN_SENTINEL, block=False)
+            except Full:
+                # If the queue is full, the consumer will keep draining work and
+                # observe the paused flag on the next loop iteration.
+                break
+
+            # Mark it done now, since no consumer may take it (e.g. after a
+            # repeated shutdown()) and queue.join() would then never return.
             self._queue.task_done()
 
     def _find_and_process_media(
@@ -71,10 +114,8 @@ class MediaManager:
         max_levels = 10
 
         def _process_data_recursively(data: Any, level: int) -> Any:
-            if id(data) in seen or level > max_levels:
+            if level > max_levels:
                 return data
-
-            seen.add(id(data))
 
             if isinstance(data, LangfuseMedia):
                 self._process_media(
@@ -86,7 +127,12 @@ class MediaManager:
 
                 return data
 
-            if isinstance(data, str) and data.startswith("data:"):
+            if (
+                isinstance(data, str)
+                and data.startswith("data:")
+                and "," in data
+                and data.split(",", 1)[0].endswith(";base64")
+            ):
                 media = LangfuseMedia(
                     obj=data,
                     base64_data_uri=data,
@@ -109,6 +155,9 @@ class MediaManager:
                 and "media_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['media_type']};base64," + data["data"],
                 )
@@ -133,6 +182,9 @@ class MediaManager:
                 and "mime_type" in data
                 and "data" in data
             ):
+                if _is_langfuse_media_reference(data["data"]):
+                    return data
+
                 media = LangfuseMedia(
                     base64_data_uri=f"data:{data['mime_type']};base64," + data["data"],
                 )
@@ -149,14 +201,112 @@ class MediaManager:
 
                 return copied
 
+            # Google Gemini / Vertex inline data
+            if isinstance(data, dict):
+                for inline_data_key in ("inline_data", "inlineData"):
+                    inline_data = data.get(inline_data_key)
+
+                    if not isinstance(inline_data, dict) or "data" not in inline_data:
+                        continue
+
+                    content_type = inline_data.get("mime_type") or inline_data.get(
+                        "mimeType"
+                    )
+
+                    if not content_type:
+                        continue
+
+                    if not isinstance(inline_data["data"], str):
+                        continue
+
+                    if _is_langfuse_media_reference(inline_data["data"]):
+                        return data
+
+                    media = LangfuseMedia(
+                        base64_data_uri=f"data:{content_type};base64,"
+                        + inline_data["data"],
+                    )
+
+                    self._process_media(
+                        media=media,
+                        trace_id=trace_id,
+                        observation_id=observation_id,
+                        field=field,
+                    )
+
+                    copied = data.copy()
+                    copied_inline_data = inline_data.copy()
+                    copied_inline_data["data"] = media
+                    copied[inline_data_key] = copied_inline_data
+
+                    return copied
+
             if isinstance(data, list):
-                return [_process_data_recursively(item, level + 1) for item in data]
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return [_process_data_recursively(item, level + 1) for item in data]
+                finally:
+                    seen.discard(id(data))
 
             if isinstance(data, dict):
-                return {
-                    key: _process_data_recursively(value, level + 1)
-                    for key, value in data.items()
-                }
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    return {
+                        key: _process_data_recursively(value, level + 1)
+                        for key, value in data.items()
+                    }
+                finally:
+                    seen.discard(id(data))
+
+            if (
+                hasattr(data, "__pydantic_fields__")
+                and hasattr(data, "model_dump")
+                and callable(data.model_dump)
+            ):
+                # Pydantic v2 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    try:
+                        dumped = data.model_dump()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
+                finally:
+                    seen.discard(id(data))
+
+            if (
+                hasattr(data, "dict")
+                and callable(data.dict)
+                and hasattr(data, "__fields__")
+            ):
+                # Pydantic v1 BaseModel
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    try:
+                        dumped = data.dict()
+                    except Exception:
+                        return data
+
+                    return _process_data_recursively(dumped, level + 1)
+                finally:
+                    seen.discard(id(data))
 
             return data
 
@@ -179,7 +329,7 @@ class MediaManager:
             return
 
         if media._media_id is None:
-            self._log.error("Media ID is None. Skipping upload.")
+            logger.error("Media ID is None. Skipping upload.")
             return
 
         try:
@@ -191,6 +341,8 @@ class MediaManager:
                 content_sha256_hash=media._content_sha256_hash,
                 trace_id=trace_id,
                 observation_id=observation_id,
+                dataset_id=None,
+                dataset_item_id=None,
                 field=field,
             )
 
@@ -198,19 +350,69 @@ class MediaManager:
                 item=upload_media_job,
                 block=False,
             )
-            self._log.debug(
-                f"Queue: Enqueued media ID {media._media_id} for upload processing | trace_id={trace_id} | field={field}"
+            logger.debug(
+                "Queue: Enqueued media ID %s for upload processing | trace_id=%s | "
+                "field=%s",
+                media._media_id,
+                trace_id,
+                field,
             )
 
         except Full:
-            self._log.warning(
-                f"Queue capacity: Media queue is full. Failed to process media_id={media._media_id} for trace_id={trace_id}. Consider increasing queue capacity."
+            logger.warning(
+                "Queue capacity: Media queue is full. Failed to process media_id=%s for "
+                "trace_id=%s. Consider increasing queue capacity.",
+                media._media_id,
+                trace_id,
             )
 
         except Exception as e:
-            self._log.error(
-                f"Media processing error: Failed to process media_id={media._media_id} for trace_id={trace_id}. Error: {str(e)}"
+            logger.error(
+                "Media processing error: Failed to process media_id=%s for trace_id=%s. "
+                "Error: %s",
+                media._media_id,
+                trace_id,
+                str(e),
             )
+
+    def _upload_media_sync(
+        self,
+        *,
+        media: LangfuseMedia,
+        dataset_id: Optional[str] = None,
+        dataset_item_id: Optional[str] = None,
+        field: Optional[str] = None,
+    ) -> None:
+        if not self._enabled:
+            raise ValueError(
+                "Cannot upload LangfuseMedia while media upload is disabled."
+            )
+
+        if (
+            media._content_length is None
+            or media._content_type is None
+            or media._content_sha256_hash is None
+            or media._content_bytes is None
+        ):
+            raise ValueError("Cannot upload invalid LangfuseMedia.")
+
+        if media._media_id is None:
+            raise ValueError("Cannot upload LangfuseMedia without media ID.")
+
+        upload_media_job = UploadMediaJob(
+            media_id=media._media_id,
+            content_bytes=media._content_bytes,
+            content_type=media._content_type,
+            content_length=media._content_length,
+            content_sha256_hash=media._content_sha256_hash,
+            trace_id=None,
+            observation_id=None,
+            dataset_id=dataset_id,
+            dataset_item_id=dataset_item_id,
+            field=field,
+        )
+
+        self._process_upload_media_job(data=upload_media_job)
 
     def _process_upload_media_job(
         self,
@@ -219,28 +421,34 @@ class MediaManager:
     ) -> None:
         upload_url_response = self._request_with_backoff(
             self._api_client.media.get_upload_url,
-            request=GetMediaUploadUrlRequest(
-                contentLength=data["content_length"],
-                contentType=cast(MediaContentType, data["content_type"]),
-                sha256Hash=data["content_sha256_hash"],
-                field=data["field"],
-                traceId=data["trace_id"],
-                observationId=data["observation_id"],
-            ),
+            content_length=data["content_length"],
+            content_type=cast(MediaContentType, data["content_type"]),
+            sha256hash=data["content_sha256_hash"],
+            trace_id=data["trace_id"],
+            observation_id=data["observation_id"],
+            dataset_id=data["dataset_id"],
+            dataset_item_id=data["dataset_item_id"],
+            field=data["field"],
+            request_options=_NO_CLIENT_RETRIES,
         )
 
         upload_url = upload_url_response.upload_url
 
         if not upload_url:
-            self._log.debug(
-                f"Media status: Media with ID {data['media_id']} already uploaded. Skipping duplicate upload."
+            logger.debug(
+                "Media status: Media with ID %s already uploaded. Skipping duplicate "
+                "upload.",
+                data["media_id"],
             )
 
             return
 
         if upload_url_response.media_id != data["media_id"]:
-            self._log.error(
-                f"Media integrity error: Media ID mismatch between SDK ({data['media_id']}) and Server ({upload_url_response.media_id}). Upload cancelled. Please check media ID generation logic."
+            logger.error(
+                "Media integrity error: Media ID mismatch between SDK (%s) and Server "
+                "(%s). Upload cancelled. Please check media ID generation logic.",
+                data["media_id"],
+                upload_url_response.media_id,
             )
 
             return
@@ -254,56 +462,74 @@ class MediaManager:
             headers["x-ms-blob-type"] = "BlockBlob"
             headers["x-amz-checksum-sha256"] = data["content_sha256_hash"]
 
+        def _upload_with_status_check() -> httpx.Response:
+            response = self._httpx_client.put(
+                upload_url,
+                headers=headers,
+                content=data["content_bytes"],
+            )
+            response.raise_for_status()
+
+            return response
+
         upload_start_time = time.time()
-        upload_response = self._request_with_backoff(
-            requests.put,
-            upload_url,
-            headers=headers,
-            data=data["content_bytes"],
-        )
+
+        try:
+            upload_response = self._request_with_backoff(_upload_with_status_check)
+        except httpx.HTTPStatusError as e:
+            upload_time_ms = int((time.time() - upload_start_time) * 1000)
+            failed_response = e.response
+
+            if failed_response is not None:
+                self._request_with_backoff(
+                    self._api_client.media.patch,
+                    media_id=data["media_id"],
+                    uploaded_at=_get_timestamp(),
+                    upload_http_status=failed_response.status_code,
+                    upload_http_error=failed_response.text,
+                    upload_time_ms=upload_time_ms,
+                    request_options=_NO_CLIENT_RETRIES,
+                )
+
+            raise
+
         upload_time_ms = int((time.time() - upload_start_time) * 1000)
 
         self._request_with_backoff(
             self._api_client.media.patch,
             media_id=data["media_id"],
-            request=PatchMediaBody(
-                uploadedAt=_get_timestamp(),
-                uploadHttpStatus=upload_response.status_code,
-                uploadHttpError=upload_response.text,
-                uploadTimeMs=upload_time_ms,
-            ),
+            uploaded_at=_get_timestamp(),
+            upload_http_status=upload_response.status_code,
+            upload_http_error=upload_response.text,
+            upload_time_ms=upload_time_ms,
+            request_options=_NO_CLIENT_RETRIES,
         )
 
-        self._log.debug(
-            f"Media upload: Successfully uploaded media_id={data['media_id']} for trace_id={data['trace_id']} | status_code={upload_response.status_code} | duration={upload_time_ms}ms | size={data['content_length']} bytes"
+        logger.debug(
+            "Media upload: Successfully uploaded media_id=%s for trace_id=%s | "
+            "status_code=%s | duration=%sms | size=%s bytes",
+            data["media_id"],
+            data["trace_id"],
+            upload_response.status_code,
+            upload_time_ms,
+            data["content_length"],
         )
 
     def _request_with_backoff(
         self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
     ) -> T:
-        def _should_give_up(e: Exception) -> bool:
+        def _should_retry(e: Exception) -> bool:
             if isinstance(e, ApiError):
-                return (
-                    e.status_code is not None
-                    and 400 <= e.status_code < 500
-                    and e.status_code != 429
+                return e.status_code is not None and is_retryable_status(e.status_code)
+            if isinstance(e, httpx.HTTPStatusError):
+                return e.response is not None and is_retryable_status(
+                    e.response.status_code
                 )
-            if isinstance(e, requests.exceptions.RequestException):
-                return (
-                    e.response is not None
-                    and e.response.status_code < 500
-                    and e.response.status_code != 429
-                )
-            return False
+            return True
 
-        @backoff.on_exception(
-            backoff.expo,
-            Exception,
-            max_tries=self._max_retries,
-            giveup=_should_give_up,
-            logger=None,
+        # API client calls pass max_retries=0, so this is the only retry layer.
+        return call_with_retries(
+            lambda: func(*args, **kwargs),
+            max_retries=max(self._max_retries - 1, 0),
+            should_retry=_should_retry,
         )
-        def execute_task_with_backoff() -> T:
-            return func(*args, **kwargs)
-
-        return execute_task_with_backoff()
