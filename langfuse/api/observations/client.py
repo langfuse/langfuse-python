@@ -56,7 +56,10 @@ class ObservationsClient:
         ## Cursor-based Pagination
         This endpoint uses cursor-based pagination for efficient traversal of large datasets.
         The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
+        to retrieve the next page of results. The `limit` parameter is a maximum: a page may contain
+        fewer items than the requested limit, including zero items, while `meta.cursor` is present.
+        Continue requesting pages until `meta.cursor` is absent.
+        Requests without a lower start-time bound may search only from January 1, 2020.
 
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
@@ -75,7 +78,7 @@ class ObservationsClient:
 
         ## Filters
         Multiple filtering options are available via query parameters or the structured `filter` parameter.
-        When using the `filter` parameter, it takes precedence over individual query parameter filters.
+        A condition in the `filter` parameter replaces the query parameter for the same field. Query parameters for other fields still apply. A `startTime` condition replaces both `fromStartTime` and `toStartTime`.
 
         Parameters
         ----------
@@ -92,7 +95,7 @@ class ObservationsClient:
             Example: "key1,key2"
 
         limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
+            Maximum number of items to return per page. A page may contain fewer items, including zero items, while meta.cursor is present. Maximum 1000, default 50.
 
         cursor : typing.Optional[str]
             Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
@@ -139,14 +142,14 @@ class ObservationsClient:
             Optional filter to only include observations with a certain version.
 
         filter : typing.Optional[str]
-            JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
+            JSON string containing an array of filter conditions. A condition on the same field as a query parameter filter (userId, name, type, level, environment, fromStartTime, ...) replaces that parameter. Query parameters for other fields still apply. A `startTime` condition replaces both `fromStartTime` and `toStartTime`.
 
             ## Filter Structure
             Each filter condition has the following structure:
             ```json
             [
               {
-                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "arrayOptions", "stringObject", "boolean", "null"
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
@@ -155,10 +158,11 @@ class ObservationsClient:
                                           // - arrayOptions: "any of", "none of", "all of"
                                           // - number: "=", ">", "<", ">=", "<="
                                           // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches", "is set", "is not set"
+                                          // - numberObject: "=", ">", "<", ">=", "<=" (metadata only)
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
-                "value": any,             // Required. Type depends on filter type: ISO 8601 string for datetime, JSON number for number (not a numeric string), array of strings for stringOptions/arrayOptions, boolean for boolean, and "" (empty string) for null
-                "key": string             // Required only for stringObject (the metadata key to filter on)
+                "value": any,             // Required. Type depends on filter type: ISO 8601 string for datetime, JSON number for number and numberObject (not a numeric string), array of strings for stringOptions/arrayOptions, boolean for boolean, and "" (empty string) for null
+                "key": string             // Required only for stringObject and numberObject (the metadata key to filter on)
               }
             ]
             ```
@@ -208,7 +212,7 @@ class ObservationsClient:
             ### Structured Data
             - `input` (string) - Observation input. Supports accelerated indexed literal search with the `matches` operator.
             - `output` (string) - Observation output. Supports accelerated indexed literal search with the `matches` operator.
-            - `metadata` (stringObject) - Metadata key-value pairs. Use the `key` parameter to filter on a specific metadata key. Metadata values are stored as strings, so match numbers and booleans by their string form with `=` (for example `"value": "true"` or `"value": "42"`); numeric comparisons such as `>` are not supported on metadata.
+            - `metadata` (stringObject) - Metadata key-value pairs. Use the `key` parameter to filter on a specific metadata key. Metadata values are stored as strings: a stringObject filter matches numbers and booleans by their string form with `=` (for example `"value": "true"` or `"value": "42"`). A numberObject filter compares the value as a number (for example `"operator": ">", "value": 20` matches `"20.5"` and `"21"`); values that are not numbers never match.
 
             The `matches` operator is only supported for `input`, `output`, and stringObject `metadata` filters. It performs indexed literal search with token-boundary pruning using the events table text indexes. Case sensitivity differs by target: `input` and `output` matches are case-insensitive, while metadata value matches are case-sensitive. Unlike SQL `LIKE`, `%` and `_` are treated as literal characters. Use `contains` for legacy substring semantics where the API allows it. Any v2 `input` or `output` filter must be accompanied by at least one `=` or `matches` filter on `input` or `output`; standalone `contains`, `starts with`, `ends with`, and `does not contain` filters on these columns are rejected.
 
@@ -340,7 +344,10 @@ class AsyncObservationsClient:
         ## Cursor-based Pagination
         This endpoint uses cursor-based pagination for efficient traversal of large datasets.
         The cursor is returned in the response metadata and should be passed in subsequent requests
-        to retrieve the next page of results.
+        to retrieve the next page of results. The `limit` parameter is a maximum: a page may contain
+        fewer items than the requested limit, including zero items, while `meta.cursor` is present.
+        Continue requesting pages until `meta.cursor` is absent.
+        Requests without a lower start-time bound may search only from January 1, 2020.
 
         ## Field Selection
         Use the `fields` parameter to control which observation fields are returned:
@@ -359,7 +366,7 @@ class AsyncObservationsClient:
 
         ## Filters
         Multiple filtering options are available via query parameters or the structured `filter` parameter.
-        When using the `filter` parameter, it takes precedence over individual query parameter filters.
+        A condition in the `filter` parameter replaces the query parameter for the same field. Query parameters for other fields still apply. A `startTime` condition replaces both `fromStartTime` and `toStartTime`.
 
         Parameters
         ----------
@@ -376,7 +383,7 @@ class AsyncObservationsClient:
             Example: "key1,key2"
 
         limit : typing.Optional[int]
-            Number of items to return per page. Maximum 1000, default 50.
+            Maximum number of items to return per page. A page may contain fewer items, including zero items, while meta.cursor is present. Maximum 1000, default 50.
 
         cursor : typing.Optional[str]
             Base64-encoded cursor for pagination. Use the cursor from the previous response to get the next page.
@@ -423,14 +430,14 @@ class AsyncObservationsClient:
             Optional filter to only include observations with a certain version.
 
         filter : typing.Optional[str]
-            JSON string containing an array of filter conditions. When provided, this takes precedence over query parameter filters (userId, name, type, level, environment, fromStartTime, ...).
+            JSON string containing an array of filter conditions. A condition on the same field as a query parameter filter (userId, name, type, level, environment, fromStartTime, ...) replaces that parameter. Query parameters for other fields still apply. A `startTime` condition replaces both `fromStartTime` and `toStartTime`.
 
             ## Filter Structure
             Each filter condition has the following structure:
             ```json
             [
               {
-                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "arrayOptions", "stringObject", "boolean", "null"
+                "type": string,           // Required. One of: "datetime", "string", "number", "stringOptions", "arrayOptions", "stringObject", "numberObject", "boolean", "null"
                 "column": string,         // Required. Column to filter on (see available columns below)
                 "operator": string,       // Required. Operator based on type:
                                           // - datetime: ">", "<", ">=", "<="
@@ -439,10 +446,11 @@ class AsyncObservationsClient:
                                           // - arrayOptions: "any of", "none of", "all of"
                                           // - number: "=", ">", "<", ">=", "<="
                                           // - stringObject: "=", "contains", "does not contain", "starts with", "ends with", "matches", "is set", "is not set"
+                                          // - numberObject: "=", ">", "<", ">=", "<=" (metadata only)
                                           // - boolean: "=", "<>"
                                           // - null: "is null", "is not null"
-                "value": any,             // Required. Type depends on filter type: ISO 8601 string for datetime, JSON number for number (not a numeric string), array of strings for stringOptions/arrayOptions, boolean for boolean, and "" (empty string) for null
-                "key": string             // Required only for stringObject (the metadata key to filter on)
+                "value": any,             // Required. Type depends on filter type: ISO 8601 string for datetime, JSON number for number and numberObject (not a numeric string), array of strings for stringOptions/arrayOptions, boolean for boolean, and "" (empty string) for null
+                "key": string             // Required only for stringObject and numberObject (the metadata key to filter on)
               }
             ]
             ```
@@ -492,7 +500,7 @@ class AsyncObservationsClient:
             ### Structured Data
             - `input` (string) - Observation input. Supports accelerated indexed literal search with the `matches` operator.
             - `output` (string) - Observation output. Supports accelerated indexed literal search with the `matches` operator.
-            - `metadata` (stringObject) - Metadata key-value pairs. Use the `key` parameter to filter on a specific metadata key. Metadata values are stored as strings, so match numbers and booleans by their string form with `=` (for example `"value": "true"` or `"value": "42"`); numeric comparisons such as `>` are not supported on metadata.
+            - `metadata` (stringObject) - Metadata key-value pairs. Use the `key` parameter to filter on a specific metadata key. Metadata values are stored as strings: a stringObject filter matches numbers and booleans by their string form with `=` (for example `"value": "true"` or `"value": "42"`). A numberObject filter compares the value as a number (for example `"operator": ">", "value": 20` matches `"20.5"` and `"21"`); values that are not numbers never match.
 
             The `matches` operator is only supported for `input`, `output`, and stringObject `metadata` filters. It performs indexed literal search with token-boundary pruning using the events table text indexes. Case sensitivity differs by target: `input` and `output` matches are case-insensitive, while metadata value matches are case-sensitive. Unlike SQL `LIKE`, `%` and `_` are treated as literal characters. Use `contains` for legacy substring semantics where the API allows it. Any v2 `input` or `output` filter must be accompanied by at least one `=` or `matches` filter on `input` or `output`; standalone `contains`, `starts with`, `ends with`, and `does not contain` filters on these columns are rejected.
 

@@ -10,7 +10,9 @@ from .topic_facet_ref import TopicFacetRef
 
 
 class Topic(UniversalBaseModel):
-    id: str = pydantic.Field()
+    stable_id: typing_extensions.Annotated[str, FieldMetadata(alias="stableId")] = (
+        pydantic.Field()
+    )
     """
     Stable topic id, kept across map updates.
     """
@@ -25,11 +27,18 @@ class Topic(UniversalBaseModel):
     name: str
     description: str
     facet: TopicFacetRef
-    run_id: typing_extensions.Annotated[str, FieldMetadata(alias="runId")] = (
+    rule_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="ruleId")
+    ] = pydantic.Field(default=None)
+    """
+    The rule whose live map has the topic. Null when the project has no rule.
+    """
+
+    map_id: typing_extensions.Annotated[str, FieldMetadata(alias="mapId")] = (
         pydantic.Field()
     )
     """
-    The run that produced this topic version.
+    The map that produced this topic version.
     """
 
     trace_count: typing_extensions.Annotated[int, FieldMetadata(alias="traceCount")] = (

@@ -12,8 +12,11 @@ from .topic_status_counts import TopicStatusCounts
 
 class TopicFacetCounts(UniversalBaseModel):
     facet: TopicFacetRef
-    published_run_id: typing_extensions.Annotated[
-        typing.Optional[str], FieldMetadata(alias="publishedRunId")
+    rule_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="ruleId")
+    ] = None
+    published_map_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="publishedMapId")
     ] = None
     counts: TopicStatusCounts
 

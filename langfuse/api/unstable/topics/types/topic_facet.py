@@ -6,7 +6,7 @@ import pydantic
 import typing_extensions
 from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
-from .topic_facet_published_run import TopicFacetPublishedRun
+from .topic_facet_published_map import TopicFacetPublishedMap
 
 
 class TopicFacet(UniversalBaseModel):
@@ -16,7 +16,14 @@ class TopicFacet(UniversalBaseModel):
     is_built_in: typing_extensions.Annotated[bool, FieldMetadata(alias="isBuiltIn")]
     active: bool = pydantic.Field()
     """
-    Whether the facet is attached to the project's Topics rule. True for all facets if the project has no rule.
+    Whether a Topics rule runs the facet. True for all facets if the project has no rule.
+    """
+
+    rule_ids: typing_extensions.Annotated[
+        typing.List[str], FieldMetadata(alias="ruleIds")
+    ] = pydantic.Field()
+    """
+    The rules that run the facet.
     """
 
     version: int = pydantic.Field()
@@ -29,11 +36,11 @@ class TopicFacet(UniversalBaseModel):
     Prompt of the latest facet version.
     """
 
-    published_run: typing_extensions.Annotated[
-        typing.Optional[TopicFacetPublishedRun], FieldMetadata(alias="publishedRun")
+    published_map: typing_extensions.Annotated[
+        typing.Optional[TopicFacetPublishedMap], FieldMetadata(alias="publishedMap")
     ] = pydantic.Field(default=None)
     """
-    The run that produced the facet's current map. Null before the first map.
+    The facet's current published topic map. Null before the first map.
     """
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
