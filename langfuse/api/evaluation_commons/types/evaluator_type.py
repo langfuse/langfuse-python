@@ -11,18 +11,22 @@ class EvaluatorType(enum.StrEnum):
     """
     The evaluator type.
 
-    The public API supports LLM-as-a-judge and code evaluators.
+    The public API supports LLM-as-a-judge, code, and decision-model evaluators.
     """
 
     LLM_AS_JUDGE = "llm_as_judge"
     CODE = "code"
+    DECISION_MODEL = "decision_model"
 
     def visit(
         self,
         llm_as_judge: typing.Callable[[], T_Result],
         code: typing.Callable[[], T_Result],
+        decision_model: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is EvaluatorType.LLM_AS_JUDGE:
             return llm_as_judge()
         if self is EvaluatorType.CODE:
             return code()
+        if self is EvaluatorType.DECISION_MODEL:
+            return decision_model()

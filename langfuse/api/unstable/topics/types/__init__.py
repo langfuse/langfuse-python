@@ -14,7 +14,7 @@ if typing.TYPE_CHECKING:
     from .topic_facet import TopicFacet
     from .topic_facet_counts import TopicFacetCounts
     from .topic_facet_list import TopicFacetList
-    from .topic_facet_published_run import TopicFacetPublishedRun
+    from .topic_facet_published_map import TopicFacetPublishedMap
     from .topic_facet_ref import TopicFacetRef
     from .topic_list import TopicList
     from .topic_result_list_meta import TopicResultListMeta
@@ -37,7 +37,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TopicFacet": ".topic_facet",
     "TopicFacetCounts": ".topic_facet_counts",
     "TopicFacetList": ".topic_facet_list",
-    "TopicFacetPublishedRun": ".topic_facet_published_run",
+    "TopicFacetPublishedMap": ".topic_facet_published_map",
     "TopicFacetRef": ".topic_facet_ref",
     "TopicList": ".topic_list",
     "TopicResultListMeta": ".topic_result_list_meta",
@@ -90,7 +90,7 @@ __all__ = [
     "TopicFacet",
     "TopicFacetCounts",
     "TopicFacetList",
-    "TopicFacetPublishedRun",
+    "TopicFacetPublishedMap",
     "TopicFacetRef",
     "TopicList",
     "TopicResultListMeta",

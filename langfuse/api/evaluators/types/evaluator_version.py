@@ -19,6 +19,7 @@ from ...evaluation_commons.types.public_evaluator_output_definition import (
     PublicEvaluatorOutputDefinition,
 )
 from .creator import Creator
+from .decision_model_question import DecisionModelQuestion
 from .evaluator_chat_prompt import EvaluatorChatPrompt
 from .evaluator_model_config import EvaluatorModelConfig
 
@@ -71,7 +72,35 @@ class EvaluatorVersion_Code(UniversalBaseModel):
     )
 
 
+class EvaluatorVersion_DecisionModel(UniversalBaseModel):
+    type: typing.Literal["decision_model"] = "decision_model"
+    questions: typing.List[DecisionModelQuestion]
+    variables: typing.List[str]
+    variable_mapping: typing_extensions.Annotated[
+        typing.List[PromptVariableMappingRead], FieldMetadata(alias="variableMapping")
+    ]
+    model_config_: typing_extensions.Annotated[
+        EvaluatorModelConfig, FieldMetadata(alias="modelConfig")
+    ]
+    id: str
+    version: int
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
+    ]
+    created_by: typing_extensions.Annotated[
+        typing.Optional[Creator], FieldMetadata(alias="createdBy")
+    ] = None
+
+    model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+        extra="allow", frozen=True
+    )
+
+
 EvaluatorVersion = typing_extensions.Annotated[
-    typing.Union[EvaluatorVersion_LlmAsJudge, EvaluatorVersion_Code],
+    typing.Union[
+        EvaluatorVersion_LlmAsJudge,
+        EvaluatorVersion_Code,
+        EvaluatorVersion_DecisionModel,
+    ],
     pydantic.Field(discriminator="type"),
 ]
