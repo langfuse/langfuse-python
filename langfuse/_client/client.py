@@ -49,7 +49,6 @@ from langfuse._client.attributes import (
     _serialize,
 )
 from langfuse._client.constants import (
-    API_KEY_PREFIX,
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
     PROJECT_ID_HEADER_NAMES,
     ObservationTypeGenerationLike,
@@ -216,10 +215,6 @@ def _validate_project_id_headers(
                 raise _CredentialsError(message)
 
 
-_API_KEY_PATTERN = re.compile(rf"{API_KEY_PREFIX}[A-Za-z0-9]+")
-_KEY_PAIR_PREFIXES = ("pk-lf-", "sk-lf-")
-
-
 def _get_credentials(
     *,
     api_key: Optional[str],
@@ -236,19 +231,8 @@ def _get_credentials(
     if not api_key:
         public_key = public_key or os.environ.get(LANGFUSE_PUBLIC_KEY)
         secret_key = secret_key or os.environ.get(LANGFUSE_SECRET_KEY)
-        for name, value in (("public_key", public_key), ("secret_key", secret_key)):
-            if value is not None and value.startswith(API_KEY_PREFIX):
-                message = (
-                    f"{name} is a Langfuse API key ({API_KEY_PREFIX}...). Pass it as "
-                    "api_key (or LANGFUSE_API_KEY) together with project_id."
-                )
-                raise _CredentialsError(message)
-
         if project_id:
-            message = (
-                "project_id requires api_key. Key pairs (pk-lf-/sk-lf-) belong to "
-                "one project; remove project_id or use an API key (lf_...)."
-            )
+            message = "project_id requires api_key. Remove project_id or pass api_key."
             raise _CredentialsError(message)
 
         # LANGFUSE_PROJECT_ID is ignored: it configures API key clients only
@@ -256,18 +240,6 @@ def _get_credentials(
 
     if public_key or secret_key:
         message = "Pass either api_key or public_key and secret_key, not both."
-        raise _CredentialsError(message)
-
-    if api_key.startswith(_KEY_PAIR_PREFIXES):
-        message = (
-            f"api_key expects a Langfuse API key ({API_KEY_PREFIX}...), not a "
-            "public or secret key. Pass those as public_key and secret_key, or "
-            "create a new API key in Langfuse."
-        )
-        raise _CredentialsError(message)
-
-    if not _API_KEY_PATTERN.fullmatch(api_key):
-        message = "api_key is not a valid Langfuse API key."
         raise _CredentialsError(message)
 
     project_id = project_id or os.environ.get(LANGFUSE_PROJECT_ID) or None
@@ -304,7 +276,7 @@ class Langfuse:
     Parameters:
         public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
         secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
-        api_key (Optional[str]): Your Langfuse API key (`lf_...`). Requires `project_id`. Can also be set via LANGFUSE_API_KEY environment variable.
+        api_key (Optional[str]): Your Langfuse secret API key, sent as a bearer token. Requires `project_id`. Can also be set via LANGFUSE_API_KEY environment variable.
         project_id (Optional[str]): The Langfuse project to send data to. Required with `api_key`. Can also be set via LANGFUSE_PROJECT_ID environment variable.
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.
         host (Optional[str]): Deprecated. Use base_url instead. The Langfuse API host URL. Defaults to "https://cloud.langfuse.com".

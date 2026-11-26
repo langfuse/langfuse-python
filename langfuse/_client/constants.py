@@ -15,9 +15,6 @@ PROJECT_ID_HEADER = "langfuse-project-id"
 # Lowercase header names the server reads as the target project
 PROJECT_ID_HEADER_NAMES = (PROJECT_ID_HEADER, "x-langfuse-project-id")
 
-API_KEY_PREFIX = "lf_"
-"""Prefix of Langfuse API keys, which authenticate as a bearer token."""
-
 LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT = "sdk-experiment"
 
 MASK_FALLBACK_VALUE = "<fully masked due to failed mask function>"

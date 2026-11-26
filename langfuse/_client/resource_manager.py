@@ -71,7 +71,7 @@ class LangfuseResourceManager:
 
     This class implements a thread-safe singleton pattern keyed by the public API key
     and the configured project ID, ensuring that only one tracer instance exists per
-    combination. Clients authenticated with an API key (``lf_...``) have no public key
+    combination. Clients authenticated with ``api_key`` have no public key
     and are keyed by project ID alone. It manages
     the lifecycle of the OpenTelemetry tracer provider, span processors, and resource
     attributes, as well as background threads for media uploads and score delivery.

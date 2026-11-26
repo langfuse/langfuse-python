@@ -561,34 +561,34 @@ class TestApiKeyAuth:
         with pytest.raises(ValueError, match="not both"):
             Langfuse(api_key=API_KEY, project_id="project-a", **credentials)
 
-    @pytest.mark.parametrize("key", ["sk-lf-1234", "pk-lf-1234"])
-    def test_key_pair_value_as_api_key_raises(self, key):
-        with pytest.raises(ValueError, match="not a public or secret key"):
-            Langfuse(api_key=key, project_id="project-a")
+    @pytest.mark.parametrize("key", [API_KEY, "sk-lf-1234"])
+    def test_any_secret_works_as_api_key(self, key):
+        langfuse = Langfuse(
+            api_key=key, project_id="project-a", base_url="https://mock-host.com"
+        )
 
-    @pytest.mark.parametrize("key", ["lf_", "lf_gov_abc123", "abc123", "lf_abc-123"])
-    def test_malformed_api_key_raises(self, key):
-        with pytest.raises(ValueError, match="not a valid Langfuse API key"):
-            Langfuse(api_key=key, project_id="project-a")
+        headers = langfuse.api._client_wrapper.get_headers()
+        assert headers["Authorization"] == f"Bearer {key}"
+        assert headers["langfuse-project-id"] == "project-a"
 
     def test_api_key_without_project_id_raises(self):
         with pytest.raises(ValueError, match="requires project_id"):
             Langfuse(api_key=API_KEY)
 
-    @pytest.mark.parametrize("name", ["public_key", "secret_key"])
-    def test_api_key_as_key_pair_value_raises(self, name):
-        credentials = {"public_key": "pk-lf-project", "secret_key": "sk-lf-project"}
-        credentials[name] = API_KEY
+    def test_project_id_as_public_key_uses_basic_auth(self):
+        """Older SDKs send the project ID as the Basic auth username."""
+        langfuse = Langfuse(
+            public_key="project-a",
+            secret_key=API_KEY,
+            base_url="https://mock-host.com",
+            tracer_provider=TracerProvider(),
+        )
 
-        with pytest.raises(ValueError, match=f"{name} is a Langfuse API key"):
-            Langfuse(**credentials)
-
-    def test_api_key_in_secret_key_env_var_raises(self, monkeypatch):
-        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-project")
-        monkeypatch.setenv("LANGFUSE_SECRET_KEY", API_KEY)
-
-        with pytest.raises(ValueError, match="secret_key is a Langfuse API key"):
-            Langfuse()
+        expected = httpx.BasicAuth("project-a", API_KEY)._auth_header
+        assert langfuse.api._client_wrapper.get_headers()["Authorization"] == expected
+        exporter_headers = _langfuse_otlp_exporter(langfuse)._client._headers
+        assert exporter_headers["authorization"] == expected
+        assert "langfuse-project-id" not in exporter_headers
 
     def test_project_id_with_key_pair_raises(self):
         with pytest.raises(ValueError, match="project_id requires api_key"):

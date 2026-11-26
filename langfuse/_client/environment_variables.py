@@ -39,7 +39,7 @@ LANGFUSE_API_KEY = "LANGFUSE_API_KEY"
 """
 .. envvar:: LANGFUSE_API_KEY
 
-Langfuse API key (``lf_...``). Requires :envvar:`LANGFUSE_PROJECT_ID`.
+Langfuse secret API key, sent as a bearer token. Requires :envvar:`LANGFUSE_PROJECT_ID`.
 """
 
 LANGFUSE_PROJECT_ID = "LANGFUSE_PROJECT_ID"
