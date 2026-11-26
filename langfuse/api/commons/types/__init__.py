@@ -24,6 +24,7 @@ if typing.TYPE_CHECKING:
     from .map_value import MapValue
     from .model import Model
     from .model_price import ModelPrice
+    from .model_scope import ModelScope
     from .model_usage_unit import ModelUsageUnit
     from .numeric_score import NumericScore
     from .observation_level import ObservationLevel
@@ -71,6 +72,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MapValue": ".map_value",
     "Model": ".model",
     "ModelPrice": ".model_price",
+    "ModelScope": ".model_scope",
     "ModelUsageUnit": ".model_usage_unit",
     "NumericScore": ".numeric_score",
     "ObservationLevel": ".observation_level",
@@ -146,6 +148,7 @@ __all__ = [
     "MapValue",
     "Model",
     "ModelPrice",
+    "ModelScope",
     "ModelUsageUnit",
     "NumericScore",
     "ObservationLevel",
