@@ -2080,12 +2080,15 @@ class Langfuse:
             dataset_run_id: ID of the Langfuse dataset run to associate the score with
             trace_id: ID of the Langfuse trace to associate the score with
             observation_id: Optional ID of the specific observation to score. Trace ID must be provided too.
-            score_id: Optional custom ID for the score (auto-generated if not provided)
+            score_id: Optional custom ID for the score (auto-generated if not provided). To update an existing
+                score, send it again with the same `score_id` and `timestamp`.
             data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
-            timestamp: Optional timestamp for the score (defaults to current UTC time)
+            timestamp: Optional timestamp for the score (defaults to current UTC time). Scores are
+                deduplicated by ID, name and the date of this timestamp, so re-sending a
+                score with a new timestamp on a later day stores a second score.
             environment: Optional environment override for this score. If omitted,
                 the score uses the client-level environment from
                 `Langfuse(environment=...)` or `LANGFUSE_TRACING_ENVIRONMENT`.

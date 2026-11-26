@@ -508,11 +508,14 @@ class LangfuseObservationWrapper:
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
             value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT/CORRECTION)
-            score_id: Optional custom ID for the score (auto-generated if not provided)
+            score_id: Optional custom ID for the score (auto-generated if not provided). To update an existing
+                score, send it again with the same `score_id` and `timestamp`.
             data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
-            timestamp: Optional timestamp for the score (defaults to current UTC time)
+            timestamp: Optional timestamp for the score (defaults to current UTC time). Scores are
+                deduplicated by ID, name and the date of this timestamp, so re-sending a
+                score with a new timestamp on a later day stores a second score.
             metadata: Optional metadata to be attached to the score
 
         Example:
@@ -601,11 +604,14 @@ class LangfuseObservationWrapper:
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
             value: Score value (numeric for NUMERIC/BOOLEAN, string for CATEGORICAL/TEXT/CORRECTION)
-            score_id: Optional custom ID for the score (auto-generated if not provided)
+            score_id: Optional custom ID for the score (auto-generated if not provided). To update an existing
+                score, send it again with the same `score_id` and `timestamp`.
             data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
-            timestamp: Optional timestamp for the score (defaults to current UTC time)
+            timestamp: Optional timestamp for the score (defaults to current UTC time). Scores are
+                deduplicated by ID, name and the date of this timestamp, so re-sending a
+                score with a new timestamp on a later day stores a second score.
             metadata: Optional metadata to be attached to the score
 
         Example:
