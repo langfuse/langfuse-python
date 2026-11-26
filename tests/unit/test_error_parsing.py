@@ -86,6 +86,15 @@ def test_unknown_client_attribute_raises_default_attribute_error(
     assert not hasattr(langfuse_memory_client, "does_not_exist")
 
 
+def test_property_attribute_error_is_not_replaced(monkeypatch):
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+    client = Langfuse(public_key=None, secret_key=None)
+
+    with pytest.raises(AttributeError, match="Langfuse client is not initialized"):
+        client.api
+
+
 def test_removed_decorators_module_points_to_migration_guide():
     with pytest.raises(ImportError) as exc_info:
         importlib.import_module("langfuse.decorators")

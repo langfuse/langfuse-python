@@ -333,8 +333,10 @@ class Langfuse:
         def __getattr__(self, name: str) -> Any:
             replacement = _REMOVED_V2_CLIENT_METHODS.get(name)
             if replacement is None:
-                message = f"'{type(self).__name__}' object has no attribute '{name}'"
-                raise AttributeError(message, name=name, obj=self)
+                # Python also calls __getattr__ when a property raises
+                # AttributeError. Looking the name up again re-raises the
+                # property's own error, or the default one for a missing name.
+                return object.__getattribute__(self, name)
 
             message = (
                 f"Langfuse.{name}() was removed in Python SDK v3. {replacement} "
