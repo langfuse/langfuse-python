@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from time import time_ns
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncIterator,
     Callable,
@@ -155,6 +156,29 @@ from langfuse.types import (
     SpanLevel,
     TraceContext,
 )
+
+_V2_MIGRATION_GUIDE_URL = (
+    "https://langfuse.com/docs/observability/sdk/upgrade-path/python-v2-to-v3"
+)
+
+# Client methods removed in Python SDK v3, mapped to the replacement to use.
+_REMOVED_V2_CLIENT_METHODS = {
+    "trace": (
+        "Traces are created by the first observation. Use "
+        "langfuse.start_as_current_observation(name=...) or the @observe decorator, "
+        "and propagate_attributes(...) to set user_id, session_id, tags or metadata."
+    ),
+    "span": (
+        'Use langfuse.start_as_current_observation(as_type="span", name=...) as a '
+        'context manager, or langfuse.start_observation(as_type="span", name=...) '
+        "and call .end()."
+    ),
+    "generation": (
+        'Use langfuse.start_as_current_observation(as_type="generation", name=...) '
+        'as a context manager, or langfuse.start_observation(as_type="generation", '
+        "name=...) and call .end()."
+    ),
+}
 
 
 def _get_evaluator_name(evaluator: Callable[..., Any]) -> str:
@@ -303,6 +327,20 @@ class Langfuse:
     _resources: Optional[LangfuseResourceManager] = None
     _mask: Optional[MaskFunction] = None
     _otel_tracer: otel_trace_api.Tracer
+
+    if not TYPE_CHECKING:
+        # Hidden from type checkers so that typos in attribute names are still reported.
+        def __getattr__(self, name: str) -> Any:
+            replacement = _REMOVED_V2_CLIENT_METHODS.get(name)
+            if replacement is None:
+                message = f"'{type(self).__name__}' object has no attribute '{name}'"
+                raise AttributeError(message, name=name, obj=self)
+
+            message = (
+                f"Langfuse.{name}() was removed in Python SDK v3. {replacement} "
+                f"Migration guide: {_V2_MIGRATION_GUIDE_URL}"
+            )
+            raise AttributeError(message, name=name, obj=self)
 
     def __init__(
         self,
