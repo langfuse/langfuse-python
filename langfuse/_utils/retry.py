@@ -60,7 +60,7 @@ def retry_delay_seconds(
         retry_after_ms = headers.get("retry-after-ms")
         if retry_after_ms is not None:
             try:
-                milliseconds = int(retry_after_ms)
+                milliseconds = float(retry_after_ms)
             except (TypeError, ValueError):
                 milliseconds = 0
             if milliseconds > 0:
