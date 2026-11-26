@@ -31,8 +31,8 @@ class TopicSummary(UniversalBaseModel):
     summary_truncated: typing_extensions.Annotated[
         bool, FieldMetadata(alias="summaryTruncated")
     ]
-    processed_at: typing_extensions.Annotated[
-        dt.datetime, FieldMetadata(alias="processedAt")
+    created_at: typing_extensions.Annotated[
+        dt.datetime, FieldMetadata(alias="createdAt")
     ]
 
     model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

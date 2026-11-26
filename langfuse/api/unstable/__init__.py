@@ -20,7 +20,12 @@ if typing.TYPE_CHECKING:
         TooManyRequestsError,
         UnauthorizedError,
     )
-    from . import dashboard_widgets, dashboards, errors, topics
+    from . import billable_units, dashboard_widgets, dashboards, errors, topics
+    from .billable_units import (
+        BillableUnitsGranularity,
+        BillableUnitsResponse,
+        BillableUnitsRow,
+    )
     from .dashboard_widgets import (
         CreateDashboardWidgetRequest,
         DashboardWidget,
@@ -68,7 +73,7 @@ if typing.TYPE_CHECKING:
         TopicFacet,
         TopicFacetCounts,
         TopicFacetList,
-        TopicFacetPublishedRun,
+        TopicFacetPublishedMap,
         TopicFacetRef,
         TopicList,
         TopicResultListMeta,
@@ -86,6 +91,9 @@ if typing.TYPE_CHECKING:
 _dynamic_imports: typing.Dict[str, str] = {
     "AccessDeniedError": ".errors",
     "BadRequestError": ".errors",
+    "BillableUnitsGranularity": ".billable_units",
+    "BillableUnitsResponse": ".billable_units",
+    "BillableUnitsRow": ".billable_units",
     "ConflictError": ".errors",
     "CreateDashboardPlacementRequest": ".dashboards",
     "CreateDashboardPlacementRequest_Preset": ".dashboards",
@@ -133,7 +141,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TopicFacet": ".topics",
     "TopicFacetCounts": ".topics",
     "TopicFacetList": ".topics",
-    "TopicFacetPublishedRun": ".topics",
+    "TopicFacetPublishedMap": ".topics",
     "TopicFacetRef": ".topics",
     "TopicList": ".topics",
     "TopicResultListMeta": ".topics",
@@ -152,6 +160,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UpdateDashboardRequest": ".dashboards",
     "UpdateDashboardWidgetRequest": ".dashboard_widgets",
     "WidgetPlacement": ".dashboards",
+    "billable_units": ".billable_units",
     "dashboard_widgets": ".dashboard_widgets",
     "dashboards": ".dashboards",
     "errors": ".errors",
@@ -189,6 +198,9 @@ def __dir__():
 __all__ = [
     "AccessDeniedError",
     "BadRequestError",
+    "BillableUnitsGranularity",
+    "BillableUnitsResponse",
+    "BillableUnitsRow",
     "ConflictError",
     "CreateDashboardPlacementRequest",
     "CreateDashboardPlacementRequest_Preset",
@@ -236,7 +248,7 @@ __all__ = [
     "TopicFacet",
     "TopicFacetCounts",
     "TopicFacetList",
-    "TopicFacetPublishedRun",
+    "TopicFacetPublishedMap",
     "TopicFacetRef",
     "TopicList",
     "TopicResultListMeta",
@@ -255,6 +267,7 @@ __all__ = [
     "UpdateDashboardRequest",
     "UpdateDashboardWidgetRequest",
     "WidgetPlacement",
+    "billable_units",
     "dashboard_widgets",
     "dashboards",
     "errors",
