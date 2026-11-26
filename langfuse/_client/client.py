@@ -298,8 +298,8 @@ class Langfuse:
         _otel_tracer: Internal LangfuseTracer instance managing OpenTelemetry components
 
     Parameters:
-        public_key (Optional[str]): Deprecated: use `api_key`. Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
-        secret_key (Optional[str]): Deprecated: use `api_key`. Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
+        public_key (Optional[str]): Your Langfuse public API key. Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
+        secret_key (Optional[str]): Your Langfuse secret API key. Can also be set via LANGFUSE_SECRET_KEY environment variable.
         api_key (Optional[str]): Your Langfuse API key (`lf_...`). Requires `project_id`. Can also be set via LANGFUSE_API_KEY environment variable.
         project_id (Optional[str]): The Langfuse project to send data to. Required with `api_key`. Can also be set via LANGFUSE_PROJECT_ID environment variable.
         base_url (Optional[str]): The Langfuse API base URL. Defaults to "https://cloud.langfuse.com". Can also be set via LANGFUSE_BASE_URL environment variable.

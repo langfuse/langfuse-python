@@ -25,14 +25,14 @@ LANGFUSE_PUBLIC_KEY = "LANGFUSE_PUBLIC_KEY"
 """
 .. envvar:: LANGFUSE_PUBLIC_KEY
 
-Deprecated: use :envvar:`LANGFUSE_API_KEY`. Public API key of Langfuse project
+Public API key of Langfuse project
 """
 
 LANGFUSE_SECRET_KEY = "LANGFUSE_SECRET_KEY"
 """
 .. envvar:: LANGFUSE_SECRET_KEY
 
-Deprecated: use :envvar:`LANGFUSE_API_KEY`. Secret API key of Langfuse project
+Secret API key of Langfuse project
 """
 
 LANGFUSE_API_KEY = "LANGFUSE_API_KEY"
