@@ -129,12 +129,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         self,
         *,
         public_key: Optional[str] = None,
+        project_id: Optional[str] = None,
         trace_context: Optional[TraceContext] = None,
     ) -> None:
         """Initialize the LangchainCallbackHandler.
 
         Args:
             public_key: Optional Langfuse public key. If not provided, will use the default client configuration.
+            project_id: Optional Langfuse project ID, for clients created with `api_key`.
             trace_context: Optional context for connecting to an existing trace (distributed tracing) or
                 setting a custom trace id for the root LangChain run. Pass a `TraceContext` dict, e.g.
                 `{"trace_id": "<trace_id>"}` (and optionally `{"parent_span_id": "<span_id>"}`) to link
@@ -149,7 +151,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             handler = CallbackHandler(trace_context={"trace_id": "my-trace-id"})
             ```
         """
-        self._langfuse_client = get_client(public_key=public_key)
+        self._langfuse_client = get_client(public_key=public_key, project_id=project_id)
         self._runs: Dict[
             UUID,
             Union[

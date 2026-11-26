@@ -192,6 +192,7 @@ class TestOTelBase:
             from langfuse._client.span_filter import is_default_export_span
 
             self.public_key = kwargs.get("public_key", "test-key")
+            self.project_id = kwargs.get("project_id")
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
@@ -2452,6 +2453,7 @@ class TestMultiProjectSetup(TestOTelBase):
             from langfuse._client.span_filter import is_default_export_span
 
             self.public_key = kwargs.get("public_key", "test-key")
+            self.project_id = kwargs.get("project_id")
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )
@@ -2571,6 +2573,47 @@ class TestMultiProjectSetup(TestOTelBase):
         ]
         assert "trace-project2" in spans_project2
         assert "trace-project1" not in spans_project2
+
+    def test_org_key_spans_routed_to_correct_project(self, monkeypatch):
+        """API key clients and a key pair client export only their own spans.
+
+        Uses the real LangfuseSpanProcessor on a shared TracerProvider, so the
+        instrumentation-scope filter is what keeps the projects apart.
+        """
+        monkeypatch.setattr(LangfuseResourceManager, "_instances", {})
+        tracer_provider = TracerProvider()
+        exporters = {name: InMemorySpanExporter() for name in ("a", "b", "key-pair")}
+
+        clients = {
+            name: Langfuse(
+                api_key="lf_cm3x7k2p90000qz8f4a1b2c3d",
+                base_url="http://test-host",
+                project_id=f"project-{name}",
+                tracer_provider=tracer_provider,
+                span_exporter=exporters[name],
+            )
+            for name in ("a", "b")
+        }
+        clients["key-pair"] = Langfuse(
+            public_key="pk-lf-project",
+            secret_key="sk-lf-project",
+            base_url="http://test-host",
+            tracer_provider=tracer_provider,
+            span_exporter=exporters["key-pair"],
+        )
+
+        try:
+            for name, client in clients.items():
+                client.start_observation(name=f"span-{name}").end()
+            tracer_provider.force_flush()
+
+            for name, exporter in exporters.items():
+                assert [s.name for s in exporter.get_finished_spans()] == [
+                    f"span-{name}"
+                ]
+        finally:
+            LangfuseResourceManager.reset()
+            tracer_provider.shutdown()
 
     def test_concurrent_operations_in_multiple_projects(self, multi_project_setup):
         """Test concurrent span operations in multiple projects."""
@@ -2832,6 +2875,7 @@ class TestInstrumentationScopeFiltering(TestOTelBase):
             from langfuse._client.span_filter import is_default_export_span
 
             self.public_key = kwargs.get("public_key", "test-key")
+            self.project_id = kwargs.get("project_id")
             self._should_export_span = (
                 kwargs.get("should_export_span") or is_default_export_span
             )

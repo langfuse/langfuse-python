@@ -508,3 +508,199 @@ def test_flush_returns_after_repeated_shutdown(concurrent):
         media_queue.task_done()
 
     assert not hung
+
+
+API_KEY = "lf_cm3x7k2p90000qz8f4a1b2c3d"
+
+
+class TestMultiProjectClients:
+    """API key clients are selected by project ID, key pair clients by public key."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_state(self, monkeypatch):
+        for name in ("LANGFUSE_API_KEY", "LANGFUSE_PROJECT_ID"):
+            monkeypatch.delenv(name, raising=False)
+        LangfuseResourceManager.reset()
+        yield
+        LangfuseResourceManager.reset()
+
+    @staticmethod
+    def _api_key_client(project_id, **kwargs):
+        return Langfuse(
+            api_key=API_KEY,
+            project_id=project_id,
+            base_url="http://localhost:3000",
+            tracing_enabled=False,
+            **kwargs,
+        )
+
+    @staticmethod
+    def _key_pair_client(public_key):
+        return Langfuse(
+            public_key=public_key,
+            secret_key="sk-lf-secret",
+            base_url="http://localhost:3000",
+            tracing_enabled=False,
+        )
+
+    def test_one_instance_per_project(self):
+        client_a = self._api_key_client("project-a")
+        client_b = self._api_key_client("project-b")
+        client_a_again = self._api_key_client("project-a")
+
+        assert client_a._resources is not client_b._resources
+        assert client_a._resources is client_a_again._resources
+        assert set(LangfuseResourceManager._instances) == {
+            (None, "project-a"),
+            (None, "project-b"),
+        }
+
+    def test_get_client_selects_by_project_id_or_public_key(self):
+        self._key_pair_client("pk-lf-support")
+        self._key_pair_client("pk-lf-billing")
+        self._api_key_client("project-search")
+        self._api_key_client("project-chat")
+
+        assert get_client(project_id="project-chat")._resources.project_id == (
+            "project-chat"
+        )
+        assert get_client(public_key="pk-lf-billing")._resources.public_key == (
+            "pk-lf-billing"
+        )
+        assert len(LangfuseResourceManager._instances) == 4
+
+    def test_get_client_without_identity_returns_disabled_client(self, caplog):
+        self._key_pair_client("pk-lf-support")
+        self._api_key_client("project-search")
+
+        with caplog.at_level(logging.WARNING, logger="langfuse"):
+            client = get_client()
+
+        assert client._resources.public_key == "fake"
+        assert client._tracing_enabled is False
+        assert any("langfuse_project_id" in r.message for r in caplog.records)
+
+    def test_get_client_with_unknown_project_returns_disabled_client(self):
+        self._api_key_client("project-a")
+
+        client = get_client(project_id="project-c")
+
+        assert client._resources.public_key == "fake"
+        assert client._tracing_enabled is False
+
+    def test_observe_routes_by_project_id_or_public_key(self):
+        from langfuse import observe
+
+        self._key_pair_client("pk-lf-support")
+        self._api_key_client("project-a")
+        self._api_key_client("project-b")
+
+        @observe()
+        def nested():
+            resources = get_client()._resources
+            return resources.public_key, resources.project_id
+
+        @observe()
+        def outer():
+            return nested()
+
+        assert outer(langfuse_project_id="project-b") == (None, "project-b")
+        assert outer(langfuse_project_id="project-a") == (None, "project-a")
+        assert outer(langfuse_public_key="pk-lf-support") == ("pk-lf-support", None)
+
+    def test_get_client_with_both_identifiers_returns_disabled_client(self, caplog):
+        self._key_pair_client("pk-lf-support")
+        self._api_key_client("project-a")
+
+        with caplog.at_level(logging.WARNING, logger="langfuse"):
+            client = get_client(public_key="pk-lf-support", project_id="project-a")
+
+        assert client._tracing_enabled is False
+        assert any("not both" in r.message for r in caplog.records)
+
+    def test_get_client_with_bad_api_key_env_returns_disabled_client(
+        self, monkeypatch, caplog
+    ):
+        monkeypatch.setenv("LANGFUSE_API_KEY", API_KEY)
+
+        with caplog.at_level(logging.ERROR, logger="langfuse"):
+            client = get_client()
+
+        assert client._tracing_enabled is False
+        assert any("requires project_id" in r.getMessage() for r in caplog.records)
+
+    def test_langchain_handler_selects_client_by_project_id(self):
+        from langfuse.langchain import CallbackHandler
+
+        self._key_pair_client("pk-lf-support")
+        self._api_key_client("project-a")
+
+        handler = CallbackHandler(project_id="project-a")
+
+        assert handler._langfuse_client._resources.project_id == "project-a"
+
+    def test_get_client_copy_keeps_api_key(self):
+        self._api_key_client("project-a")
+        self._api_key_client("project-b")
+
+        client = get_client(project_id="project-a")
+
+        assert client._resources.api_key == API_KEY
+        assert client._resources.public_key is None
+
+    def test_get_project_id_uses_configured_value(self):
+        client = self._api_key_client("project-a")
+        client.api.projects.get = Mock(side_effect=AssertionError("not expected"))
+
+        assert client._get_project_id() == "project-a"
+        assert client.get_trace_url(trace_id="a" * 32) == (
+            "http://localhost:3000/project/project-a/traces/" + "a" * 32
+        )
+        client.api.projects.get.assert_not_called()
+
+
+def test_forbidden_export_logs_project_id_hint_once(monkeypatch, caplog):
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+        OTLPSpanExporter,
+    )
+
+    from langfuse._client import span_processor
+    from langfuse._client.span_processor import (
+        LangfuseSpanProcessor,
+        _ForbiddenExportHintFilter,
+    )
+
+    hint_filter = _ForbiddenExportHintFilter()
+    monkeypatch.setattr(span_processor, "_FORBIDDEN_EXPORT_HINT_FILTER", hint_filter)
+    otlp_logger = logging.getLogger(OTLPSpanExporter.__module__)
+    # Drop the shared filter that earlier tests in this process installed
+    monkeypatch.setattr(otlp_logger, "filters", [])
+
+    processor = LangfuseSpanProcessor(
+        public_key="pk-lf-org",
+        secret_key="sk-lf-org",
+        base_url="http://localhost:3000",
+    )
+
+    try:
+        assert hint_filter in otlp_logger.filters
+
+        with caplog.at_level(logging.ERROR):
+            for status_code in (500, 403, 403):
+                otlp_logger.error(
+                    "Failed to export %s batch code: %s, reason: %s",
+                    "spans",
+                    status_code,
+                    "Forbidden",
+                )
+
+        hints = [r for r in caplog.records if "LANGFUSE_PROJECT_ID" in r.getMessage()]
+        assert len(hints) == 1
+        assert hints[0].name == "langfuse"
+        # The exporter's own error records are kept
+        assert (
+            sum(r.getMessage().startswith("Failed to export") for r in caplog.records)
+            == 3
+        )
+    finally:
+        processor.shutdown()

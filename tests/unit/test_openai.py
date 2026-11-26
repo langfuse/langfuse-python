@@ -1531,3 +1531,62 @@ def test_with_raw_response_streaming_passes_through_untraced(
         span.name != "OpenAI-generation"
         for span in memory_exporter.get_finished_spans()
     )
+
+
+def test_langfuse_project_id_selects_api_key_client(monkeypatch):
+    from opentelemetry.sdk.trace import TracerProvider
+
+    from langfuse._client.client import Langfuse
+    from langfuse._client.resource_manager import LangfuseResourceManager
+    from tests.conftest import InMemorySpanExporter
+
+    monkeypatch.setattr(LangfuseResourceManager, "_instances", {})
+    tracer_provider = TracerProvider()
+    exporters = {name: InMemorySpanExporter() for name in ("a", "b")}
+    for name, exporter in exporters.items():
+        Langfuse(
+            api_key="lf_cm3x7k2p90000qz8f4a1b2c3d",
+            project_id=f"project-{name}",
+            base_url="http://test-host",
+            tracer_provider=tracer_provider,
+            span_exporter=exporter,
+        )
+
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = SimpleNamespace(
+        model="gpt-4o-mini",
+        choices=[],
+        usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+    )
+
+    try:
+        with patch.object(
+            openai_client.chat.completions, "_post", return_value=response
+        ) as post:
+            openai_client.chat.completions.create(
+                name="routed-generation",
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "hi"}],
+                langfuse_project_id="project-b",
+            )
+        tracer_provider.force_flush()
+
+        assert "langfuse_project_id" not in post.call_args.kwargs["body"]
+        assert [s.name for s in exporters["b"].get_finished_spans()] == [
+            "routed-generation"
+        ]
+        assert exporters["a"].get_finished_spans() == []
+    finally:
+        LangfuseResourceManager.reset()
+        tracer_provider.shutdown()
+
+
+def test_langfuse_project_id_must_be_a_string():
+    openai_client = lf_openai.OpenAI(api_key="test")
+
+    with pytest.raises(TypeError, match="langfuse_project_id must be a string"):
+        openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "hi"}],
+            langfuse_project_id=123,
+        )

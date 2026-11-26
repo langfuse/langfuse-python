@@ -35,6 +35,20 @@ LANGFUSE_SECRET_KEY = "LANGFUSE_SECRET_KEY"
 Secret API key of Langfuse project
 """
 
+LANGFUSE_API_KEY = "LANGFUSE_API_KEY"
+"""
+.. envvar:: LANGFUSE_API_KEY
+
+Langfuse secret API key, sent as a bearer token. Requires :envvar:`LANGFUSE_PROJECT_ID`.
+"""
+
+LANGFUSE_PROJECT_ID = "LANGFUSE_PROJECT_ID"
+"""
+.. envvar:: LANGFUSE_PROJECT_ID
+
+The Langfuse project to send data to. Required with :envvar:`LANGFUSE_API_KEY`.
+"""
+
 LANGFUSE_BASE_URL = "LANGFUSE_BASE_URL"
 """
 .. envvar:: LANGFUSE_BASE_URL
