@@ -96,7 +96,8 @@ def test_property_attribute_error_is_not_replaced(monkeypatch):
 
 
 def test_removed_decorators_module_points_to_migration_guide():
-    with pytest.raises(ImportError) as exc_info:
+    # ModuleNotFoundError keeps `except ModuleNotFoundError` v2/v3 probes working.
+    with pytest.raises(ModuleNotFoundError) as exc_info:
         importlib.import_module("langfuse.decorators")
 
     message = str(exc_info.value)

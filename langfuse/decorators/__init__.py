@@ -5,4 +5,4 @@ _message = (
     "Use `from langfuse import observe`. "
     "Migration guide: https://langfuse.com/docs/observability/sdk/upgrade-path/python-v2-to-v3"
 )
-raise ImportError(_message)
+raise ModuleNotFoundError(_message, name=__name__)
