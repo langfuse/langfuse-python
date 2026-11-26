@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Iterator, List, Optional, Tuple
 
-from langfuse._client.client import Langfuse
+from langfuse._client.client import Langfuse, _CredentialsError
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse.logger import langfuse_logger
 
@@ -124,7 +124,14 @@ def get_client(
         if not public_key and not project_id:
             if len(active_instances) == 0:
                 # No clients initialized yet, create default instance
-                return Langfuse()
+                try:
+                    return Langfuse()
+                except _CredentialsError as error:
+                    # Integrations call get_client(); a bad config must not break them
+                    langfuse_logger.error("Langfuse client is disabled: %s", error)
+                    return Langfuse(
+                        tracing_enabled=False, public_key="fake", secret_key="fake"
+                    )
 
             if len(active_instances) == 1:
                 # Only one client exists, safe to use without specifying key
@@ -145,6 +152,14 @@ def get_client(
                     tracing_enabled=False, public_key="fake", secret_key="fake"
                 )
 
+        elif public_key and project_id:
+            langfuse_logger.warning(
+                "Pass either 'langfuse_public_key' or 'langfuse_project_id', not both: "
+                "clients created with api_key are selected by project ID, clients "
+                "created with public_key by public key. Skipping tracing."
+            )
+            return Langfuse(tracing_enabled=False, public_key="fake", secret_key="fake")
+
         else:
             # Specific public_key or project_id provided, look up existing instance
             matching_instances: List[LangfuseResourceManager] = [
@@ -152,8 +167,8 @@ def get_client(
                 for (instance_public_key, instance_project_id), instance in (
                     active_instances.items()
                 )
-                if (not public_key or instance_public_key == public_key)
-                and (not project_id or instance_project_id == project_id)
+                if (public_key and instance_public_key == public_key)
+                or (project_id and instance_project_id == project_id)
             ]
 
             if not matching_instances:

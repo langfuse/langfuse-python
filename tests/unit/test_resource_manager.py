@@ -608,6 +608,37 @@ class TestMultiProjectClients:
         assert outer(langfuse_project_id="project-a") == (None, "project-a")
         assert outer(langfuse_public_key="pk-lf-support") == ("pk-lf-support", None)
 
+    def test_get_client_with_both_identifiers_returns_disabled_client(self, caplog):
+        self._key_pair_client("pk-lf-support")
+        self._api_key_client("project-a")
+
+        with caplog.at_level(logging.WARNING, logger="langfuse"):
+            client = get_client(public_key="pk-lf-support", project_id="project-a")
+
+        assert client._tracing_enabled is False
+        assert any("not both" in r.message for r in caplog.records)
+
+    def test_get_client_with_bad_api_key_env_returns_disabled_client(
+        self, monkeypatch, caplog
+    ):
+        monkeypatch.setenv("LANGFUSE_API_KEY", API_KEY)
+
+        with caplog.at_level(logging.ERROR, logger="langfuse"):
+            client = get_client()
+
+        assert client._tracing_enabled is False
+        assert any("requires project_id" in r.getMessage() for r in caplog.records)
+
+    def test_langchain_handler_selects_client_by_project_id(self):
+        from langfuse.langchain import CallbackHandler
+
+        self._key_pair_client("pk-lf-support")
+        self._api_key_client("project-a")
+
+        handler = CallbackHandler(project_id="project-a")
+
+        assert handler._langfuse_client._resources.project_id == "project-a"
+
     def test_get_client_copy_keeps_api_key(self):
         self._api_key_client("project-a")
         self._api_key_client("project-b")

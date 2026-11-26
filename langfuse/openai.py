@@ -298,6 +298,7 @@ class OpenAiArgsExtractor:
             Any
         ] = None,  # we cannot use prompt because it's an argument of the old OpenAI completions API
         langfuse_public_key: Optional[str] = None,
+        langfuse_project_id: Optional[str] = None,
         trace_id: Optional[str] = None,
         parent_observation_id: Optional[str] = None,
         **kwargs: Any,
@@ -307,6 +308,7 @@ class OpenAiArgsExtractor:
         self.args["metadata"] = _get_structured_output_metadata(metadata, kwargs)
         self.args["name"] = name
         self.args["langfuse_public_key"] = langfuse_public_key
+        self.args["langfuse_project_id"] = langfuse_project_id
         self.args["langfuse_prompt"] = langfuse_prompt
         self.args["trace_id"] = trace_id
         self.args["parent_observation_id"] = parent_observation_id
@@ -521,6 +523,10 @@ def _get_langfuse_data_from_kwargs(resource: OpenAiDefinition, kwargs: Any) -> A
     langfuse_public_key = kwargs.get("langfuse_public_key", None)
     if langfuse_public_key is not None and not isinstance(langfuse_public_key, str):
         raise TypeError("langfuse_public_key must be a string")
+
+    langfuse_project_id = kwargs.get("langfuse_project_id", None)
+    if langfuse_project_id is not None and not isinstance(langfuse_project_id, str):
+        raise TypeError("langfuse_project_id must be a string")
 
     trace_id = kwargs.get("trace_id", None)
     if trace_id is not None and not isinstance(trace_id, str):
@@ -1260,7 +1266,10 @@ def _wrap(
     langfuse_args = arg_extractor.get_langfuse_args()
 
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
-    langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
+    langfuse_client = get_client(
+        public_key=langfuse_args["langfuse_public_key"],
+        project_id=langfuse_args["langfuse_project_id"],
+    )
 
     observation_type = (
         "embedding" if open_ai_resource.type == "embedding" else "generation"
@@ -1347,7 +1356,10 @@ async def _wrap_async(
     langfuse_args = arg_extractor.get_langfuse_args()
 
     langfuse_data = _get_langfuse_data_from_kwargs(open_ai_resource, langfuse_args)
-    langfuse_client = get_client(public_key=langfuse_args["langfuse_public_key"])
+    langfuse_client = get_client(
+        public_key=langfuse_args["langfuse_public_key"],
+        project_id=langfuse_args["langfuse_project_id"],
+    )
 
     observation_type = (
         "embedding" if open_ai_resource.type == "embedding" else "generation"

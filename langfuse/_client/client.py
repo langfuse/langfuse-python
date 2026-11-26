@@ -184,6 +184,10 @@ def _serialize_evaluations(evaluations: List[Evaluation]) -> List[Dict[str, Any]
     ]
 
 
+class _CredentialsError(ValueError):
+    """Misconfigured API key, key pair or project ID."""
+
+
 def _validate_project_id_headers(
     project_id: Optional[str],
     additional_headers: Optional[Dict[str, str]],
@@ -209,7 +213,7 @@ def _validate_project_id_headers(
                     f"{source} sets '{name}: {value}'. Remove the header or make "
                     "the values match."
                 )
-                raise ValueError(message)
+                raise _CredentialsError(message)
 
 
 _API_KEY_PATTERN = re.compile(rf"{API_KEY_PREFIX}[A-Za-z0-9]+")
@@ -238,21 +242,21 @@ def _get_credentials(
                     f"{name} is a Langfuse API key ({API_KEY_PREFIX}...). Pass it as "
                     "api_key (or LANGFUSE_API_KEY) together with project_id."
                 )
-                raise ValueError(message)
+                raise _CredentialsError(message)
 
         if project_id:
             message = (
                 "project_id requires api_key. Key pairs (pk-lf-/sk-lf-) belong to "
                 "one project; remove project_id or use an API key (lf_...)."
             )
-            raise ValueError(message)
+            raise _CredentialsError(message)
 
         # LANGFUSE_PROJECT_ID is ignored: it configures API key clients only
         return None, public_key, secret_key, None
 
     if public_key or secret_key:
         message = "Pass either api_key or public_key and secret_key, not both."
-        raise ValueError(message)
+        raise _CredentialsError(message)
 
     if api_key.startswith(_KEY_PAIR_PREFIXES):
         message = (
@@ -260,18 +264,18 @@ def _get_credentials(
             "public or secret key. Pass those as public_key and secret_key, or "
             "create a new API key in Langfuse."
         )
-        raise ValueError(message)
+        raise _CredentialsError(message)
 
     if not _API_KEY_PATTERN.fullmatch(api_key):
         message = "api_key is not a valid Langfuse API key."
-        raise ValueError(message)
+        raise _CredentialsError(message)
 
     project_id = project_id or os.environ.get(LANGFUSE_PROJECT_ID) or None
     if not project_id:
         message = (
             "api_key requires project_id. Pass project_id or set LANGFUSE_PROJECT_ID."
         )
-        raise ValueError(message)
+        raise _CredentialsError(message)
 
     _validate_project_id_headers(project_id, additional_headers, httpx_client)
 
