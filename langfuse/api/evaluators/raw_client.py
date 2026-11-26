@@ -57,7 +57,7 @@ class RawEvaluatorsClient:
         """
         Create an evaluator in the authenticated project.
 
-        An evaluator defines **how** Langfuse should score data. LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration. Code evaluators define source code and a runtime language.
+        An evaluator defines **how** Langfuse should score data. LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration. Code evaluators define source code and a runtime language. Decision-model evaluators define typed questions, a decision-model configuration, and a mapping from observation data to state keys.
 
         This always creates a new evaluator with version `1`. Names are not identifiers and do not need to be unique.
 
@@ -600,7 +600,7 @@ class RawEvaluatorsClient:
 
         Provide only the top-level fields to change. Metadata-only changes do not create a version. Evaluator type cannot change.
 
-        Definition fields are flattened into the request. To replace a definition, include `type` and every definition field for that type. Definition fields are replaced as a complete unit rather than merged. For LLM-as-a-judge evaluators, omitting or setting `modelConfig` to `null` selects the project's default evaluation model.
+        Definition fields are flattened into the request. To replace a definition, include `type` and every definition field for that type. Definition fields are replaced as a complete unit rather than merged. For LLM-as-a-judge evaluators, omitting or setting `modelConfig` to `null` selects the project's default evaluation model. Decision-model evaluators always require `modelConfig`.
 
         Replacing a definition automatically returns an evaluator paused by an invalid or missing model configuration to `active`, while preserving its id and evaluation-rule assignments. Pauses caused by provider authentication, billing, connectivity, account state, or an unknown legacy reason remain paused until the explicit reactivation check succeeds.
 
@@ -1185,7 +1185,7 @@ class AsyncRawEvaluatorsClient:
         """
         Create an evaluator in the authenticated project.
 
-        An evaluator defines **how** Langfuse should score data. LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration. Code evaluators define source code and a runtime language.
+        An evaluator defines **how** Langfuse should score data. LLM-as-a-judge evaluators define a prompt, expected structured output, and optional model configuration. Code evaluators define source code and a runtime language. Decision-model evaluators define typed questions, a decision-model configuration, and a mapping from observation data to state keys.
 
         This always creates a new evaluator with version `1`. Names are not identifiers and do not need to be unique.
 
@@ -1728,7 +1728,7 @@ class AsyncRawEvaluatorsClient:
 
         Provide only the top-level fields to change. Metadata-only changes do not create a version. Evaluator type cannot change.
 
-        Definition fields are flattened into the request. To replace a definition, include `type` and every definition field for that type. Definition fields are replaced as a complete unit rather than merged. For LLM-as-a-judge evaluators, omitting or setting `modelConfig` to `null` selects the project's default evaluation model.
+        Definition fields are flattened into the request. To replace a definition, include `type` and every definition field for that type. Definition fields are replaced as a complete unit rather than merged. For LLM-as-a-judge evaluators, omitting or setting `modelConfig` to `null` selects the project's default evaluation model. Decision-model evaluators always require `modelConfig`.
 
         Replacing a definition automatically returns an evaluator paused by an invalid or missing model configuration to `active`, while preserving its id and evaluation-rule assignments. Pauses caused by provider authentication, billing, connectivity, account state, or an unknown legacy reason remain paused until the explicit reactivation check succeeds.
 

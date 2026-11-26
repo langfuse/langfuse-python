@@ -9,7 +9,7 @@ from ....core.pydantic_utilities import UniversalBaseModel
 from ....core.serialization import FieldMetadata
 
 
-class TopicFacetPublishedRun(UniversalBaseModel):
+class TopicFacetPublishedMap(UniversalBaseModel):
     id: str
     completed_at: typing_extensions.Annotated[
         typing.Optional[dt.datetime], FieldMetadata(alias="completedAt")
