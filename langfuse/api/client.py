@@ -33,6 +33,10 @@ if typing.TYPE_CHECKING:
     from .models.client import AsyncModelsClient, ModelsClient
     from .observations.client import AsyncObservationsClient, ObservationsClient
     from .opentelemetry.client import AsyncOpentelemetryClient, OpentelemetryClient
+    from .organization_models.client import (
+        AsyncOrganizationModelsClient,
+        OrganizationModelsClient,
+    )
     from .organizations.client import AsyncOrganizationsClient, OrganizationsClient
     from .projects.client import AsyncProjectsClient, ProjectsClient
     from .prompt_version.client import AsyncPromptVersionClient, PromptVersionClient
@@ -141,6 +145,7 @@ class LangfuseAPI:
         self._models: typing.Optional[ModelsClient] = None
         self._observations: typing.Optional[ObservationsClient] = None
         self._opentelemetry: typing.Optional[OpentelemetryClient] = None
+        self._organization_models: typing.Optional[OrganizationModelsClient] = None
         self._organizations: typing.Optional[OrganizationsClient] = None
         self._projects: typing.Optional[ProjectsClient] = None
         self._prompt_version: typing.Optional[PromptVersionClient] = None
@@ -291,6 +296,16 @@ class LangfuseAPI:
                 client_wrapper=self._client_wrapper
             )
         return self._opentelemetry
+
+    @property
+    def organization_models(self):
+        if self._organization_models is None:
+            from .organization_models.client import OrganizationModelsClient  # noqa: E402
+
+            self._organization_models = OrganizationModelsClient(
+                client_wrapper=self._client_wrapper
+            )
+        return self._organization_models
 
     @property
     def organizations(self):
@@ -475,6 +490,7 @@ class AsyncLangfuseAPI:
         self._models: typing.Optional[AsyncModelsClient] = None
         self._observations: typing.Optional[AsyncObservationsClient] = None
         self._opentelemetry: typing.Optional[AsyncOpentelemetryClient] = None
+        self._organization_models: typing.Optional[AsyncOrganizationModelsClient] = None
         self._organizations: typing.Optional[AsyncOrganizationsClient] = None
         self._projects: typing.Optional[AsyncProjectsClient] = None
         self._prompt_version: typing.Optional[AsyncPromptVersionClient] = None
@@ -633,6 +649,16 @@ class AsyncLangfuseAPI:
                 client_wrapper=self._client_wrapper
             )
         return self._opentelemetry
+
+    @property
+    def organization_models(self):
+        if self._organization_models is None:
+            from .organization_models.client import AsyncOrganizationModelsClient  # noqa: E402
+
+            self._organization_models = AsyncOrganizationModelsClient(
+                client_wrapper=self._client_wrapper
+            )
+        return self._organization_models
 
     @property
     def organizations(self):
