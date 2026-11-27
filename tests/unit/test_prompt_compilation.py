@@ -932,3 +932,158 @@ def test_tool_calls_preservation_in_message_placeholder():
     # Final user message with compiled variable
     assert compiled_messages[4]["role"] == "user"
     assert compiled_messages[4]["content"] == "Help me with weather inquiry"
+
+
+class TestLangchainPromptPrecompiledValues:
+    """Values passed to get_langchain_prompt(**kwargs) are literal text.
+
+    Braces inside them must not turn into LangChain input variables.
+    """
+
+    CODE = 'def greet(name):\n    return f"Hello {name}"'
+
+    @staticmethod
+    def _text_prompt(prompt):
+        return TextPromptClient(
+            Prompt_Text(
+                type="text",
+                name="precompiled_braces",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt=prompt,
+            )
+        )
+
+    @staticmethod
+    def _chat_prompt(messages):
+        return ChatPromptClient(
+            Prompt_Chat(
+                type="chat",
+                name="precompiled_braces_chat",
+                version=1,
+                config={},
+                tags=[],
+                labels=[],
+                prompt=messages,
+            )
+        )
+
+    def test_text_value_with_braces_stays_literal(self):
+        prompt_client = self._text_prompt(
+            "Fix this code:\n{{code}}\nAnswer in {{lang}}."
+        )
+
+        langchain_prompt = PromptTemplate.from_template(
+            prompt_client.get_langchain_prompt(code=self.CODE)
+        )
+
+        assert langchain_prompt.input_variables == ["lang"]
+        assert (
+            langchain_prompt.format(lang="English")
+            == f"Fix this code:\n{self.CODE}\nAnswer in English."
+        )
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "{{y}}",
+            "{y}",
+            "{}",
+            "}{",
+            "{1, 2, 3}",
+            '{"key": "value"}',
+            "{ {{nested}} }",
+        ],
+    )
+    def test_text_value_round_trips_through_langchain(self, value):
+        prompt_client = self._text_prompt("Value: {{value}} / {{other}}")
+
+        langchain_prompt = PromptTemplate.from_template(
+            prompt_client.get_langchain_prompt(value=value)
+        )
+
+        assert langchain_prompt.input_variables == ["other"]
+        assert langchain_prompt.format(other="x") == f"Value: {value} / x"
+
+    def test_text_template_json_still_escaped_with_values(self):
+        prompt_client = self._text_prompt(
+            '{"answer": "{{answer}}", "country": {{country}}}'
+        )
+
+        langchain_prompt = PromptTemplate.from_template(
+            prompt_client.get_langchain_prompt(answer="{yes}")
+        )
+
+        assert langchain_prompt.input_variables == ["country"]
+        assert (
+            langchain_prompt.format(country='"FR"')
+            == '{"answer": "{yes}", "country": "FR"}'
+        )
+
+    def test_chat_value_with_braces_stays_literal(self):
+        prompt_client = self._chat_prompt(
+            [
+                ChatMessage(role="system", content="Review code in {{lang}}."),
+                {"type": "placeholder", "name": "history"},
+                ChatMessage(role="user", content="{{code}}"),
+            ]
+        )
+
+        langchain_prompt = ChatPromptTemplate.from_messages(
+            prompt_client.get_langchain_prompt(
+                code=self.CODE,
+                history=[{"role": "user", "content": "Earlier: {{code}}"}],
+            )
+        )
+
+        assert langchain_prompt.input_variables == ["lang"]
+        messages = langchain_prompt.format_messages(lang="Python")
+        assert [m.content for m in messages] == [
+            "Review code in Python.",
+            f"Earlier: {self.CODE}",
+            self.CODE,
+        ]
+
+    def test_chat_placeholder_history_with_braces_stays_literal(self):
+        prompt_client = self._chat_prompt(
+            [
+                ChatMessage(role="system", content="Answer in {{lang}}."),
+                {"type": "placeholder", "name": "history"},
+            ]
+        )
+        history = [
+            {"role": "user", "content": 'What does f"{name}" print?'},
+            {"role": "assistant", "content": "It depends on {{lang}} and x = {y}."},
+        ]
+
+        langchain_prompt = ChatPromptTemplate.from_messages(
+            prompt_client.get_langchain_prompt(history=history)
+        )
+
+        assert langchain_prompt.input_variables == ["lang"]
+        messages = langchain_prompt.format_messages(lang="Python")
+        assert [m.content for m in messages] == [
+            "Answer in Python.",
+            'What does f"{name}" print?',
+            "It depends on {{lang}} and x = {y}.",
+        ]
+
+    def test_chat_placeholder_history_kwargs_still_substituted(self):
+        prompt_client = self._chat_prompt([{"type": "placeholder", "name": "history"}])
+
+        langchain_prompt = ChatPromptTemplate.from_messages(
+            prompt_client.get_langchain_prompt(
+                code="x = {y}",
+                history=[{"role": "user", "content": "Explain {{code}}"}],
+            )
+        )
+
+        assert langchain_prompt.input_variables == []
+        assert langchain_prompt.format_messages()[0].content == "Explain x = {y}"
+
+    def test_compile_unchanged(self):
+        prompt_client = self._text_prompt("Value: {{value}}")
+
+        assert prompt_client.compile(value="{y}") == "Value: {y}"

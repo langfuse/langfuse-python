@@ -2,7 +2,18 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 from langfuse.api import (
     CreateDatasetItemRequest,  # noqa
@@ -86,29 +97,39 @@ class TemplateParser:
         if data is None:
             return content
 
-        result_list = []
+        return "".join(
+            text for text, _ in TemplateParser._compile_segments(content, data)
+        )
+
+    @staticmethod
+    def _compile_segments(content: str, data: Dict[str, Any]) -> List[Tuple[str, bool]]:
+        """Compile the template into (text, is_variable_value) segments.
+
+        Keeping substituted values apart from template text lets callers treat
+        them as literal text, e.g. when converting to a LangChain template.
+        """
+        segments: List[Tuple[str, bool]] = []
         curr_idx = 0
 
         while curr_idx < len(content):
             result = TemplateParser._parse_next_variable(content, curr_idx)
 
             if not result:
-                result_list.append(content[curr_idx:])
+                segments.append((content[curr_idx:], False))
                 break
 
             variable_name, var_start, var_end = result
-            result_list.append(content[curr_idx:var_start])
+            segments.append((content[curr_idx:var_start], False))
 
             if variable_name in data:
-                result_list.append(
-                    str(data[variable_name]) if data[variable_name] is not None else ""
-                )
+                value = data[variable_name]
+                segments.append((str(value) if value is not None else "", True))
             else:
-                result_list.append(content[var_start:var_end])
+                segments.append((content[var_start:var_end], False))
 
             curr_idx = var_end
 
-        return "".join(result_list)
+        return segments
 
 
 class BasePromptClient(ABC):
@@ -157,10 +178,38 @@ class BasePromptClient(ABC):
         pass
 
     @staticmethod
-    def _get_langchain_prompt_string(content: str) -> str:
-        json_escaped_content = BasePromptClient._escape_json_for_langchain(content)
+    def _get_langchain_prompt_string(
+        content: str, variables: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Convert template text into a LangChain f-string template.
 
-        return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", json_escaped_content)
+        Values from ``variables`` are substituted first and kept literal: their
+        braces are always escaped, so they never become LangChain variables.
+        """
+        segments = (
+            TemplateParser._compile_segments(content, variables)
+            if variables
+            else [(content, False)]
+        )
+        text = "".join(segment for segment, _ in segments)
+        is_value = [from_value for segment, from_value in segments for _ in segment]
+
+        def to_langchain_variables(template_text: str) -> str:
+            return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", template_text)
+
+        output: List[str] = []
+        template_run: List[str] = []
+        for chunk, from_value in BasePromptClient._escape_json_chunks(text, is_value):
+            if not from_value:
+                template_run.append(chunk)
+                continue
+            if template_run:
+                output.append(to_langchain_variables("".join(template_run)))
+                template_run = []
+            output.append(chunk)
+        output.append(to_langchain_variables("".join(template_run)))
+
+        return "".join(output)
 
     @staticmethod
     def _escape_json_for_langchain(text: str) -> str:
@@ -183,18 +232,49 @@ class BasePromptClient(ABC):
         str
             The string with JSON-related braces doubled.
         """
-        out = []  # collected characters
+        return "".join(
+            chunk
+            for chunk, _ in BasePromptClient._escape_json_chunks(
+                text, [False] * len(text)
+            )
+        )
+
+    @staticmethod
+    def _escape_json_chunks(
+        text: str, is_value: Sequence[bool]
+    ) -> List[Tuple[str, bool]]:
+        """Escape braces for LangChain, returning (chunk, is_variable_value) pairs.
+
+        Characters flagged in ``is_value`` came from substituted variable
+        values: their braces are always doubled so LangChain treats them as
+        literal text. Template characters follow the JSON heuristic described
+        in ``_escape_json_for_langchain``.
+        """
+        out: List[Tuple[str, bool]] = []
         stack = []  # True = “this { belongs to JSON”, False = normal “{”
         i, n = 0, len(text)
+
+        def is_template(index: int) -> bool:
+            return index < n and not is_value[index]
 
         while i < n:
             ch = text[i]
 
+            # ---------- text from variable values ----------
+            if is_value[i]:
+                end = i + 1
+                while end < n and is_value[end]:
+                    end += 1
+                literal = text[i:end].replace("{", "{{").replace("}", "}}")
+                out.append((literal, True))
+                i = end
+                continue
+
             # ---------- opening brace ----------
             if ch == "{":
                 # leave existing “{{ …” untouched
-                if i + 1 < n and text[i + 1] == "{":
-                    out.append("{{")
+                if is_template(i + 1) and text[i + 1] == "{":
+                    out.append(("{{", False))
                     i += 2
                     continue
 
@@ -204,7 +284,7 @@ class BasePromptClient(ABC):
                     j += 1
 
                 is_json = j < n and text[j] in {"'", '"'}
-                out.append("{{" if is_json else "{")
+                out.append(("{{" if is_json else "{", False))
                 stack.append(is_json)  # remember how this “{” was treated
                 i += 1
                 continue
@@ -212,21 +292,21 @@ class BasePromptClient(ABC):
             # ---------- closing brace ----------
             elif ch == "}":
                 # leave existing “… }}” untouched
-                if i + 1 < n and text[i + 1] == "}":
-                    out.append("}}")
+                if is_template(i + 1) and text[i + 1] == "}":
+                    out.append(("}}", False))
                     i += 2
                     continue
 
                 is_json = stack.pop() if stack else False
-                out.append("}}" if is_json else "}")
+                out.append(("}}" if is_json else "}", False))
                 i += 1
                 continue
 
             # ---------- any other character ----------
-            out.append(ch)
+            out.append((ch, False))
             i += 1
 
-        return "".join(out)
+        return out
 
 
 class TextPromptClient(BasePromptClient):
@@ -266,13 +346,7 @@ class TextPromptClient(BasePromptClient):
         Returns:
             str: The string that can be plugged into Langchain's PromptTemplate.
         """
-        prompt = (
-            TemplateParser.compile_template(self.prompt, kwargs)
-            if kwargs
-            else self.prompt
-        )
-
-        return self._get_langchain_prompt_string(prompt)
+        return self._get_langchain_prompt_string(self.prompt, kwargs)
 
 
 class ChatPromptClient(BasePromptClient):
@@ -315,6 +389,44 @@ class ChatPromptClient(BasePromptClient):
         Returns:
             List of compiled chat messages as plain dictionaries, with unresolved placeholders kept as-is.
         """
+        return self._compile_messages(kwargs, TemplateParser.compile_template)
+
+    @staticmethod
+    def _get_langchain_literal_string(
+        content: str, variables: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Render inserted chat history as literal LangChain text.
+
+        Messages supplied through a placeholder are data, not template text:
+        after variable substitution every brace is escaped, so code or
+        ``{{name}}`` in the history never becomes a LangChain variable.
+        """
+        compiled = (
+            TemplateParser.compile_template(content, variables)
+            if variables
+            else content
+        )
+        return compiled.replace("{", "{{").replace("}", "}}")
+
+    def _compile_messages(
+        self,
+        kwargs: Dict[str, Any],
+        render: Callable[[str, Optional[Dict[str, Any]]], str],
+        render_placeholder: Optional[
+            Callable[[str, Optional[Dict[str, Any]]], str]
+        ] = None,
+    ) -> Sequence[
+        Union[
+            Dict[str, Any], ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder
+        ]
+    ]:
+        """Resolve placeholders and render message contents with ``render``.
+
+        ``render(content, variables)`` substitutes variables; it is called with
+        ``None`` for content that must not be compiled. Contents of messages
+        supplied through placeholders use ``render_placeholder`` when given.
+        """
+        render_inserted = render_placeholder or render
         compiled_messages: List[
             Union[
                 Dict[str, Any],
@@ -331,7 +443,7 @@ class ChatPromptClient(BasePromptClient):
                 compiled_messages.append(
                     ChatMessageDict(
                         role=message_obj["role"],  # type: ignore
-                        content=TemplateParser.compile_template(
+                        content=render(
                             message_obj["content"],  # type: ignore
                             kwargs,
                         ),
@@ -348,18 +460,18 @@ class ChatPromptClient(BasePromptClient):
                                 compiled_msg = dict(msg)  # type: ignore
                                 # Ensure role and content are always present
                                 compiled_msg["role"] = msg.get("role", "NOT_GIVEN")
-                                compiled_msg["content"] = (
-                                    TemplateParser.compile_template(
-                                        msg.get("content", ""),  # type: ignore
-                                        kwargs,
-                                    )
+                                compiled_msg["content"] = render_inserted(
+                                    msg.get("content", ""),  # type: ignore
+                                    kwargs,
                                 )
                                 compiled_messages.append(compiled_msg)
                             else:
                                 compiled_messages.append(
                                     ChatMessageDict(
                                         role="NOT_GIVEN",
-                                        content=str(placeholder_value),
+                                        content=render_inserted(
+                                            str(placeholder_value), None
+                                        ),
                                     )
                                 )
                                 no_role_content_in_placeholder = f"Placeholder '{placeholder_name}' should contain a list of chat messages with 'role' and 'content' fields. Appended as string."
@@ -368,7 +480,7 @@ class ChatPromptClient(BasePromptClient):
                         compiled_messages.append(
                             ChatMessageDict(
                                 role="NOT_GIVEN",
-                                content=str(placeholder_value),
+                                content=render_inserted(str(placeholder_value), None),
                             ),
                         )
                         placeholder_not_a_list = f"Placeholder '{placeholder_name}' must contain a list of chat messages, got {type(placeholder_value)}"
@@ -443,7 +555,11 @@ class ChatPromptClient(BasePromptClient):
             List of messages in the format expected by Langchain's ChatPromptTemplate:
             (role, content) tuples for regular messages or MessagesPlaceholder objects for unresolved placeholders.
         """
-        compiled_messages = self.compile(**kwargs)
+        compiled_messages = self._compile_messages(
+            kwargs,
+            self._get_langchain_prompt_string,
+            render_placeholder=self._get_langchain_literal_string,
+        )
         langchain_messages: List[Union[Tuple[str, str], Any]] = []
 
         for msg in compiled_messages:
@@ -464,7 +580,7 @@ class ChatPromptClient(BasePromptClient):
                     langchain_messages.append(
                         (
                             msg["role"],  # type: ignore
-                            self._get_langchain_prompt_string(msg["content"]),  # type: ignore
+                            msg["content"],  # type: ignore
                         ),
                     )
 
