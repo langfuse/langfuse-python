@@ -175,11 +175,15 @@ def _serialize_metadata_value(value: Any) -> str:
     # uses the same string encoder, so the output is identical but cheaper.
     # str subclasses (e.g. str enums) still go through EventSerializer.
     if type(value) is str:
-        return json.dumps(value, ensure_ascii=False)
+        serialized = json.dumps(value, ensure_ascii=False)
+    else:
+        serialized = json.dumps(
+            value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
+        )
 
-    return json.dumps(
-        value, cls=EventSerializer, separators=(",", ":"), ensure_ascii=False
-    )
+    # Escape lone surrogates, like JSON.stringify, so OTLP's UTF-8 string fields
+    # retain the value. Keep ordinary non-ASCII characters unescaped.
+    return serialized.encode("utf-8", errors="backslashreplace").decode("utf-8")
 
 
 def _flatten_and_serialize_metadata(
