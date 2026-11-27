@@ -194,18 +194,20 @@ class BasePromptClient(ABC):
         text = "".join(segment for segment, _ in segments)
         is_value = [from_value for segment, from_value in segments for _ in segment]
 
+        def to_langchain_variables(template_text: str) -> str:
+            return re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", template_text)
+
         output: List[str] = []
         template_run: List[str] = []
         for chunk, from_value in BasePromptClient._escape_json_chunks(text, is_value):
-            if from_value:
-                output.append(
-                    re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", "".join(template_run))
-                )
-                template_run = []
-                output.append(chunk)
-            else:
+            if not from_value:
                 template_run.append(chunk)
-        output.append(re.sub(r"{{\s*(\w+)\s*}}", r"{\g<1>}", "".join(template_run)))
+                continue
+            if template_run:
+                output.append(to_langchain_variables("".join(template_run)))
+                template_run = []
+            output.append(chunk)
+        output.append(to_langchain_variables("".join(template_run)))
 
         return "".join(output)
 
@@ -258,10 +260,14 @@ class BasePromptClient(ABC):
         while i < n:
             ch = text[i]
 
-            # ---------- characters from variable values ----------
+            # ---------- text from variable values ----------
             if is_value[i]:
-                out.append(("{{" if ch == "{" else "}}" if ch == "}" else ch, True))
-                i += 1
+                end = i + 1
+                while end < n and is_value[end]:
+                    end += 1
+                literal = text[i:end].replace("{", "{{").replace("}", "}}")
+                out.append((literal, True))
+                i = end
                 continue
 
             # ---------- opening brace ----------
