@@ -169,15 +169,30 @@ class PromptCache:
         with self._lock:
             return self._cache.get(key, None)
 
-    def set(self, key: str, value: PromptClient, ttl_seconds: Optional[int]) -> None:
+    def set(
+        self,
+        key: str,
+        value: PromptClient,
+        ttl_seconds: Optional[int],
+        *,
+        expected_item: Optional[PromptCacheItem] = None,
+    ) -> None:
+        """Cache a prompt if the expected entry has not changed."""
         if ttl_seconds is None:
             ttl_seconds = DEFAULT_PROMPT_CACHE_TTL_SECONDS
 
         with self._lock:
+            if expected_item is not None and self._cache.get(key) is not expected_item:
+                return
             self._cache[key] = PromptCacheItem(value, ttl_seconds)
 
-    def delete(self, key: str) -> None:
+    def delete(
+        self, key: str, *, expected_item: Optional[PromptCacheItem] = None
+    ) -> None:
+        """Remove a prompt if the expected entry has not changed."""
         with self._lock:
+            if expected_item is not None and self._cache.get(key) is not expected_item:
+                return
             self._cache.pop(key, None)
 
     def invalidate(self, prompt_name: str) -> None:
