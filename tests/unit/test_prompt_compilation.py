@@ -1046,6 +1046,43 @@ class TestLangchainPromptPrecompiledValues:
             self.CODE,
         ]
 
+    def test_chat_placeholder_history_with_braces_stays_literal(self):
+        prompt_client = self._chat_prompt(
+            [
+                ChatMessage(role="system", content="Answer in {{lang}}."),
+                {"type": "placeholder", "name": "history"},
+            ]
+        )
+        history = [
+            {"role": "user", "content": 'What does f"{name}" print?'},
+            {"role": "assistant", "content": "It depends on {{lang}} and x = {y}."},
+        ]
+
+        langchain_prompt = ChatPromptTemplate.from_messages(
+            prompt_client.get_langchain_prompt(history=history)
+        )
+
+        assert langchain_prompt.input_variables == ["lang"]
+        messages = langchain_prompt.format_messages(lang="Python")
+        assert [m.content for m in messages] == [
+            "Answer in Python.",
+            'What does f"{name}" print?',
+            "It depends on {{lang}} and x = {y}.",
+        ]
+
+    def test_chat_placeholder_history_kwargs_still_substituted(self):
+        prompt_client = self._chat_prompt([{"type": "placeholder", "name": "history"}])
+
+        langchain_prompt = ChatPromptTemplate.from_messages(
+            prompt_client.get_langchain_prompt(
+                code="x = {y}",
+                history=[{"role": "user", "content": "Explain {{code}}"}],
+            )
+        )
+
+        assert langchain_prompt.input_variables == []
+        assert langchain_prompt.format_messages()[0].content == "Explain x = {y}"
+
     def test_compile_unchanged(self):
         prompt_client = self._text_prompt("Value: {{value}}")
 

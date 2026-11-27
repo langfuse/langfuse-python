@@ -391,10 +391,30 @@ class ChatPromptClient(BasePromptClient):
         """
         return self._compile_messages(kwargs, TemplateParser.compile_template)
 
+    @staticmethod
+    def _get_langchain_literal_string(
+        content: str, variables: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Render inserted chat history as literal LangChain text.
+
+        Messages supplied through a placeholder are data, not template text:
+        after variable substitution every brace is escaped, so code or
+        ``{{name}}`` in the history never becomes a LangChain variable.
+        """
+        compiled = (
+            TemplateParser.compile_template(content, variables)
+            if variables
+            else content
+        )
+        return compiled.replace("{", "{{").replace("}", "}}")
+
     def _compile_messages(
         self,
         kwargs: Dict[str, Any],
         render: Callable[[str, Optional[Dict[str, Any]]], str],
+        render_placeholder: Optional[
+            Callable[[str, Optional[Dict[str, Any]]], str]
+        ] = None,
     ) -> Sequence[
         Union[
             Dict[str, Any], ChatMessageDict, ChatMessageWithPlaceholdersDict_Placeholder
@@ -403,8 +423,10 @@ class ChatPromptClient(BasePromptClient):
         """Resolve placeholders and render message contents with ``render``.
 
         ``render(content, variables)`` substitutes variables; it is called with
-        ``None`` for content that must not be compiled.
+        ``None`` for content that must not be compiled. Contents of messages
+        supplied through placeholders use ``render_placeholder`` when given.
         """
+        render_inserted = render_placeholder or render
         compiled_messages: List[
             Union[
                 Dict[str, Any],
@@ -438,7 +460,7 @@ class ChatPromptClient(BasePromptClient):
                                 compiled_msg = dict(msg)  # type: ignore
                                 # Ensure role and content are always present
                                 compiled_msg["role"] = msg.get("role", "NOT_GIVEN")
-                                compiled_msg["content"] = render(
+                                compiled_msg["content"] = render_inserted(
                                     msg.get("content", ""),  # type: ignore
                                     kwargs,
                                 )
@@ -447,7 +469,9 @@ class ChatPromptClient(BasePromptClient):
                                 compiled_messages.append(
                                     ChatMessageDict(
                                         role="NOT_GIVEN",
-                                        content=render(str(placeholder_value), None),
+                                        content=render_inserted(
+                                            str(placeholder_value), None
+                                        ),
                                     )
                                 )
                                 no_role_content_in_placeholder = f"Placeholder '{placeholder_name}' should contain a list of chat messages with 'role' and 'content' fields. Appended as string."
@@ -456,7 +480,7 @@ class ChatPromptClient(BasePromptClient):
                         compiled_messages.append(
                             ChatMessageDict(
                                 role="NOT_GIVEN",
-                                content=render(str(placeholder_value), None),
+                                content=render_inserted(str(placeholder_value), None),
                             ),
                         )
                         placeholder_not_a_list = f"Placeholder '{placeholder_name}' must contain a list of chat messages, got {type(placeholder_value)}"
@@ -532,7 +556,9 @@ class ChatPromptClient(BasePromptClient):
             (role, content) tuples for regular messages or MessagesPlaceholder objects for unresolved placeholders.
         """
         compiled_messages = self._compile_messages(
-            kwargs, self._get_langchain_prompt_string
+            kwargs,
+            self._get_langchain_prompt_string,
+            render_placeholder=self._get_langchain_literal_string,
         )
         langchain_messages: List[Union[Tuple[str, str], Any]] = []
 
