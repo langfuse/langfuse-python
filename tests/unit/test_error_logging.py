@@ -65,3 +65,11 @@ def test_auto_decorate_class_methods(caplog):
     # Test the excluded instance method that should raise an error
     with pytest.raises(ValueError, match="Error in instance method."):
         test_obj.excluded_instance_method()
+
+
+def test_auto_decorate_staticmethod_on_instance_access(caplog):
+    # A decorated staticmethod must stay a staticmethod: instance access must not
+    # bind `self` into its arguments.
+    assert isinstance(TestClass.__dict__["static_method"], staticmethod)
+    TestClass().static_method()
+    assert "Error in static method." in caplog.text
