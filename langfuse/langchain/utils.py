@@ -193,7 +193,7 @@ def _extract_model_from_repr_by_pattern(
 
 
 def _extract_model_with_regex(pattern: str, text: str) -> Optional[str]:
-    match = re.search(rf"{pattern}='(.*?)'", text)
+    match = re.search(rf"\b{pattern}='(.*?)'", text)
     if match:
         return match.group(1)
     return None
