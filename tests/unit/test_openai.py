@@ -1,8 +1,10 @@
 import asyncio
 import base64
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 import pytest
 from openai.types.chat import ChatCompletion
 from openai.types.responses import ParsedResponseOutputMessage, ParsedResponseOutputText
@@ -370,6 +372,43 @@ def test_chat_completion_exports_generation_span(
         "completion_tokens": 1,
         "total_tokens": 4,
     }
+
+
+def test_chat_completion_does_not_consume_messages_iterator(
+    langfuse_memory_client, get_span, json_attr
+):
+    openai_client = lf_openai.OpenAI(api_key="test")
+    response = ChatCompletion.model_validate(
+        {
+            "id": "chatcmpl-1",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "gpt-4o-mini",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hi"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+    )
+    messages = [{"role": "user", "content": "hello"}]
+
+    with patch.object(
+        openai_client.chat.completions, "_post", return_value=response
+    ) as post:
+        openai_client.chat.completions.create(
+            name="unit-openai-iterator",
+            model="gpt-4o-mini",
+            messages=(message for message in messages),
+        )
+
+    assert post.call_args.kwargs["body"]["messages"] == messages
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-openai-iterator")
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == messages
 
 
 def test_chat_completion_with_none_choices_does_not_crash(
@@ -1531,3 +1570,44 @@ def test_with_raw_response_streaming_passes_through_untraced(
         span.name != "OpenAI-generation"
         for span in memory_exporter.get_finished_spans()
     )
+
+
+def test_responses_create_does_not_consume_input_iterator(
+    langfuse_memory_client, get_span, json_attr
+):
+    sent = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content)["input"])
+        return httpx.Response(
+            200,
+            json={
+                "id": "resp_1",
+                "object": "response",
+                "created_at": 1,
+                "model": "gpt-4o-mini",
+                "status": "completed",
+                "output": [],
+                "parallel_tool_calls": False,
+                "tool_choice": "auto",
+                "tools": [],
+            },
+        )
+
+    openai_client = lf_openai.OpenAI(
+        api_key="test",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    messages = [{"role": "user", "content": "hello"}]
+
+    openai_client.responses.create(
+        name="unit-responses-iterator",
+        model="gpt-4o-mini",
+        input=(message for message in messages),
+    )
+
+    assert sent == [messages]
+
+    langfuse_memory_client.flush()
+    span = get_span("unit-responses-iterator")
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_INPUT) == messages
