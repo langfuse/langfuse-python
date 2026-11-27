@@ -97,7 +97,7 @@ from langfuse._utils import _get_timestamp, json_path
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.parse_error import handle_fern_exception
 from langfuse._utils.prompt_cache import PromptCache
-from langfuse._utils.retry import call_with_retries
+from langfuse._utils.retry import acall_with_retries, call_with_retries
 from langfuse.api import (
     AsyncLangfuseAPI,
     CreateChatPromptRequest,
@@ -4001,28 +4001,13 @@ class Langfuse:
                         cache_key,
                         e,
                     )
-
-                    fallback_client_args: Dict[str, Any] = {
-                        "name": name,
-                        "prompt": fallback,
-                        "type": type,
-                        "version": version or 0,
-                        "config": {},
-                        "labels": [label] if label else [],
-                        "tags": [],
-                    }
-
-                    if type == "text":
-                        return TextPromptClient(
-                            prompt=Prompt_Text(**fallback_client_args),
-                            is_fallback=True,
-                        )
-
-                    if type == "chat":
-                        return ChatPromptClient(
-                            prompt=Prompt_Chat(**fallback_client_args),
-                            is_fallback=True,
-                        )
+                    return self._create_fallback_prompt_client(
+                        name=name,
+                        prompt=fallback,
+                        type=type,
+                        version=version,
+                        label=label,
+                    )
 
                 raise e
 
@@ -4063,6 +4048,147 @@ class Langfuse:
                     e,
                 )
                 # creation of refresh prompt task failed, return stale prompt
+                return cached_prompt.value
+
+        return cached_prompt.value
+
+    @overload
+    async def aget_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["chat"],
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[List[ChatMessageDict]] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> ChatPromptClient: ...
+
+    @overload
+    async def aget_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["text"] = "text",
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> TextPromptClient: ...
+
+    async def aget_prompt(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        type: Literal["chat", "text"] = "text",
+        cache_ttl_seconds: Optional[int] = None,
+        fallback: Union[Optional[List[ChatMessageDict]], Optional[str]] = None,
+        max_retries: Optional[int] = None,
+        fetch_timeout_seconds: Optional[int] = None,
+    ) -> PromptClient:
+        """Async version of `get_prompt`, using `async_api`.
+
+        Takes the same arguments and shares the prompt cache with `get_prompt`.
+        On a cache miss, the prompt is fetched without blocking the event loop.
+        Stale cache entries are returned immediately and refreshed in the
+        background, exactly as in `get_prompt`.
+
+        Example:
+            ```python
+            prompt = await langfuse.aget_prompt("movie-critic")
+            ```
+        """
+        if self._resources is None:
+            raise Error(
+                "SDK is not correctly initialized. Check the init logs for more details."
+            )
+        if version is not None and label is not None:
+            raise ValueError("Cannot specify both version and label at the same time.")
+
+        if not name:
+            raise ValueError("Prompt name cannot be empty.")
+
+        cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
+        bounded_max_retries = self._get_bounded_max_retries(
+            max_retries, default_max_retries=2, max_retries_upper_bound=4
+        )
+
+        langfuse_logger.debug("Getting prompt '%s' (async)", cache_key)
+        cached_prompt = self._resources.prompt_cache.get(cache_key)
+
+        if cached_prompt is None or cache_ttl_seconds == 0:
+            langfuse_logger.debug(
+                "Prompt '%s' not found in cache or caching disabled.", cache_key
+            )
+            try:
+                return await self._fetch_prompt_and_update_cache_async(
+                    name,
+                    version=version,
+                    label=label,
+                    ttl_seconds=cache_ttl_seconds,
+                    max_retries=bounded_max_retries,
+                    fetch_timeout_seconds=fetch_timeout_seconds,
+                )
+            except Exception as e:
+                if fallback:
+                    langfuse_logger.warning(
+                        "Returning fallback prompt for '%s' due to fetch error: %s",
+                        cache_key,
+                        e,
+                    )
+                    return self._create_fallback_prompt_client(
+                        name=name,
+                        prompt=fallback,
+                        type=type,
+                        version=version,
+                        label=label,
+                    )
+
+                raise e
+
+        if cached_prompt.is_expired():
+            langfuse_logger.debug("Stale prompt '%s' found in cache.", cache_key)
+            try:
+                # Refresh on the prompt cache's worker thread with the sync client,
+                # like get_prompt. The async client is bound to the caller's event
+                # loop and must not be reused from another thread.
+                langfuse_logger.debug(
+                    "Refreshing prompt '%s' in background.", cache_key
+                )
+
+                def refresh_task() -> None:
+                    self._fetch_prompt_and_update_cache(
+                        name,
+                        version=version,
+                        label=label,
+                        ttl_seconds=cache_ttl_seconds,
+                        max_retries=bounded_max_retries,
+                        fetch_timeout_seconds=fetch_timeout_seconds,
+                    )
+
+                self._resources.prompt_cache.add_refresh_prompt_task_if_current(
+                    cache_key,
+                    cached_prompt,
+                    refresh_task,
+                )
+                langfuse_logger.debug(
+                    "Returning stale prompt '%s' from cache.", cache_key
+                )
+                return cached_prompt.value
+
+            except Exception as e:
+                langfuse_logger.warning(
+                    "Error when refreshing cached prompt '%s', returning cached version. "
+                    "Error: %s",
+                    cache_key,
+                    e,
+                )
                 return cached_prompt.value
 
         return cached_prompt.value
@@ -4121,6 +4247,89 @@ class Langfuse:
                 "Error while fetching prompt '%s': %s", cache_key, str(e)
             )
             raise e
+
+    async def _fetch_prompt_and_update_cache_async(
+        self,
+        name: str,
+        *,
+        version: Optional[int] = None,
+        label: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        max_retries: int,
+        fetch_timeout_seconds: Optional[int],
+    ) -> PromptClient:
+        cache_key = PromptCache.generate_cache_key(name, version=version, label=label)
+        langfuse_logger.debug("Fetching prompt '%s' from server (async)...", cache_key)
+
+        try:
+            request_options: RequestOptions = {"max_retries": 0}
+            if fetch_timeout_seconds is not None:
+                request_options["timeout_in_seconds"] = fetch_timeout_seconds
+
+            prompt_response = await acall_with_retries(
+                lambda: self.async_api.prompts.get(
+                    self._url_encode(name),
+                    version=version,
+                    label=label,
+                    request_options=request_options,
+                ),
+                max_retries=max_retries,
+            )
+
+            prompt: PromptClient
+            if prompt_response.type == "chat":
+                prompt = ChatPromptClient(prompt_response)
+            else:
+                prompt = TextPromptClient(prompt_response)
+
+            if self._resources is not None:
+                self._resources.prompt_cache.set(cache_key, prompt, ttl_seconds)
+
+            return prompt
+
+        except NotFoundError as not_found_error:
+            langfuse_logger.warning(
+                "Prompt '%s' not found, evicting from cache.", cache_key
+            )
+            if self._resources is not None:
+                self._resources.prompt_cache.delete(cache_key)
+            raise not_found_error
+
+        except Exception as e:
+            langfuse_logger.error(
+                "Error while fetching prompt '%s': %s", cache_key, str(e)
+            )
+            raise e
+
+    def _create_fallback_prompt_client(
+        self,
+        *,
+        name: str,
+        prompt: Union[List[ChatMessageDict], str],
+        type: Literal["chat", "text"],
+        version: Optional[int],
+        label: Optional[str],
+    ) -> PromptClient:
+        fallback_client_args: Dict[str, Any] = {
+            "name": name,
+            "prompt": prompt,
+            "type": type,
+            "version": version or 0,
+            "config": {},
+            "labels": [label] if label else [],
+            "tags": [],
+        }
+
+        if type == "chat":
+            return ChatPromptClient(
+                prompt=Prompt_Chat(**fallback_client_args),
+                is_fallback=True,
+            )
+
+        return TextPromptClient(
+            prompt=Prompt_Text(**fallback_client_args),
+            is_fallback=True,
+        )
 
     def _get_bounded_max_retries(
         self,

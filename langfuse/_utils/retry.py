@@ -5,9 +5,10 @@ the call in :func:`call_with_retries`, so network errors and retryable HTTP
 responses share a single retry budget instead of multiplying each other.
 """
 
+import asyncio
 import random
 import time
-from typing import Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Optional, TypeVar
 
 import httpx
 
@@ -87,4 +88,24 @@ def call_with_retries(
                 raise
 
             time.sleep(retry_delay_seconds(e, retries, max_backoff_seconds))
+            retries += 1
+
+
+async def acall_with_retries(
+    func: Callable[[], Awaitable[T]],
+    *,
+    max_retries: int,
+    should_retry: Callable[[Exception], bool] = is_retryable_api_call_error,
+    max_backoff_seconds: float = 10.0,
+) -> T:
+    """Async version of :func:`call_with_retries`; waits without blocking the event loop."""
+    retries = 0
+    while True:
+        try:
+            return await func()
+        except Exception as e:
+            if retries >= max_retries or not should_retry(e):
+                raise
+
+            await asyncio.sleep(retry_delay_seconds(e, retries, max_backoff_seconds))
             retries += 1
