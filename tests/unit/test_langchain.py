@@ -172,6 +172,128 @@ def test_llm_callback_exports_generation_span(langfuse_memory_client, get_span):
     )
 
 
+@pytest.mark.parametrize("usage_source", ["llm_output", "response_metadata"])
+@pytest.mark.parametrize("reported_cost", [0.000138, 1])
+def test_chat_model_callback_records_provider_reported_cost(
+    langfuse_memory_client, get_span, json_attr, usage_source, reported_cost
+):
+    usage = {
+        "prompt_tokens": 8,
+        "completion_tokens": 93,
+        "total_tokens": 101,
+        "cost": reported_cost,
+    }
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="bonjour",
+                    response_metadata=(
+                        {"token_usage": usage}
+                        if usage_source == "response_metadata"
+                        else {}
+                    ),
+                )
+            )
+        ],
+        llm_output={"token_usage": usage} if usage_source == "llm_output" else None,
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test", model="openai/gpt-5-mini").invoke(
+            "hello", config={"callbacks": [CallbackHandler()]}
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("ChatOpenAI")
+
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_COST_DETAILS) == {
+        "total": reported_cost
+    }
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "input": 8,
+        "output": 93,
+        "total": 101,
+    }
+
+
+@pytest.mark.parametrize("usage_key", ["usage", "amazon-bedrock-invocationMetrics"])
+def test_usage_preserves_provider_cache_breakdown(usage_key):
+    response = LLMResult(
+        generations=[
+            [
+                ChatGeneration(
+                    message=AIMessage(
+                        content="hello",
+                        response_metadata={
+                            usage_key: {
+                                "input_tokens": 8,
+                                "output_tokens": 2,
+                                "cache_creation": {
+                                    "ephemeral_5m_input_tokens": 3,
+                                    "ephemeral_1h_input_tokens": 5,
+                                },
+                            }
+                        },
+                        usage_metadata={
+                            "input_tokens": 16,
+                            "output_tokens": 2,
+                            "total_tokens": 18,
+                        },
+                    )
+                )
+            ]
+        ]
+    )
+    usage = callback_handler_module._parse_usage(response)
+    assert usage["cache_creation_ephemeral_5m_input_tokens"] == 3
+    assert usage["cache_creation_ephemeral_1h_input_tokens"] == 5
+
+
+def test_chat_model_callback_prefers_usage_metadata_over_raw_token_usage(
+    langfuse_memory_client, get_span, json_attr
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="bonjour",
+                    response_metadata={
+                        "token_usage": {
+                            "prompt_tokens": 8,
+                            "completion_tokens": 93,
+                            "total_tokens": 101,
+                        }
+                    },
+                    usage_metadata={
+                        "input_tokens": 8,
+                        "output_tokens": 93,
+                        "total_tokens": 101,
+                        "input_token_details": {"cache_read": 5},
+                        "output_token_details": {"reasoning": 7},
+                    },
+                )
+            )
+        ]
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        ChatOpenAI(api_key="test", model="openai/gpt-5-mini").invoke(
+            "hello", config={"callbacks": [CallbackHandler()]}
+        )
+
+    langfuse_memory_client.flush()
+    span = get_span("ChatOpenAI")
+
+    assert json_attr(span, LangfuseOtelSpanAttributes.OBSERVATION_USAGE_DETAILS) == {
+        "input": 3,
+        "input_cache_read": 5,
+        "output": 86,
+        "output_reasoning": 7,
+        "total": 101,
+    }
+
+
 def test_lcel_chain_exports_intermediate_chain_spans(
     langfuse_memory_client, get_span, find_spans
 ):
