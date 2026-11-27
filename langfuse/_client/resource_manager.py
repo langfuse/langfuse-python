@@ -43,6 +43,7 @@ from langfuse._client.environment_variables import (
 from langfuse._client.span_processor import LangfuseSpanProcessor
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
+from langfuse._task_manager.media_upload_queue import MediaUploadQueue
 from langfuse._task_manager.score_consumer import ScoreConsumer
 from langfuse._utils.environment import get_common_release_envs
 from langfuse._utils.prompt_cache import PromptCache
@@ -317,7 +318,7 @@ class LangfuseResourceManager:
 
     def _init_media_manager(self) -> None:
         """Initialize or reset media upload state while preserving manager references."""
-        self._media_upload_queue: Queue[Any] = Queue(100_000)
+        self._media_upload_queue = MediaUploadQueue(100_000)
         if hasattr(self, "_media_manager"):
             self._media_manager.reinitialize(
                 api_client=self.api,

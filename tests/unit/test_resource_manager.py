@@ -17,6 +17,7 @@ from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
 from langfuse._task_manager.score_consumer import ScoreConsumer
+from langfuse.media import LangfuseMedia
 from langfuse.types import MaskOtelSpansResult
 
 
@@ -174,6 +175,47 @@ def test_media_upload_consumer_signal_shutdown_wakes_blocked_thread():
     consumer.join(timeout=0.5)
 
     assert not consumer.is_alive()
+
+
+def test_media_queue_shares_payloads_until_the_last_job_is_dequeued():
+    resources = SimpleNamespace(api=Mock(), httpx_client=Mock())
+    LangfuseResourceManager._init_media_manager(resources)
+    queue = resources._media_upload_queue
+
+    def enqueue(content, observation_id, field):
+        payload = bytes(bytearray(content))
+        resources._media_manager._process_media(
+            media=LangfuseMedia(content_type="image/png", content_bytes=payload),
+            trace_id="trace",
+            observation_id=observation_id,
+            field=field,
+        )
+        return payload
+
+    def dequeue():
+        job = queue.get_nowait()
+        queue.task_done()
+        return job
+
+    first_payload = enqueue(b"image", "first", "input")
+    duplicate_payload = enqueue(b"image", "second", "output")
+    distinct_payload = enqueue(b"other", "third", "input")
+    first, second, third = dequeue(), dequeue(), dequeue()
+    fresh_payload = enqueue(b"image", "fourth", "input")
+    fresh = dequeue()
+
+    assert first_payload is not duplicate_payload
+    assert first["content_bytes"] is second["content_bytes"] is first_payload
+    assert third["content_bytes"] is distinct_payload
+    assert [
+        (job["observation_id"], job["field"]) for job in (first, second, third)
+    ] == [
+        ("first", "input"),
+        ("second", "output"),
+        ("third", "input"),
+    ]
+    assert fresh["content_bytes"] is fresh_payload
+    assert fresh_payload is not first_payload
 
 
 def test_at_fork_reinit_creates_new_queues_and_consumers(monkeypatch):
