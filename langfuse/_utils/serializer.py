@@ -6,7 +6,7 @@ import math
 from asyncio import Queue
 from collections.abc import Sequence
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from json import JSONEncoder
 from logging import getLogger
 from pathlib import Path
@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, SecretBytes, SecretStr
+from pydantic_core import to_jsonable_python
 
 from langfuse.media import LangfuseMedia, LangfuseMediaReference
 
@@ -135,6 +136,12 @@ class EventSerializer(JSONEncoder):
 
             if isinstance(obj, (date)):
                 return obj.isoformat()
+
+            if isinstance(obj, (time)):
+                return obj.isoformat()
+
+            if isinstance(obj, (timedelta)):
+                return to_jsonable_python(obj)
 
             if isinstance(obj, Path):
                 return str(obj)
