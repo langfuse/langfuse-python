@@ -100,8 +100,8 @@ Minimum verification matrix:
 
 ### `tests/live_provider`
 
-- This suite uses real provider calls and runs as one dedicated CI suite. CI skips it on fork PRs, which have no provider secrets.
-- Any test that calls a model provider belongs here, never in `tests/e2e`, so fork PRs stay green on the e2e shards.
+- This suite uses real provider calls and runs as one dedicated CI suite. CI skips it on fork PRs (no provider secrets) and Dependabot PRs.
+- Any test that calls a model provider belongs here, never in `tests/e2e`, so fork and Dependabot PRs stay green on the e2e shards.
 
 ### Quarantine
 
@@ -118,7 +118,7 @@ The main CI workflow currently runs:
 - mypy on Python 3.13
 - `tests/unit` on a Python 3.11-3.15 matrix
 - `tests/e2e` in 2 mechanical shards plus a serial subset inside each shard
-- `tests/live_provider` as one suite, skipped on fork PRs because GitHub withholds secrets there
+- `tests/live_provider` as one suite, skipped on fork PRs (GitHub withholds Actions secrets there) and Dependabot PRs
 - PR title validation for Conventional Commits
 
 If you change the e2e split:
