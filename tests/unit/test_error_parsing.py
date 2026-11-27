@@ -19,7 +19,7 @@ def test_generate_error_message_access_denied_error():
 
 def test_generate_error_message_method_not_allowed_error():
     exception = MethodNotAllowedError(body={})
-    expected_message = "Unexpected error occurred. Please check your request and contact support: https://langfuse.com/support."
+    expected_message = "Method not allowed. Check LANGFUSE_BASE_URL and whether your server version supports this endpoint. For help, contact support: https://langfuse.com/support"
     assert generate_error_message_fern(exception) == expected_message
 
 
@@ -31,7 +31,7 @@ def test_generate_error_message_not_found_error():
 
 def test_generate_error_message_unauthorized_error():
     exception = UnauthorizedError(body={})
-    expected_message = "Unauthorized. Please check your public/private host settings. Refer to our installation and setup guide: https://langfuse.com/docs/sdk/typescript/guide for details on SDK configuration."
+    expected_message = "Unauthorized. Check LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_BASE_URL. See the SDK credential setup guide: https://langfuse.com/docs/observability/sdk/overview#configure-credentials"
     assert generate_error_message_fern(exception) == expected_message
 
 

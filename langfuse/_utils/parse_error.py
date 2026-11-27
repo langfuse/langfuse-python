@@ -11,7 +11,9 @@ from langfuse.logger import langfuse_logger as logger
 SUPPORT_URL = "https://langfuse.com/support"
 API_DOCS_URL = "https://api.reference.langfuse.com"
 RBAC_DOCS_URL = "https://langfuse.com/docs/rbac"
-INSTALLATION_DOCS_URL = "https://langfuse.com/docs/sdk/typescript/guide"
+CREDENTIAL_SETUP_URL = (
+    "https://langfuse.com/docs/observability/sdk/overview#configure-credentials"
+)
 RATE_LIMITS_URL = "https://langfuse.com/faq/all/api-limits"
 PYPI_PACKAGE_URL = "https://pypi.org/project/langfuse/"
 
@@ -31,8 +33,9 @@ errorResponseByCode = {
     504: f"Gateway timeout. {defaultServerErrorPrompt}",
     404: f"Internal error occurred. {defaultServerErrorPrompt}",
     400: f"Bad request. Please check your request for any missing or incorrect parameters. Refer to our API docs: {API_DOCS_URL} for details.",
-    401: f"Unauthorized. Please check your public/private host settings. Refer to our installation and setup guide: {INSTALLATION_DOCS_URL} for details on SDK configuration.",
+    401: f"Unauthorized. Check LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_BASE_URL. See the SDK credential setup guide: {CREDENTIAL_SETUP_URL}",
     403: f"Forbidden. Please check your access control settings. Refer to our RBAC docs: {RBAC_DOCS_URL} for details.",
+    405: f"Method not allowed. Check LANGFUSE_BASE_URL and whether your server version supports this endpoint. For help, contact support: {SUPPORT_URL}",
     429: f"Rate limit exceeded. For more information on rate limits please see: {RATE_LIMITS_URL}",
 }
 
