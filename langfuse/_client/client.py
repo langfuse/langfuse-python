@@ -49,6 +49,7 @@ from langfuse._client.attributes import (
 )
 from langfuse._client.constants import (
     LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT,
+    MISSING_CREDENTIALS_LOCAL_DEVELOPMENT_HINT,
     ObservationTypeGenerationLike,
     ObservationTypeLiteralNoEvent,
     ObservationTypeSpanLike,
@@ -378,6 +379,7 @@ class Langfuse:
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without public_key. Client will be disabled. "
                 "Provide a public_key parameter or set LANGFUSE_PUBLIC_KEY environment variable. "
+                + MISSING_CREDENTIALS_LOCAL_DEVELOPMENT_HINT
             )
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return
@@ -387,6 +389,7 @@ class Langfuse:
             langfuse_logger.warning(
                 "Authentication error: Langfuse client initialized without secret_key. Client will be disabled. "
                 "Provide a secret_key parameter or set LANGFUSE_SECRET_KEY environment variable. "
+                + MISSING_CREDENTIALS_LOCAL_DEVELOPMENT_HINT
             )
             self._otel_tracer = otel_trace_api.NoOpTracer()
             return

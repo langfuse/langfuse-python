@@ -120,6 +120,33 @@ class TestClientInitialization:
         assert client._base_url == "http://env-host.com"
         assert not any("deprecated" in record.message for record in caplog.records)
 
+    @pytest.mark.parametrize(
+        ("missing_key", "provided_kwargs"),
+        [
+            ("public_key", {"secret_key": "test_sk"}),
+            ("secret_key", {"public_key": "test_pk"}),
+        ],
+    )
+    def test_missing_credentials_warning_mentions_local_option(
+        self, cleanup_env_vars, monkeypatch, caplog, missing_key, provided_kwargs
+    ):
+        """Test that the missing-credentials warning points to the local option."""
+        monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+        monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+        caplog.set_level("WARNING", logger="langfuse")
+
+        Langfuse(**provided_kwargs)
+
+        warnings = [
+            record.getMessage()
+            for record in caplog.records
+            if f"initialized without {missing_key}" in record.getMessage()
+        ]
+        assert len(warnings) == 1
+        assert "Client will be disabled" in warnings[0]
+        assert "langfuse-lite" in warnings[0]
+        assert "LANGFUSE_BASE_URL=http://localhost:3000" in warnings[0]
+
     def test_default_base_url(self, cleanup_env_vars):
         """Test that default base_url is used when nothing is set."""
         client = Langfuse(

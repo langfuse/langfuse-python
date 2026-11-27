@@ -13,6 +13,13 @@ LANGFUSE_SDK_EXPERIMENT_ENVIRONMENT = "sdk-experiment"
 
 MASK_FALLBACK_VALUE = "<fully masked due to failed mask function>"
 
+MISSING_CREDENTIALS_LOCAL_DEVELOPMENT_HINT = (
+    "No Langfuse account? For local development, run `npx langfuse-lite serve` or `uvx langfuse-lite serve` "
+    "and set LANGFUSE_BASE_URL=http://localhost:3000 with any placeholder keys "
+    "(e.g. LANGFUSE_PUBLIC_KEY=pk-lf-local, LANGFUSE_SECRET_KEY=sk-lf-local). "
+    "See https://github.com/langfuse/langfuse-lite"
+)
+
 """Note: this type is used with .__args__ / get_args in some cases and therefore must remain flat"""
 ObservationTypeGenerationLike: TypeAlias = Literal[
     "generation",
