@@ -152,15 +152,16 @@ jobs:
       # SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
       HUGGINGFACEHUB_API_TOKEN: ${{ secrets.HUGGINGFACEHUB_API_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      # GitHub withholds secrets from fork PRs, so provider calls there can only fail.
-      # The suite still runs on same-repo PRs and on main, where a missing key fails loudly.
-      SKIP_LIVE_PROVIDER: ${{ matrix.suite == 'live_provider' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      # GitHub withholds Actions secrets from fork PRs, and Dependabot PRs (user id 49699333)
+      # should not be blocked by flaky live-provider calls or stale Dependabot secrets.
+      # The suite still runs on non-Dependabot same-repo PRs and on main, where a missing key fails loudly.
+      SKIP_LIVE_PROVIDER: ${{ matrix.suite == 'live_provider' && github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.id == 49699333) }}
 
     name: ${{ matrix.job_name }}
     steps:
-      - name: Skip live-provider tests on fork PRs
+      - name: Skip live-provider tests on fork and Dependabot PRs
         if: ${{ env.SKIP_LIVE_PROVIDER == 'true' }}
-        run: echo "::notice::Live-provider tests are skipped on fork PRs because provider secrets are unavailable. They run after merge on main."
+        run: echo "::notice::Live-provider tests are skipped on fork and Dependabot PRs. They run on non-Dependabot same-repo PRs and after merge on main."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: ${{ env.SKIP_LIVE_PROVIDER != 'true' }}
         with:
