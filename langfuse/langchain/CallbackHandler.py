@@ -1820,6 +1820,18 @@ def _parse_usage(response: LLMResult) -> Any:
 
 
 def _parse_model(response: LLMResult) -> Any:
+    # llm_output["model_name"] can be the configured alias, so prefer the
+    # model the provider reported on the generation
+    if response.generations and response.generations[-1]:
+        generation = response.generations[-1][-1]
+        message = getattr(generation, "message", None)
+        for metadata in (
+            getattr(message, "response_metadata", None),
+            generation.generation_info,
+        ):
+            if isinstance(metadata, dict) and metadata.get("model_name"):
+                return metadata["model_name"]
+
     # langchain-anthropic uses the usage field
     llm_model_keys = ["model_name"]
     llm_model = None

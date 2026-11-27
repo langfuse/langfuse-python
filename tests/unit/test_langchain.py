@@ -104,6 +104,38 @@ def test_chat_model_callback_exports_generation_span(
     }
 
 
+def test_chat_model_generation_uses_model_reported_in_response(
+    langfuse_memory_client, get_span
+):
+    response = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="bonjour",
+                    response_metadata={"model_name": "gpt-4o-2024-08-06"},
+                ),
+                text="bonjour",
+            )
+        ],
+        llm_output={"model_name": "azure.gpt-4o"},
+    )
+
+    with patch.object(ChatOpenAI, "_generate", return_value=response):
+        handler = CallbackHandler()
+        ChatOpenAI(api_key="test", model="azure.gpt-4o").invoke(
+            [HumanMessage(content="hello")],
+            config={"callbacks": [handler]},
+        )
+
+    langfuse_memory_client.flush()
+    generation_span = get_span("ChatOpenAI")
+
+    assert (
+        generation_span.attributes[LangfuseOtelSpanAttributes.OBSERVATION_MODEL]
+        == "gpt-4o-2024-08-06"
+    )
+
+
 def test_chat_model_input_keeps_message_names(
     langfuse_memory_client, get_span, json_attr
 ):
