@@ -570,3 +570,35 @@ def test_dict_with_non_string_keys_is_serialized(input_obj, expected):
     result = json.loads(EventSerializer().encode(input_obj))
 
     assert result == expected
+
+
+class _PlainClass:
+    x = 1
+
+
+@pytest.mark.parametrize(
+    "input_obj, expected",
+    [
+        (TestBaseModel, f"<class '{__name__}.TestBaseModel'>"),
+        (TestDataclass, f"<class '{__name__}.TestDataclass'>"),
+        (_PlainClass, f"<class '{__name__}._PlainClass'>"),
+        (TestEnum, f"<class '{__name__}.TestEnum'>"),
+        (int, "<class 'builtins.int'>"),
+    ],
+    ids=["pydantic_model", "dataclass", "plain", "enum", "builtin"],
+)
+def test_class_objects_serialize_as_class_reference(input_obj, expected):
+    serializer = EventSerializer()
+
+    assert json.loads(serializer.encode(input_obj)) == expected
+    assert json.loads(serializer.encode({"schema": input_obj})) == {"schema": expected}
+
+
+def test_failed_serialization_falls_back_to_plain_string():
+    class BrokenModel(BaseModel):
+        def model_dump(self, *args, **kwargs):
+            raise RuntimeError("boom")
+
+    result = json.loads(EventSerializer().encode({"value": BrokenModel()}))
+
+    assert result == {"value": "<not serializable object of type: BrokenModel>"}

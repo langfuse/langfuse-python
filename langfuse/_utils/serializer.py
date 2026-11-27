@@ -149,6 +149,11 @@ class EventSerializer(JSONEncoder):
             if isinstance(obj, (str, float, type(None))):
                 return obj
 
+            # Class objects (e.g. a pydantic model passed as a schema) would
+            # otherwise match the instance branches below and dump their namespace
+            if isinstance(obj, type):
+                return f"<class '{obj.__module__}.{obj.__qualname__}'>"
+
             if self._depth >= self._MAX_DEPTH:
                 return f"<{type(obj).__name__}>"
 
@@ -214,7 +219,7 @@ class EventSerializer(JSONEncoder):
                 type(obj).__name__,
                 exc_info=e,
             )
-            return f'"<not serializable object of type: {type(obj).__name__}>"'
+            return f"<not serializable object of type: {type(obj).__name__}>"
 
     def encode(self, obj: Any) -> str:
         self.seen.clear()  # Clear seen objects before each encode call
