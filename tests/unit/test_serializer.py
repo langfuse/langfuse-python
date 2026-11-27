@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -39,6 +40,45 @@ def test_datetime():
     serializer = EventSerializer()
 
     assert serializer.encode(dt) == '"2023-01-01T12:00:00Z"'
+
+
+@pytest.mark.skipif(
+    not hasattr(time, "tzset"), reason="Requires local timezone control"
+)
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (datetime(2026, 1, 15, 12), "2026-01-15T12:00:00-08:00"),
+        (datetime(2026, 7, 15, 12), "2026-07-15T12:00:00-07:00"),
+        (datetime(2026, 11, 1, 1, 30, fold=0), "2026-11-01T01:30:00-07:00"),
+        (datetime(2026, 11, 1, 1, 30, fold=1), "2026-11-01T01:30:00-08:00"),
+    ],
+)
+def test_naive_datetime_uses_offset_at_its_own_date(
+    monkeypatch, value, expected, langfuse_memory_client, get_span
+):
+    try:
+        with monkeypatch.context() as context:
+            context.setenv("TZ", "America/Los_Angeles")
+            time.tzset()
+            serialized = json.loads(EventSerializer().encode(value))
+            assert serialized == expected
+            assert datetime.fromisoformat(serialized).timestamp() == value.timestamp()
+            with langfuse_memory_client.start_as_current_observation(
+                name="historical-generation", as_type="generation"
+            ) as generation:
+                generation.update(completion_start_time=value)
+            langfuse_memory_client.flush()
+            assert (
+                json.loads(
+                    get_span("historical-generation").attributes[
+                        "langfuse.observation.completion_start_time"
+                    ]
+                )
+                == expected
+            )
+    finally:
+        time.tzset()
 
 
 def test_date():
