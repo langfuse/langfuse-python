@@ -1,6 +1,7 @@
 import time
 from queue import Queue
 from types import SimpleNamespace
+from typing import NamedTuple
 from unittest.mock import Mock
 
 import httpx
@@ -10,6 +11,15 @@ from langfuse._task_manager.media_manager import MediaManager
 from langfuse.api import LangfuseAPI
 from langfuse.api.core.api_error import ApiError
 from langfuse.media import LangfuseMedia
+
+
+class Point(NamedTuple):
+    x: int
+    y: int
+
+
+class Payload(tuple):
+    pass
 
 
 def _upload_response(status_code: int, text: str = "") -> httpx.Response:
@@ -211,6 +221,69 @@ def test_find_and_process_media_sse_in_nested_structure_passes_through():
 
     assert result == data
     assert queue.empty()
+
+
+def test_find_and_process_media_in_tuple_queues_upload():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+    media = LangfuseMedia(content_bytes=b"sample-image", content_type="image/jpeg")
+
+    result = manager._find_and_process_media(
+        data=("response text", media),
+        trace_id="trace-id",
+        observation_id="observation-id",
+        field="output",
+    )
+
+    assert result == ("response text", media)
+    assert queue.qsize() == 1
+
+
+def test_find_and_process_media_preserves_named_tuple_fields():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    result = manager._find_and_process_media(
+        data=Point(1, 2),
+        trace_id="trace-id",
+        observation_id="observation-id",
+        field="output",
+    )
+
+    assert isinstance(result, Point)
+    assert result.x == 1
+    assert result.y == 2
+
+
+def test_find_and_process_media_preserves_tuple_subclass_for_mask():
+    queue = Queue()
+    manager = MediaManager(
+        api_client=SimpleNamespace(media=Mock()),
+        httpx_client=Mock(),
+        media_upload_queue=queue,
+    )
+
+    payload = Payload(("response text",))
+    payload.label = "response"
+    result = manager._find_and_process_media(
+        data=payload,
+        trace_id="trace-id",
+        observation_id="observation-id",
+        field="output",
+    )
+
+    assert isinstance(result, Payload)
+    assert result is payload
+    assert result.label == "response"
+    assert result == ("response text",)
 
 
 def test_find_and_process_media_gemini_inline_data_is_processed():

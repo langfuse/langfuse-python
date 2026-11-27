@@ -1,5 +1,6 @@
 import base64
 from types import SimpleNamespace
+from typing import NamedTuple
 from unittest.mock import Mock
 
 import pytest
@@ -12,6 +13,15 @@ SAMPLE_JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00
 SAMPLE_BASE64_DATA_URI = (
     "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4QBARXhpZgAA"
 )
+
+
+class MediaResponse(NamedTuple):
+    text: str
+    image: str
+
+
+class Payload(tuple):
+    pass
 
 
 def test_init_with_base64_data_uri():
@@ -262,6 +272,120 @@ def test_resolve_media_references_uses_configured_httpx_client():
     httpx_client.get.assert_called_once_with(
         "https://example.com/test.jpg", timeout=fetch_timeout_seconds
     )
+
+
+def test_resolve_media_references_in_tuple():
+    reference_string = "@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes@@@"
+    media_api = Mock()
+    media_api.get.return_value = SimpleNamespace(
+        url="https://example.com/test.jpg", content_type="image/jpeg"
+    )
+
+    response = Mock()
+    response.content = b"image-bytes"
+    response.raise_for_status.return_value = None
+
+    httpx_client = Mock()
+    httpx_client.get.return_value = response
+
+    mock_langfuse_client = SimpleNamespace(
+        api=SimpleNamespace(media=media_api),
+        _resources=SimpleNamespace(httpx_client=httpx_client),
+    )
+
+    resolved = LangfuseMedia.resolve_media_references(
+        obj=("response text", reference_string),
+        langfuse_client=mock_langfuse_client,
+        resolve_with="base64_data_uri",
+    )
+
+    assert resolved == (
+        "response text",
+        "data:image/jpeg;base64,aW1hZ2UtYnl0ZXM=",
+    )
+
+
+def test_resolve_media_references_preserves_named_tuple_fields():
+    reference_string = "@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes@@@"
+    media_api = Mock()
+    media_api.get.return_value = SimpleNamespace(
+        url="https://example.com/test.jpg", content_type="image/jpeg"
+    )
+
+    response = Mock()
+    response.content = b"image-bytes"
+    response.raise_for_status.return_value = None
+
+    httpx_client = Mock()
+    httpx_client.get.return_value = response
+
+    mock_langfuse_client = SimpleNamespace(
+        api=SimpleNamespace(media=media_api),
+        _resources=SimpleNamespace(httpx_client=httpx_client),
+    )
+
+    resolved = LangfuseMedia.resolve_media_references(
+        obj=MediaResponse("response text", reference_string),
+        langfuse_client=mock_langfuse_client,
+        resolve_with="base64_data_uri",
+    )
+
+    assert isinstance(resolved, MediaResponse)
+    assert resolved.text == "response text"
+    assert resolved.image == "data:image/jpeg;base64,aW1hZ2UtYnl0ZXM="
+
+
+def test_resolve_media_references_in_tuple_subclass():
+    reference_string = "@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes@@@"
+    media_api = Mock()
+    media_api.get.return_value = SimpleNamespace(
+        url="https://example.com/test.jpg", content_type="image/jpeg"
+    )
+
+    response = Mock()
+    response.content = b"image-bytes"
+    response.raise_for_status.return_value = None
+
+    httpx_client = Mock()
+    httpx_client.get.return_value = response
+
+    mock_langfuse_client = SimpleNamespace(
+        api=SimpleNamespace(media=media_api),
+        _resources=SimpleNamespace(httpx_client=httpx_client),
+    )
+
+    payload = Payload(("response text", reference_string))
+    payload.label = "response"
+    resolved = LangfuseMedia.resolve_media_references(
+        obj=payload,
+        langfuse_client=mock_langfuse_client,
+        resolve_with="base64_data_uri",
+    )
+
+    assert isinstance(resolved, Payload)
+    assert resolved.label == "response"
+    assert resolved == (
+        "response text",
+        "data:image/jpeg;base64,aW1hZ2UtYnl0ZXM=",
+    )
+
+
+def test_resolve_media_references_skips_custom_tuple_constructor():
+    class CustomPayload(tuple):
+        def __new__(cls, items, required):
+            return super().__new__(cls, items)
+
+    payload = CustomPayload(
+        ("@@@langfuseMedia:type=image/jpeg|id=test-id|source=bytes@@@",), True
+    )
+    client = Mock()
+    assert (
+        LangfuseMedia.resolve_media_references(
+            obj=payload, langfuse_client=client, resolve_with="base64_data_uri"
+        )
+        is payload
+    )
+    client.api.media.get.assert_not_called()
 
 
 def test_init_with_urlsafe_base64_data_uri():

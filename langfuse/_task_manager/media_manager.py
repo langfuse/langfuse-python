@@ -252,6 +252,44 @@ class MediaManager:
                 finally:
                     seen.discard(id(data))
 
+            if isinstance(data, tuple):
+                # Custom constructors may require extra arguments or validate values.
+                if not hasattr(data, "_fields") and (
+                    type(data).__new__ is not tuple.__new__
+                    or type(data).__init__ is not tuple.__init__
+                ):
+                    return data
+                if id(data) in seen:
+                    return data
+
+                seen.add(id(data))
+
+                try:
+                    processed_items = tuple(
+                        _process_data_recursively(item, level + 1) for item in data
+                    )
+                    if all(
+                        item is original
+                        for item, original in zip(processed_items, data)
+                    ):
+                        return data
+                    if hasattr(data, "_fields"):
+                        try:
+                            return type(data)(*processed_items)
+                        except TypeError:
+                            return data
+                    if type(data) is tuple:
+                        return processed_items
+                    try:
+                        result = type(data)(processed_items)
+                        if hasattr(data, "__dict__"):
+                            result.__dict__.update(data.__dict__)
+                        return result
+                    except TypeError:
+                        return data
+                finally:
+                    seen.discard(id(data))
+
             if isinstance(data, dict):
                 if id(data) in seen:
                     return data
