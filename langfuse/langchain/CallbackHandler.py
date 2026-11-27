@@ -1743,27 +1743,33 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
                             0, usage_model[f"input_modality_{item['modality']}"] - value
                         )
 
-        # Anthropic extended prompt caching — cache_creation is a nested dict
-        # keyed by cache tier, e.g. {"ephemeral_5m_input_tokens": 2048, "ephemeral_1h_input_tokens": 0}
+        # Anthropic cache_creation tiers are parts of cache_creation_input_tokens.
+        # Keep only the unattributed remainder to avoid counting writes twice.
         if "cache_creation" in usage_model and isinstance(
             usage_model["cache_creation"], dict
         ):
             cache_creation = usage_model.pop("cache_creation")
-            total_cache_creation_tokens = 0
+            attributed = 0
+            has_tier = False
+            for tier, output_key in (
+                ("ephemeral_5m_input_tokens", "input_cache_creation_5m"),
+                ("ephemeral_1h_input_tokens", "input_cache_creation_1h"),
+            ):
+                value = cache_creation.get(tier)
+                if isinstance(value, int) and value >= 0:
+                    has_tier = True
+                    usage_model[output_key] = value
+                    attributed += value
 
-            for key, value in cache_creation.items():
-                if not isinstance(value, int):
-                    continue
-
-                usage_model[f"cache_creation_{key}"] = value
-                total_cache_creation_tokens += value
-
-            # Aggregate mirrors Anthropic's legacy cache_creation_input_tokens field;
-            # keep the API-provided value if it is already present
-            if total_cache_creation_tokens > 0:
-                usage_model.setdefault(
-                    "cache_creation_input_tokens", total_cache_creation_tokens
-                )
+            if has_tier:
+                aggregate = usage_model.get("cache_creation_input_tokens", 0)
+                remainder = (
+                    aggregate if isinstance(aggregate, int) else 0
+                ) - attributed
+                if remainder > 0:
+                    usage_model["cache_creation_input_tokens"] = remainder
+                else:
+                    usage_model.pop("cache_creation_input_tokens", None)
 
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 
