@@ -8,6 +8,7 @@ import typing_extensions
 from ...core.pydantic_utilities import UniversalBaseModel
 from ...core.serialization import FieldMetadata
 from .model_price import ModelPrice
+from .model_scope import ModelScope
 from .model_usage_unit import ModelUsageUnit
 from .pricing_tier import PricingTier
 
@@ -87,9 +88,18 @@ class Model(UniversalBaseModel):
     Legacy tokenizer configuration retained for API compatibility. Ingestion no longer uses it to infer observation usage.
     """
 
+    scope: ModelScope = pydantic.Field()
+    """
+    Owner of the model definition. Only `PROJECT` models can be changed through the project models API.
+    """
+
     is_langfuse_managed: typing_extensions.Annotated[
         bool, FieldMetadata(alias="isLangfuseManaged")
-    ]
+    ] = pydantic.Field()
+    """
+    Deprecated. Use 'scope' instead. True when the model cannot be changed through the project models API, i.e. `scope` is `ORGANIZATION` or `LANGFUSE`.
+    """
+
     created_at: typing_extensions.Annotated[
         dt.datetime, FieldMetadata(alias="createdAt")
     ] = pydantic.Field()
