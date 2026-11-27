@@ -880,3 +880,35 @@ def test_get_prompt_with_zero_retries_sends_one_request(langfuse, sleeps, failur
 
     assert len(requests) == 1
     assert sleeps == []
+
+
+@pytest.mark.parametrize("status_code", [400, 429, 503])
+def test_get_prompt_honors_retry_policy_with_httpx_response_hook(
+    langfuse, sleeps, status_code
+):
+    name = f"prompt_with_response_hook_{status_code}"
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(status_code, headers={"Retry-After": "3"}, json={})
+        return httpx.Response(200, json=_prompt_json(name))
+
+    with httpx.Client(
+        transport=httpx.MockTransport(handler),
+        event_hooks={"response": [httpx.Response.raise_for_status]},
+    ) as http_client:
+        langfuse.api = LangfuseAPI(
+            base_url="http://test-host", httpx_client=http_client
+        )
+
+        if status_code == 400:
+            with pytest.raises(httpx.HTTPStatusError):
+                langfuse.get_prompt(name, max_retries=1)
+            assert len(requests) == 1
+            assert sleeps == []
+        else:
+            assert langfuse.get_prompt(name, max_retries=1).prompt == "Make me laugh"
+            assert len(requests) == 2
+            assert sleeps == [3]
