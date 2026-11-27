@@ -462,6 +462,115 @@ def test_streaming_chat_completion_preserves_tool_calls_after_content():
     assert metadata == {"finish_reason": "tool_calls"}
 
 
+def test_streaming_chat_completion_keeps_multiple_choices_separate():
+    def chunk(index, role, content):
+        return SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    index=index,
+                    delta=SimpleNamespace(
+                        role=role,
+                        content=content,
+                        function_call=None,
+                        tool_calls=None,
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=None,
+        )
+
+    # With n=2, OpenAI interleaves the deltas of both choices in one stream.
+    chunks = [
+        chunk(0, "assistant", "Hello"),
+        chunk(1, "assistant", "Hi"),
+        chunk(0, None, " world"),
+        chunk(1, None, " there"),
+    ]
+
+    _model, completion, _usage, _metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"), chunks
+        )
+    )
+
+    # Same shape as a non-streamed response with several choices.
+    assert completion == [
+        {"role": "assistant", "content": "Hello world"},
+        {"role": "assistant", "content": "Hi there"},
+    ]
+
+
+def test_streaming_chat_completion_keeps_tool_calls_of_choices_separate():
+    def chunk(index, tool_call_id, name, arguments):
+        return SimpleNamespace(
+            model="gpt-4o-mini",
+            choices=[
+                SimpleNamespace(
+                    index=index,
+                    delta=SimpleNamespace(
+                        role="assistant" if tool_call_id else None,
+                        content=None,
+                        function_call=None,
+                        tool_calls=[
+                            SimpleNamespace(
+                                index=0,
+                                id=tool_call_id,
+                                type="function" if tool_call_id else None,
+                                function=SimpleNamespace(
+                                    name=name, arguments=arguments
+                                ),
+                            )
+                        ],
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=None,
+        )
+
+    # Both choices use tool index 0 and their argument fragments interleave.
+    chunks = [
+        chunk(0, "call_a", "get_weather", '{"city":'),
+        chunk(1, "call_b", "get_time", '{"tz":'),
+        chunk(0, None, None, '"Paris"}'),
+        chunk(1, None, None, '"UTC"}'),
+    ]
+
+    _model, completion, _usage, _metadata, _service_tier = (
+        lf_openai_module._extract_streamed_openai_response(
+            SimpleNamespace(type="chat"), chunks
+        )
+    )
+
+    assert completion == [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_a",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"Paris"}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_b",
+                    "type": "function",
+                    "function": {"name": "get_time", "arguments": '{"tz":"UTC"}'},
+                }
+            ],
+        },
+    ]
+
+
 def test_response_api_output_serializes_openai_parsed_response_objects():
     class ParsedOutput(BaseModel):
         name: str
