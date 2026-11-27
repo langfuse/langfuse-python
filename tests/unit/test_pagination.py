@@ -159,6 +159,31 @@ def test_max_items_shrinks_the_last_request_so_the_cursor_resumes_after_it(
 
 
 @MODES
+def test_max_items_is_preserved_when_the_caller_consumes_page_data(mode: str) -> None:
+    observations = scripted(mode, page("ab", "c1"), page("c", "c2"), page("de"))
+    api = SimpleNamespace(observations=observations)
+    received_ids: List[str] = []
+
+    if mode == "sync":
+        for p in client_with(api=api).iter_observation_pages(limit=2, max_items=3):
+            received_ids.extend(o.id for o in p.data)
+            p.data.clear()
+    else:
+
+        async def run() -> None:
+            async for p in client_with(async_api=api).aiter_observation_pages(
+                limit=2, max_items=3
+            ):
+                received_ids.extend(o.id for o in p.data)
+                p.data.clear()
+
+        asyncio.run(run())
+
+    assert received_ids == ["a", "b", "c"]
+    assert [c["limit"] for c in observations.calls] == [2, 1]
+
+
+@MODES
 def test_generated_client_uses_60s_timeout_over_the_client_default(mode: str) -> None:
     bodies = [{"data": [], "meta": {"cursor": "c1"}}, {"data": [], "meta": {}}]
     requests: List[httpx.Request] = []
