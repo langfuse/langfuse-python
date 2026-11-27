@@ -622,7 +622,13 @@ class LangfuseResourceManager:
         atexit.unregister(self.shutdown)
 
         self.flush()
+        # No consumer takes media queued after the consumers stop, and flush()
+        # would then wait for it forever. Upload what was queued since the
+        # flush() above, then stop the consumers and drop any late arrivals.
+        self._media_manager.stop_accepting_uploads()
+        self._media_upload_queue.join()
         self._stop_and_join_consumer_threads()
+        self._media_manager.drop_pending_uploads()
 
 
 def _init_tracer_provider(

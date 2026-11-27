@@ -2,13 +2,15 @@
 
 import logging
 import threading
+import time
 from queue import Queue
 from types import SimpleNamespace
-from typing import Sequence
+from typing import Callable, Sequence
 from unittest.mock import Mock
 
+import httpx
 import pytest
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from langfuse import Langfuse
@@ -17,6 +19,7 @@ from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._task_manager.media_manager import MediaManager
 from langfuse._task_manager.media_upload_consumer import MediaUploadConsumer
 from langfuse._task_manager.score_consumer import ScoreConsumer
+from langfuse.media import LangfuseMedia
 from langfuse.types import MaskOtelSpansResult
 
 
@@ -508,3 +511,100 @@ def test_flush_returns_after_repeated_shutdown(concurrent):
         media_queue.task_done()
 
     assert not hung
+
+
+def _media_client(**kwargs) -> Langfuse:
+    return Langfuse(
+        public_key="pk-media-shutdown",
+        secret_key="sk-media-shutdown",
+        span_exporter=NoOpSpanExporter(),
+        # The global provider may carry a sampler set by another test, and
+        # media is only processed on recorded spans.
+        tracer_provider=TracerProvider(),
+        **kwargs,
+    )
+
+
+def _log_media(client: Langfuse, content: bytes) -> None:
+    with client.start_as_current_observation(
+        name="media",
+        input=LangfuseMedia(content_bytes=content, content_type="image/png"),
+    ):
+        pass
+
+
+def _hangs(target: Callable[[], None], media_queue: Queue, timeout: float) -> bool:
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+    hung = thread.is_alive()
+    # Acknowledge media that no consumer took, so a hung thread and the
+    # reset() in the autouse fixture can finish.
+    while media_queue.unfinished_tasks:
+        media_queue.get_nowait()
+        media_queue.task_done()
+
+    return hung
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_flush_returns_when_media_is_logged_after_shutdown(caplog):
+    client = _media_client()
+    client.shutdown()
+    with caplog.at_level(logging.WARNING, logger="langfuse"):
+        _log_media(client, b"after-shutdown")
+
+    assert not _hangs(client.flush, client._resources._media_upload_queue, timeout=2)
+    assert any("shut down" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_shutdown_uploads_media_logged_after_its_flush(monkeypatch):
+    media_requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        media_requests.append(request)
+        # Slow enough that the second upload is still queued if shutdown()
+        # stops the consumer without waiting for it.
+        time.sleep(0.05)
+        # No uploadUrl: the server already has the media, so the job ends here.
+        return httpx.Response(200, json={"mediaId": "media-id", "uploadUrl": None})
+
+    client = _media_client(
+        httpx_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        media_upload_thread_count=1,
+    )
+    resources = client._resources
+    flush = resources.flush
+
+    def flush_then_log_media() -> None:
+        flush()
+        # Stands in for other threads logging media while shutdown() runs.
+        _log_media(client, b"first")
+        _log_media(client, b"second")
+
+    monkeypatch.setattr(resources, "flush", flush_then_log_media)
+
+    assert not _hangs(client.shutdown, resources._media_upload_queue, timeout=5)
+    assert len(media_requests) == 2
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_flush_returns_when_media_is_queued_while_consumers_stop(monkeypatch):
+    client = _media_client()
+    resources = client._resources
+    media_queue = resources._media_upload_queue
+    stop_consumers = resources._stop_and_join_consumer_threads
+
+    def stop_consumers_then_queue_media() -> None:
+        stop_consumers()
+        # Stands in for a thread that passed the _accepting_uploads check
+        # before stop_accepting_uploads() and queues its upload only now.
+        media_queue.put({"media_id": "late"})
+
+    monkeypatch.setattr(
+        resources, "_stop_and_join_consumer_threads", stop_consumers_then_queue_media
+    )
+    client.shutdown()
+
+    assert not _hangs(client.flush, media_queue, timeout=2)
