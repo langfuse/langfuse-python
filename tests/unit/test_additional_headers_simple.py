@@ -3,6 +3,7 @@
 This module tests that additional headers are properly configured in the HTTP clients.
 """
 
+import asyncio
 from typing import Sequence
 
 import httpx
@@ -55,6 +56,30 @@ class TestAdditionalHeadersSimple:
             langfuse._resources.httpx_client.headers["X-Another-Header"]
             == "another-value"
         )
+
+    def test_async_api_sends_additional_headers(self):
+        langfuse = Langfuse(
+            public_key="test-public-key",
+            secret_key="test-secret-key",
+            host="https://mock-host.com",
+            additional_headers={"X-Custom-Header": "custom-value"},
+            tracing_enabled=False,
+        )
+        captured_requests = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_requests.append(request)
+            return httpx.Response(200, json={"status": "OK", "version": "1.0.0"})
+
+        wrapper = langfuse.async_api._client_wrapper
+        wrapper.httpx_client.httpx_client = httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        )
+
+        asyncio.run(langfuse.async_api.health.health())
+
+        assert len(captured_requests) == 1
+        assert captured_requests[0].headers["X-Custom-Header"] == "custom-value"
 
     def test_custom_httpx_client_with_additional_headers_ignores_additional_headers(
         self,
