@@ -559,10 +559,7 @@ class ExperimentResult:
                 if result.evaluations:
                     output += "   Scores:\n"
                     for evaluation in result.evaluations:
-                        score = evaluation.value
-                        if isinstance(score, (int, float)):
-                            score = f"{score:.3f}"
-                        output += f"     • {evaluation.name}: {score}"
+                        output += f"     • {evaluation.name}: {_format_score(evaluation.value)}"
                         if evaluation.comment:
                             output += f"\n       💭 {evaluation.comment}"
                         output += "\n"
@@ -616,10 +613,7 @@ class ExperimentResult:
         if self.run_evaluations:
             output += "\nRun Evaluations:"
             for run_eval in self.run_evaluations:
-                score = run_eval.value
-                if isinstance(score, (int, float)):
-                    score = f"{score:.3f}"
-                output += f"\n  • {run_eval.name}: {score}"
+                output += f"\n  • {run_eval.name}: {_format_score(run_eval.value)}"
                 if run_eval.comment:
                     output += f"\n    💭 {run_eval.comment}"
             output += "\n"
@@ -1018,6 +1012,17 @@ def _format_value(value: Any) -> str:
     if isinstance(value, str):
         return value[:50] + "..." if len(value) > 50 else value
     return str(value)
+
+
+def _format_score(value: Union[int, float, str, bool]) -> str:
+    """Format an evaluation value for display.
+
+    A bool is an int in Python, so it is checked first to keep True/False
+    from being printed as 1.000/0.000.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return str(value)
+    return f"{value:.3f}"
 
 
 def _normalize_evaluator_result(result: Any) -> List[Evaluation]:
