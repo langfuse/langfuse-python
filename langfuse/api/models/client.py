@@ -156,7 +156,7 @@ class ModelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
         """
-        Create or replace a project-owned model using its id. Built-in models cannot be modified.
+        Create or replace a project-owned model using its id. Organization and built-in models cannot be modified; targeting an organization model returns 403.
 
         Parameters
         ----------
@@ -336,7 +336,7 @@ class ModelsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
         """
-        Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
+        Delete a project-owned model. Cannot delete organization models (returns 403) or models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
         Parameters
         ----------
@@ -517,7 +517,7 @@ class AsyncModelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Model:
         """
-        Create or replace a project-owned model using its id. Built-in models cannot be modified.
+        Create or replace a project-owned model using its id. Organization and built-in models cannot be modified; targeting an organization model returns 403.
 
         Parameters
         ----------
@@ -721,7 +721,7 @@ class AsyncModelsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
         """
-        Delete a model. Cannot delete models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
+        Delete a project-owned model. Cannot delete organization models (returns 403) or models managed by Langfuse. You can create your own definition with the same modelName to override the definition though.
 
         Parameters
         ----------
