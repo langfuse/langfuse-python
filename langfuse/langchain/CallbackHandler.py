@@ -1645,6 +1645,9 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
             input_token_details = usage_model.pop("input_token_details", {})
 
             for key, value in input_token_details.items():
+                if not isinstance(value, int):
+                    continue
+
                 usage_model[f"input_{key}"] = value
 
                 # Skip priority-tier keys as they are not exclusive sub-categories
@@ -1658,6 +1661,9 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
             output_token_details = usage_model.pop("output_token_details", {})
 
             for key, value in output_token_details.items():
+                if not isinstance(value, int):
+                    continue
+
                 usage_model[f"output_{key}"] = value
 
                 # Skip priority-tier keys as they are not exclusive sub-categories

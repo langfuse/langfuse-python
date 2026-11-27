@@ -1,6 +1,21 @@
 from langfuse.langchain.CallbackHandler import _parse_usage_model
 
 
+def test_non_int_token_details_are_skipped():
+    """A non-int detail must not make the whole usage model unparseable."""
+    usage = {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "input_token_details": {"cached_tokens": None},
+        "output_token_details": {"audio": 1.5},
+    }
+    result = _parse_usage_model(usage)
+    assert result["input"] == 100
+    assert result["output"] == 20
+    assert "input_cached_tokens" not in result
+    assert "output_audio" not in result
+
+
 def test_standard_tier_input_token_details():
     """Standard tier: audio and cache_read are subtracted from input."""
     usage = {
