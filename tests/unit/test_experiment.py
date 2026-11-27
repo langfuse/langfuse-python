@@ -893,6 +893,45 @@ class TestExperimentResultAliases:
         assert item_result.experiment_id == "legacy"
         assert result.experiment_url == "http://legacy"
 
+    def test_format_prints_boolean_scores_as_booleans(self):
+        item_result = ExperimentItemResult(
+            item={"input": "a"},
+            output="a",
+            evaluations=[
+                Evaluation(name="is_correct", value=True),
+                Evaluation(name="has_typo", value=False),
+                Evaluation(name="accuracy", value=0.5),
+                Evaluation(name="count", value=1),
+                Evaluation(name="label", value="good"),
+            ],
+            trace_id="t",
+            experiment_id="e",
+        )
+        result = ExperimentResult(
+            name="exp",
+            run_name="r",
+            description=None,
+            item_results=[item_result],
+            run_evaluations=[
+                Evaluation(name="all_passed", value=True),
+                Evaluation(name="mean_accuracy", value=0.5),
+            ],
+            experiment_id="e",
+        )
+
+        lines = [
+            line.strip()
+            for line in result.format(include_item_results=True).split("\n")
+        ]
+
+        assert "• is_correct: True" in lines
+        assert "• has_typo: False" in lines
+        assert "• accuracy: 0.500" in lines
+        assert "• count: 1.000" in lines
+        assert "• label: good" in lines
+        assert "• all_passed: True" in lines
+        assert "• mean_accuracy: 0.500" in lines
+
 
 class TestExperimentRunScoreGating:
     def test_run_scores_kept_when_the_task_fails_after_experiment_attributes(
