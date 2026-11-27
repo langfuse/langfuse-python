@@ -79,3 +79,66 @@ def test_call_with_retries_does_not_retry_non_retryable_api_errors(
         call_with_retries(fail, max_retries=3)
 
     assert len(calls) == 1
+
+
+def _fail_on_random_uniform(*_args, **_kwargs):
+    raise AssertionError("random.uniform must not be used when a server delay is given")
+
+
+def test_retry_delay_honors_retry_after_ms(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(status_code=429, headers={"retry-after-ms": "5000"})
+
+    assert retry_delay_seconds(error, 0, 10) == 5.0
+
+
+def test_retry_after_ms_takes_precedence_over_retry_after(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(
+        status_code=429, headers={"retry-after-ms": "5000", "Retry-After": "10"}
+    )
+
+    assert retry_delay_seconds(error, 0, 10) == 5.0
+
+
+def test_retry_delay_plain_retry_after_control(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(status_code=429, headers={"Retry-After": "2"})
+
+    assert retry_delay_seconds(error, 0, 10) == 2.0
+
+
+def test_retry_after_ms_honors_fractional_milliseconds(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(status_code=429, headers={"retry-after-ms": "1500.5"})
+
+    assert retry_delay_seconds(error, 0, 10) == 1.5005
+
+
+def test_retry_after_ms_caps_at_max_delay(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(status_code=429, headers={"retry-after-ms": "90000"})
+
+    assert retry_delay_seconds(error, 0, 10) == MAX_SERVER_RETRY_DELAY_SECONDS
+
+
+def test_retry_after_ms_invalid_falls_back_to_retry_after(monkeypatch):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(
+        status_code=429, headers={"retry-after-ms": "oops", "Retry-After": "3"}
+    )
+
+    assert retry_delay_seconds(error, 0, 10) == 3.0
+
+
+@pytest.mark.parametrize("milliseconds", ["0", "-100"])
+def test_retry_after_ms_non_positive_falls_back_to_retry_after(
+    monkeypatch, milliseconds
+):
+    monkeypatch.setattr(random, "uniform", _fail_on_random_uniform)
+    error = ApiError(
+        status_code=429,
+        headers={"retry-after-ms": milliseconds, "Retry-After": "4"},
+    )
+
+    assert retry_delay_seconds(error, 0, 10) == 4.0
