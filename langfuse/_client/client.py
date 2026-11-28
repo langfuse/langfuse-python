@@ -1438,7 +1438,12 @@ class Langfuse:
     ) -> Any:
         parent_span = parent or cast(otel_trace_api.Span, remote_parent_span)
 
-        with otel_trace_api.use_span(parent_span):
+        # Only activate the parent. The child already records exceptions, and
+        # recording them here too would mark the parent as ERROR even when the
+        # caller catches the exception inside the parent.
+        with otel_trace_api.use_span(
+            parent_span, record_exception=False, set_status_on_exception=False
+        ):
             with self._start_as_current_otel_span_with_processed_media(
                 name=name,
                 as_type=as_type,
