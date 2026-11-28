@@ -143,6 +143,52 @@ def test_child_observation_uses_explicit_parent(
         assert exported.start_time == exported.end_time
 
 
+@pytest.mark.parametrize("parent_kind", ["context_manager", "manual"])
+def test_handled_child_exception_does_not_mark_parent_as_error(
+    langfuse_memory_client, memory_exporter, parent_kind
+):
+    client = langfuse_memory_client
+    with ExitStack() as stack:
+        parent = (
+            stack.enter_context(client.start_as_current_observation(name="parent"))
+            if parent_kind == "context_manager"
+            else client.start_observation(name="parent")
+        )
+        try:
+            with parent.start_as_current_observation(name="child"):
+                raise ValueError("handled inside the parent")
+        except ValueError:
+            pass
+
+        if parent_kind == "manual":
+            parent.end()
+
+    client.flush()
+    spans = {span.name: span for span in memory_exporter.get_finished_spans()}
+
+    assert spans["child"].status.status_code == trace_api.StatusCode.ERROR
+    assert [event.name for event in spans["child"].events] == ["exception"]
+    assert spans["parent"].status.status_code == trace_api.StatusCode.UNSET
+    assert [event.name for event in spans["parent"].events] == []
+
+
+def test_child_exception_leaving_parent_block_is_recorded_once_on_parent(
+    langfuse_memory_client, memory_exporter
+):
+    client = langfuse_memory_client
+    with pytest.raises(ValueError):
+        with client.start_as_current_observation(name="parent") as parent:
+            with parent.start_as_current_observation(name="child"):
+                raise ValueError("not handled")
+
+    client.flush()
+    spans = {span.name: span for span in memory_exporter.get_finished_spans()}
+
+    for name in ("child", "parent"):
+        assert spans[name].status.status_code == trace_api.StatusCode.ERROR
+        assert [event.name for event in spans[name].events] == ["exception"]
+
+
 class TestOTelBase:
     """Base class for OTEL tests with common fixtures and helper methods."""
 
