@@ -148,3 +148,22 @@ def test_priority_tier_not_subtracted():
     # Priority keys are still stored with prefixed names
     assert result["input_priority"] == 13
     assert result["output_priority"] == 1
+
+
+def test_flex_tier_not_subtracted():
+    """Flex tier: 'flex' and 'flex_*' keys must NOT be subtracted."""
+    usage = {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "total_tokens": 120,
+        "input_token_details": {"flex_cache_read": 40, "flex": 60},
+        "output_token_details": {"flex_reasoning": 5, "flex": 15},
+    }
+    result = _parse_usage_model(usage)
+    assert result["input"] == 100
+    assert result["output"] == 20
+    assert result["total"] == 120
+    assert result["input_flex"] == 60
+    assert result["input_flex_cache_read"] == 40
+    assert result["output_flex"] == 15
+    assert result["output_flex_reasoning"] == 5
