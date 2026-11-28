@@ -1647,8 +1647,10 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
             for key, value in input_token_details.items():
                 usage_model[f"input_{key}"] = value
 
-                # Skip priority-tier keys as they are not exclusive sub-categories
-                if key == "priority" or key.startswith("priority_"):
+                # Skip service-tier keys as they are not exclusive sub-categories
+                if key in ("priority", "flex") or key.startswith(
+                    ("priority_", "flex_")
+                ):
                     continue
 
                 if "input" in usage_model:
@@ -1660,8 +1662,10 @@ def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
             for key, value in output_token_details.items():
                 usage_model[f"output_{key}"] = value
 
-                # Skip priority-tier keys as they are not exclusive sub-categories
-                if key == "priority" or key.startswith("priority_"):
+                # Skip service-tier keys as they are not exclusive sub-categories
+                if key in ("priority", "flex") or key.startswith(
+                    ("priority_", "flex_")
+                ):
                     continue
 
                 if "output" in usage_model:
